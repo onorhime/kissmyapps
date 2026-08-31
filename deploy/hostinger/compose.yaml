@@ -1,0 +1,56 @@
+name: kissmyapps-dashboard
+
+services:
+  dashboard:
+    image: caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    pull_policy: never
+    container_name: kissmyapps-dashboard
+    restart: unless-stopped
+    command:
+      - caddy
+      - run
+      - --config
+      - /etc/caddy/Caddyfile
+      - --adapter
+      - caddyfile
+    user: '65532:65532'
+    expose:
+      - '8080'
+    volumes:
+      - /srv/kissmyapps/current/dist:/srv:ro
+      - /srv/kissmyapps/deploy/dashboard.Caddyfile:/etc/caddy/Caddyfile:ro
+    read_only: true
+    tmpfs:
+      - /config:uid=65532,gid=65532,mode=0700,size=16m,noexec,nosuid,nodev
+      - /data:uid=65532,gid=65532,mode=0700,size=16m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    mem_limit: 128m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --output-document=-
+        - http://127.0.0.1:8080/healthz
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - application
+
+networks:
+  application:
+    external: true
+    name: dramapal_application

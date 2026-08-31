@@ -1,0 +1,455 @@
+/* Payout transparency extends the approved portal palette without changing
+   reporting, navigation, profile or shared dialog behavior. */
+.payout-page,
+.payout-detail,
+.payout-guide,
+.payout-discrepancy {
+  min-width: 0;
+}
+.payout-page .payout-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+.payout-page .metric-top {
+  align-items: flex-start;
+}
+.payout-page .metric-top > span {
+  padding-top: 8px;
+}
+.payout-page .metric-value {
+  font-size: clamp(24px, 2vw, 31px);
+}
+.payout-page .payout-date-value {
+  font-size: clamp(22px, 1.8vw, 28px);
+  letter-spacing: -0.8px;
+}
+.payout-metric-help {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  margin: -3px -6px 0 0;
+  color: var(--muted);
+  background: transparent;
+}
+.payout-metric-help:hover {
+  background: #e5eed8;
+}
+.payout-snapshot-note,
+.payout-export-notice,
+.payout-download-notice {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.payout-snapshot-note {
+  margin-bottom: 22px;
+}
+.payout-export-notice:not(:empty),
+.payout-download-notice:not(:empty) {
+  margin-bottom: 16px;
+}
+.payout-page .payout-cycle-grid {
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr);
+}
+.payout-cycle-steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+  padding: 0;
+}
+.payout-cycle-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.payout-cycle-steps li > span {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+.payout-cycle-steps li[aria-current='step'] {
+  color: #366349;
+  font-weight: 750;
+}
+.payout-cycle-steps li[aria-current='step'] > span {
+  background: #366349;
+  color: #fff;
+  border-color: #366349;
+}
+.payout-schedule,
+.payout-agreement,
+.payout-example-facts,
+.payout-report-summary {
+  margin: 18px 0;
+  display: grid;
+  gap: 14px;
+}
+.payout-schedule > div,
+.payout-example-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 15px;
+  font-size: 13px;
+}
+.payout-schedule dt,
+.payout-agreement dt,
+.payout-example-facts dt,
+.payout-report-summary dt {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.payout-schedule dd,
+.payout-agreement dd,
+.payout-example-facts dd,
+.payout-report-summary dd {
+  margin: 0;
+  color: #2a412d;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.payout-schedule dd,
+.payout-example-facts dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.payout-agreement {
+  font-size: 13px;
+  gap: 10px;
+}
+.payout-agreement > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.payout-page .masked-payment {
+  margin: 18px 0 10px;
+}
+.payout-cycle-action {
+  margin-top: 12px;
+}
+.payout-history-panel > .panel-heading {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.payout-history-panel .filter-select {
+  flex-shrink: 0;
+}
+.payout-table-scroll table {
+  min-width: 1010px;
+}
+.payout-table-scroll .table-action {
+  min-height: 44px;
+}
+.payout-help-actions,
+.payout-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+}
+.payout-help-actions {
+  margin-top: 12px;
+}
+.payout-help-actions .text-button,
+.payout-page .text-button,
+.payout-discrepancy .text-button,
+.payout-detail .text-button {
+  min-height: 44px;
+}
+.payout-detail .statement-banner {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.payout-statement-disclaimer {
+  margin-top: 14px;
+}
+.payout-statement-meta {
+  margin: 0;
+  gap: 20px;
+}
+.payout-statement-meta > div {
+  min-width: 0;
+}
+.payout-statement-meta dt {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.payout-statement-meta dd {
+  margin: 5px 0 0;
+  color: #2a412d;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.payout-calculation h3,
+.payout-guide h3,
+.payout-discrepancy h3 {
+  color: #2a412d;
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.payout-bridge {
+  margin: 14px 0 20px;
+}
+.payout-bridge > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 13px 0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.payout-bridge dt {
+  color: var(--muted);
+}
+.payout-bridge dt small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+}
+.payout-bridge dd {
+  margin: 0;
+  color: #2a412d;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+.payout-bridge .payout-bridge-subtotal {
+  font-weight: 700;
+  border-bottom: 2px solid #dce6ce;
+}
+.payout-bridge .payout-bridge-total {
+  background: #edf4df;
+  border: 1px solid #d9e6c6;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 16px;
+  font-size: 16px;
+  font-weight: 750;
+}
+.payout-bridge-total dt {
+  color: #2a412d;
+}
+.payout-history-disclosure {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+}
+.payout-history-disclosure summary {
+  cursor: pointer;
+  color: #366349;
+  font-size: 14px;
+  font-weight: 650;
+  min-height: 48px;
+  padding: 14px 4px;
+  border-radius: 5px;
+}
+.payout-money-history,
+.payout-change-history {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.payout-money-history li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.payout-money-history time,
+.payout-change-history time {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  display: block;
+}
+.payout-money-history strong,
+.payout-money-history li > span {
+  color: #2a412d;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 650;
+}
+.payout-money-history li > span {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.payout-money-history p,
+.payout-change-history li > span,
+.payout-example-card > p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.payout-change-history li {
+  padding: 10px 0;
+}
+.payout-discrepancy-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin-top: 16px;
+}
+.payout-discrepancy-action > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.payout-statement-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.payout-statement-actions .button {
+  text-decoration: none;
+  min-height: 44px;
+}
+.payout-local-note {
+  border: 1px solid #d9e6c6;
+  border-radius: 8px;
+  background: #f6f8f0;
+  color: var(--muted);
+  padding: 14px;
+  margin: 14px 0 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.payout-local-note strong {
+  color: #366349;
+}
+.payout-guide .form-field {
+  margin-block: 18px;
+}
+.payout-guide .form-field select {
+  min-height: 44px;
+}
+.payout-example-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbf8;
+  padding: 20px;
+  margin: 16px 0;
+}
+.payout-example-card > p {
+  margin-top: 12px;
+}
+.payout-example-facts {
+  border-block: 1px solid var(--line);
+  padding: 16px 0;
+}
+.payout-report-summary > div {
+  font-size: 14px;
+}
+.payout-report-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.payout-discrepancy .form-field {
+  margin-block: 20px;
+}
+.payout-discrepancy .form-field select,
+.payout-discrepancy .form-field textarea {
+  min-height: 44px;
+}
+.payout-discrepancy textarea {
+  resize: vertical;
+}
+.payout-discrepancy .field-error {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #9d3230;
+}
+.payout-discrepancy [aria-invalid='true'] {
+  border-color: #9d3230;
+}
+@media (max-width: 1100px) {
+  .payout-page .payout-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .payout-page .payout-cycle-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .payout-page .metric-value {
+    font-size: 30px;
+  }
+}
+@media (max-width: 600px) {
+  .payout-metric-help {
+    width: 44px;
+    height: 44px;
+    margin-top: -6px;
+  }
+  .payout-page .metric-card {
+    padding: 16px 18px;
+  }
+  .payout-schedule > div,
+  .payout-example-facts > div {
+    flex-direction: column;
+    gap: 3px;
+  }
+  .payout-schedule dd,
+  .payout-example-facts dd {
+    text-align: left;
+  }
+  .payout-cycle-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 16px;
+  }
+  .payout-statement-meta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .payout-bridge > div {
+    gap: 12px;
+  }
+  .payout-bridge .payout-bridge-total {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+    padding: 14px;
+  }
+  .payout-bridge-total dd {
+    text-align: left;
+    font-size: 23px;
+  }
+  .payout-money-history li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+  .payout-statement-actions .button,
+  .payout-discrepancy .dialog-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .payout-example-card {
+    padding: 16px;
+  }
+}
+@media (max-width: 500px) {
+  .payout-page .payout-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .payout-agreement > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

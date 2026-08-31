@@ -1,0 +1,2 @@
+-- No business records are seeded. Products, funnels, sources, partners, and
+-- agreements are created only when the corresponding real records are ready.

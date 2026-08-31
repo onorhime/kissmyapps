@@ -1,0 +1,1036 @@
+/*
+ * KissMyApps dashboard theme
+ *
+ * Import this file after App.css and the feature styles. It intentionally
+ * changes presentation only; component layout, behavior, and data contracts
+ * remain owned by their existing styles and components.
+ */
+
+body,
+#root,
+.app-shell,
+.workspace,
+.auth-shell {
+  background: var(--brand-bg);
+  color: var(--brand-text);
+}
+
+.session-loading {
+  background: var(--brand-bg);
+  color: var(--brand-muted);
+}
+
+.session-loading svg,
+.live-data-state > svg {
+  color: var(--brand-light-blue);
+}
+
+.sidebar,
+.payout-overview,
+.toast {
+  --focus: var(--brand-light-blue);
+}
+
+/* Canonical mark and restrained wordmark treatment for an operational UI. */
+.brand {
+  color: var(--brand-text);
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.brand-mark,
+.auth-brand .brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 0;
+  border-radius: 9px;
+  background: url('/kissmyapps-mark.svg') center / contain no-repeat;
+  color: transparent;
+  transform: none;
+}
+
+.brand-mark > svg,
+.auth-brand .brand-mark > svg {
+  opacity: 0;
+}
+
+.brand-period,
+.auth-brand .brand-period {
+  color: var(--brand-pink);
+}
+
+.brand-lockup {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand-logo-image {
+  display: block;
+  grid-row: 1 / 3;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+.brand-wordmark {
+  min-width: 0;
+  color: var(--brand-text);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-wordmark > span {
+  opacity: 0.55;
+}
+
+.brand-context {
+  grid-column: 2;
+  color: var(--brand-subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  line-height: 1;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+.brand-lockup-compact {
+  grid-template-columns: 30px minmax(0, 1fr);
+  column-gap: 8px;
+}
+
+.brand-lockup-compact .brand-logo-image {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.brand-lockup-compact .brand-wordmark {
+  font-size: 17px;
+}
+
+/* Shell and navigation */
+.sidebar {
+  background: var(--brand-bg-deep);
+  color: var(--brand-muted);
+  border-right: 1px solid var(--brand-line);
+}
+
+.workspace-switcher,
+.sidebar-help {
+  background: var(--brand-card);
+  border-color: var(--brand-line);
+}
+
+.workspace-monogram {
+  background: var(--brand-pink);
+  color: var(--brand-bg-deep);
+}
+
+.workspace-switcher strong,
+.sidebar-help h3,
+.sidebar-profile strong {
+  color: var(--brand-text);
+}
+
+.workspace-switcher span,
+.workspace-switcher > svg,
+.nav-caption,
+.sidebar-help p,
+.sidebar-profile small,
+.sidebar-profile > svg {
+  color: var(--brand-subtle);
+}
+
+.nav-item {
+  color: var(--brand-muted);
+  border-radius: 12px;
+}
+
+.nav-item:hover {
+  background: var(--brand-card);
+  color: var(--brand-text);
+}
+
+.nav-item-active,
+.nav-item-active:hover,
+.mobile-navigation a[aria-current='page'] {
+  background: var(--brand-yellow);
+  color: var(--brand-bg-deep);
+}
+
+.nav-active-dot {
+  background: var(--brand-bg-deep);
+}
+
+.help-orbit {
+  border-color: var(--brand-line);
+  color: var(--brand-pink);
+}
+
+.sidebar-help button {
+  color: var(--brand-light-blue);
+  border-color: var(--brand-line);
+}
+
+.sidebar-profile {
+  border-color: var(--brand-line);
+}
+
+.avatar,
+.avatar-sidebar {
+  background: var(--brand-pink-dark);
+  border-color: var(--brand-pink);
+  color: var(--brand-text);
+}
+
+.topbar {
+  background: var(--brand-bg-deep);
+  border-color: var(--brand-line);
+}
+
+.breadcrumb,
+.preview-chip,
+.page-footer,
+.toolbar-note,
+.filter-date-label,
+.timezone-label {
+  color: var(--brand-muted);
+}
+
+.breadcrumb strong,
+.page-heading h1,
+.live-data-state h2,
+.section-title h2,
+.panel-heading h2 {
+  color: var(--brand-text);
+}
+
+.preview-chip > span {
+  background: var(--brand-green);
+}
+
+.footer-dot {
+  color: var(--brand-green);
+}
+
+.header-divider {
+  background: var(--brand-line);
+}
+
+.icon-button {
+  color: var(--brand-muted);
+}
+
+.icon-button:hover,
+.metric-definition:hover {
+  background: var(--brand-control);
+  color: var(--brand-text);
+}
+
+.notification-button i {
+  background: var(--brand-yellow);
+  border-color: var(--brand-bg-deep);
+}
+
+.eyebrow,
+.heading-dot {
+  color: var(--brand-pink);
+}
+
+.page-heading p:not(.eyebrow),
+.live-data-state p {
+  color: var(--brand-muted);
+}
+
+/* Cards and operational surfaces */
+.panel,
+.metric-card,
+.secondary-metrics,
+.source-cards article,
+.profile-identity-card,
+.security-card,
+.skeleton-metrics > div,
+.skeleton-panel,
+.dialog-content,
+.payment-method-options button {
+  background: var(--brand-card);
+  border-color: var(--brand-line);
+  color: var(--brand-text);
+  box-shadow: none;
+}
+
+.metric-featured,
+.main-link-card,
+.link-intro-card,
+.link-report-context,
+.workspace-context,
+.commercial-current-note,
+.preview-note-card,
+.detail-notice:not(:empty) {
+  background: var(--brand-control);
+  border-color: var(--brand-blue);
+  color: var(--brand-text);
+}
+
+.live-summary-grid article {
+  background: var(--brand-card);
+  border-color: var(--brand-line);
+}
+
+.live-summary-grid article > span,
+.metric-top,
+.metric-top svg,
+.metric-foot,
+.secondary-metric-grid > div > span,
+.panel-heading p,
+.panel-footnote,
+.chart-legend,
+.chart-series-hint,
+.report-chart figcaption,
+.report-table-tools,
+.report-totals-note {
+  color: var(--brand-muted);
+}
+
+.live-summary-grid article > strong,
+.metric-value,
+.secondary-metric-grid strong,
+.cycle-value strong,
+.money-cell,
+.statement-meta strong,
+.statement-totals dd,
+.statement-totals .statement-final,
+.source-cards strong {
+  color: var(--brand-text);
+}
+
+.panel-footnote,
+.preferences-form-section,
+.form-footer,
+.profile-audience-section,
+.document-list > article,
+.security-mini,
+.payout-history-disclosure,
+.payout-bridge > div,
+.commercial-facts > div,
+.document-facts > div {
+  border-color: var(--brand-line);
+}
+
+.payout-overview {
+  background: var(--brand-blue-dark);
+  color: var(--brand-text);
+}
+
+.payout-overview::after {
+  border-color: rgb(102 204 255 / 18%);
+  box-shadow:
+    0 0 0 30px rgb(102 204 255 / 8%),
+    0 0 0 60px rgb(102 204 255 / 4%);
+}
+
+.payout-card-icon {
+  background: var(--brand-blue);
+  border-color: var(--brand-light-blue);
+  color: var(--brand-bg-deep);
+}
+
+.payout-card-eyebrow,
+.payout-overview > p,
+.payout-small-print,
+.payout-preview-value > span:first-child {
+  color: #d9ddff;
+}
+
+/* Buttons and links */
+.button,
+.sign-out-button,
+.filter-select,
+.search-field,
+.pagination button,
+.auth-primary {
+  border-radius: 12px;
+}
+
+.button-white,
+.sign-out-button,
+.pagination button {
+  background: var(--brand-control);
+  border-color: var(--brand-line);
+  color: var(--brand-text);
+  box-shadow: none;
+}
+
+.button-white:hover:not(:disabled),
+.sign-out-button:hover:not(:disabled),
+.pagination button:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.button-lime,
+.button-green,
+.auth-primary {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: var(--brand-bg-deep);
+}
+
+.button-lime:hover:not(:disabled),
+.button-green:hover:not(:disabled),
+.auth-primary:hover:not(:disabled) {
+  background: #8b9fff;
+  border-color: #8b9fff;
+}
+
+.button-ghost,
+.text-button,
+.table-action,
+.auth-dashboard-link,
+.auth-text-link,
+.auth-forgot-link,
+.auth-back-link,
+.dashboard-auth-preview-link,
+.main-link-card .text-button,
+.payout-history-disclosure summary {
+  color: var(--brand-light-blue);
+}
+
+.button-ghost:hover,
+.badge-button:hover {
+  background: var(--brand-control);
+}
+
+.table-action:hover,
+.auth-dashboard-link:hover,
+.auth-text-link:hover,
+.auth-forgot-link:hover,
+.auth-back-link:hover {
+  color: var(--brand-text);
+}
+
+.skip-link {
+  background: var(--brand-yellow);
+  color: var(--brand-bg-deep);
+}
+
+/* Inputs and interactive controls */
+.filter-select,
+.search-field,
+.form-field input,
+.form-field select,
+.form-field textarea,
+.auth-field input,
+.auth-scenario-control select,
+.preview-state-select select,
+.workspace-product select {
+  background: var(--brand-control);
+  border-color: var(--control-border);
+  color: var(--brand-text);
+}
+
+.form-field,
+.form-field label,
+.auth-field > label,
+.auth-scenario-control label,
+.auth-consent,
+.profile-choice-group legend {
+  color: var(--brand-subtle);
+}
+
+.form-field input::placeholder,
+.form-field textarea::placeholder,
+.auth-field input::placeholder,
+.search-field input::placeholder {
+  color: var(--brand-subtle);
+  opacity: 1;
+}
+
+.form-field input[readonly],
+.form-field textarea[readonly],
+.auth-field input:disabled,
+.chart-series label:has(input:disabled) {
+  background: var(--brand-card);
+  color: var(--brand-subtle);
+}
+
+.auth-reveal {
+  color: var(--brand-muted);
+}
+
+.auth-reveal:hover {
+  background: #4a4a4a;
+  color: var(--brand-text);
+}
+
+.auth-consent input {
+  accent-color: var(--brand-blue);
+}
+
+.auth-consent a {
+  color: var(--brand-light-blue);
+}
+
+.auth-consent a:hover {
+  color: var(--brand-text);
+}
+
+.segmented-control,
+.preview-mode-toggle {
+  background: var(--brand-bg-deep);
+  border-color: var(--brand-line);
+}
+
+.segmented-control button,
+.preview-mode-toggle button {
+  color: var(--brand-muted);
+}
+
+.segmented-control button.selected,
+.preview-mode-toggle button.selected {
+  background: var(--brand-blue);
+  color: var(--brand-bg-deep);
+  box-shadow: none;
+}
+
+.switch-visual {
+  background: var(--brand-control);
+  border-color: var(--control-border);
+}
+
+.switch-visual::after {
+  background: var(--brand-muted);
+  border-color: var(--brand-subtle);
+}
+
+.switch-row input:checked + .switch-visual {
+  background: var(--brand-green);
+  border-color: var(--brand-green);
+}
+
+.switch-row input:checked + .switch-visual::after {
+  background: var(--brand-bg-deep);
+  border-color: var(--brand-bg-deep);
+}
+
+.profile-choice-group input,
+.chart-series input,
+.report-column-toggle input {
+  accent-color: var(--brand-blue);
+}
+
+/* Tables and charts */
+thead,
+.reporting-table-scroll thead th {
+  background: var(--brand-bg-deep);
+  border-color: var(--brand-line);
+}
+
+th,
+td,
+.reporting-table-scroll td,
+.reporting-table-scroll tbody th {
+  border-color: var(--brand-line);
+}
+
+thead th,
+tbody td,
+.reporting-table-scroll thead th,
+.reporting-table-scroll td,
+.reporting-table-scroll tbody th {
+  color: var(--brand-muted);
+}
+
+tbody th,
+.table-cell-primary {
+  color: var(--brand-text);
+}
+
+tbody tr:hover {
+  background: var(--brand-control);
+}
+
+.reporting-table-scroll tfoot th,
+.reporting-table-scroll tfoot td {
+  background: var(--brand-blue-dark);
+  border-color: var(--brand-blue);
+  color: var(--brand-text);
+}
+
+.chart-series label {
+  background: var(--brand-card);
+  border-color: var(--control-border);
+  color: var(--brand-muted);
+}
+
+.chart-series .series-selected {
+  background: var(--brand-blue-dark);
+  border-color: var(--brand-blue);
+  color: var(--brand-text);
+}
+
+.series-line,
+.chart-legend i {
+  border-color: var(--brand-green);
+  background: var(--brand-green);
+}
+
+.series-line-1 {
+  border-color: var(--brand-orange);
+  background: transparent;
+}
+
+.series-line-2 {
+  border-color: var(--brand-violet);
+  background: transparent;
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--brand-line);
+}
+
+.recharts-cartesian-axis-tick-value,
+.recharts-text {
+  fill: var(--brand-muted);
+}
+
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--brand-card) !important;
+  border-color: var(--brand-line) !important;
+  color: var(--brand-text) !important;
+}
+
+.source-symbol-0 {
+  background: var(--brand-yellow);
+  color: var(--brand-yellow-dark);
+}
+
+.source-symbol-1 {
+  background: var(--brand-orange);
+  color: var(--brand-orange-dark);
+}
+
+.source-symbol-2 {
+  background: var(--brand-light-blue);
+  color: var(--brand-light-blue-dark);
+}
+
+.source-symbol-3 {
+  background: var(--brand-violet);
+  color: var(--brand-violet-dark);
+}
+
+/* Status, feedback, and empty states */
+.badge-neutral {
+  background: var(--brand-control);
+  color: var(--brand-muted);
+}
+
+.badge-dark,
+.badge-blue {
+  background: var(--brand-blue-dark);
+  color: var(--brand-text);
+}
+
+.badge-green {
+  background: var(--brand-green-dark);
+  color: var(--brand-text);
+}
+
+.badge-amber {
+  background: var(--brand-orange-dark);
+  color: var(--brand-text);
+}
+
+.badge-red {
+  background: var(--brand-red-dark);
+  color: var(--brand-text);
+}
+
+.partial-notice,
+.payout-local-note {
+  background: var(--brand-orange-dark);
+  border-color: var(--brand-orange);
+  color: var(--brand-text);
+}
+
+.partial-notice p,
+.payout-local-note p {
+  color: #fff3df;
+}
+
+.inline-note,
+.auth-session-status,
+.auth-preview-notice,
+.auth-reset-blocked {
+  background: var(--brand-blue-dark);
+  border-color: var(--brand-blue);
+  color: var(--brand-text);
+}
+
+.auth-service-error,
+.auth-error-summary {
+  background: var(--brand-red-dark);
+  border-color: var(--brand-red);
+  color: var(--brand-text);
+}
+
+.auth-field-error,
+.form-error,
+.negative-value,
+.payout-discrepancy .field-error {
+  color: var(--brand-red);
+}
+
+.auth-field input[aria-invalid='true'],
+.auth-input-invalid,
+.payout-discrepancy [aria-invalid='true'] {
+  border-color: var(--brand-red);
+}
+
+.empty-icon,
+.empty-state-art > div,
+.outlined-icon,
+.payment-method-icon,
+.profile-avatar,
+.document-icon,
+.auth-heading-icon,
+.auth-result-icon {
+  background: var(--brand-control);
+  border-color: var(--brand-line);
+  color: var(--brand-pink);
+}
+
+.empty-state h2,
+.chart-empty h3,
+.table-empty h3,
+.link-intro-copy h2,
+.profile-identity-card h2,
+.document-name h3,
+.security-card h2,
+.commercial-version-heading h3,
+.commercial-rules h3,
+.link-detail-heading,
+.link-qr-preview h3,
+.payout-calculation h3,
+.payout-guide h3,
+.payout-discrepancy h3 {
+  color: var(--brand-text);
+}
+
+.empty-state > p,
+.chart-empty p,
+.table-empty p,
+.link-intro-copy p,
+.profile-identity-card p,
+.document-name p,
+.security-card p,
+.commercial-rules p,
+.link-qr-preview > p,
+.archive-confirmation p {
+  color: var(--brand-muted);
+}
+
+.empty-state-art > span,
+.source-card-track > span,
+.progress-track > span {
+  background: var(--brand-pink);
+}
+
+.source-card-track,
+.progress-track,
+.loading-state i,
+.loading-state b {
+  background: var(--brand-control);
+}
+
+.skeleton-panel > div {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 54px,
+    var(--brand-line) 54px,
+    var(--brand-line) 55px
+  );
+}
+
+/* Partner management, documents, and payouts */
+.main-link-card h2,
+.main-link-card aside strong,
+.link-report-context strong,
+.commercial-current-note,
+.commercial-version-heading h3,
+.commercial-facts dd,
+.document-facts dd,
+.link-detail-metrics dd,
+.payout-schedule dd,
+.payout-agreement dd,
+.payout-example-facts dd,
+.payout-report-summary dd,
+.payout-bridge dd,
+.payout-bridge-total dt,
+.payout-money-history strong,
+.payout-money-history li > span {
+  color: var(--brand-text);
+}
+
+.main-link-card p,
+.main-link-card aside strong,
+.link-report-context p,
+.commercial-current-note p,
+.commercial-rules p,
+.commercial-facts dt,
+.document-facts dt,
+.link-detail-metrics dt,
+.payout-schedule dt,
+.payout-agreement dt,
+.payout-example-facts dt,
+.payout-report-summary dt,
+.payout-bridge dt,
+.payout-money-history time,
+.payout-change-history time,
+.payout-money-history p,
+.payout-change-history li > span,
+.payout-example-card > p {
+  color: var(--brand-muted);
+}
+
+.main-link-card aside,
+.context-partner,
+.context-terms,
+.profile-section-nav {
+  border-color: var(--brand-line);
+}
+
+.commercial-rules,
+.payout-example-card,
+.document-preview-sheet,
+.statement-banner,
+.payout-bridge .payout-bridge-total {
+  background: var(--brand-control);
+  border-color: var(--brand-line);
+  color: var(--brand-text);
+}
+
+.payout-cycle-steps li[aria-current='step'],
+.profile-section-nav button.selected {
+  color: var(--brand-light-blue);
+}
+
+.payout-cycle-steps li[aria-current='step'] > span {
+  background: var(--brand-blue);
+  border-color: var(--brand-blue);
+  color: var(--brand-bg-deep);
+}
+
+.payout-bridge .payout-bridge-subtotal {
+  border-color: var(--brand-blue);
+}
+
+.payout-discrepancy-action {
+  border-color: var(--brand-line);
+}
+
+.document-watermark {
+  color: #5b5b5b;
+}
+
+/* Authentication */
+.brand.auth-brand {
+  color: var(--brand-text);
+}
+
+.auth-story {
+  background: var(--brand-bg-deep);
+  border: 1px solid var(--brand-line);
+  color: var(--brand-text);
+}
+
+.auth-story-label,
+.auth-story > p,
+.auth-story-footer small {
+  color: var(--brand-muted);
+}
+
+.auth-story-label > span {
+  background: var(--brand-yellow);
+}
+
+.auth-story h2 > span,
+.auth-story-footer > svg {
+  color: var(--brand-pink);
+}
+
+.auth-orbit {
+  border-color: var(--brand-blue);
+}
+
+.auth-orbit-two {
+  border-color: var(--brand-violet);
+}
+
+.auth-orbit-center {
+  background: url('/kissmyapps-mark.svg') center / cover no-repeat;
+  border-color: var(--brand-pink);
+  box-shadow: 0 0 0 15px rgb(255 128 191 / 7%);
+  color: transparent;
+}
+
+.auth-orbit-center > svg {
+  opacity: 0;
+}
+
+.auth-orbit-tag {
+  background: var(--brand-card);
+  border-color: var(--brand-line);
+  color: var(--brand-text);
+  box-shadow: 0 9px 24px rgb(0 0 0 / 28%);
+}
+
+.auth-story-footer {
+  border-color: var(--brand-line);
+}
+
+.auth-heading h1,
+.auth-result h1 {
+  color: var(--brand-text);
+}
+
+.auth-heading > p:last-child,
+.auth-result > p:not(.eyebrow),
+.auth-field-hint,
+.auth-invite-note,
+.auth-preview-footer > span,
+.auth-page-footer,
+.auth-reset-blocked p {
+  color: var(--brand-muted);
+}
+
+.auth-invite-note,
+.auth-preview-footer {
+  border-color: var(--brand-line);
+}
+
+.auth-preview-footer > button {
+  color: var(--brand-light-blue);
+}
+
+.auth-result-warning {
+  background: var(--brand-orange-dark);
+  border-color: var(--brand-orange);
+  color: var(--brand-text);
+}
+
+/* Dialogs, preview controls, and toasts */
+.dialog-overlay {
+  background: rgb(0 0 0 / 72%);
+}
+
+.dialog-heading h2,
+.guide-list button strong,
+.definition-list dt {
+  color: var(--brand-text);
+}
+
+.dialog-heading p,
+.guide-list button > span,
+.guide-list button p,
+.guide-list button svg,
+.definition-list dd {
+  color: var(--brand-muted);
+}
+
+.guide-list button {
+  background: var(--brand-control);
+  color: var(--brand-text);
+}
+
+.guide-list button:hover {
+  background: #4a4a4a;
+}
+
+.definition-list > div {
+  border-color: var(--brand-line);
+}
+
+.preview-toolbar {
+  background: rgb(17 17 17 / 94%);
+  border-color: var(--brand-line);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 35%);
+}
+
+.preview-toolbar-copy,
+.preview-toolbar-copy span span {
+  color: var(--brand-muted);
+}
+
+.preview-toolbar-copy strong {
+  color: var(--brand-text);
+}
+
+.toast {
+  background: var(--brand-green-dark);
+  border-color: var(--brand-green);
+  color: var(--brand-text);
+  box-shadow: 0 8px 25px rgb(0 0 0 / 35%);
+}
+
+.toast > svg,
+.toast .icon-button {
+  color: var(--brand-green);
+}
+
+.toast .icon-button:hover {
+  background: rgb(0 0 0 / 20%);
+}
+
+.toast-error {
+  background: var(--brand-red-dark);
+  border-color: var(--brand-red);
+  color: var(--brand-text);
+}
+
+.toast-error > svg,
+.toast-error .icon-button {
+  color: var(--brand-red);
+}
+
+/* Focus remains conspicuous against every dark surface. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline-color: var(--brand-light-blue);
+}
+
+@media (max-width: 800px) {
+  .auth-form-panel {
+    background: var(--brand-card);
+    border-color: var(--brand-line);
+    color: var(--brand-text);
+  }
+
+  .auth-story {
+    background: var(--brand-bg-deep);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand,
+  .brand-mark,
+  .auth-orbit-center {
+    animation: none !important;
+  }
+}

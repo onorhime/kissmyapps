@@ -1,0 +1,87 @@
+{
+	admin off
+}
+
+(compressed) {
+	encode zstd gzip
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+}
+
+# Existing DramaPal production routes. Keep these blocks byte-for-byte aligned
+# with the active DramaPal deployment when preparing a later release.
+api.dramapal.pro {
+	import compressed
+	reverse_proxy core:5531
+}
+
+stream.dramapal.pro {
+	import compressed
+	reverse_proxy web:5527
+}
+
+mobile.dramapal.pro {
+	import compressed
+	reverse_proxy web-mobile:5527
+}
+
+sandbox.dramapal.pro {
+	import compressed
+	handle /v1/payments/stripe/webhook {
+		reverse_proxy sandbox-core:5531
+	}
+	handle {
+		reverse_proxy sandbox-web:5527
+	}
+}
+
+(kissmyapps_dashboard) {
+	import compressed
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+	reverse_proxy kissmyapps-dashboard:8080
+}
+
+partners.kissmyapps.dev {
+	import kissmyapps_dashboard
+}
+
+admin.kissmyapps.dev {
+	import kissmyapps_dashboard
+}
+
+go.kissmyapps.dev {
+	import compressed
+
+	header {
+		Cache-Control "no-store, max-age=0"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+
+	route {
+		@wrongMethod {
+			path /r/*
+			not method GET
+		}
+		respond @wrongMethod "Method not allowed" 405
+
+		@tracking {
+			method GET
+			path /r/*
+		}
+
+		handle @tracking {
+			rewrite * /functions/v1/tracking-redirect{uri}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				header_up Host {upstream_hostport}
+			}
+		}
+
+		respond "Not found" 404
+	}
+}
