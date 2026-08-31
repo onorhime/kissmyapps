@@ -29,7 +29,7 @@ agreement, and live Stripe configuration pass the activation runbook.
 
 The first deployed release is
 `/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`. The active release is
-`/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`, and
+`/srv/kissmyapps/releases/20260831T234040Z-context-contrast-805dd1ad17e5`, and
 the active symlink is `/srv/kissmyapps/current`. The existing DramaPal Caddyfile
 backup made immediately before activation is:
 

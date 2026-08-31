@@ -2,20 +2,20 @@
 
 This record covers the public partner-registration implementation, its
 production database contract, the frontend release that exposes the signup
-screen, and the later hosted Auth activation. It does not prove a real inbox
-delivery, enable tracking, or activate a funnel.
+screen, the later hosted Auth activation, and the dashboard context-card
+contrast correction. It does not enable tracking or activate a funnel.
 
 ## Release identity
 
 - Supabase project: `mmyruzjemjecqyivhrgr` (`KissMyApps`).
 - VPS: Hostinger `72.60.125.99`.
 - Release:
-  `/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`.
+  `/srv/kissmyapps/releases/20260831T234040Z-context-contrast-805dd1ad17e5`.
 - Active release link: `/srv/kissmyapps/current`.
 - Frontend manifest SHA-256:
-  `af48e414950c295596eef24f712f839645da7da674646d9898e9dfb11613fe0e`.
-- Source revision: `a7d868bb53ac1baf650a774ef41e1c9a7f59fdd0`.
-- Reviewed source tag: `production-20260901-auth-confirmation-v1`.
+  `f180176a564950b2f26b8a9e011ae2550ebf5781a65608bc780b550609c448f1`.
+- Source revision: `805dd1ad17e584cf17b738ea417f6d4167d66e12`.
+- Reviewed source tag: `production-20260901-workspace-context-contrast-v1`.
 - Database migrations:
   `20260831100000_public_partner_registration.sql` and
   `20260831170000_public_partner_confirmation_otp.sql`.
@@ -117,13 +117,15 @@ ignored and were not committed.
   sign-in and manual account linking remain disabled.
 - Custom SMTP is enabled and the dashboard shows the intended sender name and
   Resend hostname. The operator corrected the saved port from `448` to Resend's
-  TLS port `465`. The available dashboard browser session is signed out, so an
-  independent control-plane readback and a real delivery remain open proof.
+  TLS port `465`. The fresh registration supplied recipient-level delivery
+  evidence; an independent control-plane configuration readback was not
+  captured.
 - The exposed credential was not reused or pasted into a shell command,
   environment file, or the repository.
-- A real production registration, inbox delivery, confirmation callback,
-  automatic dashboard entry, sign-out, and subsequent sign-in still require a
-  fresh controlled email address.
+- The operator confirmed that a fresh production registration now completes
+  the inbox confirmation flow and enters the Partner dashboard. This is
+  recipient/operator evidence rather than an independently recorded browser
+  session.
 - CAPTCHA is not configured. Add it before scaled or paid public acquisition if
   registration abuse becomes a risk.
 - Tracking remains disabled. No product, funnel, partner link, live Stripe Price,
@@ -176,14 +178,46 @@ ignored and were not committed.
   DramaPal stream/mobile/sandbox remain `200`, and its API root retains the
   expected `404`. HTML remains `no-store`, while versioned assets remain
   one-year immutable.
-- One fresh retained QA registration is still required to prove the corrected
-  inbox-confirmation-to-dashboard flow in production. An already consumed
-  confirmation link cannot prove the fix.
+- The operator subsequently confirmed that a fresh registration completed the
+  corrected inbox-confirmation-to-dashboard flow. No retained browser recording
+  or independently observed recipient trace was captured.
+
+## Workspace context contrast corrective release
+
+- The active product/partner/commercial-model card retained legacy light-theme
+  olive text after its surface was changed to the dark KissMyApps control color.
+  The old secondary text measured approximately `1.97:1` against that surface.
+- Labels and the product icon now use `--brand-light-blue` (`6.21:1`), primary
+  values use `--brand-text`, and secondary text uses `--brand-muted` (`4.79:1`).
+  A source regression test enforces a minimum `4.5:1` contrast ratio.
+- Prettier, oxlint, TypeScript, all 33 test files and 430 tests, and the
+  production Vite build pass. Four tests initially exceeded the five-second
+  default while the Mac was under disk/runtime pressure; each passed in
+  isolation, and the complete suite passed with a 15-second test timeout. The
+  only build advisory remains the existing main-bundle size warning.
+- The local in-app browser runtime could not start because the Mac's temporary
+  volume reported `No space left on device`, so this correction does not claim
+  a new rendered-browser screenshot. The token contrast calculations, selector
+  regression test, and production artifact checks passed.
+- The immutable artifact is deployed at
+  `/srv/kissmyapps/releases/20260831T234040Z-context-contrast-805dd1ad17e5`.
+  Its active symlink and all 26 mounted files passed the release manifest. Only
+  `kissmyapps-dashboard` was recreated; the shared edge and DramaPal services
+  were not changed.
+- A separate read-only post-deployment check confirmed that the dashboard is
+  healthy, read-only, and has no host port; Partner root/health/performance and
+  Admin root/health return `200`; Go root and an unissued link return `404`; and
+  a disallowed Go `POST` returns `405`. The live index serves
+  `assets/index-JrBnlj5f.js` and the CSS containing the new context overrides.
+  HTML remains `no-store`, while the CSS is one-year immutable.
+- DramaPal stream/mobile/sandbox remain `200`, its API root remains the expected
+  `404`, all seven DramaPal container IDs are unchanged with zero restarts, and
+  the edge Caddy container ID and configuration hash are unchanged.
 
 ## Rollback
 
 1. Repoint `/srv/kissmyapps/current` to
-   `/srv/kissmyapps/releases/20260831T101719Z-public-signup-mobile-contrast-v2`.
+   `/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`.
 2. Recreate only `kissmyapps-dashboard` with the existing dashboard Compose
    project.
 3. Recheck Partner, Admin, Go fail-closed behavior, and every DramaPal host.

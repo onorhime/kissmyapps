@@ -14,8 +14,11 @@ fail-closed Edge Functions were deployed on 2026-08-28. On 2026-08-30, the
 immutable dashboard release was deployed beside DramaPal on the Hostinger VPS,
 the three `kissmyapps.dev` hosts received valid TLS, and hosted Auth moved from
 localhost to the exact production callbacks. Do not configure Stripe/funnel
-secrets, schedule workers, enable email, configure a payout provider, or turn on
-tracking until the remaining gates below are approved.
+secrets, schedule workers, configure broader transactional email or a payout
+provider, or turn on tracking until the remaining gates below are approved.
+
+Hosted Auth confirmation email is the only active email path. Transactional
+lifecycle campaigns remain deferred.
 
 The following inputs are still hard blockers:
 
@@ -23,16 +26,18 @@ The following inputs are still hard blockers:
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
 - This checkout now has reviewed baseline commit
-  `a7d868bb53ac1baf650a774ef41e1c9a7f59fdd0`, tagged
-  `production-20260901-auth-confirmation-v1`. The initial backend release remains
-  recorded with aggregate source digest
+  `805dd1ad17e584cf17b738ea417f6d4167d66e12`, tagged
+  `production-20260901-workspace-context-contrast-v1`. The initial backend
+  release remains recorded with aggregate source digest
   `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
   Require another clean reviewed commit/tag before every later release.
-- All 12 migration versions through `20260828220000` now match the linked remote
-  history exactly. Continue reconciling the history before every later release.
+- The linked migration history includes the public registration and confirmation
+  correction through `20260831170000`. Continue reconciling the history before
+  every later release.
 - There is no approved real product/funnel, live Stripe credential or Price ID,
   bilaterally signed commission document, payout provider/operating procedure, or
-  approved data-retention schedule. Resend remains deferred.
+  approved data-retention schedule. Resend is configured only for hosted Auth
+  confirmation; broader transactional email remains deferred.
 - The current QA administrator is Operations, while enabling tracking requires a
   password-proven Owner. Provisioning or changing that authority needs approval.
 
