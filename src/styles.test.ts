@@ -67,4 +67,12 @@ describe('reviewed accessibility color tokens (not a rendered-page audit)', () =
     expect(contrast(token('brand-muted'), token('brand-control'))).toBeGreaterThanOrEqual(3)
     expect(contrast(token('brand-bg-deep'), token('brand-green'))).toBeGreaterThanOrEqual(3)
   })
+
+  it('recolors the workspace context for the dark branded surface', () => {
+    expect(brandStyles).toContain('.workspace-context .context-label')
+    expect(brandStyles).toContain('color: var(--brand-light-blue)')
+    expect(brandStyles).toContain('-webkit-text-fill-color: var(--brand-text)')
+    expect(contrast(token('brand-light-blue'), token('brand-control'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-muted'), token('brand-control'))).toBeGreaterThanOrEqual(4.5)
+  })
 })

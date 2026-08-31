@@ -282,6 +282,27 @@ body,
   color: var(--brand-text);
 }
 
+.workspace-context .context-label,
+.workspace-context .workspace-product > svg {
+  color: var(--brand-light-blue);
+}
+
+.workspace-context .workspace-product select,
+.workspace-context .context-partner strong,
+.workspace-context .context-terms strong {
+  color: var(--brand-text);
+}
+
+.workspace-context .workspace-product select:disabled {
+  color: var(--brand-text);
+  -webkit-text-fill-color: var(--brand-text);
+}
+
+.workspace-context .context-partner > span:last-child,
+.workspace-context .context-terms > span:last-child {
+  color: var(--brand-muted);
+}
+
 .live-summary-grid article {
   background: var(--brand-card);
   border-color: var(--brand-line);
