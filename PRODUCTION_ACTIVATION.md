@@ -22,10 +22,12 @@ The following inputs are still hard blockers:
 - The confirmed apex is `kissmyapps.dev`. Production hosts are
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
-- This checkout still has no Git `HEAD`. The initial backend release was recorded
-  with aggregate source digest
-  `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`;
-  establish a reviewed commit/tag before any later release.
+- This checkout now has reviewed baseline commit
+  `a7d868bb53ac1baf650a774ef41e1c9a7f59fdd0`, tagged
+  `production-20260901-auth-confirmation-v1`. The initial backend release remains
+  recorded with aggregate source digest
+  `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
+  Require another clean reviewed commit/tag before every later release.
 - All 12 migration versions through `20260828220000` now match the linked remote
   history exactly. Continue reconciling the history before every later release.
 - There is no approved real product/funnel, live Stripe credential or Price ID,

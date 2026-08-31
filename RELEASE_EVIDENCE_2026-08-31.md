@@ -10,19 +10,21 @@ delivery, enable tracking, or activate a funnel.
 - Supabase project: `mmyruzjemjecqyivhrgr` (`KissMyApps`).
 - VPS: Hostinger `72.60.125.99`.
 - Release:
-  `/srv/kissmyapps/releases/20260831T101719Z-public-signup-mobile-contrast-v2`.
+  `/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`.
 - Active release link: `/srv/kissmyapps/current`.
 - Frontend manifest SHA-256:
-  `98c810bb2f50b96f9b70be4c7a2feb957e39e78c828dfebc7d2dd53f60684932`.
+  `af48e414950c295596eef24f712f839645da7da674646d9898e9dfb11613fe0e`.
+- Source revision: `a7d868bb53ac1baf650a774ef41e1c9a7f59fdd0`.
+- Reviewed source tag: `production-20260901-auth-confirmation-v1`.
 - Database migrations:
   `20260831100000_public_partner_registration.sql` and
   `20260831170000_public_partner_confirmation_otp.sql`.
 - Corrective migration SHA-256:
   `d0dae5e662bec2c718b2689ecfe29bad7520a9df09718231e783bf04616b9a23`.
 
-The repository still has no reviewed Git `HEAD`; the immutable release path and
-hashes identify this release but do not replace the outstanding commit/tag
-gate for later releases.
+The repository now has a reviewed Git baseline and release tag. Local
+environment values, dependencies, build output, and Supabase CLI state are
+ignored and were not committed.
 
 ## Registration contract
 
@@ -60,7 +62,7 @@ gate for later releases.
 
 - Prettier, oxlint, funnel TypeScript/lint, and the production TypeScript build
   passed.
-- All 33 test files and 426 tests passed with one worker.
+- All 33 test files and 429 tests passed with one worker.
 - The production Vite build passed. Its only advisory is the existing main
   bundle size warning above 500 kB.
 - The deployed bundle contains `public_partner_v1` and the Partner signup copy.
@@ -161,12 +163,19 @@ gate for later releases.
   harness stalled while inspecting its image, so that updated transactional
   contract is not recorded as passed. No database credential was requested or
   reset to work around the local harness.
-- The frontend artifact is built but is not deployed. The active VPS release
-  remains
-  `/srv/kissmyapps/releases/20260831T101719Z-public-signup-mobile-contrast-v2`.
-  The runbook requires a clean reviewed Git commit/tag before another frontend
-  release, while this checkout still has no Git `HEAD` and every source file is
-  untracked.
+- The tagged frontend artifact is deployed at
+  `/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`.
+  The active symlink resolves to that exact immutable directory, and all 26
+  mounted files pass the release manifest.
+- Only `kissmyapps-dashboard` was recreated. It is healthy, read-only, exposes
+  no host port, and serves the new `index-BXDsF8JP.js` asset. The edge Caddy
+  container, its configuration hash, every DramaPal container ID, and every
+  DramaPal restart count remain unchanged.
+- Partner root/health/SPA fallback and Admin root/health return `200`; Go root
+  and an unissued link return `404`; a disallowed Go `POST` returns `405`.
+  DramaPal stream/mobile/sandbox remain `200`, and its API root retains the
+  expected `404`. HTML remains `no-store`, while versioned assets remain
+  one-year immutable.
 - One fresh retained QA registration is still required to prove the corrected
   inbox-confirmation-to-dashboard flow in production. An already consumed
   confirmation link cannot prove the fix.
@@ -174,11 +183,12 @@ gate for later releases.
 ## Rollback
 
 1. Repoint `/srv/kissmyapps/current` to
-   `/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`.
+   `/srv/kissmyapps/releases/20260831T101719Z-public-signup-mobile-contrast-v2`.
 2. Recreate only `kissmyapps-dashboard` with the existing dashboard Compose
    project.
 3. Recheck Partner, Admin, Go fail-closed behavior, and every DramaPal host.
-4. Keep hosted public signup and tracking disabled throughout rollback.
+4. Keep tracking disabled and do not change hosted Auth as part of this
+   frontend rollback.
 
 The applied activation correction must be changed, if necessary, by another
 reviewed forward migration or an approved restore. Do not edit or reverse an

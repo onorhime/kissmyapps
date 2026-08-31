@@ -28,9 +28,10 @@ tracking, Stripe, workers, or funnel ingestion until the real funnel, signed
 agreement, and live Stripe configuration pass the activation runbook.
 
 The first deployed release is
-`/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`; the active symlink is
-`/srv/kissmyapps/current`. The existing DramaPal Caddyfile backup made immediately
-before activation is:
+`/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`. The active release is
+`/srv/kissmyapps/releases/20260831T231818Z-auth-confirmation-a7d868bb53ac`, and
+the active symlink is `/srv/kissmyapps/current`. The existing DramaPal Caddyfile
+backup made immediately before activation is:
 
 `/srv/dramapal/releases/20260812-dual-web-runtime-order-v16/deploy/Caddyfile.pre-kissmyapps-20260830T063458Z.bak`
 
