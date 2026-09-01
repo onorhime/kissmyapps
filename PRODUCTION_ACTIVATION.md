@@ -13,27 +13,32 @@ the platform is not ready for acquisition traffic. Keep
 fail-closed Edge Functions were deployed on 2026-08-28. On 2026-08-30, the
 immutable dashboard release was deployed beside DramaPal on the Hostinger VPS,
 the three `kissmyapps.dev` hosts received valid TLS, and hosted Auth moved from
-localhost to the exact production callbacks. Do not configure Stripe/funnel
-secrets, schedule workers, configure broader transactional email or a payout
-provider, or turn on tracking until the remaining gates below are approved.
+localhost to the exact production callbacks. On 2026-09-01, the protected Admin
+Affiliate directory/lifecycle migration and immutable frontend artifact were
+deployed without changing the edge configuration or enabling tracking. Do not
+configure Stripe/funnel secrets, schedule workers, configure broader
+transactional email or a payout provider, or turn on tracking until the
+remaining gates below are approved.
 
-Hosted Auth confirmation email is the only active email path. Transactional
-lifecycle campaigns remain deferred.
+Hosted Auth public Partner registration is enabled, confirmation is required,
+and Resend SMTP is active for Auth mail. Admin public signup remains unavailable;
+transactional lifecycle campaigns remain deferred.
 
 The following inputs are still hard blockers:
 
 - The confirmed apex is `kissmyapps.dev`. Production hosts are
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
-- This checkout now has reviewed baseline commit
-  `805dd1ad17e584cf17b738ea417f6d4167d66e12`, tagged
-  `production-20260901-workspace-context-contrast-v1`. The initial backend
+- The deployed Admin Affiliate source is commit
+  `71a02f90d02b7e637883b26f02750c37199ddee9`, tagged
+  `production-20260901-admin-affiliates-v1`. The initial backend
   release remains recorded with aggregate source digest
   `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
   Require another clean reviewed commit/tag before every later release.
-- The linked migration history includes the public registration and confirmation
-  correction through `20260831170000`. Continue reconciling the history before
-  every later release.
+- The linked migration history contains all 15 versions through
+  `20260901100000_admin_affiliate_management`, with 724 of 724 assertions passing
+  across the 16-file replay. Continue reconciling the history before every later
+  release.
 - There is no approved real product/funnel, live Stripe credential or Price ID,
   bilaterally signed commission document, payout provider/operating procedure, or
   approved data-retention schedule. Resend is configured only for hosted Auth
@@ -63,8 +68,7 @@ value), configuration record IDs, test evidence, and rollback owner.
    Hostinger VPS and retain valid TLS before a later release. Do not change the
    apex or nameservers as part of this platform release.
 2. Confirm the release is a clean reviewed commit/tag and that no credential is
-   present in tracked files or build output. If source control is still absent,
-   stop and establish it before another production release.
+   present in tracked files or build output.
 3. Confirm `supabase/.temp/project-ref`, the CLI target, and the release record all
    identify `mmyruzjemjecqyivhrgr`. Stop on any mismatch.
 4. Run the source checks from the release revision:
@@ -113,7 +117,7 @@ Before an approved replay:
    so do not weaken grants merely to run pgTAP remotely:
 
    ```bash
-   # Fresh isolated PostgreSQL 17 replay: migrations, then tests 00-13.
+   # Fresh isolated PostgreSQL 17 replay: migrations, then tests 00-15.
    pnpm exec supabase db lint --project-ref mmyruzjemjecqyivhrgr --fail-on error
    ```
 
@@ -150,6 +154,13 @@ later release without broadening the boundaries:
 5. While tracking remains false, prove TLS, security/no-store headers, dashboard
    Auth routing, a fail-closed redirect response, and every existing DramaPal
    route before and after activation. Acquisition traffic stays off.
+
+The current immutable dashboard release is
+`/srv/kissmyapps/releases/20260901T013259Z-admin-affiliates-71a02f90d02b`.
+Its predecessor is
+`/srv/kissmyapps/releases/20260831T234040Z-context-contrast-805dd1ad17e5`.
+For a frontend rollback, switch only `/srv/kissmyapps/current` and recreate only
+`kissmyapps-dashboard`; keep the shared edge and DramaPal services unchanged.
 
 ## 4. Hosted Edge configuration and deployment
 
@@ -306,8 +317,12 @@ All evidence must come from the real project and confirmed production hosts:
 - source revision clean; `pnpm validate` and all Deno checks pass;
 - backup/restore evidence complete; remote migration list exact; remote lint and
   all transactional database tests pass; RLS/base-table grants remain fail-closed;
-- desktop/mobile Auth invitation, password setup, sign-in, refresh, role gates,
-  Partner/Admin switching, recovery, and sign-out pass on hosted production;
+- desktop/mobile public Partner registration, inbox confirmation, invitation,
+  password setup, sign-in, refresh, role gates, Partner/Admin switching,
+  recovery, and sign-out pass on hosted production;
+- authenticated Admin Affiliate directory/detail/filtering and password-proven
+  pause/reactivate pass for Owner/Operations; denied-role and Owner-only
+  termination/blocker behavior pass without mutating retained QA lifecycle data;
 - preview mode is unavailable; unauthenticated/unauthorized tenant access fails;
 - dashboard and redirect TLS/DNS/header checks pass, and disabled tracking fails
   closed without creating click/acquisition rows;

@@ -48,6 +48,11 @@ This checklist is the implementation and acceptance-test source of truth for the
       project; preserve the QA identities and existing draft `test` product.
 - [x] Pass 592 of 592 PostgreSQL 17 assertions on a fresh full replay, match all
       12 local/remote migration versions exactly, and pass remote database lint.
+- [x] Apply public Partner registration, confirmation-OTP correction, and
+      protected Admin Affiliate management through
+      `20260901100000_admin_affiliate_management`; match all 15 local/remote
+      migrations and pass 724 of 724 assertions across the complete 16-file
+      PostgreSQL 17 suite.
 
 ## M1 - Partner dashboard
 
@@ -98,7 +103,9 @@ The UI QA pass is not full specification completion. Use the IDs in
 - [x] Connect persistent partner profile/settings contracts and the private document authorization/storage foundation.
 - [x] Implement a custom token-hash invite callback: accept only the explicit invite query contract, exchange the one-time hash with `verifyOtp`, scrub callback parameters, and present create-password UI without using the incompatible implicit-token invitation redirect.
 - [x] Save and reload the hosted invite template using the token-hash callback. Keep its exact source in [supabase/templates/invite.html](./supabase/templates/invite.html); hosted deployment remains a manual Supabase Dashboard operation.
-- [x] Confirm and apply hosted Auth site/redirect URLs, invite-only signup behavior, confirmed email, and a 12-character minimum password with the user's action-time approval.
+- [x] Confirm and apply hosted Auth site/redirect URLs, public Partner signup,
+      confirmed email, and a 12-character minimum password with the user's
+      action-time approval. Keep Admin signup unavailable.
 - [x] Keep secure password change enabled but disable “Require current password” so an invitee can replace Supabase's unknown temporary invitation password; rely on the password-sign-in activation gate for workspace authorization.
 - [x] Pass the partner-activation revision's local web suite of 32 files and 386 tests, including single-use invite handling under React Strict Mode, activation/RLS gating, Auth, Partner/Admin gateways, authenticated zero-data coverage, product configuration controls, UI interactions, and structural accessibility.
 - [x] Send exactly one recovery link for the already-consumed first QA invitation. Do not create a duplicate partner or resend the consumed invitation.
@@ -135,6 +142,27 @@ The UI QA pass is not full specification completion. Use the IDs in
       readiness blockers.
 - [x] Keep one-time payments, CPL, unsigned agreements, unverified Prices, and
       incomplete funnels fail-closed.
+
+### M1e - Admin Affiliate management
+
+- [x] Add protected `#admin/affiliates` and route-backed
+      `#admin/affiliates/:affiliateId` detail views without exposing base tables.
+- [x] Add a searchable, filterable, sortable, paginated directory with summary
+      counts and registration, confirmation, activation, legal, agreement,
+      product, link, and lifecycle evidence.
+- [x] Add password-proven pause/reactivate for Operations and Owner, with
+      immutable audit history and idempotent lifecycle enforcement.
+- [x] Restrict permanent termination to Owner, require the exact affiliate slug,
+      and block it while qualifying agreements, documents, or unsettled payouts
+      exist.
+- [x] Add responsive labelled cards, route-close focus recovery, invalid-field
+      focus, and 44px lifecycle actions.
+- [x] Validate the release with 35 web files / 458 tests, 724 of 724 database
+      assertions, 51 of 51 Edge tests, remote migration parity, and remote lint
+      with no errors.
+- [ ] Complete authenticated production desktop/mobile visual acceptance. The
+      available production browser session is signed out; source, database, and
+      public-host checks do not substitute for this gate.
 
 ## M2 - First product, funnel, click tracker, and Web2App events
 
@@ -180,7 +208,10 @@ The UI QA pass is not full specification completion. Use the IDs in
 ## M7 - Admin console and hardening
 
 - [x] Start the action-first Admin console with Overview, Products, and a safe switch back to the authenticated Partner workspace.
-- [ ] Add the remaining Affiliates, Funnels & Links, Attribution, Subscriptions, Payouts, Documents, Data Health, Settings, and scoped “View as Partner” workflows.
+- [x] Add the protected Affiliates directory, evidence detail, and audited
+      lifecycle workflows.
+- [ ] Add the remaining Funnels & Links, Attribution, Subscriptions, Payouts,
+      Documents, Data Health, Settings, and scoped “View as Partner” workflows.
 - [x] Add durable webhook, commercial-fact, metric-refresh, and reconciliation
       queues with bounded leases/retries and redacted diagnostics.
 - [x] Add evidence-backed reconciliation processing; scheduling and a real
@@ -189,7 +220,9 @@ The UI QA pass is not full specification completion. Use the IDs in
 
 ## Deferred integration boundaries
 
-- Resend/email-system integration is deferred. Supabase Auth handled the completed QA recovery and activation flow; no Resend integration is required for the current Admin Product slice.
+- Resend SMTP is configured for hosted Supabase Auth confirmation. Broader
+  lifecycle/transactional email remains deferred and is not required for the
+  Admin Affiliate slice.
 - The redirect, browser/funnel event, Stripe, commercial, metrics, and
   reconciliation Functions are deployed but fail closed until real production
   origins, per-funnel key bindings, Stripe values, and schedules are configured.

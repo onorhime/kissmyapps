@@ -1,4 +1,4 @@
-# Partner and Admin dashboard UI and live foundation — 2026-08-28
+# Partner and Admin dashboard UI and live foundation — 2026-09-01
 
 ## What is ready
 
@@ -12,20 +12,21 @@ lazy-loaded trend chart. These are components, not a dashboard template.
 The user approved this visual direction. The default runtime now uses real
 Supabase Auth and a typed partner gateway. The historical sample/failure-state
 experience remains available only through the explicit preview flag. This is a
-connected Partner foundation plus the first Admin P2 slice, not yet a complete
-production affiliate platform: the real project deliberately has no products or
-funnels.
+connected Partner foundation with Admin Products and Admin Affiliates, not yet a
+complete production affiliate platform: the real project deliberately has no
+active product or funnel.
 No local Supabase or staging environment is used.
 
-| Area                | Implemented now                                                                                                                                                                        | Still open                                                                                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Workspace context   | Auth-gated live workspace provider, typed partner gateway, product-independent zero-data state, plus opt-in fixture context on all four pages                                          | First invitation acceptance, product membership, effective agreement, and authenticated responsive/accessibility acceptance                          |
-| Performance         | Tenant-safe summary/trend RPC contracts and live gateway with date, timezone, product/funnel/source/currency/completeness inputs; full historical preview interactions                 | First non-empty live data, provider ingestion/reconciliation workers, native downloaded-file acceptance, and authenticated chart/table verification  |
-| Payouts             | Authorized summary/history/detail contracts and database-enforced immutable money snapshots; full historical calculation/status/statement preview                                      | Real commission events, private statement files, discrepancy delivery, human-approved release operations, and any later provider-transfer automation |
-| Links & Sources     | Authenticated create/update/status RPC contracts, configured-product/funnel gates, live zero-data behavior, and full historical link/QR preview                                        | First configured product/funnel, redirect/click-tracking worker, canonical acquisition traffic, and physical QR/native file acceptance               |
-| Profile & Documents | Persistent profile/settings RPC contracts, private bucket and record-scoped read authorization, plus the full historical profile/document preview                                      | Upload/download-signing UI, real signatures, payment-destination verification/holds, and authenticated end-to-end document acceptance                |
-| Sign-in & recovery  | Real sign-in, completed first-user recovery/activation, session refresh, Partner/Admin route gating, sign-out, hosted local URLs, invite-only signup, and the approved password policy | Full session-expiry/device acceptance and optional later Resend work                                                                                 |
-| Admin Products      | Protected Overview/Product routes, complete P2 roadmap navigation, RPC-only empty catalog, and Operations/Owner draft-only name+slug creation                                          | First approved product, then real funnel configuration; remaining P2 modules stay upcoming                                                           |
+| Area                | Implemented now                                                                                                                                                                   | Still open                                                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace context   | Auth-gated live workspace provider, typed partner gateway, product-independent zero-data state, plus opt-in fixture context on all four pages                                     | First product membership/effective agreement and authenticated production Affiliate responsive/accessibility acceptance                              |
+| Performance         | Tenant-safe summary/trend RPC contracts and live gateway with date, timezone, product/funnel/source/currency/completeness inputs; full historical preview interactions            | First non-empty live data, provider configuration/traffic, native downloaded-file acceptance, and authenticated chart/table verification             |
+| Payouts             | Authorized summary/history/detail contracts and database-enforced immutable money snapshots; full historical calculation/status/statement preview                                 | Real commission events, private statement files, discrepancy delivery, human-approved release operations, and any later provider-transfer automation |
+| Links & Sources     | Authenticated create/update/status RPC contracts, configured-product/funnel gates, live zero-data behavior, and full historical link/QR preview                                   | First configured product/funnel, enabled redirect traffic, canonical acquisition continuity, and physical QR/native file acceptance                  |
+| Profile & Documents | Persistent profile/settings RPC contracts, private bucket and record-scoped read authorization, plus the full historical profile/document preview                                 | Upload/download-signing UI, real signatures, payment-destination verification/holds, and authenticated end-to-end document acceptance                |
+| Sign-in & recovery  | Real sign-in, completed recovery/activation and public confirmed-email registration, session handling, Partner/Admin route gating, sign-out, production URLs, and approved policy | Full session-expiry/device acceptance and broader lifecycle email                                                                                    |
+| Admin Products      | Protected Overview/Product routes, complete P2 roadmap navigation, protected catalog, and Operations/Owner draft-only name+slug creation                                          | Replace/rename the placeholder draft with the first approved product, then add its real funnel                                                       |
+| Admin Affiliates    | Protected summary/directory/detail routes; registration/legal/commercial evidence; responsive cards; audited pause/reactivate; Owner-only blocked termination                     | Authenticated production visual acceptance and later scoped View as Partner                                                                          |
 
 See [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md) for the requirement
 mapping and the distinction between implemented UI, live foundation, and retained
@@ -59,7 +60,7 @@ VITE_ENABLE_UI_PREVIEW=true pnpm dev --host 127.0.0.1
   presentation scenarios, not real sessions. Without that flag, the same routes
   use Supabase Auth and the dashboard is session-gated.
 - The preview reset's 12-character minimum is a UI example. The hosted Supabase
-  password policy remains unchanged until the user confirms the proposed setting.
+  12-character minimum is separately confirmed and active.
 - Payment details are read-only placeholders. Verification is explanatory only;
   no bank, wallet, email, test transfer, hold, or payment operation occurs.
 - In preview mode, profile timezone/currency selections are preferences only: reports and payout
@@ -96,20 +97,20 @@ VITE_ENABLE_UI_PREVIEW=true pnpm dev --host 127.0.0.1
 
 - Project: `mmyruzjemjecqyivhrgr` (`KissMyApps`), used directly with no local or
   staging Supabase runtime.
-- Applied migrations: `20260825215958_platform_foundation`,
-  `20260827223000_partner_invitation_activation`, and
-  `20260828110000_admin_product_foundation`.
-- Remote security surface: 36 of 36 public tables have RLS; browser roles have
-  zero base-table grants; authenticated users use exactly eight Partner views and
-  20 approved helper/RPC functions, including the three Admin Product contracts.
+- Applied migrations: all 15 versions from
+  `20260825215958_platform_foundation` through
+  `20260901100000_admin_affiliate_management`.
+- Remote security surface: public base tables remain RLS-protected with zero
+  browser-role grants; authenticated access stays behind explicit Partner/Admin
+  views and RPC allowlists, including the Admin Affiliate contracts.
 - Storage: private `affiliate-private-documents` bucket with record-scoped read
   policies; zero objects are seeded.
-- Remote acceptance: 311 of 311 pgTAP checks passed and remote database lint
-  reported no schema errors.
+- Remote acceptance: 724 of 724 PostgreSQL 17 assertions passed across the full
+  16-file migration suite; remote database lint reported no errors.
 - Application integration: real Auth/session/recovery/reset/sign-out plus a typed
   partner gateway and live authenticated zero-data workspace provider.
-- Live state: zero products, funnels, links, payouts, and storage objects; one
-  active QA Partner/Auth user, also provisioned as least-privilege Operations Admin.
+- Live state: no active product, funnel, link, payout, or storage object; retained
+  QA registration data and a least-privilege Operations Admin remain intact.
 
 This proves the deployed foundation and its catalog/security contracts. It does
 not prove a non-empty authenticated user journey, document upload/signing,
@@ -141,11 +142,13 @@ is preserved.
 
 ## Automated verification
 
-- The last verified local web suite in this worktree passed formatting,
-  warning-free lint, 306 tests, TypeScript, and the Vite production build. It
+- The current local web suite passed formatting, warning-free lint, 458 tests
+  across 35 files, TypeScript, and the Vite production build. It
   includes live Auth/session, partner-gateway, and authenticated zero-data
-  coverage in addition to the fixture UI regressions. This documentation refresh
-  did not create a commit or deploy the web application.
+  coverage in addition to the fixture UI regressions. Source commit `71a02f9`
+  is deployed at
+  `/srv/kissmyapps/releases/20260901T013259Z-admin-affiliates-71a02f90d02b`;
+  authenticated production-browser acceptance remains open.
 - The historical 276-test preview milestone covers navigation, preview states, filter/no-match behavior,
   report grouping and pagination, UTC date windows, calendar gaps, currency
   minor units, payout totals/periods, CSV escaping/formula protection, reserved
@@ -203,11 +206,10 @@ is preserved.
   shortcut that did not change viewport/DPR was not counted as proof. Automated
   accessibility checks and viewport emulation are not a substitute for these
   manual gates, nor is this a full WCAG conformance claim.
-- Remote project verification passed all 311 pgTAP checks (131 schema, 51
-  security/history, 79 money/reconciliation, 15 partner activation, and 35
-  Admin product-foundation checks), plus remote database lint.
+- Remote project verification passed all 724 PostgreSQL 17 assertions across
+  tests `00` through `15`, plus remote database lint without errors.
   Catalog checks confirmed 36/36 RLS tables, zero browser-role base-table grants,
-  eight partner views, 20 approved authenticated functions, no public/anonymous
+  eight partner views, 49 approved authenticated functions, no public/anonymous
   executable public functions, and the private document bucket/policies.
 
 Commands: `pnpm format:check` and `pnpm validate`.
@@ -231,11 +233,16 @@ Commands: `pnpm format:check` and `pnpm validate`.
       verify its remote RLS/grant/view/RPC/storage contracts.
 - [x] Implement the default live Auth/session/recovery/reset/sign-out flow and
       typed authenticated zero-data partner gateway.
-- [x] Confirm and apply the hosted Auth URLs, invite-only signup behavior, and
-      password policy.
+- [x] Confirm and apply the hosted Auth URLs, public Partner signup with required
+      email confirmation, Admin signup denial, and password policy.
 - [x] Recover, activate, and verify the first QA Partner on the real project.
 - [x] Add the protected Admin Overview/Product foundation, provision the same QA
       user as Operations, and verify authenticated desktop/390px zero-product UI.
+- [x] Add the protected Admin Affiliate summary/directory/detail and audited
+      lifecycle workflows, with Operations/Owner pause/reactivate and Owner-only
+      termination blockers.
+- [ ] Verify the Admin Affiliate directory, route-backed detail, and lifecycle
+      dialogs in an authenticated production desktop/mobile session.
 - [ ] Build the first product/funnel and verify every non-empty partner screen
       against real authorized data.
 - [ ] Implement and verify private document upload/download-signing, signatures,
@@ -253,10 +260,10 @@ Commands: `pnpm format:check` and `pnpm validate`.
    membership, agreement, and commission rules. Then test the non-empty live
    performance, link, payout, profile, paused-history, timezone, completeness,
    and currency behavior.
-3. **Attribution/provider workers:** implement the redirect/click tracker,
-   canonical acquisition continuity, Stripe and Singular ingestion, scheduled
-   reconciliation/calculation, and only the approved sanitized behavioral subset
-   for Amplitude. None of these workers is deployed yet.
+3. **Attribution/provider activation:** configure the deployed fail-closed
+   redirect/click, Stripe, commercial, metrics, and reconciliation Functions;
+   add Singular ingestion and only the approved sanitized behavioral subset for
+   Amplitude. No traffic or schedule is active yet.
 4. **Documents and payment security:** add authenticated upload/download-signing
    UI, signatures, versioning, reauthentication, email confirmation,
    payout-destination holds, scheduled-payment locks, and first-crypto
@@ -264,6 +271,6 @@ Commands: `pnpm format:check` and `pnpm validate`.
 5. **Payout operations:** keep release human-approved initially. Provider transfer
    automation, live statements, exception handling, and operational reconciliation
    require separate implementation and end-to-end acceptance.
-6. **Remaining Admin P2:** add Affiliates, Funnels & Links, Attribution,
-   Subscriptions, Payouts, Documents, Data Health, Settings, and scoped View as
-   Partner after their real workflows are ready and auditable.
+6. **Remaining Admin P2:** add Funnels & Links, Attribution, Subscriptions,
+   Payouts, Documents, Data Health, Settings, and scoped View as Partner after
+   their real workflows are ready and auditable. Affiliates is implemented.

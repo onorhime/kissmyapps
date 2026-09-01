@@ -1,5 +1,28 @@
 # KissMyApps Dashboard — browser QA
 
+## Admin Affiliates production/source pass — September 1, 2026
+
+The Admin Affiliate artifact is deployed on the public production host. The
+available Chrome session is signed out, so this pass deliberately separates the
+public authentication boundary and automated contract evidence from the still
+open authenticated visual check.
+
+| Coverage                 | Evidence and result                                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public Admin host        | `https://admin.kissmyapps.dev`, `/healthz`, and the SPA path `/admin/affiliates` return `200` over HTTPS with the expected hardened/no-store headers.                                                         |
+| Authentication boundary  | The retained Chrome tab reports `https://admin.kissmyapps.dev/#auth/sign-in` with title `Sign in · KissMyApps Admin`; an unauthenticated visitor is not shown Affiliate data.                                 |
+| Production artifact      | The active release serves the versioned bundle containing `admin-affiliate-summary-grid` and `get_admin_affiliate_directory`; all 26 files passed the server-side SHA-256 manifest.                           |
+| Responsive/source checks | Directory-table and <=820px labelled-card states, route-backed detail, focus recovery, first-invalid focus, and 44px lifecycle actions are covered by the current UI regression suite.                        |
+| Automated companion      | Formatting, lint, funnel checks, TypeScript/build, 35 files / 458 web tests, 724/724 database assertions, 51/51 Edge tests, remote migration parity, and remote database lint without errors all passed.      |
+| Retained gate            | No authenticated Admin browser session was available. Populated/empty directory rendering, desktop/mobile detail, and password-action dialogs are not claimed as live rendered production proof in this pass. |
+
+The existing QA administrator is Operations. It can exercise read,
+pause/reactivate authorization, but Owner-only termination must not appear for
+that account. No lifecycle mutation was performed during release QA.
+
+Deployment and rollback identifiers are in
+[RELEASE_EVIDENCE_2026-09-01.md](./RELEASE_EVIDENCE_2026-09-01.md).
+
 ## Public production host pass — August 30, 2026
 
 The deployed Hostinger release was checked over public HTTPS in the in-app

@@ -3,6 +3,8 @@
 Shared React and Supabase application for the KissMyApps partner dashboard and
 internal admin console. The Partner experience remains useful with zero data, and
 the Admin Product Catalog can create the first real product before a funnel exists.
+The Admin Affiliate workspace now provides a protected operational directory and
+audited lifecycle controls before any product or funnel is launched.
 
 The authoritative implementation checklist is [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
 The production activation/rollback procedure is
@@ -10,6 +12,8 @@ The production activation/rollback procedure is
 deployment evidence is [RELEASE_EVIDENCE_2026-08-28.md](./RELEASE_EVIDENCE_2026-08-28.md).
 The first Hostinger dashboard/gateway release is recorded in
 [RELEASE_EVIDENCE_2026-08-30.md](./RELEASE_EVIDENCE_2026-08-30.md).
+The current Admin Affiliate production release is recorded in
+[RELEASE_EVIDENCE_2026-09-01.md](./RELEASE_EVIDENCE_2026-09-01.md).
 The current UI scope, review checklist, and live-integration boundaries are in
 [UI_IMPLEMENTATION.md](./UI_IMPLEMENTATION.md). The supplied four-page UX v2.0
 document has been fully reviewed; [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md)
@@ -28,7 +32,8 @@ pnpm dev --host 127.0.0.1
 
 Open the exact URL printed by Vite. Navigation uses hash routes, including
 `#profile/payment`, `#profile/terms`, `#profile/documents`, and `#profile/security`.
-The first Admin routes are `#admin/overview` and `#admin/products`. The live auth
+The enabled Admin routes are `#admin/overview`, `#admin/products`,
+`#admin/affiliates`, and `#admin/affiliates/:affiliateId`. The live auth
 routes are `#auth/sign-in`, `#auth/recover`, and `#auth/reset`; the requested
 Partner or Admin destination is preserved through sign-in.
 
@@ -87,8 +92,8 @@ The application is linked directly to the real Supabase project
 `mmyruzjemjecqyivhrgr` (**KissMyApps**). No local or staging Supabase runtime is
 part of this workflow.
 
-All 12 migrations from `20260825215958_platform_foundation` through
-`20260828220000_stripe_webhook_payload_minimization` are applied remotely. The
+All 15 migrations from `20260825215958_platform_foundation` through
+`20260901100000_admin_affiliate_management` are applied remotely. The
 deployed foundation now includes:
 
 - default-deny RLS and zero browser-role grants on public base tables;
@@ -101,14 +106,18 @@ deployed foundation now includes:
 - click/acquisition capture, browser and signed funnel-event ingestion, immutable
   Stripe evidence, commercial ledger processing, metrics, and reconciliation;
 - per-funnel signing-key scope, public database rate limits, atomic retry
-  handling, and privacy-minimized Stripe webhook storage; and
+  handling, and privacy-minimized Stripe webhook storage;
 - ten active production Edge Functions with application-level authentication,
-  while tracking remains disabled and external integration secrets are absent.
+  while tracking remains disabled and external integration secrets are absent;
+- public Partner registration with immutable Terms/Privacy evidence and
+  confirmed-email activation; and
+- protected Admin Affiliate summary, directory, detail, and audited lifecycle
+  RPCs with Owner-only termination and commercial-record blockers.
 
 No funnel, link, click, conversion, transaction, payout, or storage object has
-been seeded. One existing draft product named `test` was preserved. The QA Auth
-user remains both the active QA Partner and a least-privilege `operations`
-administrator; no owner role or second test user was created.
+been seeded. One existing draft product named `test` was preserved. Public
+registration records are retained, and the QA administrator remains
+least-privilege `operations`; no Owner authority was granted for this release.
 
 ### Admin product configuration
 
@@ -122,20 +131,32 @@ link through password-proven RPCs; the browser has no direct base-table access.
 Activation is fail-closed. A usable link requires a live funnel, one exact active
 subscription offer verified against Stripe live mode, one supported active
 purchase rule, and a current agreement document signed by both parties. The
-remaining top-level Admin modules stay visible as a roadmap but are not yet
-enabled.
+other remaining top-level Admin modules stay visible as a roadmap but are not
+yet enabled.
+
+### Admin affiliate management
+
+The protected `#admin/affiliates` directory is live with search, status/product
+filters, sorting, pagination, and registration, email-confirmation, activation,
+legal-acceptance, agreement, product, and link evidence. Selecting a row opens a
+route-backed detail dialog. Operations and Owner administrators can pause or
+reactivate a Partner after password verification; termination is Owner-only,
+requires the exact affiliate slug, and fails closed while blocking agreements,
+documents, or unsettled payouts exist. Every lifecycle mutation writes immutable
+audit history. The browser never receives direct base-table access.
 
 Partner, Admin, and Auth surfaces now use the canonical `kissmyapps.dev` dark
 palette, Outfit typeface, and lips/sparkle mark. Favicons use the transparent live
 SVG/PNG assets rather than the supplied opaque-corner raster.
 
 Hosted Auth uses `https://partners.kissmyapps.dev` as the Site URL and allows only
-the exact Partner/Admin `/#auth/reset` callbacks. Public signup is disabled,
-confirmed-email sign-in and the 12-character minimum remain enforced, and secure
-password change is enabled. “Require current password” is disabled because a
-newly invited user does not know Supabase's temporary invitation password; the
-activation gate below supplies the required proof before workspace access is
-granted. Resend is deferred.
+the exact Partner/Admin `/#auth/reset` callbacks. Public Partner signup is
+enabled, confirmed-email sign-in and the 12-character minimum remain enforced,
+and secure password change is enabled. “Require current password” is disabled
+because a newly invited user does not know Supabase's temporary invitation
+password; the activation gate below supplies the required proof before workspace
+access is granted. Resend SMTP is configured for hosted Auth mail; broader
+transactional lifecycle email remains deferred.
 
 The hosted invite email uses a custom token-hash callback instead of Supabase's
 default implicit-token redirect:
@@ -175,7 +196,7 @@ pnpm format:check
 pnpm validate
 ```
 
-The current web suite covers 33 files and 409 tests, together with formatting,
+The current web suite covers 35 files and 458 tests, together with formatting,
 lint, the funnel integration contract, TypeScript, and a production build. It covers fixture
 calculations, token-hash invitation acceptance (including React Strict Mode's
 development effect replay), activation gating, auth/session behavior, tenant-safe
@@ -194,9 +215,11 @@ unavailable to Partners. Authenticated desktop and 390px checks of the local Vit
 runtime connected to the real project confirmed the Admin routes, no page-level
 horizontal overflow, mobile navigation/workspace switching, focus movement, slug
 generation, and a clean console without creating additional product data.
+That evidence predates the deployed Admin Affiliate workspace and does not count
+as its authenticated production visual acceptance.
 
-The production backend validation additionally passes 592 of 592 PostgreSQL 17
-assertions across a fresh 12-migration replay, 51 of 51 Edge tests, all ten
+The production backend validation additionally passes 724 of 724 PostgreSQL 17
+assertions across a fresh 15-migration replay and 16 pgTAP files, 51 of 51 Edge tests, all ten
 Function entrypoint checks, an exact remote migration-history read-back, and a
 clean remote database lint. The deployed Function smoke checks fail closed as
 expected while integration configuration is absent.
@@ -209,16 +232,19 @@ recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 
 ## Remaining build order
 
-1. Create or rename the first real draft product, then build and connect its real
+1. Complete the signed-in production Admin Affiliate desktop/mobile acceptance
+   pass without mutating the current QA Partner lifecycle.
+2. Create or rename the first real draft product, then build and connect its real
    production funnel.
-2. Add the live Stripe subscription Price and secrets, configure the signed
+3. Add the live Stripe subscription Price and secrets, configure the signed
    webhook endpoint, and verify the offer from Admin.
-3. Create the real partner commission terms and complete both signatures before
+4. Create the real partner commission terms and complete both signatures before
    issuing an active main link.
-4. Configure monitoring and worker schedules, then validate the full production
+5. Configure monitoring and worker schedules, then validate the full production
    redirect-to-reconciliation journey before enabling tracking.
-5. Add document upload/signing, a controlled payout release procedure, Singular,
-   the approved Amplitude subset, and the remaining Admin P2 modules.
+6. Add document upload/signing, a controlled payout release procedure, Singular,
+   the approved Amplitude subset, and the remaining Admin P2 modules after
+   Affiliates.
 
 ## Source-of-truth boundaries
 

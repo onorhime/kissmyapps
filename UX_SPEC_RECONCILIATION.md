@@ -1,6 +1,7 @@
 # Partner portal — UX v2.0 reconciliation
 
-Reviewed August 26, 2026 against the current working tree.
+Partner requirements reviewed August 26, 2026; Admin Affiliate implementation
+status refreshed September 1, 2026.
 
 ## Source and scope
 
@@ -24,7 +25,8 @@ Supabase; inspect the designated real project after access is granted.
 
 **The partner-facing frontend requirement phases are implemented in preview.**
 This does not close native/manual acceptance, live integration/security, or the
-remaining admin scope beyond the implemented Overview/Product foundation.
+remaining admin scope beyond the implemented Overview, Products, and Affiliates
+foundation.
 Evidence is in [BROWSER_QA.md](./BROWSER_QA.md) and the
 phase-specific QA records.
 
@@ -58,8 +60,8 @@ paid, or fully accepted on native browsers and assistive technology.
 | R2  | Read-only commercial terms and versions, p. 3                                       | Preview complete                | Read-only current/draft versions, model/rate/rules, dates, illustrative window, frequency/currency/minimum and status. Uses the same current sample agreement as Payouts; draft review never changes paid snapshots. Real terms/version activation remain backend-gated.                                             |
 | R3  | Document types, lifecycle, and metadata, pp. 3–4                                    | Preview complete; file gate     | Nine examples cover seven types/eight lifecycle states, separate two-party signature timestamps, created/effective/expiry/termination dates and supersession. No private file exists; upload/sign/signed-PDF actions stay gated. Sample metadata CSV is not an agreement.                                            |
 | S1  | Restricted notification categories, p. 4                                            | Preview complete                | Exactly statements, payouts, verification, signatures, refund/dispute adjustments and inactive links. Preferences save/discard in browser memory only; live delivery and persistence remain backend-gated.                                                                                                           |
-| S2  | Partner-safe history, private files, RLS/2FA/encryption, p. 4                       | Backend gate                    | No live security or tenant-isolation claim follows from this preview. Add safe aggregates, private signed downloads, server enforcement, and authenticated negative-access tests. Do not expose raw provider/customer data.                                                                                          |
-| S3  | Admin View as Partner, p. 4                                                         | Deferred admin subfeature       | The protected Admin shell and Product Catalog now exist. Build scoped View as Partner later as read-only, without partner credentials, with full admin audit history.                                                                                                                                                |
+| S2  | Partner-safe history, private files, RLS/2FA/encryption, p. 4                       | Partial backend gate            | Base tables remain browser-inaccessible and Admin Affiliate reads return explicit aggregates/evidence through protected RPCs. Private signed downloads, full 2FA enforcement, and authenticated cross-tenant browser acceptance remain open. Do not expose raw provider/customer data.                               |
+| S3  | Admin View as Partner, p. 4                                                         | Deferred admin subfeature       | The protected Admin shell, Product Catalog, and Affiliate directory/lifecycle controls now exist. Build scoped View as Partner later as read-only, without partner credentials, with full admin audit history.                                                                                                       |
 
 ## Implementation status and next steps
 
@@ -78,9 +80,11 @@ manual gates are in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
    The current revision passes 276 tests and the available browser matrix.
 4. Complete the retained native keyboard, downloaded-file, assistive-technology,
    zoom and physical-device gates; they do not need Supabase credentials.
-5. The real Supabase project, Partner M1b, and Admin Overview/Product foundation
-   are complete. Create the first actual draft product only after its exact name
-   and slug are approved; add its funnel later when a real destination exists.
+5. The real Supabase project, Partner M1b, and Admin Overview/Product/Affiliate
+   foundation are complete. Create the first actual draft product only after its
+   exact name and slug are approved; add its funnel later when a real destination
+   exists. Authenticated production visual acceptance for Affiliates remains a
+   separate gate.
 
 ## Acceptance status
 
@@ -97,6 +101,8 @@ manual gates are in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 - [x] Implement L1–L3, R1–R3 and S1; pass 276 tests, lint, formatting,
       TypeScript/build, 48 route/40 state/36 dialog checks, focus/long-content
       checks, 13 rendered text-color samples, and real browser QR pixel decoding.
+- [x] Add protected Admin Affiliate summary/directory/detail and audited
+      lifecycle controls without implementing credential-sharing View as Partner.
 - [ ] Verify full native Tab traversal of the new report/payout/management controls,
       actual CSV/QR download/file-open, and physical QR scan; current in-app
       checks do not establish this proof.
