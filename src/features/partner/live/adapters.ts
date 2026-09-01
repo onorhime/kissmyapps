@@ -48,7 +48,11 @@ export function toPartnerLiveWorkspaceContext(
     payoutCurrency: selectedProduct?.payoutCurrency ?? null,
     agreementStatus: selectedProduct?.agreementStatus ?? null,
     mainTrackingUrl: selectedProduct?.mainTrackingUrl ?? null,
-    canCreateLinks: selectedProduct !== null && snapshot.availability.funnels === 'available',
+    canCreateLinks:
+      selectedProduct?.mainLinkId !== null &&
+      selectedProduct?.mainLinkId !== undefined &&
+      selectedProduct.mainTrackingUrl !== null &&
+      snapshot.availability.funnels === 'available',
     availability: snapshot.availability,
   }
 }

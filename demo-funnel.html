@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="theme-color" content="#111111" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="A noncommercial KissMyApps funnel used to verify partner-link attribution events."
+    />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <title>Tracking Demo | KissMyApps</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#demo-events">Skip to demo events</a>
+
+    <main class="demo-shell">
+      <header class="demo-header" aria-label="KissMyApps tracking demo">
+        <a class="brand-lockup" href="https://kissmyapps.dev" aria-label="KissMyApps home">
+          <img src="/kissmyapps-mark.svg" alt="" width="52" height="52" />
+          <span>
+            <strong>KissMyApps<span>.dev</span></strong>
+            <small>Tracking demo</small>
+          </span>
+        </a>
+        <span class="demo-badge">Noncommercial test</span>
+      </header>
+
+      <section class="demo-hero" aria-labelledby="demo-title">
+        <p class="eyebrow">Partner attribution acceptance</p>
+        <h1 id="demo-title">Follow one click from partner link to funnel.</h1>
+        <p class="hero-copy">
+          This controlled page records only the approved demo events. It contains no sign-up,
+          checkout, payment collection, advertising pixels, or personal-data fields.
+        </p>
+      </section>
+
+      <section
+        id="demo-status"
+        class="tracking-status"
+        data-state="checking"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span class="status-indicator" aria-hidden="true"></span>
+        <span>
+          <strong id="demo-status-title">Checking attribution…</strong>
+          <span id="demo-status-message">
+            Looking for the secure click reference supplied by the partner link.
+          </span>
+        </span>
+      </section>
+
+      <section id="demo-events" class="event-section" aria-labelledby="events-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Controlled event sequence</p>
+            <h2 id="events-title">Test the funnel journey</h2>
+          </div>
+          <p>Each button records one noncommercial event. Nothing is purchased or submitted.</p>
+        </div>
+
+        <div class="event-grid">
+          <article class="event-card">
+            <span class="step-number" aria-hidden="true">01</span>
+            <h3>Start the demo funnel</h3>
+            <p>Records <code>funnel_started</code> for the attributed click.</p>
+            <button type="button" data-demo-event="funnel_started" disabled>
+              Record funnel start
+            </button>
+          </article>
+
+          <article class="event-card">
+            <span class="step-number" aria-hidden="true">02</span>
+            <h3>View the payment step</h3>
+            <p>Records <code>payment_viewed</code>. No checkout or payment form opens.</p>
+            <button type="button" data-demo-event="payment_viewed" disabled>
+              Record payment view
+            </button>
+          </article>
+
+          <article class="event-card">
+            <span class="step-number" aria-hidden="true">03</span>
+            <h3>Try the app destination</h3>
+            <p>Records <code>app_store_clicked</code>. This test does not leave the page.</p>
+            <button type="button" data-demo-event="app_store_clicked" disabled>
+              Record app-store click
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <aside class="privacy-note" aria-labelledby="privacy-title">
+        <span aria-hidden="true">i</span>
+        <div>
+          <h2 id="privacy-title">Purposefully limited</h2>
+          <p>
+            This page sends the opaque click reference, event name, page name, and page path only.
+            Do not enter or share personal information during this test.
+          </p>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/demo-funnel/main.ts"></script>
+  </body>
+</html>

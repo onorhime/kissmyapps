@@ -16,6 +16,8 @@ const settingsResponse = {
     launch_ready_agreement_count: 0,
     verified_active_offer_count: 0,
     enable_ready_product_count: 0,
+    commercial_enable_ready_product_count: 0,
+    tracking_only_ready_product_count: 0,
   },
   expected_hosts: {
     partner: 'https://partners.kissmyapps.dev',
@@ -80,6 +82,8 @@ describe('admin settings RPC gateway', () => {
           launchReadyAgreementCount: 0,
           verifiedActiveOfferCount: 0,
           enableReadyProductCount: 0,
+          commercialEnableReadyProductCount: 0,
+          trackingOnlyReadyProductCount: 0,
         },
         expectedHosts: {
           partner: 'https://partners.kissmyapps.dev',

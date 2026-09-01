@@ -33,6 +33,8 @@ const product: AdminProduct = {
   name: 'Daily Planner',
   slug: 'daily-planner',
   status: 'draft',
+  trackingMode: 'commercial',
+  trackingOnlyApprovedAt: null,
   createdAt: '2026-08-28T10:00:00.000Z',
   updatedAt: '2026-08-31T10:00:00.000Z',
 }
@@ -45,6 +47,8 @@ const productConfiguration: AdminProductConfiguration = {
     hasActiveAgreement: false,
     hasActiveBillingOffer: false,
     trackingReady: false,
+    trackingOnlyReady: false,
+    trackingOnlyCanIssueLinks: false,
   },
   funnels: [],
   campaigns: [],

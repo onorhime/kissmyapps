@@ -102,10 +102,12 @@ const productRow = {
   slug: 'first-product',
   name: 'First product',
   status: 'active',
+  tracking_mode: 'commercial',
   agreement_status: 'active',
   commercial_model: 'revenue_share',
   payout_currency: 'USD',
   has_live_funnel: true,
+  main_link_id: 'main-link-1',
   main_tracking_url: 'https://go.example.test/r/trusted-main',
 }
 
@@ -127,6 +129,7 @@ const linkRow = {
   status: 'active',
   tracking_url: 'https://go.example.test/r/trusted-link',
   parent_link_id: null,
+  commercial_eligible: true,
   clicks: 0,
   leads: 0,
   installs: null,
@@ -290,7 +293,14 @@ describe('partner Supabase data gateway', () => {
     await expect(gateway.getLinkDirectory()).resolves.toMatchObject({
       status: 'ready',
       data: {
-        products: [{ id: 'product-1', mainTrackingUrl: productRow.main_tracking_url }],
+        products: [
+          {
+            id: 'product-1',
+            trackingMode: 'commercial',
+            mainLinkId: productRow.main_link_id,
+            mainTrackingUrl: productRow.main_tracking_url,
+          },
+        ],
         funnels: [{ id: 'funnel-1' }],
         sources: [{ id: 'source-1' }],
         campaigns: [],
@@ -298,12 +308,69 @@ describe('partner Supabase data gateway', () => {
     })
     await expect(gateway.getPartnerLinks('product-1')).resolves.toMatchObject({
       status: 'ready',
-      data: [{ trackingUrl: linkRow.tracking_url, installs: null }],
+      data: [
+        {
+          trackingUrl: linkRow.tracking_url,
+          commercialEligible: true,
+          installs: null,
+        },
+      ],
     })
     expect(calls).toContainEqual({
       target: PARTNER_VIEWS.links,
       operation: 'eq',
       args: ['product_id', 'product-1'],
+    })
+  })
+
+  it('preserves tracking-only scope and unavailable commercial link metrics', async () => {
+    const { client } = mockClient({
+      views: {
+        [PARTNER_VIEWS.products]: ok([
+          {
+            ...productRow,
+            tracking_mode: 'tracking_only',
+            agreement_status: null,
+            commercial_model: null,
+            payout_currency: null,
+          },
+        ]),
+        [PARTNER_VIEWS.links]: ok([
+          {
+            ...linkRow,
+            commercial_eligible: false,
+            leads: null,
+            purchases: null,
+            earnings_minor: null,
+            currency: null,
+          },
+        ]),
+      },
+    })
+    const gateway = createPartnerDataGateway(client)
+
+    await expect(gateway.getProducts()).resolves.toMatchObject({
+      status: 'ready',
+      data: [
+        {
+          trackingMode: 'tracking_only',
+          agreementStatus: null,
+          commercialModel: null,
+          payoutCurrency: null,
+        },
+      ],
+    })
+    await expect(gateway.getPartnerLinks('product-1')).resolves.toMatchObject({
+      status: 'ready',
+      data: [
+        {
+          commercialEligible: false,
+          leads: null,
+          purchases: null,
+          earningsMinor: null,
+          currency: null,
+        },
+      ],
     })
   })
 

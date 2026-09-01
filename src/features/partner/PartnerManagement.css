@@ -74,6 +74,254 @@
 .links-history-scroll th {
   white-space: normal;
 }
+
+.live-links-workspace {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.live-demo-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 15px 17px;
+  border: 1px solid var(--brand-yellow);
+  border-radius: 10px;
+  background: rgb(255 232 38 / 9%);
+  color: var(--brand-text);
+}
+
+.live-demo-scope strong {
+  flex: 0 0 auto;
+  color: var(--brand-yellow);
+  font-size: 13px;
+}
+
+.live-demo-scope span {
+  color: var(--brand-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.live-main-link {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.live-main-link h2,
+.live-links-actions h2,
+.live-link-form-heading h2 {
+  margin: 5px 0 7px;
+  color: var(--brand-text);
+  font-size: 20px;
+}
+
+.live-main-link p,
+.live-links-actions p {
+  color: var(--brand-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.live-link-copy-row,
+.live-link-table-url {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.live-link-copy-row input,
+.live-link-table-url input {
+  flex: 1 1 auto;
+  min-width: 180px;
+  min-height: 41px;
+  padding: 10px 12px;
+  border: 1px solid var(--brand-line);
+  border-radius: 7px;
+  background: var(--brand-control);
+  color: var(--brand-text);
+  font:
+    12px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+
+.live-links-actions,
+.live-link-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.live-links-actions h2,
+.live-link-form-heading h2 {
+  margin-top: 0;
+}
+
+.live-links-prerequisite {
+  margin: 0;
+}
+
+.live-link-form {
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+}
+
+.live-link-form .form-error {
+  margin: 0;
+  font-weight: 500;
+}
+
+.live-link-form .dialog-actions {
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+.live-links-notice {
+  margin: 0;
+  padding: 13px 15px;
+}
+
+.live-links-empty {
+  min-height: 240px;
+}
+
+.live-links-resource-state {
+  min-height: 250px;
+}
+
+.live-links-list {
+  overflow: hidden;
+}
+
+.live-links-list .links-history-scroll table {
+  min-width: 1120px;
+}
+
+.live-links-list td:nth-child(2) {
+  min-width: 280px;
+  max-width: 420px;
+  white-space: normal;
+  line-height: 1.65;
+}
+
+.live-links-list td:nth-child(6) {
+  white-space: normal;
+  min-width: 150px;
+}
+
+.live-link-table-url {
+  min-width: 320px;
+}
+
+.live-link-table-url input {
+  min-width: 220px;
+}
+
+.live-demo-summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.live-source-breakdown {
+  min-width: 0;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.live-source-breakdown-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.live-source-breakdown-heading h2 {
+  margin: 5px 0 0;
+  color: var(--brand-text);
+  font-size: 20px;
+}
+
+.live-source-breakdown-heading p {
+  max-width: 440px;
+  margin: 0;
+  color: var(--brand-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.live-source-breakdown-scroll table {
+  min-width: 760px;
+}
+
+.live-source-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 120px;
+  padding: 18px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--brand-control);
+  color: var(--brand-muted);
+}
+
+.live-source-unavailable > svg {
+  flex: 0 0 auto;
+  color: var(--brand-light-blue);
+}
+
+.live-source-unavailable > div {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 5px;
+}
+
+.live-source-unavailable strong {
+  color: var(--brand-text);
+  font-size: 14px;
+}
+
+.live-source-unavailable span {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.live-source-unavailable .button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .live-demo-scope,
+  .live-links-actions,
+  .live-link-form-heading,
+  .live-link-copy-row,
+  .live-source-breakdown-heading,
+  .live-source-unavailable,
+  .live-link-form .dialog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .live-links-actions .button,
+  .live-link-form-heading .button,
+  .live-link-copy-row .button,
+  .live-source-unavailable .button,
+  .live-link-form .dialog-actions .button {
+    width: 100%;
+  }
+
+  .live-link-copy-row input {
+    width: 100%;
+    min-width: 0;
+  }
+}
 .link-table-name,
 .link-tracking-cell {
   max-width: 200px;

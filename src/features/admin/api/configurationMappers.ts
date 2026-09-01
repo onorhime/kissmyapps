@@ -294,6 +294,12 @@ export function mapAdminProductConfiguration(value: unknown): AdminProductConfig
         'hasActiveBillingOffer',
       ),
       trackingReady: boolean(readiness, 'tracking_ready', 'trackingReady'),
+      trackingOnlyReady: boolean(readiness, 'tracking_only_ready', 'trackingOnlyReady'),
+      trackingOnlyCanIssueLinks: boolean(
+        readiness,
+        'tracking_only_can_issue_links',
+        'trackingOnlyCanIssueLinks',
+      ),
     },
     funnels: rows(row, 'funnels').map(mapAdminFunnel),
     campaigns: rows(row, 'campaigns').map(mapAdminCampaign),

@@ -13,6 +13,8 @@ const configuration: AdminProductConfiguration = {
     name: 'Daily Planner',
     slug: 'daily-planner',
     status: 'draft',
+    trackingMode: 'commercial',
+    trackingOnlyApprovedAt: null,
     createdAt: '2026-08-28T10:00:00.000Z',
     updatedAt: '2026-08-28T10:00:00.000Z',
   },
@@ -22,6 +24,8 @@ const configuration: AdminProductConfiguration = {
     hasActiveAgreement: false,
     hasActiveBillingOffer: false,
     trackingReady: false,
+    trackingOnlyReady: false,
+    trackingOnlyCanIssueLinks: false,
   },
   funnels: [],
   campaigns: [],
@@ -105,6 +109,8 @@ const launchReadyConfiguration: AdminProductConfiguration = {
     hasActiveAgreement: true,
     hasActiveBillingOffer: true,
     trackingReady: true,
+    trackingOnlyReady: false,
+    trackingOnlyCanIssueLinks: false,
   },
   agreements: [launchReadyAgreement],
   billingOffers: [activeOffer],
@@ -210,5 +216,79 @@ describe('admin production readiness', () => {
     expect(readiness.allowed).toBe(false)
     expect(readiness.eligibleAffiliateIds).toEqual([])
     expect(readiness.blockers).toContain('launch_ready_agreement_missing')
+  })
+
+  it('allows an active partner through the server-approved tracking-only link gate', () => {
+    const trackingOnly: AdminProductConfiguration = {
+      ...configuration,
+      product: {
+        ...configuration.product,
+        status: 'active',
+        trackingMode: 'tracking_only',
+        trackingOnlyApprovedAt: configuration.product.updatedAt,
+      },
+      tracking: { enabled: true, baseUrl: 'https://go.kissmyapps.dev' },
+      readiness: {
+        ...configuration.readiness,
+        hasLiveDefaultFunnel: true,
+        trackingOnlyReady: true,
+        trackingOnlyCanIssueLinks: true,
+      },
+    }
+
+    expect(mainLinkReadiness(trackingOnly, [affiliate])).toEqual({
+      allowed: true,
+      blockers: [],
+      eligibleAffiliateIds: [affiliate.id],
+    })
+  })
+
+  it('fails closed when the approved tracking-only funnel snapshot is stale', () => {
+    const trackingOnly: AdminProductConfiguration = {
+      ...configuration,
+      product: {
+        ...configuration.product,
+        status: 'active',
+        trackingMode: 'tracking_only',
+        trackingOnlyApprovedAt: configuration.product.updatedAt,
+      },
+      tracking: { enabled: true, baseUrl: 'https://go.kissmyapps.dev' },
+      readiness: {
+        ...configuration.readiness,
+        hasLiveDefaultFunnel: true,
+        trackingOnlyReady: false,
+        trackingOnlyCanIssueLinks: false,
+      },
+    }
+
+    expect(mainLinkReadiness(trackingOnly, [affiliate]).blockers).toContain(
+      'tracking_only_approval_required',
+    )
+  })
+
+  it('does not let an archived demo main link block a new current link', () => {
+    const commercialWithArchivedDemoLink: AdminProductConfiguration = {
+      ...launchReadyConfiguration,
+      mainLinks: [
+        {
+          id: 'archived-demo-main-link',
+          affiliateId: affiliate.id,
+          partnerName: affiliate.publicName,
+          productId: configuration.product.id,
+          funnelId: 'funnel-1',
+          name: 'Archived demo main link',
+          publicCode: null,
+          trackingUrl: 'https://go.kissmyapps.dev/r/creator-studio/archived',
+          status: 'archived',
+          createdAt: configuration.product.createdAt,
+        },
+      ],
+    }
+
+    expect(mainLinkReadiness(commercialWithArchivedDemoLink, [affiliate])).toEqual({
+      allowed: true,
+      blockers: [],
+      eligibleAffiliateIds: [affiliate.id],
+    })
   })
 })

@@ -22,6 +22,8 @@ const blockedSettings: AdminPlatformSettings = {
     launchReadyAgreementCount: 0,
     verifiedActiveOfferCount: 0,
     enableReadyProductCount: 0,
+    commercialEnableReadyProductCount: 0,
+    trackingOnlyReadyProductCount: 0,
   },
   expectedHosts: {
     partner: 'https://partners.kissmyapps.dev',
@@ -44,6 +46,8 @@ const readySettings: AdminPlatformSettings = {
     launchReadyAgreementCount: 1,
     verifiedActiveOfferCount: 1,
     enableReadyProductCount: 1,
+    commercialEnableReadyProductCount: 1,
+    trackingOnlyReadyProductCount: 0,
   },
 }
 
@@ -231,7 +235,7 @@ describe('Admin Platform Settings page', () => {
     expect(screen.getByText('Enablement blocked')).toBeVisible()
     expect(screen.queryByRole('button', { name: /enable tracking/i })).not.toBeInTheDocument()
     expect(
-      screen.getByText(/does not create products, funnels, offers, payment events/i),
+      screen.getByText(/tracking-only readiness does not create offers, payment events/i),
     ).toBeVisible()
     expect(screen.getByText(/does not prove DNS resolution/i)).toBeVisible()
   })
@@ -328,7 +332,35 @@ describe('Admin Platform Settings page', () => {
     render(<PlatformSettingsPage context={ownerContext} gateway={gatewayWith(drifted)} />)
 
     expect(await screen.findByText('Enabled with drift')).toBeVisible()
-    expect(screen.getByText('Enable-ready product chains')).toBeVisible()
+    expect(screen.getByText('Eligible product chains')).toBeVisible()
+  })
+
+  it('explains when tracking-only readiness unlocks collection without commercial records', async () => {
+    const trackingOnlySettings: AdminPlatformSettings = {
+      ...readySettings,
+      readiness: {
+        ...readySettings.readiness,
+        launchReadyAgreementCount: 0,
+        verifiedActiveOfferCount: 0,
+        commercialEnableReadyProductCount: 0,
+        trackingOnlyReadyProductCount: 1,
+      },
+    }
+    const user = userEvent.setup()
+    render(
+      <PlatformSettingsPage context={ownerContext} gateway={gatewayWith(trackingOnlySettings)} />,
+    )
+
+    expect(await screen.findByText('Tracking-only-ready products')).toBeVisible()
+    expect(screen.getByText('Commercial-ready chains').parentElement).toHaveTextContent('0')
+    expect(screen.getByText('Tracking-only-ready products').parentElement).toHaveTextContent('1')
+
+    await user.click(screen.getByRole('button', { name: 'Enable tracking' }))
+    expect(
+      screen.getByText(
+        /tracking-only products remain unable to create checkout, commission, or payout records/i,
+      ),
+    ).toBeVisible()
   })
 
   it.each(['operations', 'finance', 'analyst'] as const)(

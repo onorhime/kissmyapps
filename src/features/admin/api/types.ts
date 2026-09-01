@@ -40,14 +40,18 @@ export type AdminContext = Readonly<{
 }>
 
 export const ADMIN_PRODUCT_STATUSES = ['draft', 'active', 'paused', 'archived'] as const
+export const ADMIN_PRODUCT_TRACKING_MODES = ['commercial', 'tracking_only'] as const
 
 export type AdminProductStatus = (typeof ADMIN_PRODUCT_STATUSES)[number]
+export type AdminProductTrackingMode = (typeof ADMIN_PRODUCT_TRACKING_MODES)[number]
 
 export type AdminProduct = Readonly<{
   id: string
   name: string
   slug: string
   status: AdminProductStatus
+  trackingMode: AdminProductTrackingMode
+  trackingOnlyApprovedAt: string | null
   createdAt: string
   updatedAt: string
 }>
@@ -369,6 +373,12 @@ export type AdminProductActivation = Readonly<{
   productId: string
 }>
 
+export type AdminProductTrackingModeUpdate = Readonly<{
+  productId: string
+  mode: AdminProductTrackingMode
+  expectedUpdatedAt: string
+}>
+
 export type AdminMainLink = Readonly<{
   id: string
   affiliateId: string
@@ -466,6 +476,8 @@ export const ADMIN_READINESS_BLOCKERS = [
   'active_commission_rule_missing',
   'active_billing_offer_missing',
   'launch_ready_agreement_missing',
+  'tracking_only_approval_required',
+  'tracking_only_link_gate_not_ready',
   'server_readiness_unavailable',
 ] as const
 
@@ -492,6 +504,8 @@ export type AdminProductConfiguration = Readonly<{
     hasActiveAgreement: boolean
     hasActiveBillingOffer: boolean
     trackingReady: boolean
+    trackingOnlyReady: boolean
+    trackingOnlyCanIssueLinks: boolean
   }>
   funnels: readonly AdminFunnel[]
   campaigns: readonly AdminCampaign[]
@@ -666,6 +680,8 @@ export type AdminPlatformSettings = Readonly<{
     launchReadyAgreementCount: number
     verifiedActiveOfferCount: number
     enableReadyProductCount: number
+    commercialEnableReadyProductCount: number
+    trackingOnlyReadyProductCount: number
   }>
   expectedHosts: Readonly<{
     partner: string
@@ -698,6 +714,7 @@ export interface AdminGateway {
   setCommissionRuleStatus?: AdminConfigurationGateway['setCommissionRuleStatus']
   activateAgreement?: AdminConfigurationGateway['activateAgreement']
   activateProduct?: AdminConfigurationGateway['activateProduct']
+  setProductTrackingMode?: AdminConfigurationGateway['setProductTrackingMode']
   issueMainLink?: AdminConfigurationGateway['issueMainLink']
   createBillingOffer?: AdminConfigurationGateway['createBillingOffer']
   updateBillingOffer?: AdminConfigurationGateway['updateBillingOffer']
@@ -803,6 +820,9 @@ export interface AdminConfigurationGateway {
     input: AdminAgreementActivation,
   ): Promise<AdminDataResult<AdminAgreement | null>>
   activateProduct(input: AdminProductActivation): Promise<AdminDataResult<AdminProduct | null>>
+  setProductTrackingMode(
+    input: AdminProductTrackingModeUpdate,
+  ): Promise<AdminDataResult<AdminProduct | null>>
   issueMainLink(input: AdminMainLinkIssue): Promise<AdminDataResult<AdminMainLink | null>>
   createBillingOffer(
     input: AdminBillingOfferCreate,
@@ -833,6 +853,7 @@ const configurationGatewayMethods = [
   'setCommissionRuleStatus',
   'activateAgreement',
   'activateProduct',
+  'setProductTrackingMode',
   'issueMainLink',
   'createBillingOffer',
   'updateBillingOffer',

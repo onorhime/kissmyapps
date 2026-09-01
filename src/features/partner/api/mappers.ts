@@ -19,6 +19,7 @@ import type {
   PartnerPayoutStatus,
   PartnerProduct,
   PartnerProductStatus,
+  PartnerProductTrackingMode,
   PartnerProfile,
   PartnerReconciliationStage,
   PartnerRole,
@@ -93,6 +94,7 @@ const partnerStatuses: readonly PartnerStatus[] = [
   'terminated',
 ]
 const productStatuses: readonly PartnerProductStatus[] = ['draft', 'active', 'paused', 'archived']
+const productTrackingModes: readonly PartnerProductTrackingMode[] = ['commercial', 'tracking_only']
 const agreementStatuses: readonly PartnerAgreementStatus[] = [
   'draft',
   'awaiting_signature',
@@ -180,6 +182,7 @@ export function mapPartnerProduct(value: unknown): PartnerProduct {
     slug: string(row.slug, 'slug'),
     name: string(row.name, 'name'),
     status: enumValue(row.status, productStatuses, 'status'),
+    trackingMode: enumValue(row.tracking_mode, productTrackingModes, 'tracking_mode'),
     agreementStatus:
       row.agreement_status === null || row.agreement_status === undefined
         ? null
@@ -190,6 +193,7 @@ export function mapPartnerProduct(value: unknown): PartnerProduct {
         : enumValue(row.commercial_model, commissionModels, 'commercial_model'),
     payoutCurrency: nullableString(row.payout_currency, 'payout_currency'),
     hasLiveFunnel: boolean(row.has_live_funnel, 'has_live_funnel'),
+    mainLinkId: nullableString(row.main_link_id, 'main_link_id'),
     mainTrackingUrl: nullableString(row.main_tracking_url, 'main_tracking_url'),
   }
 }
@@ -226,12 +230,13 @@ export function mapPartnerLink(value: unknown): PartnerLink {
     status: enumValue(row.status, linkStatuses, 'status'),
     trackingUrl: string(row.tracking_url, 'tracking_url'),
     parentLinkId: nullableString(row.parent_link_id, 'parent_link_id'),
+    commercialEligible: boolean(row.commercial_eligible, 'commercial_eligible'),
     clicks: integer(row.clicks, 'clicks'),
-    leads: integer(row.leads, 'leads'),
+    leads: nullableInteger(row.leads, 'leads'),
     installs: nullableInteger(row.installs, 'installs'),
-    purchases: integer(row.purchases, 'purchases'),
-    earningsMinor: integer(row.earnings_minor, 'earnings_minor'),
-    currency: string(row.currency, 'currency'),
+    purchases: nullableInteger(row.purchases, 'purchases'),
+    earningsMinor: nullableInteger(row.earnings_minor, 'earnings_minor'),
+    currency: nullableString(row.currency, 'currency'),
     createdAt: string(row.created_at, 'created_at'),
   }
 }

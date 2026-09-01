@@ -71,6 +71,7 @@ export const ADMIN_RPCS = Object.freeze({
   setCommissionRuleStatus: 'set_admin_commission_rule_status',
   activateAgreement: 'activate_admin_agreement',
   activateProduct: 'activate_admin_product',
+  setProductTrackingMode: 'set_admin_product_tracking_mode',
   issueMainLink: 'issue_admin_main_link',
   createBillingOffer: 'create_admin_billing_offer',
   updateBillingOffer: 'update_admin_billing_offer',
@@ -742,6 +743,26 @@ export function createAdminGateway(
         { product_id: input.productId },
         mapAdminProduct,
         { invalidState: 'Complete every production activation check first.' },
+      )
+    },
+
+    async setProductTrackingMode(input) {
+      if (!client) return notConfigured<AdminProduct | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.setProductTrackingMode,
+        {
+          product_id: input.productId,
+          mode: input.mode,
+          expected_updated_at: input.expectedUpdatedAt,
+        },
+        mapAdminProduct,
+        {
+          conflict: 'Product configuration changed in another session. Refresh and try again.',
+          invalidInput: 'Choose a supported product tracking mode.',
+          invalidState:
+            'This mode change is blocked. Tracking-only requires a current live default HTTPS funnel, and products with demo traffic cannot become commercial.',
+        },
       )
     },
 

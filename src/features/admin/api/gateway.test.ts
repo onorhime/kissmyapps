@@ -81,6 +81,8 @@ describe('admin RPC gateway', () => {
           name: 'Daily Planner',
           slug: 'daily-planner',
           status: 'draft',
+          trackingMode: 'commercial',
+          trackingOnlyApprovedAt: null,
           createdAt: '2026-08-28T10:00:00.000Z',
           updatedAt: '2026-08-28T10:00:00.000Z',
         },

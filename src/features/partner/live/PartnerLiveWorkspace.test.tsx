@@ -55,10 +55,12 @@ const product = {
   slug: 'first-product',
   name: 'First product',
   status: 'active' as const,
+  trackingMode: 'commercial' as const,
   agreementStatus: 'active' as const,
   commercialModel: 'revenue_share' as const,
   payoutCurrency: 'USD',
   hasLiveFunnel: true,
+  mainLinkId: 'main-link-1',
   mainTrackingUrl: 'https://go.example.test/r/first-product',
 }
 
@@ -90,6 +92,7 @@ const link: PartnerLink = {
   status: 'active',
   trackingUrl: 'https://go.example.test/r/trusted-link',
   parentLinkId: null,
+  commercialEligible: true,
   clicks: 0,
   leads: 0,
   installs: null,

@@ -132,7 +132,9 @@ function SettingsState({
 
 function ReadinessSummary({ settings }: { settings: AdminPlatformSettings }) {
   const items = [
-    ['Enable-ready product chains', settings.readiness.enableReadyProductCount],
+    ['Eligible product chains', settings.readiness.enableReadyProductCount],
+    ['Commercial-ready chains', settings.readiness.commercialEnableReadyProductCount],
+    ['Tracking-only-ready products', settings.readiness.trackingOnlyReadyProductCount],
     ['Active products', settings.readiness.activeProductCount],
     ['Live default funnels', settings.readiness.liveDefaultFunnelCount],
     ['Launch-ready agreements', settings.readiness.launchReadyAgreementCount],
@@ -152,7 +154,10 @@ function ReadinessSummary({ settings }: { settings: AdminPlatformSettings }) {
         <div>
           <p className="admin-eyebrow">ENABLEMENT GATE</p>
           <h2 id="settings-readiness">Launch readiness</h2>
-          <p>Existing production records determine whether collection can be enabled.</p>
+          <p>
+            One complete commercial chain or one Owner-approved tracking-only chain can unlock
+            collection.
+          </p>
         </div>
         <span
           className={`admin-settings-status admin-settings-status-${readinessStatus.className}`}
@@ -176,8 +181,8 @@ function ReadinessSummary({ settings }: { settings: AdminPlatformSettings }) {
       </dl>
 
       <p className="admin-settings-evidence-note">
-        These are existing database counts. This page does not create products, funnels, offers,
-        payment events, subscriptions, commissions, or payouts.
+        These are existing database counts. Tracking-only readiness does not create offers, payment
+        events, subscriptions, commissions, or payouts.
       </p>
     </section>
   )
@@ -530,8 +535,8 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
                 <div className="admin-settings-blocked" role="note">
                   <CircleAlert size={18} aria-hidden="true" />
                   <p>
-                    Tracking cannot be enabled until the server reports that every launch-readiness
-                    requirement is satisfied.
+                    Tracking cannot be enabled until the server reports one complete commercial
+                    chain or one valid Owner-approved tracking-only product chain.
                   </p>
                 </div>
               )}
@@ -551,7 +556,8 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
                       <p>
                         Enable tracking for the saved origin{' '}
                         {visibleOrigin(settings.tracking.baseUrl)}? This changes collection state
-                        but does not create traffic or payment data.
+                        but does not create traffic or payment data. Tracking-only products remain
+                        unable to create checkout, commission, or payout records.
                       </p>
                     </div>
                     <div className="admin-settings-confirm-actions">

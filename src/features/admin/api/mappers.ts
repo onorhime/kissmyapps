@@ -1,9 +1,11 @@
 import {
   ADMIN_PRODUCT_STATUSES,
+  ADMIN_PRODUCT_TRACKING_MODES,
   ADMIN_ROLES,
   type AdminContext,
   type AdminProduct,
   type AdminProductStatus,
+  type AdminProductTrackingMode,
   type AdminRole,
 } from './types'
 
@@ -62,11 +64,22 @@ export function mapAdminContext(value: unknown): AdminContext {
 
 export function mapAdminProduct(value: unknown): AdminProduct {
   const row = object(value)
+  const rawTrackingMode = row.tracking_mode ?? row.trackingMode ?? 'commercial'
   return {
     id: string(row, 'id'),
     name: string(row, 'name'),
     slug: string(row, 'slug'),
     status: enumValue<AdminProductStatus>(row.status, ADMIN_PRODUCT_STATUSES),
+    trackingMode: enumValue<AdminProductTrackingMode>(
+      rawTrackingMode,
+      ADMIN_PRODUCT_TRACKING_MODES,
+    ),
+    trackingOnlyApprovedAt: nullableString(
+      row,
+      Object.hasOwn(row, 'tracking_only_approved_at')
+        ? 'tracking_only_approved_at'
+        : 'trackingOnlyApprovedAt',
+    ),
     createdAt: string(row, 'created_at'),
     updatedAt: string(row, 'updated_at'),
   }

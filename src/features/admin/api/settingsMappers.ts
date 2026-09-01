@@ -103,6 +103,14 @@ export function mapAdminPlatformSettings(value: unknown): AdminPlatformSettings 
       launchReadyAgreementCount: nonNegativeInteger(readiness, 'launch_ready_agreement_count'),
       verifiedActiveOfferCount: nonNegativeInteger(readiness, 'verified_active_offer_count'),
       enableReadyProductCount: nonNegativeInteger(readiness, 'enable_ready_product_count'),
+      commercialEnableReadyProductCount: nonNegativeInteger(
+        readiness,
+        'commercial_enable_ready_product_count',
+      ),
+      trackingOnlyReadyProductCount: nonNegativeInteger(
+        readiness,
+        'tracking_only_ready_product_count',
+      ),
     },
     expectedHosts: {
       partner: httpsOrigin(expectedHosts.partner, 'partner'),

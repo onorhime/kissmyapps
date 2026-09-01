@@ -30,10 +30,10 @@ export const PARTNER_COLUMNS = Object.freeze({
   profile:
     'email,full_name,public_name,legal_name,entity_type,country_code,timezone,preferred_currency,website,category,audience_description,audience_countries,channels,channel_details,role,status,notifications',
   products:
-    'id,slug,name,status,agreement_status,commercial_model,payout_currency,has_live_funnel,main_tracking_url',
+    'id,slug,name,status,tracking_mode,agreement_status,commercial_model,payout_currency,has_live_funnel,main_link_id,main_tracking_url',
   linkOptions: 'id,kind,product_id,key,name,available',
   links:
-    'id,name,product_id,product_name,product_slug,funnel_id,funnel_name,source_id,source_name,campaign_id,campaign_name,sub1,sub2,sub3,status,tracking_url,parent_link_id,clicks,leads,installs,purchases,earnings_minor,currency,created_at',
+    'id,name,product_id,product_name,product_slug,funnel_id,funnel_name,source_id,source_name,campaign_id,campaign_name,sub1,sub2,sub3,status,tracking_url,parent_link_id,commercial_eligible,clicks,leads,installs,purchases,earnings_minor,currency,created_at',
   payoutSummary:
     'currency,open_minor,approved_minor,scheduled_minor,paid_minor,carried_forward_minor,next_expected_payment_at',
   payoutHistory:

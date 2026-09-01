@@ -43,6 +43,7 @@ describe('admin configuration RPC gateway', () => {
       setCommissionRuleStatus: 'set_admin_commission_rule_status',
       activateAgreement: 'activate_admin_agreement',
       activateProduct: 'activate_admin_product',
+      setProductTrackingMode: 'set_admin_product_tracking_mode',
       issueMainLink: 'issue_admin_main_link',
       createBillingOffer: 'create_admin_billing_offer',
       updateBillingOffer: 'update_admin_billing_offer',
@@ -50,6 +51,38 @@ describe('admin configuration RPC gateway', () => {
     })
     expect(ADMIN_EDGE_FUNCTIONS).toEqual({
       verifyBillingOfferPrice: 'stripe-price-verifier',
+    })
+  })
+
+  it('sends an exact timestamp-guarded product tracking-mode mutation', async () => {
+    const responseProduct = {
+      ...product,
+      tracking_mode: 'tracking_only',
+      tracking_only_approved_at: '2026-09-01T12:00:00.000Z',
+      updated_at: '2026-09-01T12:00:00.000Z',
+    }
+    const rpcClient = client({ data: responseProduct, error: null, status: 200 })
+    const gateway = createAdminGateway(rpcClient.value)
+
+    const result = await gateway.setProductTrackingMode?.({
+      productId: product.id,
+      mode: 'tracking_only',
+      expectedUpdatedAt: product.updated_at,
+    })
+
+    expect(rpcClient.rpc).toHaveBeenCalledWith('set_admin_product_tracking_mode', {
+      p_input: {
+        product_id: product.id,
+        mode: 'tracking_only',
+        expected_updated_at: product.updated_at,
+      },
+    })
+    expect(result).toMatchObject({
+      status: 'ready',
+      data: {
+        trackingMode: 'tracking_only',
+        trackingOnlyApprovedAt: '2026-09-01T12:00:00.000Z',
+      },
     })
   })
 
@@ -63,6 +96,8 @@ describe('admin configuration RPC gateway', () => {
           has_active_agreement: false,
           has_active_billing_offer: false,
           tracking_ready: false,
+          tracking_only_ready: false,
+          tracking_only_can_issue_links: false,
         },
         funnels: [],
         campaigns: [],
@@ -100,6 +135,8 @@ describe('admin configuration RPC gateway', () => {
           has_active_agreement: false,
           has_active_billing_offer: false,
           tracking_ready: false,
+          tracking_only_ready: false,
+          tracking_only_can_issue_links: false,
         },
         funnels: [
           {
@@ -143,6 +180,8 @@ describe('admin configuration RPC gateway', () => {
           has_active_agreement: true,
           has_active_billing_offer: true,
           tracking_ready: true,
+          tracking_only_ready: false,
+          tracking_only_can_issue_links: false,
         },
         funnels: [],
         campaigns: [],

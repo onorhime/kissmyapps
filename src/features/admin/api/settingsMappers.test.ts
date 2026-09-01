@@ -14,6 +14,8 @@ const emptySettings = {
     launch_ready_agreement_count: 0,
     verified_active_offer_count: 0,
     enable_ready_product_count: 0,
+    commercial_enable_ready_product_count: 0,
+    tracking_only_ready_product_count: 0,
   },
   expected_hosts: {
     partner: 'https://partners.kissmyapps.dev',
@@ -37,6 +39,8 @@ describe('admin settings mapper', () => {
         launchReadyAgreementCount: 0,
         verifiedActiveOfferCount: 0,
         enableReadyProductCount: 0,
+        commercialEnableReadyProductCount: 0,
+        trackingOnlyReadyProductCount: 0,
       },
       expectedHosts: {
         partner: 'https://partners.kissmyapps.dev',
@@ -63,6 +67,8 @@ describe('admin settings mapper', () => {
             launch_ready_agreement_count: 1,
             verified_active_offer_count: 1,
             enable_ready_product_count: 1,
+            commercial_enable_ready_product_count: 1,
+            tracking_only_ready_product_count: 0,
             active_main_link_count: 0,
           },
         },

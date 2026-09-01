@@ -1216,6 +1216,118 @@ button.admin-nav-item.admin-nav-item-active:hover {
   line-height: 1.55;
 }
 
+.admin-tracking-mode {
+  border-color: color-mix(in srgb, var(--admin-pink) 34%, var(--admin-line));
+}
+
+.admin-tracking-mode-tracking-only {
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--admin-yellow) 7%, transparent),
+      transparent 42%
+    ),
+    var(--admin-surface);
+}
+
+.admin-tracking-mode-heading > div {
+  min-width: 0;
+}
+
+.admin-mode-badge {
+  min-height: 29px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-mode-badge:focus-visible {
+  outline: 3px solid var(--admin-focus);
+  outline-offset: 3px;
+}
+
+.admin-mode-badge-commercial {
+  color: var(--admin-green);
+  background: color-mix(in srgb, var(--admin-green) 11%, transparent);
+}
+
+.admin-mode-badge-test {
+  color: var(--admin-yellow);
+  background: color-mix(in srgb, var(--admin-yellow) 12%, transparent);
+}
+
+.admin-tracking-mode-grid,
+.admin-tracking-mode-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.admin-tracking-mode-grid > div,
+.admin-tracking-mode-status > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-tracking-mode-grid strong,
+.admin-tracking-mode-status dt,
+.admin-tracking-mode-status dd {
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-tracking-mode-grid p {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.admin-tracking-mode-status dt {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.admin-tracking-mode-status dd {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-tracking-mode-status .admin-mode-ready {
+  color: var(--admin-green);
+}
+
+.admin-tracking-mode-status .admin-mode-stale {
+  color: var(--admin-yellow);
+}
+
+.admin-tracking-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.admin-tracking-mode-confirm p > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--admin-muted);
+}
+
 .admin-config-split {
   display: grid;
   grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
@@ -3527,7 +3639,7 @@ button.admin-routing-action,
 
 .admin-settings-readiness-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 11px;
   margin: 20px 0 0;
 }
@@ -4251,6 +4363,19 @@ button.admin-routing-action,
   .admin-settings-panel-heading,
   .admin-settings-current,
   .admin-settings-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-tracking-mode-heading {
+    flex-wrap: wrap;
+  }
+
+  .admin-tracking-mode-heading .admin-mode-badge {
+    margin-left: 43px;
+  }
+
+  .admin-tracking-mode-grid,
+  .admin-tracking-mode-status {
     grid-template-columns: 1fr;
   }
 

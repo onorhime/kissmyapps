@@ -252,7 +252,9 @@ function App({
       endsOn: end.toISOString().slice(0, 10),
       timezone: 'UTC',
       grain: 'day' as const,
-      breakdown: 'date' as const,
+      // Production trends are rendered as a source-attribution table. The
+      // legacy preview keeps its independent date-series reporting controls.
+      breakdown: 'source' as const,
     }
   }, [])
   const forcedPasswordScreen =

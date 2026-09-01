@@ -80,6 +80,7 @@ export type PartnerSettingsUpdate = Readonly<{
 }>
 
 export type PartnerProductStatus = 'draft' | 'active' | 'paused' | 'archived'
+export type PartnerProductTrackingMode = 'commercial' | 'tracking_only'
 export type PartnerAgreementStatus =
   'draft' | 'awaiting_signature' | 'active' | 'superseded' | 'expired' | 'terminated'
 
@@ -88,10 +89,12 @@ export type PartnerProduct = Readonly<{
   slug: string
   name: string
   status: PartnerProductStatus
+  trackingMode: PartnerProductTrackingMode
   agreementStatus: PartnerAgreementStatus | null
   commercialModel: PartnerCommissionModel | null
   payoutCurrency: string | null
   hasLiveFunnel: boolean
+  mainLinkId: string | null
   mainTrackingUrl: string | null
 }>
 
@@ -132,12 +135,13 @@ export type PartnerLink = Readonly<{
   status: PartnerLinkStatus
   trackingUrl: string
   parentLinkId: string | null
+  commercialEligible: boolean
   clicks: number
-  leads: number
+  leads: number | null
   installs: number | null
-  purchases: number
-  earningsMinor: number
-  currency: string
+  purchases: number | null
+  earningsMinor: number | null
+  currency: string | null
   createdAt: string
 }>
 

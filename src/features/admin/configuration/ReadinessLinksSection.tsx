@@ -56,6 +56,7 @@ export function ReadinessLinksSection({
   )
   const selectedAffiliate = eligibleAffiliates.find((affiliate) => affiliate.id === affiliateId)
   const productActive = configuration.product.status === 'active'
+  const trackingOnly = configuration.product.trackingMode === 'tracking_only'
   const hasVerifiedSubscription = hasLiveVerifiedActiveSubscriptionOffer(configuration)
   const hasLaunchReadyAgreement = hasLaunchReadyActiveAgreement(configuration)
   const busy = pendingKey?.startsWith('launch:') ?? false
@@ -93,11 +94,18 @@ export function ReadinessLinksSection({
           <Rocket size={20} aria-hidden="true" />
         </span>
         <div>
-          <p className="admin-eyebrow">PRODUCTION GATES</p>
-          <h2 id="admin-readiness-title">Readiness, activation, and main links</h2>
+          <p className="admin-eyebrow">
+            {trackingOnly ? 'TRACKING-ONLY GATES' : 'PRODUCTION GATES'}
+          </p>
+          <h2 id="admin-readiness-title">
+            {trackingOnly
+              ? 'Demo readiness and main links'
+              : 'Readiness, activation, and main links'}
+          </h2>
           <p>
-            These are separate server-validated actions. Saving configuration never launches the
-            product automatically.
+            {trackingOnly
+              ? 'The server still requires an active product, approved funnel snapshot, canonical tracking switch, and active partner.'
+              : 'These are separate server-validated actions. Saving configuration never launches the product automatically.'}
           </p>
         </div>
       </div>
@@ -139,8 +147,9 @@ export function ReadinessLinksSection({
               aria-label="Confirm product activation"
             >
               <p>
-                Activate <strong>{configuration.product.name}</strong> for production? This does not
-                issue partner links.
+                Activate <strong>{configuration.product.name}</strong>{' '}
+                {trackingOnly ? 'for tracking-only testing' : 'for production'}? This does not issue
+                partner links.
               </p>
               <div className="admin-record-actions">
                 <button
@@ -185,33 +194,52 @@ export function ReadinessLinksSection({
             <div>
               <h3>Issue partner main link</h3>
               <p>
-                The server requires verified billing and signed partner terms before it creates the
-                canonical coded URL.
+                {trackingOnly
+                  ? 'The server can issue a non-commercial coded URL after the approved demo chain is ready.'
+                  : 'The server requires verified billing and signed partner terms before it creates the canonical coded URL.'}
               </p>
             </div>
           </div>
           <ul className="admin-readiness-list">
             <ChecklistItem passed={productActive}>Product is active</ChecklistItem>
-            <ChecklistItem
-              passed={
-                configuration.readiness.trackingReady &&
-                configuration.readiness.hasLiveDefaultFunnel
-              }
-            >
-              Production routing is ready
-            </ChecklistItem>
-            <ChecklistItem
-              passed={configuration.readiness.hasActiveBillingOffer && hasVerifiedSubscription}
-            >
-              An active live-verified subscription offer exists
-            </ChecklistItem>
-            <ChecklistItem
-              passed={configuration.readiness.hasActiveAgreement && hasLaunchReadyAgreement}
-            >
-              A bilateral signed agreement has exactly one supported active purchase rule
-            </ChecklistItem>
+            {trackingOnly ? (
+              <>
+                <ChecklistItem passed={configuration.readiness.trackingOnlyReady}>
+                  Current live default funnel matches the Owner-approved snapshot
+                </ChecklistItem>
+                <ChecklistItem passed={configuration.tracking.enabled}>
+                  Canonical tracking collection is enabled
+                </ChecklistItem>
+                <ChecklistItem passed={configuration.readiness.trackingOnlyCanIssueLinks}>
+                  Server tracking-only link gate is ready
+                </ChecklistItem>
+              </>
+            ) : (
+              <>
+                <ChecklistItem
+                  passed={
+                    configuration.readiness.trackingReady &&
+                    configuration.readiness.hasLiveDefaultFunnel
+                  }
+                >
+                  Production routing is ready
+                </ChecklistItem>
+                <ChecklistItem
+                  passed={configuration.readiness.hasActiveBillingOffer && hasVerifiedSubscription}
+                >
+                  An active live-verified subscription offer exists
+                </ChecklistItem>
+                <ChecklistItem
+                  passed={configuration.readiness.hasActiveAgreement && hasLaunchReadyAgreement}
+                >
+                  A bilateral signed agreement has exactly one supported active purchase rule
+                </ChecklistItem>
+              </>
+            )}
             <ChecklistItem passed={issuance.eligibleAffiliateIds.length > 0}>
-              An active partner with a launch-ready agreement is eligible
+              {trackingOnly
+                ? 'An active partner without an existing main link is eligible'
+                : 'An active partner with a launch-ready agreement is eligible'}
             </ChecklistItem>
           </ul>
           {issuance.blockers.length > 0 && (
@@ -247,6 +275,7 @@ export function ReadinessLinksSection({
               <p>
                 Issue the server-owned main link for <strong>{selectedAffiliate.publicName}</strong>
                 ? No destination, source, campaign, or Sub ID is accepted here.
+                {trackingOnly && ' This link cannot create commercial facts.'}
               </p>
               <div className="admin-record-actions">
                 <button
@@ -281,8 +310,9 @@ export function ReadinessLinksSection({
             </button>
           )}
           <small className="admin-gate-copy">
-            Partners never provide or receive the raw production destination. The server rechecks
-            billing, signatures, and purchase terms at issuance.
+            {trackingOnly
+              ? 'The server rechecks the approved funnel snapshot and blocks checkout, commissions, and payouts.'
+              : 'Partners never provide or receive the raw production destination. The server rechecks billing, signatures, and purchase terms at issuance.'}
           </small>
         </article>
       </div>
@@ -322,7 +352,10 @@ export function ReadinessLinksSection({
           <div className="admin-config-empty admin-config-empty-small">
             <Link2 size={22} aria-hidden="true" />
             <h3>No main links issued</h3>
-            <p>The list stays empty until every production and partner gate passes.</p>
+            <p>
+              The list stays empty until every{' '}
+              {trackingOnly ? 'tracking-only' : 'production and partner'} gate passes.
+            </p>
           </div>
         )}
       </article>

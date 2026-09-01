@@ -24,6 +24,10 @@ export const readinessCopy: Record<AdminReadinessBlockerCode, string> = {
     'Activate a live-verified subscription offer before issuing partner links.',
   launch_ready_agreement_missing:
     'A partner agreement needs a bilateral signed document and exactly one supported active purchase rule.',
+  tracking_only_approval_required:
+    'An Owner must approve the current live default funnel for tracking-only testing.',
+  tracking_only_link_gate_not_ready:
+    'The approved tracking-only funnel, active product, and canonical tracking switch must all remain ready.',
   server_readiness_unavailable: 'Readiness could not be verified. Refresh before continuing.',
 }
 
@@ -101,6 +105,35 @@ export function mainLinkReadiness(
 ): AdminMainLinkReadiness {
   const blockers: AdminReadinessBlockerCode[] = []
   if (configuration.product.status !== 'active') blockers.push('product_not_active')
+
+  const linkedAffiliateIds = new Set(
+    configuration.mainLinks
+      .filter((link) => link.status !== 'archived')
+      .map((link) => link.affiliateId),
+  )
+  const activeAffiliateIds = affiliates
+    .filter((affiliate) => affiliate.status === 'active')
+    .map((affiliate) => affiliate.id)
+
+  if (configuration.product.trackingMode === 'tracking_only') {
+    if (!configuration.tracking.baseUrl || !configuration.tracking.enabled) {
+      blockers.push(trackingBlocker(configuration))
+    }
+    if (!configuration.readiness.hasLiveDefaultFunnel) blockers.push(funnelBlocker(configuration))
+    if (!configuration.readiness.trackingOnlyReady) {
+      blockers.push('tracking_only_approval_required')
+    } else if (!configuration.readiness.trackingOnlyCanIssueLinks) {
+      blockers.push('tracking_only_link_gate_not_ready')
+    }
+
+    const eligibleAffiliateIds = activeAffiliateIds.filter(
+      (affiliateId) => !linkedAffiliateIds.has(affiliateId),
+    )
+    if (eligibleAffiliateIds.length === 0) blockers.push('eligible_partner_missing')
+
+    return { allowed: blockers.length === 0, blockers, eligibleAffiliateIds }
+  }
+
   if (!configuration.readiness.trackingReady) blockers.push(trackingBlocker(configuration))
   if (!configuration.readiness.hasLiveDefaultFunnel) blockers.push(funnelBlocker(configuration))
   if (!configuration.readiness.hasActiveAgreement) blockers.push('active_agreement_missing')
@@ -110,17 +143,12 @@ export function mainLinkReadiness(
     blockers.push('active_billing_offer_missing')
   }
 
-  const linkedAffiliateIds = new Set(configuration.mainLinks.map((link) => link.affiliateId))
-  const activeAffiliateIds = new Set(
-    affiliates
-      .filter((affiliate) => affiliate.status === 'active')
-      .map((affiliate) => affiliate.id),
-  )
+  const activeAffiliateIdSet = new Set(activeAffiliateIds)
   const eligibleAffiliateIds = configuration.agreements
     .filter(
       (agreement) =>
         isLaunchReadyActiveAgreement(agreement) &&
-        activeAffiliateIds.has(agreement.affiliateId) &&
+        activeAffiliateIdSet.has(agreement.affiliateId) &&
         !linkedAffiliateIds.has(agreement.affiliateId),
     )
     .map((agreement) => agreement.affiliateId)

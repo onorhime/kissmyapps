@@ -58,10 +58,12 @@ const product: PartnerProduct = {
   slug: 'first-product',
   name: 'First product',
   status: 'active',
+  trackingMode: 'commercial',
   agreementStatus: 'active',
   commercialModel: 'revenue_share',
   payoutCurrency: 'USD',
   hasLiveFunnel: true,
+  mainLinkId: 'main-link-1',
   mainTrackingUrl: 'https://go.example.test/r/first-product',
 }
 
