@@ -6,6 +6,15 @@ export type {
   AdminRoute,
 } from './AdminPortalApp'
 export { AdminOverview } from './AdminOverview'
+export { AffiliatesPage } from './affiliates/AffiliatesPage'
+export type { AffiliatesPageProps } from './affiliates/AffiliatesPage'
+export {
+  activationStatusLabel,
+  affiliateStatusLabel,
+  confirmationStatusLabel,
+  formatAdminTimestamp,
+  registrationKindLabel,
+} from './affiliates/affiliatePresentation'
 export { ProductConfigurationPage } from './configuration/ProductConfigurationPage'
 export type { ProductConfigurationPageProps } from './configuration/ProductConfigurationPage'
 export {

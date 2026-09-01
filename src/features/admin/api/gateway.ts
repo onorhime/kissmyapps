@@ -1,5 +1,11 @@
 import { supabase } from '../../../lib/supabase'
 import {
+  mapAdminAffiliateDirectoryPage,
+  mapAdminAffiliateDirectoryRecord,
+  mapAdminAffiliateDirectorySummary,
+  mapAdminAffiliateStatusChange,
+} from './affiliateMappers'
+import {
   mapAdminAffiliate,
   mapAdminAgreement,
   mapAdminBillingOffer,
@@ -13,6 +19,10 @@ import {
 import { mapAdminContext, mapAdminProduct, mapAdminRows, singleAdminRow } from './mappers'
 import type {
   AdminAffiliate,
+  AdminAffiliateDirectoryPage,
+  AdminAffiliateDirectoryRecord,
+  AdminAffiliateDirectorySummary,
+  AdminAffiliateStatusChange,
   AdminAgreement,
   AdminBackendResponse,
   AdminBillingOffer,
@@ -38,6 +48,11 @@ export const ADMIN_RPCS = Object.freeze({
   createProduct: 'create_admin_product',
   productConfiguration: 'get_admin_product_configuration',
   affiliates: 'get_admin_affiliates',
+  affiliateSummary: 'get_admin_affiliate_summary',
+  affiliateDirectory: 'get_admin_affiliate_directory',
+  affiliateDetail: 'get_admin_affiliate_detail',
+  setAffiliateStatus: 'set_admin_affiliate_status',
+  terminateAffiliate: 'terminate_admin_affiliate',
   sources: 'get_admin_sources',
   createFunnel: 'create_admin_funnel',
   updateFunnel: 'update_admin_funnel',
@@ -268,6 +283,24 @@ async function mappedCollection<T>(
   }
 }
 
+async function mappedObject<T>(
+  client: AdminSupabaseClient,
+  functionName: string,
+  mapper: (value: unknown) => T,
+  args?: Record<string, unknown>,
+  messages: FailureMessages = {},
+): Promise<AdminDataResult<T | null>> {
+  const called = await call(client, functionName, args)
+  if (!called.ok) return temporaryFailure<T | null>(() => null)
+  const response = called.response
+  if (response.error) return backendFailure(response, () => null, messages)
+  try {
+    return result<T | null>(mapper(response.data), 'ready')
+  } catch {
+    return invalidResponse<T | null>(() => null)
+  }
+}
+
 async function call(
   client: AdminSupabaseClient,
   functionName: string,
@@ -369,6 +402,86 @@ export function createAdminGateway(
     async getAffiliates() {
       if (!client) return notConfigured<AdminAffiliate[]>(() => [])
       return mappedCollection(client, ADMIN_RPCS.affiliates, mapAdminAffiliate)
+    },
+
+    async getAffiliateSummary() {
+      if (!client) return notConfigured<AdminAffiliateDirectorySummary | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.affiliateSummary, mapAdminAffiliateDirectorySummary)
+    },
+
+    async getAffiliateDirectory(input) {
+      if (!client) return notConfigured<AdminAffiliateDirectoryPage | null>(() => null)
+      const response = await mappedObject(
+        client,
+        ADMIN_RPCS.affiliateDirectory,
+        mapAdminAffiliateDirectoryPage,
+        {
+          p_input: {
+            query: input.query?.trim() || null,
+            status: input.status ?? null,
+            confirmation_status: input.confirmationStatus ?? null,
+            activation_status: input.activationStatus ?? null,
+            sort: input.sort ?? 'newest',
+            limit: input.limit ?? 25,
+            offset: input.offset ?? 0,
+          },
+        },
+        { invalidInput: 'Check the partner directory filters and try again.' },
+      )
+      if (response.status === 'ready' && response.data && response.data.items.length === 0) {
+        return { ...response, status: 'empty' }
+      }
+      return response
+    },
+
+    async getAffiliateDetail(affiliateId) {
+      if (!client) return notConfigured<AdminAffiliateDirectoryRecord | null>(() => null)
+      return mappedObject(
+        client,
+        ADMIN_RPCS.affiliateDetail,
+        mapAdminAffiliateDirectoryRecord,
+        { p_affiliate_id: affiliateId.trim() },
+        { invalidReference: 'That partner is no longer available.' },
+      )
+    },
+
+    async setAffiliateStatus(input) {
+      if (!client) return notConfigured<AdminAffiliateStatusChange | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.setAffiliateStatus,
+        {
+          affiliate_id: input.affiliateId.trim(),
+          status: input.status,
+          reason: input.reason.trim(),
+        },
+        mapAdminAffiliateStatusChange,
+        {
+          invalidInput: 'Enter a valid partner and a reason between 10 and 500 characters.',
+          invalidReference: 'That partner is no longer available.',
+          invalidState: 'This partner cannot move to that status in its current state.',
+        },
+      )
+    },
+
+    async terminateAffiliate(input) {
+      if (!client) return notConfigured<AdminAffiliateStatusChange | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.terminateAffiliate,
+        {
+          affiliate_id: input.affiliateId.trim(),
+          reason: input.reason.trim(),
+          confirmation: input.confirmation.trim(),
+        },
+        mapAdminAffiliateStatusChange,
+        {
+          invalidInput: 'Enter the exact partner slug and a reason between 10 and 500 characters.',
+          invalidReference: 'That partner is no longer available.',
+          invalidState:
+            'Resolve active or awaiting-signature agreements, current legal documents, and unsettled payout obligations before terminating this partner.',
+        },
+      )
     },
 
     async getSources() {

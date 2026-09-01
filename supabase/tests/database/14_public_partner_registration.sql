@@ -259,7 +259,7 @@ insert into auth.users (
 )
 values
   (
-    '10000000-0000-0000-0000-000000000144',
+    '11000000-0000-0000-0000-000000000144',
     '00000000-0000-0000-0000-000000000000',
     'authenticated', 'authenticated', 'unconfirmed-public@example.test',
     '$2a$10$unconfirmedPublicRegistrationPasswordHash0000000000000',
@@ -276,7 +276,7 @@ values
     now(), now()
   ),
   (
-    '10000000-0000-0000-0000-000000000145',
+    '12000000-0000-0000-0000-000000000145',
     '00000000-0000-0000-0000-000000000000',
     'authenticated', 'authenticated', 'passwordless-public@example.test',
     '', now(), '{}',
@@ -294,10 +294,10 @@ values
 
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
-select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000144', true);
+select set_config('request.jwt.claim.sub', '11000000-0000-0000-0000-000000000144', true);
 select set_config(
   'request.jwt.claims',
-  '{"sub":"10000000-0000-0000-0000-000000000144","role":"authenticated","email":"unconfirmed-public@example.test","amr":[{"method":"otp","timestamp":1788138002}]}',
+  '{"sub":"11000000-0000-0000-0000-000000000144","role":"authenticated","email":"unconfirmed-public@example.test","amr":[{"method":"otp","timestamp":1788138002}]}',
   true
 );
 select throws_ok(
@@ -309,10 +309,10 @@ select throws_ok(
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
-select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000145', true);
+select set_config('request.jwt.claim.sub', '12000000-0000-0000-0000-000000000145', true);
 select set_config(
   'request.jwt.claims',
-  '{"sub":"10000000-0000-0000-0000-000000000145","role":"authenticated","email":"passwordless-public@example.test","amr":[{"method":"otp","timestamp":1788138002}]}',
+  '{"sub":"12000000-0000-0000-0000-000000000145","role":"authenticated","email":"passwordless-public@example.test","amr":[{"method":"otp","timestamp":1788138002}]}',
   true
 );
 select throws_ok(

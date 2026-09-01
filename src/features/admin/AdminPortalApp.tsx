@@ -20,14 +20,15 @@ import {
 } from 'lucide-react'
 import { Brand } from '../../components/Brand'
 import type { AdminGateway } from './api'
+import { AffiliatesPage } from './affiliates/AffiliatesPage'
 import { AdminOverview } from './AdminOverview'
 import { ProductConfigurationPage } from './configuration/ProductConfigurationPage'
 import { ProductsPage } from './products/ProductsPage'
 import { useAdminWorkspace, type AdminWorkspaceStatus } from './useAdminWorkspace'
 import './AdminPortal.css'
 
-export type AdminPrimaryRoute = 'overview' | 'products'
-export type AdminRoute = AdminPrimaryRoute | 'product-configuration'
+export type AdminPrimaryRoute = 'overview' | 'products' | 'affiliates'
+export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
 
 export type AdminIdentity = Readonly<{
   name?: string | null
@@ -40,14 +41,15 @@ export type AdminPortalAppProps = Readonly<{
   gateway?: AdminGateway
   identity?: AdminIdentity
   productId?: string | null
+  affiliateId?: string | null
   onNavigate: (route: AdminRoute) => void
   onOpenProductConfiguration?: (productId: string) => void
+  onOpenAffiliate?: (affiliateId: string) => void
   onSignOut: () => void | Promise<void>
   onSwitchToPartner: () => void | Promise<void>
 }>
 
 type UpcomingRoute =
-  | 'affiliates'
   | 'funnels-links'
   | 'attribution'
   | 'subscriptions'
@@ -62,7 +64,7 @@ const navigation: readonly (
 )[] = [
   { id: 'overview', label: 'Overview', icon: Gauge, enabled: true },
   { id: 'products', label: 'Products', icon: Package, enabled: true },
-  { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: false },
+  { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: true },
   { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: false },
   { id: 'attribution', label: 'Attribution', icon: Activity, enabled: false },
   { id: 'subscriptions', label: 'Subscriptions', icon: Boxes, enabled: false },
@@ -75,13 +77,16 @@ const navigation: readonly (
 const routeLabels: Record<AdminRoute, string> = {
   overview: 'Overview',
   products: 'Products',
+  affiliates: 'Affiliates',
   'product-configuration': 'Product configuration',
+  'affiliate-detail': 'Affiliate details',
 }
 
 function routeIsActive(route: AdminRoute, navigationRoute: AdminPrimaryRoute): boolean {
   return (
     route === navigationRoute ||
-    (route === 'product-configuration' && navigationRoute === 'products')
+    (route === 'product-configuration' && navigationRoute === 'products') ||
+    (route === 'affiliate-detail' && navigationRoute === 'affiliates')
   )
 }
 
@@ -152,8 +157,10 @@ export function AdminPortalApp({
   gateway,
   identity,
   productId,
+  affiliateId,
   onNavigate,
   onOpenProductConfiguration,
+  onOpenAffiliate,
   onSignOut,
   onSwitchToPartner,
 }: AdminPortalAppProps) {
@@ -405,6 +412,15 @@ export function AdminPortalApp({
                   products={state.products}
                   onCreate={createProduct}
                   onConfigure={onOpenProductConfiguration}
+                />
+              ) : route === 'affiliates' || route === 'affiliate-detail' ? (
+                <AffiliatesPage
+                  key={context.userId}
+                  context={context}
+                  gateway={gateway}
+                  affiliateId={route === 'affiliate-detail' ? affiliateId : null}
+                  onOpenAffiliate={(nextAffiliateId) => onOpenAffiliate?.(nextAffiliateId)}
+                  onCloseAffiliate={() => navigate('affiliates')}
                 />
               ) : (
                 <AdminOverview

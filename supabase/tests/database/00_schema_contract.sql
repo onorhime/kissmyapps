@@ -204,6 +204,15 @@ select has_function(
   'trusted funnel event-ingestion RPC exists'
 );
 select has_function('public', 'get_admin_affiliates', array[]::text[], 'admin partner directory RPC exists');
+select has_function('public', 'get_admin_affiliate_summary', array[]::text[], 'admin affiliate summary RPC exists');
+select has_function('public', 'get_admin_affiliate_directory', array['jsonb'], 'admin affiliate management directory RPC exists');
+select has_function('public', 'get_admin_affiliate_detail', array['uuid'], 'admin affiliate detail RPC exists');
+select has_function('public', 'set_admin_affiliate_status', array['jsonb'], 'admin affiliate pause/reactivate RPC exists');
+select has_function('public', 'terminate_admin_affiliate', array['jsonb'], 'admin affiliate termination RPC exists');
+select has_function(
+  'public', 'guard_agreement_activation_affiliate_status', array[]::text[],
+  'agreement activation and partner termination serialization guard exists'
+);
 select has_function('public', 'get_admin_sources', array[]::text[], 'admin source directory RPC exists');
 select has_function('public', 'get_admin_product_configuration', array['uuid'], 'admin product configuration RPC exists');
 select has_function('public', 'configure_admin_tracking', array['jsonb'], 'admin tracking configuration RPC exists');
@@ -403,6 +412,9 @@ select is(
     'current_user_has_affiliate_role(uuid,text[],boolean)',
     'current_user_is_admin()',
     'current_user_is_admin(text[])',
+    'get_admin_affiliate_detail(uuid)',
+    'get_admin_affiliate_directory(jsonb)',
+    'get_admin_affiliate_summary()',
     'get_admin_affiliates()',
     'get_admin_billing_offer_verification_candidate(uuid)',
     'get_admin_context()',
@@ -414,12 +426,14 @@ select is(
     'get_partner_payout_detail(uuid)',
     'issue_admin_main_link(jsonb)',
     'prepare_admin_payout_statements(jsonb)',
+    'set_admin_affiliate_status(jsonb)',
     'set_admin_billing_offer_status(jsonb)',
     'set_admin_campaign_status(jsonb)',
     'set_admin_commission_rule_status(jsonb)',
     'set_admin_funnel_status(jsonb)',
     'set_partner_link_status(uuid,link_status)',
     'storage_path_affiliate_id(text)',
+    'terminate_admin_affiliate(jsonb)',
     'update_admin_billing_offer(jsonb)',
     'update_admin_funnel(jsonb)',
     'update_partner_link(uuid,jsonb)',
@@ -474,6 +488,10 @@ select has_trigger('public', 'audit_logs', 'audit_logs_are_append_only', 'audit 
 select has_trigger('public', 'reconciliation_runs', 'reconciliation_runs_protect_history', 'reconciliation transitions are protected');
 select has_trigger('public', 'reconciliation_exceptions', 'reconciliation_exceptions_protect_history', 'completed reconciliation exceptions are protected');
 select has_trigger('public', 'payouts', 'payouts_require_agreement_snapshot', 'every payout requires a snapshot before commit');
+select has_trigger(
+  'public', 'agreements', 'agreements_guard_activation_affiliate_status',
+  'agreement activation is serialized with partner lifecycle changes'
+);
 select ok(
   lower(pg_get_functiondef('public.validate_commission_entry()'::regprocedure)) like '%for share%',
   'commission posting takes a payout-period row lock that serializes against closure'

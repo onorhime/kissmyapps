@@ -84,6 +84,10 @@ function currentAdminRoute(): AdminRoute {
   if (segments[1] === 'products' && segments[2] && segments[3] === 'configuration') {
     return 'product-configuration'
   }
+  if (segments[1] === 'affiliates' && segments[2]) {
+    return currentAdminAffiliateId() ? 'affiliate-detail' : 'affiliates'
+  }
+  if (segments[1] === 'affiliates') return 'affiliates'
   return segments[1] === 'products' ? 'products' : 'overview'
 }
 
@@ -97,6 +101,16 @@ function currentAdminProductId(): string | null {
   ) {
     return null
   }
+  try {
+    return decodeURIComponent(segments[2])
+  } catch {
+    return null
+  }
+}
+
+function currentAdminAffiliateId(): string | null {
+  const segments = window.location.hash.slice(1).split('/')
+  if (segments[0] !== 'admin' || segments[1] !== 'affiliates' || !segments[2]) return null
   try {
     return decodeURIComponent(segments[2])
   } catch {
@@ -184,6 +198,7 @@ function App({
   )
   const [adminRoute, setAdminRoute] = useState<AdminRoute>(currentAdminRoute)
   const [adminProductId, setAdminProductId] = useState<string | null>(currentAdminProductId)
+  const [adminAffiliateId, setAdminAffiliateId] = useState<string | null>(currentAdminAffiliateId)
   const [previewState, setPreviewState] = useState<PreviewState>(() =>
     previewMode ? 'sample' : 'error',
   )
@@ -347,6 +362,7 @@ function App({
         setWorkspaceMode('admin')
         setAdminRoute(currentAdminRoute())
         setAdminProductId(currentAdminProductId())
+        setAdminAffiliateId(currentAdminAffiliateId())
       } else if (explicitWorkspace === 'partner') {
         setWorkspaceMode('partner')
         setPage(currentPage())
@@ -377,7 +393,11 @@ function App({
           ? 'Admin overview'
           : adminRoute === 'products'
             ? 'Admin products'
-            : 'Product configuration'
+            : adminRoute === 'affiliates'
+              ? 'Admin affiliates'
+              : adminRoute === 'affiliate-detail'
+                ? 'Affiliate details'
+                : 'Product configuration'
         : navigation.find((item) => item.id === page)?.label
     document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
     const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)
@@ -437,10 +457,19 @@ function App({
     setWorkspaceMode('admin')
     setAdminRoute(nextRoute)
     if (nextRoute !== 'product-configuration') setAdminProductId(null)
+    if (nextRoute !== 'affiliate-detail') setAdminAffiliateId(null)
     setMobileMenu(false)
     setHelpOpen(false)
     setNotificationsOpen(false)
-    window.location.hash = `admin/${nextRoute === 'product-configuration' ? 'products' : nextRoute}`
+    const routeHash =
+      nextRoute === 'product-configuration'
+        ? 'products'
+        : nextRoute === 'affiliate-detail'
+          ? adminAffiliateId
+            ? `affiliates/${encodeURIComponent(adminAffiliateId)}`
+            : 'affiliates'
+          : nextRoute
+    window.location.hash = `admin/${routeHash}`
   }
 
   function openAdminProductConfiguration(productId: string) {
@@ -452,6 +481,18 @@ function App({
     setHelpOpen(false)
     setNotificationsOpen(false)
     window.location.hash = `admin/products/${encodeURIComponent(productId)}/configuration`
+  }
+
+  function openAdminAffiliate(affiliateId: string) {
+    setAuthScreen(null)
+    setWorkspaceMode('admin')
+    setAdminRoute('affiliate-detail')
+    setAdminAffiliateId(affiliateId)
+    setAdminProductId(null)
+    setMobileMenu(false)
+    setHelpOpen(false)
+    setNotificationsOpen(false)
+    window.location.hash = `admin/affiliates/${encodeURIComponent(affiliateId)}`
   }
 
   function openRequestedWorkspace() {
@@ -533,6 +574,7 @@ function App({
       <AdminPortalApp
         route={adminRoute}
         productId={adminProductId}
+        affiliateId={adminAffiliateId}
         sessionUserId={session.user?.id ?? null}
         gateway={adminGateway}
         identity={{
@@ -544,6 +586,7 @@ function App({
         }}
         onNavigate={navigateAdmin}
         onOpenProductConfiguration={openAdminProductConfiguration}
+        onOpenAffiliate={openAdminAffiliate}
         onSwitchToPartner={() => navigate('performance')}
         onSignOut={async () => {
           await authService.signOut()

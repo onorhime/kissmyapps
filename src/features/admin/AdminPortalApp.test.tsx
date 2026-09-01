@@ -2,7 +2,14 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
-import type { AdminContext, AdminDataResult, AdminGateway, AdminProduct } from './api'
+import type {
+  AdminAffiliateDirectoryPage,
+  AdminAffiliateDirectorySummary,
+  AdminContext,
+  AdminDataResult,
+  AdminGateway,
+  AdminProduct,
+} from './api'
 import { AdminPortalApp } from './AdminPortalApp'
 
 const context: AdminContext = {
@@ -42,6 +49,39 @@ function gatewayWith(
   }
 }
 
+function affiliateGatewayWith(): AdminGateway {
+  const gateway = gatewayWith()
+  const summary: AdminAffiliateDirectorySummary = {
+    totalCount: 0,
+    draftCount: 0,
+    invitedCount: 0,
+    activeCount: 0,
+    pausedCount: 0,
+    terminatedCount: 0,
+    pendingConfirmationCount: 0,
+    pendingActivationCount: 0,
+  }
+  const directory: AdminAffiliateDirectoryPage = { items: [], totalCount: 0 }
+  const summaryResult: AdminDataResult<AdminAffiliateDirectorySummary | null> = {
+    data: summary,
+    status: 'ready',
+    error: null,
+  }
+  const directoryResult: AdminDataResult<AdminAffiliateDirectoryPage | null> = {
+    data: directory,
+    status: 'empty',
+    error: null,
+  }
+  return {
+    ...gateway,
+    getAffiliateSummary: vi.fn(async () => summaryResult),
+    getAffiliateDirectory: vi.fn(async () => directoryResult),
+    getAffiliateDetail: vi.fn(),
+    setAffiliateStatus: vi.fn(),
+    terminateAffiliate: vi.fn(),
+  }
+}
+
 function renderPortal(overrides: Partial<React.ComponentProps<typeof AdminPortalApp>> = {}) {
   const props: React.ComponentProps<typeof AdminPortalApp> = {
     route: 'overview',
@@ -57,7 +97,7 @@ function renderPortal(overrides: Partial<React.ComponentProps<typeof AdminPortal
 }
 
 describe('Admin portal shell', () => {
-  it('shows the complete P2 navigation with only Overview and Products enabled', async () => {
+  it('shows the complete P2 navigation with Overview, Products, and Affiliates enabled', async () => {
     const { props } = renderPortal()
     await screen.findByRole('heading', { name: 'Overview' })
     const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
@@ -67,7 +107,8 @@ describe('Admin portal shell', () => {
       'page',
     )
     expect(within(navigation).getByRole('button', { name: 'Products' })).toBeEnabled()
-    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(8)
+    expect(within(navigation).getByRole('button', { name: 'Affiliates' })).toBeEnabled()
+    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(7)
     expect(
       within(navigation).getByText('Funnels & Links').closest('[aria-disabled="true"]'),
     ).not.toBeNull()
@@ -79,6 +120,9 @@ describe('Admin portal shell', () => {
 
     await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Products' }))
     expect(props.onNavigate).toHaveBeenCalledWith('products')
+
+    await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Affiliates' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('affiliates')
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
     expect(
@@ -181,6 +225,22 @@ describe('Admin portal shell', () => {
     const { container } = renderPortal({ route: 'products' })
     await screen.findByRole('heading', { name: 'Products', level: 1 })
 
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false } },
+    })
+    expect(results.violations).toEqual([])
+  })
+
+  it('renders the protected empty Affiliate directory route accessibly', async () => {
+    const { container } = renderPortal({ route: 'affiliates', gateway: affiliateGatewayWith() })
+    await screen.findByRole('heading', { name: 'Affiliate directory', level: 1 })
+
+    expect(screen.getByText('No affiliates yet')).toBeVisible()
+    expect(
+      within(screen.getByRole('navigation', { name: 'Admin navigation' })).getByRole('button', {
+        name: 'Affiliates',
+      }),
+    ).toHaveAttribute('aria-current', 'page')
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },
     })

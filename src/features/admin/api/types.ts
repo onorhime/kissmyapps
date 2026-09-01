@@ -74,6 +74,124 @@ export type AdminAffiliate = Readonly<{
   preferredCurrency: string | null
 }>
 
+export const ADMIN_AFFILIATE_REGISTRATION_KINDS = ['public', 'invited', 'legacy'] as const
+
+export type AdminAffiliateRegistrationKind = (typeof ADMIN_AFFILIATE_REGISTRATION_KINDS)[number]
+
+export const ADMIN_AFFILIATE_EMAIL_CONFIRMATION_STATUSES = [
+  'confirmed',
+  'pending',
+  'unknown',
+] as const
+
+export type AdminAffiliateEmailConfirmationStatus =
+  (typeof ADMIN_AFFILIATE_EMAIL_CONFIRMATION_STATUSES)[number]
+
+export const ADMIN_AFFILIATE_ACTIVATION_STATUSES = [
+  'active',
+  'pending',
+  'disabled',
+  'missing',
+] as const
+
+export type AdminAffiliateActivationStatus = (typeof ADMIN_AFFILIATE_ACTIVATION_STATUSES)[number]
+
+export const ADMIN_AFFILIATE_DIRECTORY_SORTS = ['newest', 'oldest', 'name'] as const
+
+export type AdminAffiliateDirectorySort = (typeof ADMIN_AFFILIATE_DIRECTORY_SORTS)[number]
+
+export type AdminAffiliateDirectoryRecord = Readonly<{
+  id: string
+  publicName: string
+  legalName: string | null
+  slug: string
+  status: AdminAffiliateStatus
+  entityType: 'individual' | 'company' | null
+  countryCode: string | null
+  reportingTimezone: string
+  preferredCurrency: string
+  websiteUrl: string | null
+  category: string | null
+  audienceDescription: string | null
+  audienceCountries: readonly string[]
+  channels: readonly string[]
+  channelDetails: string | null
+  primaryUserId: string | null
+  primaryUserRole: 'owner' | 'finance' | 'analyst' | 'member' | null
+  primaryFullName: string | null
+  primaryEmail: string | null
+  registrationKind: AdminAffiliateRegistrationKind
+  registeredAt: string
+  emailConfirmationStatus: AdminAffiliateEmailConfirmationStatus
+  emailConfirmedAt: string | null
+  activationStatus: AdminAffiliateActivationStatus
+  membershipActive: boolean
+  activationPending: boolean
+  activatedAt: string | null
+  memberCount: number
+  activeMemberCount: number
+  termsVersion: string | null
+  termsUrl: string | null
+  privacyVersion: string | null
+  privacyUrl: string | null
+  ageConfirmed: boolean | null
+  legalAcceptedAt: string | null
+  productCount: number
+  agreementCount: number
+  activeAgreementCount: number
+  blockingAgreementCount: number
+  blockingDocumentCount: number
+  linkCount: number
+  activeLinkCount: number
+  unsettledPayoutCount: number
+  createdAt: string
+  updatedAt: string
+}>
+
+export type AdminAffiliateDirectorySummary = Readonly<{
+  totalCount: number
+  draftCount: number
+  invitedCount: number
+  activeCount: number
+  pausedCount: number
+  terminatedCount: number
+  pendingConfirmationCount: number
+  pendingActivationCount: number
+}>
+
+export type AdminAffiliateDirectoryPage = Readonly<{
+  items: readonly AdminAffiliateDirectoryRecord[]
+  totalCount: number
+}>
+
+export type AdminAffiliateDirectoryInput = Readonly<{
+  query?: string | null
+  status?: AdminAffiliateStatus | null
+  confirmationStatus?: AdminAffiliateEmailConfirmationStatus | null
+  activationStatus?: AdminAffiliateActivationStatus | null
+  sort?: AdminAffiliateDirectorySort
+  limit?: number
+  offset?: number
+}>
+
+export type AdminAffiliateStatusChange = Readonly<{
+  id: string
+  status: Extract<AdminAffiliateStatus, 'active' | 'paused' | 'terminated'>
+  updatedAt: string
+}>
+
+export type AdminAffiliateStatusUpdate = Readonly<{
+  affiliateId: string
+  status: Extract<AdminAffiliateStatus, 'active' | 'paused'>
+  reason: string
+}>
+
+export type AdminAffiliateTermination = Readonly<{
+  affiliateId: string
+  reason: string
+  confirmation: string
+}>
+
 export const ADMIN_FUNNEL_STATUSES = ['draft', 'live', 'paused', 'archived'] as const
 
 export type AdminFunnelStatus = (typeof ADMIN_FUNNEL_STATUSES)[number]
@@ -400,6 +518,42 @@ export interface AdminGateway {
   updateBillingOffer?: AdminConfigurationGateway['updateBillingOffer']
   setBillingOfferStatus?: AdminConfigurationGateway['setBillingOfferStatus']
   verifyBillingOfferPrice?: AdminConfigurationGateway['verifyBillingOfferPrice']
+  getAffiliateSummary?: AdminAffiliateManagementGateway['getAffiliateSummary']
+  getAffiliateDirectory?: AdminAffiliateManagementGateway['getAffiliateDirectory']
+  getAffiliateDetail?: AdminAffiliateManagementGateway['getAffiliateDetail']
+  setAffiliateStatus?: AdminAffiliateManagementGateway['setAffiliateStatus']
+  terminateAffiliate?: AdminAffiliateManagementGateway['terminateAffiliate']
+}
+
+/** Capability required only by the protected Admin affiliate-management routes. */
+export interface AdminAffiliateManagementGateway {
+  getAffiliateSummary(): Promise<AdminDataResult<AdminAffiliateDirectorySummary | null>>
+  getAffiliateDirectory(
+    input: AdminAffiliateDirectoryInput,
+  ): Promise<AdminDataResult<AdminAffiliateDirectoryPage | null>>
+  getAffiliateDetail(
+    affiliateId: string,
+  ): Promise<AdminDataResult<AdminAffiliateDirectoryRecord | null>>
+  setAffiliateStatus(
+    input: AdminAffiliateStatusUpdate,
+  ): Promise<AdminDataResult<AdminAffiliateStatusChange | null>>
+  terminateAffiliate(
+    input: AdminAffiliateTermination,
+  ): Promise<AdminDataResult<AdminAffiliateStatusChange | null>>
+}
+
+const affiliateManagementGatewayMethods = [
+  'getAffiliateSummary',
+  'getAffiliateDirectory',
+  'getAffiliateDetail',
+  'setAffiliateStatus',
+  'terminateAffiliate',
+] as const
+
+export function hasAdminAffiliateManagementGateway(
+  gateway: AdminGateway,
+): gateway is AdminGateway & AdminAffiliateManagementGateway {
+  return affiliateManagementGatewayMethods.every((method) => typeof gateway[method] === 'function')
 }
 
 /** Capability required only by the nested product-configuration route. */

@@ -1,4 +1,4 @@
-import { useRef, type FocusEvent, type ReactNode } from 'react'
+import { useRef, type FocusEvent, type ReactNode, type RefObject } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
@@ -9,6 +9,7 @@ type Props = {
   description: string
   children: ReactNode
   wide?: boolean
+  initialFocusRef?: RefObject<HTMLElement | null>
 }
 
 function isVisibleFocusTarget(element: HTMLElement | null): element is HTMLElement {
@@ -40,7 +41,15 @@ function revealFocusedControl(event: FocusEvent<HTMLDivElement>) {
     dialog.scrollTop += control.bottom - viewport.bottom + 16
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, wide }: Props) {
+export function Dialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  wide,
+  initialFocusRef,
+}: Props) {
   const opener = useRef<HTMLElement | null>(null)
   const openedHash = useRef('')
   return (
@@ -50,9 +59,13 @@ export function Dialog({ open, onOpenChange, title, description, children, wide 
         <DialogPrimitive.Content
           className={`dialog-content ${wide ? 'dialog-wide' : ''}`}
           onFocusCapture={revealFocusedControl}
-          onOpenAutoFocus={() => {
+          onOpenAutoFocus={(event) => {
             opener.current = document.activeElement as HTMLElement | null
             openedHash.current = window.location.hash
+            if (initialFocusRef?.current) {
+              event.preventDefault()
+              initialFocusRef.current.focus()
+            }
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault()
@@ -60,7 +73,10 @@ export function Dialog({ open, onOpenChange, title, description, children, wide 
               window.location.hash !== openedHash.current ||
               !isVisibleFocusTarget(opener.current)
             )
-              document.getElementById('main-content')?.focus({ preventScroll: true })
+              (
+                document.getElementById('main-content') ??
+                document.getElementById('admin-main-content')
+              )?.focus({ preventScroll: true })
             else opener.current.focus({ preventScroll: true })
           }}
         >

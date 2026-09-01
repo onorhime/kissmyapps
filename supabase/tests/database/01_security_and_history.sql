@@ -36,8 +36,8 @@ insert into public.affiliates (
 values
   ('30000000-0000-0000-0000-000000000001', 'Partner A', 'Partner A LLC', 'partner-a', 'company', 'US', 'UTC', 'USD', 'active'),
   ('30000000-0000-0000-0000-000000000002', 'Partner B', 'Partner B LLC', 'partner-b', 'company', 'GB', 'UTC', 'USD', 'active'),
-  ('30000000-0000-0000-0000-000000000003', 'Paused Partner', 'Paused Partner LLC', 'paused-partner', 'company', 'CA', 'UTC', 'USD', 'paused'),
-  ('30000000-0000-0000-0000-000000000004', 'Former Partner', 'Former Partner LLC', 'former-partner', 'company', 'NG', 'UTC', 'USD', 'terminated');
+  ('30000000-0000-0000-0000-000000000003', 'Paused Partner', 'Paused Partner LLC', 'paused-partner', 'company', 'CA', 'UTC', 'USD', 'active'),
+  ('30000000-0000-0000-0000-000000000004', 'Former Partner', 'Former Partner LLC', 'former-partner', 'company', 'NG', 'UTC', 'USD', 'active');
 
 insert into public.affiliate_users (
   affiliate_id, user_id, role, active, activation_pending, activated_at
@@ -103,6 +103,18 @@ values (
 );
 
 update public.agreements set status = 'active';
+
+-- These workspaces had active agreements before their partner lifecycle changed.
+-- Establish that valid chronology so the activation guard remains enforceable.
+update public.affiliates
+set status = case id
+  when '30000000-0000-0000-0000-000000000003' then 'paused'::public.affiliate_status
+  when '30000000-0000-0000-0000-000000000004' then 'terminated'::public.affiliate_status
+end
+where id in (
+  '30000000-0000-0000-0000-000000000003',
+  '30000000-0000-0000-0000-000000000004'
+);
 
 insert into public.funnels (id, product_id, key, name, destination_url, status)
 values (

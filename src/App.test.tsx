@@ -140,6 +140,28 @@ function emptyAdminGateway(): AdminGateway {
     }),
     getProducts: async () => ({ data: [], status: 'empty', error: null }),
     createProduct: async () => ({ data: null, status: 'empty', error: null }),
+    getAffiliateSummary: async () => ({
+      data: {
+        totalCount: 0,
+        draftCount: 0,
+        invitedCount: 0,
+        activeCount: 0,
+        pausedCount: 0,
+        terminatedCount: 0,
+        pendingConfirmationCount: 0,
+        pendingActivationCount: 0,
+      },
+      status: 'ready',
+      error: null,
+    }),
+    getAffiliateDirectory: async () => ({
+      data: { items: [], totalCount: 0 },
+      status: 'empty',
+      error: null,
+    }),
+    getAffiliateDetail: async () => ({ data: null, status: 'empty', error: null }),
+    setAffiliateStatus: async () => ({ data: null, status: 'empty', error: null }),
+    terminateAffiliate: async () => ({ data: null, status: 'empty', error: null }),
   }
 }
 
@@ -355,6 +377,34 @@ describe('live partner session shell', () => {
     ).toBeInTheDocument()
     expect(window.location.hash).toBe('#admin/products/product%2Fone/configuration')
     expect(document.title).toBe('Product configuration · KissMyApps Admin')
+  })
+
+  it('preserves an Affiliate detail deep route and returns to the directory when it closes', async () => {
+    const user = userEvent.setup()
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const service = authService({
+      getPartnerActivationStatus: vi.fn().mockResolvedValue('none'),
+    })
+    window.history.replaceState(null, '', '/#admin/affiliates/partner%2Fone')
+
+    render(<App previewMode={false} authService={service} adminGateway={emptyAdminGateway()} />)
+
+    const detailDialog = await screen.findByRole('dialog', { name: 'Affiliate details' })
+    expect(window.location.hash).toBe('#admin/affiliates/partner%2Fone')
+    expect(document.title).toBe('Affiliate details · KissMyApps Admin')
+
+    await user.click(within(detailDialog).getByRole('button', { name: 'Close dialog' }))
+    await waitFor(() => expect(window.location.hash).toBe('#admin/affiliates'))
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Affiliate directory' }),
+    ).toBeVisible()
+    expect(
+      within(screen.getByRole('navigation', { name: 'Admin navigation' })).getByRole('button', {
+        name: 'Affiliates',
+      }),
+    ).toHaveAttribute('aria-current', 'page')
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+    expect(document.title).toBe('Admin affiliates · KissMyApps Admin')
   })
 
   it('preserves an admin destination while asking an anonymous user to sign in', async () => {
