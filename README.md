@@ -16,8 +16,10 @@ The current Admin Affiliate production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01.md](./RELEASE_EVIDENCE_2026-09-01.md).
 The Admin Funnels & Links production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md).
-The current Admin Attribution and Data Health production release is recorded in
+The Admin Attribution and Data Health production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md).
+The current Admin Platform Settings production release is recorded in
+[RELEASE_EVIDENCE_2026-09-01_ADMIN_SETTINGS.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_SETTINGS.md).
 The current UI scope, review checklist, and live-integration boundaries are in
 [UI_IMPLEMENTATION.md](./UI_IMPLEMENTATION.md). The supplied four-page UX v2.0
 document has been fully reviewed; [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md)
@@ -37,8 +39,8 @@ pnpm dev --host 127.0.0.1
 Open the exact URL printed by Vite. Navigation uses hash routes, including
 `#profile/payment`, `#profile/terms`, `#profile/documents`, and `#profile/security`.
 The enabled Admin routes are `#admin/overview`, `#admin/products`,
-`#admin/affiliates`, `#admin/affiliates/:affiliateId`, and
-`#admin/funnels-links`. The live auth
+`#admin/affiliates`, `#admin/affiliates/:affiliateId`, `#admin/funnels-links`,
+`#admin/attribution`, `#admin/data-health`, and `#admin/settings`. The live auth
 routes are `#auth/sign-in`, `#auth/recover`, and `#auth/reset`; the requested
 Partner or Admin destination is preserved through sign-in.
 
@@ -97,8 +99,8 @@ The application is linked directly to the real Supabase project
 `mmyruzjemjecqyivhrgr` (**KissMyApps**). No local or staging Supabase runtime is
 part of this workflow.
 
-All 16 migrations from `20260825215958_platform_foundation` through
-`20260901130000_admin_product_configuration_destination_redaction` are applied
+All 19 migrations from `20260825215958_platform_foundation` through
+`20260901180000_admin_platform_settings` are applied
 remotely. The
 deployed foundation now includes:
 
@@ -118,7 +120,10 @@ deployed foundation now includes:
 - public Partner registration with immutable Terms/Privacy evidence and
   confirmed-email activation; and
 - protected Admin Affiliate summary, directory, detail, and audited lifecycle
-  RPCs with Owner-only termination and commercial-record blockers.
+  RPCs with Owner-only termination and commercial-record blockers; and
+- aggregate-only Admin Attribution, Data Health, and Platform Settings reads,
+  with an Owner-only canonical tracking-origin/kill-switch mutation guarded by
+  password proof, optimistic concurrency, and server-enforced launch readiness.
 
 No funnel, link, click, conversion, transaction, payout, or storage object has
 been seeded. One existing draft product named `test` was preserved. Public
@@ -212,7 +217,7 @@ pnpm format:check
 pnpm validate
 ```
 
-The current web suite covers 36 files and 504 tests, together with formatting,
+The current web suite covers 41 files and 573 tests, together with formatting,
 lint, the funnel integration contract, TypeScript, and a production build. It covers fixture
 calculations, token-hash invitation acceptance (including React Strict Mode's
 development effect replay), activation gating, auth/session behavior, tenant-safe
@@ -240,9 +245,10 @@ pgTAP files, 51 of 51 Edge tests, all ten
 Function entrypoint checks, an exact remote migration-history read-back, and a
 clean remote database lint. The deployed Function smoke checks fail closed as
 expected while integration configuration is absent.
-The 16th additive migration is applied, history-matched, and remotely lint-clean;
-its checked-in pgTAP contract was not run locally because this workflow excludes
-local Supabase/Docker, so that assertion count has not been increased.
+All 19 additive migrations are applied, history-matched, and remotely lint-clean
+at error level. The checked-in contracts added after the historical 724-assertion
+replay were not run locally because this workflow excludes local Supabase/Docker,
+so that historical assertion count has not been increased.
 
 Historical opt-in preview evidence and remaining manual browser/device gates are
 recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
@@ -252,8 +258,8 @@ recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 
 ## Remaining build order
 
-1. Complete the signed-in production Admin Funnels & Links desktop/mobile
-   acceptance pass without mutating product, funnel, link, or Partner state.
+1. Complete the signed-in production Admin Platform Settings desktop/mobile
+   acceptance pass without saving the origin or changing the tracking switch.
 2. Create or rename the first real draft product, then build and connect its real
    production funnel.
 3. Add the live Stripe subscription Price and secrets, configure the signed
@@ -263,8 +269,8 @@ recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 5. Configure monitoring and worker schedules, then validate the full production
    redirect-to-reconciliation journey before enabling tracking.
 6. Add document upload/signing, a controlled payout release procedure, Singular,
-   the approved Amplitude subset, and the remaining Admin P2 modules after
-   Affiliates.
+   the approved Amplitude subset, and the remaining Subscriptions, Payouts,
+   Documents, and scoped View as Partner Admin workflows.
 
 ## Source-of-truth boundaries
 

@@ -210,8 +210,11 @@ The UI QA pass is not full specification completion. Use the IDs in
 - [x] Start the action-first Admin console with Overview, Products, and a safe switch back to the authenticated Partner workspace.
 - [x] Add the protected Affiliates directory, evidence detail, and audited
       lifecycle workflows.
-- [ ] Add the remaining Funnels & Links, Attribution, Subscriptions, Payouts,
-      Documents, Data Health, Settings, and scoped “View as Partner” workflows.
+- [x] Add protected Funnels & Links, Attribution, Data Health, and Platform
+      Settings workflows without placeholder commercial data. Keep the canonical
+      tracking switch disabled until one correlated launch chain is ready.
+- [ ] Add the remaining Subscriptions, Payouts, Documents, and scoped “View as
+      Partner” workflows.
 - [x] Add durable webhook, commercial-fact, metric-refresh, and reconciliation
       queues with bounded leases/retries and redacted diagnostics.
 - [x] Add evidence-backed reconciliation processing; scheduling and a real

@@ -16,8 +16,8 @@ the three `kissmyapps.dev` hosts received valid TLS, and hosted Auth moved from
 localhost to the exact production callbacks. On 2026-09-01, the protected Admin
 Affiliate directory/lifecycle migration and immutable frontend artifact were
 deployed without changing the edge configuration or enabling tracking. Later on
-2026-09-01, the protected Admin Funnels & Links view and role-aware destination
-redaction migration were deployed under the same boundaries. Do not
+2026-09-01, the protected Admin Funnels & Links, Attribution, Data Health, and
+Platform Settings workflows were deployed under the same boundaries. Do not
 configure Stripe/funnel secrets, schedule workers, configure broader
 transactional email or a payout provider, or turn on tracking until the
 remaining gates below are approved.
@@ -31,18 +31,18 @@ The following inputs are still hard blockers:
 - The confirmed apex is `kissmyapps.dev`. Production hosts are
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
-- The deployed Admin Funnels & Links source is commit
-  `dd8b61f17466ea830b36d1f29e379be5261c4bb2`, tagged
-  `production-20260901-admin-funnels-links-v1`. The initial backend
+- The deployed Admin Platform Settings source is commit
+  `e4649427be8a665a71f9f56051d18ba3a1e51676`, tagged
+  `production-20260901-admin-platform-settings-v1`. The initial backend
   release remains recorded with aggregate source digest
   `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
   Require another clean reviewed commit/tag before every later release.
-- The linked migration history contains all 16 versions through
-  `20260901130000_admin_product_configuration_destination_redaction`. The first
-  15 versions passed 724 of 724 assertions across the prior 16-file replay. The
-  new migration is history-matched and remotely lint-clean, but its checked-in
-  pgTAP contract has not been run locally because this workflow excludes local
-  Supabase/Docker. Continue reconciling the history before every later release.
+- The linked migration history contains all 19 versions through
+  `20260901180000_admin_platform_settings`. The historical 15-migration replay
+  passed 724 of 724 assertions. Later migrations are history-matched and remotely
+  lint-clean at error level, but their checked-in pgTAP contracts have not been
+  run locally because this workflow excludes local Supabase/Docker. Continue
+  reconciling the history before every later release.
 - There is no approved real product/funnel, live Stripe credential or Price ID,
   bilaterally signed commission document, payout provider/operating procedure, or
   approved data-retention schedule. Resend is configured only for hosted Auth
@@ -121,7 +121,7 @@ Before an approved replay:
    so do not weaken grants merely to run pgTAP remotely:
 
    ```bash
-   # Fresh isolated PostgreSQL 17 replay: migrations, then tests 00-15.
+   # Fresh isolated PostgreSQL 17 replay: migrations, then checked-in tests through 19.
    pnpm exec supabase db lint --project-ref mmyruzjemjecqyivhrgr --fail-on error
    ```
 
@@ -151,18 +151,19 @@ later release without broadening the boundaries:
    `/srv/kissmyapps/releases/<release-id>` directory, switch
    `/srv/kissmyapps/current`, and recreate only `kissmyapps-dashboard`. Production
    builds must remove preview statements.
-4. Validate the full edge Caddyfile, back up the active DramaPal Caddyfile, write
-   the candidate into the existing bind-mounted inode, and restart only
-   `dramapal-caddy-1`. Do not run or prune the mixed historical DramaPal Compose
-   project. The edge forwards only `GET /r/*` on `go.kissmyapps.dev`.
+4. For a dashboard-only release, do not write or restart edge Caddy. If and only
+   if the reviewed edge configuration changes, separately validate the full
+   Caddyfile, back up the active DramaPal Caddyfile, write the candidate into the
+   existing bind-mounted inode, and restart only `dramapal-caddy-1`. Never run or
+   prune the mixed historical DramaPal Compose project.
 5. While tracking remains false, prove TLS, security/no-store headers, dashboard
    Auth routing, a fail-closed redirect response, and every existing DramaPal
    route before and after activation. Acquisition traffic stays off.
 
 The current immutable dashboard release is
-`/srv/kissmyapps/releases/20260901T084834Z-admin-funnels-links-dd8b61f17466`.
+`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`.
 Its predecessor is
-`/srv/kissmyapps/releases/20260901T060405Z-auth-routing-fix-04be464a494f`.
+`/srv/kissmyapps/releases/20260901T102651Z-admin-observability-bd960600703c`.
 For a frontend rollback, switch only `/srv/kissmyapps/current` and recreate only
 `kissmyapps-dashboard`; keep the shared edge and DramaPal services unchanged.
 

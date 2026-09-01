@@ -29,21 +29,22 @@ agreement, and live Stripe configuration pass the activation runbook.
 
 The first deployed release is
 `/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`. The active release is
-`/srv/kissmyapps/releases/20260901T102651Z-admin-observability-bd960600703c`, its
+`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`, its
 immediate predecessor and rollback target is
-`/srv/kissmyapps/releases/20260901T084834Z-admin-funnels-links-dd8b61f17466`, and
+`/srv/kissmyapps/releases/20260901T102651Z-admin-observability-bd960600703c`, and
 the active symlink is `/srv/kissmyapps/current`. The active release manifest
 SHA-256 is
-`accb830e43d2f9b3bd37ed3937016005604057064229b35c4e901fd197f47927`.
+`986dd5b89befdbf58bc0f03193ab2cb58ba29d50a8fd84d005b9c89cf1248b40`.
 The existing DramaPal Caddyfile
 backup made immediately before activation is:
 
 `/srv/dramapal/releases/20260812-dual-web-runtime-order-v16/deploy/Caddyfile.pre-kissmyapps-20260830T063458Z.bak`
 
-The 2026-08-30 release used Caddy 2.10.2 with `admin off`. Before a later release,
-verify the active edge version, validate the full candidate, write it into the
-existing bind-mounted Caddyfile inode, and restart only `dramapal-caddy-1`. Do not
-run the historical DramaPal Compose project or prune its containers. A later
-dashboard release must switch `current` and recreate only
+The 2026-08-30 release used Caddy 2.10.2 with `admin off`. A dashboard-only
+release must not write or restart edge Caddy. If a separately reviewed edge
+configuration changes, verify the active edge version, validate the full
+candidate, write it into the existing bind-mounted Caddyfile inode, and restart
+only `dramapal-caddy-1`. Do not run the historical DramaPal Compose project or
+prune its containers. A later dashboard release must switch `current` and recreate only
 `kissmyapps-dashboard`, because Docker resolves the symlink when the bind mount
 is created.

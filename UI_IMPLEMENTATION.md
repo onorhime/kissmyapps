@@ -97,9 +97,9 @@ VITE_ENABLE_UI_PREVIEW=true pnpm dev --host 127.0.0.1
 
 - Project: `mmyruzjemjecqyivhrgr` (`KissMyApps`), used directly with no local or
   staging Supabase runtime.
-- Applied migrations: all 15 versions from
+- Applied migrations: all 19 versions from
   `20260825215958_platform_foundation` through
-  `20260901100000_admin_affiliate_management`.
+  `20260901180000_admin_platform_settings`.
 - Remote security surface: public base tables remain RLS-protected with zero
   browser-role grants; authenticated access stays behind explicit Partner/Admin
   views and RPC allowlists, including the Admin Affiliate contracts.
@@ -142,12 +142,12 @@ is preserved.
 
 ## Automated verification
 
-- The current local web suite passed formatting, warning-free lint, 458 tests
-  across 35 files, TypeScript, and the Vite production build. It
+- The current local web suite passed formatting, warning-free lint, 573 tests
+  across 41 files, TypeScript, and the Vite production build. It
   includes live Auth/session, partner-gateway, and authenticated zero-data
-  coverage in addition to the fixture UI regressions. Source commit `71a02f9`
+  coverage in addition to the fixture UI regressions. Source commit `e464942`
   is deployed at
-  `/srv/kissmyapps/releases/20260901T013259Z-admin-affiliates-71a02f90d02b`;
+  `/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`;
   authenticated production-browser acceptance remains open.
 - The historical 276-test preview milestone covers navigation, preview states, filter/no-match behavior,
   report grouping and pagination, UTC date windows, calendar gaps, currency
@@ -271,6 +271,6 @@ Commands: `pnpm format:check` and `pnpm validate`.
 5. **Payout operations:** keep release human-approved initially. Provider transfer
    automation, live statements, exception handling, and operational reconciliation
    require separate implementation and end-to-end acceptance.
-6. **Remaining Admin P2:** add Funnels & Links, Attribution, Subscriptions,
-   Payouts, Documents, Data Health, Settings, and scoped View as Partner after
-   their real workflows are ready and auditable. Affiliates is implemented.
+6. **Remaining Admin P2:** add Subscriptions, Payouts, Documents, and scoped View
+   as Partner after their real workflows are ready and auditable. Affiliates,
+   Funnels & Links, Attribution, Data Health, and Settings are implemented.
