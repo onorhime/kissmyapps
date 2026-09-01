@@ -15,7 +15,9 @@ immutable dashboard release was deployed beside DramaPal on the Hostinger VPS,
 the three `kissmyapps.dev` hosts received valid TLS, and hosted Auth moved from
 localhost to the exact production callbacks. On 2026-09-01, the protected Admin
 Affiliate directory/lifecycle migration and immutable frontend artifact were
-deployed without changing the edge configuration or enabling tracking. Do not
+deployed without changing the edge configuration or enabling tracking. Later on
+2026-09-01, the protected Admin Funnels & Links view and role-aware destination
+redaction migration were deployed under the same boundaries. Do not
 configure Stripe/funnel secrets, schedule workers, configure broader
 transactional email or a payout provider, or turn on tracking until the
 remaining gates below are approved.
@@ -29,16 +31,18 @@ The following inputs are still hard blockers:
 - The confirmed apex is `kissmyapps.dev`. Production hosts are
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
-- The deployed Admin Affiliate source is commit
-  `71a02f90d02b7e637883b26f02750c37199ddee9`, tagged
-  `production-20260901-admin-affiliates-v1`. The initial backend
+- The deployed Admin Funnels & Links source is commit
+  `dd8b61f17466ea830b36d1f29e379be5261c4bb2`, tagged
+  `production-20260901-admin-funnels-links-v1`. The initial backend
   release remains recorded with aggregate source digest
   `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
   Require another clean reviewed commit/tag before every later release.
-- The linked migration history contains all 15 versions through
-  `20260901100000_admin_affiliate_management`, with 724 of 724 assertions passing
-  across the 16-file replay. Continue reconciling the history before every later
-  release.
+- The linked migration history contains all 16 versions through
+  `20260901130000_admin_product_configuration_destination_redaction`. The first
+  15 versions passed 724 of 724 assertions across the prior 16-file replay. The
+  new migration is history-matched and remotely lint-clean, but its checked-in
+  pgTAP contract has not been run locally because this workflow excludes local
+  Supabase/Docker. Continue reconciling the history before every later release.
 - There is no approved real product/funnel, live Stripe credential or Price ID,
   bilaterally signed commission document, payout provider/operating procedure, or
   approved data-retention schedule. Resend is configured only for hosted Auth
@@ -156,9 +160,9 @@ later release without broadening the boundaries:
    route before and after activation. Acquisition traffic stays off.
 
 The current immutable dashboard release is
-`/srv/kissmyapps/releases/20260901T013259Z-admin-affiliates-71a02f90d02b`.
+`/srv/kissmyapps/releases/20260901T084834Z-admin-funnels-links-dd8b61f17466`.
 Its predecessor is
-`/srv/kissmyapps/releases/20260831T234040Z-context-contrast-805dd1ad17e5`.
+`/srv/kissmyapps/releases/20260901T060405Z-auth-routing-fix-04be464a494f`.
 For a frontend rollback, switch only `/srv/kissmyapps/current` and recreate only
 `kissmyapps-dashboard`; keep the shared edge and DramaPal services unchanged.
 

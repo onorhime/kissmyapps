@@ -14,6 +14,8 @@ The first Hostinger dashboard/gateway release is recorded in
 [RELEASE_EVIDENCE_2026-08-30.md](./RELEASE_EVIDENCE_2026-08-30.md).
 The current Admin Affiliate production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01.md](./RELEASE_EVIDENCE_2026-09-01.md).
+The current Admin Funnels & Links production release is recorded in
+[RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md).
 The current UI scope, review checklist, and live-integration boundaries are in
 [UI_IMPLEMENTATION.md](./UI_IMPLEMENTATION.md). The supplied four-page UX v2.0
 document has been fully reviewed; [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md)
@@ -33,7 +35,8 @@ pnpm dev --host 127.0.0.1
 Open the exact URL printed by Vite. Navigation uses hash routes, including
 `#profile/payment`, `#profile/terms`, `#profile/documents`, and `#profile/security`.
 The enabled Admin routes are `#admin/overview`, `#admin/products`,
-`#admin/affiliates`, and `#admin/affiliates/:affiliateId`. The live auth
+`#admin/affiliates`, `#admin/affiliates/:affiliateId`, and
+`#admin/funnels-links`. The live auth
 routes are `#auth/sign-in`, `#auth/recover`, and `#auth/reset`; the requested
 Partner or Admin destination is preserved through sign-in.
 
@@ -92,8 +95,9 @@ The application is linked directly to the real Supabase project
 `mmyruzjemjecqyivhrgr` (**KissMyApps**). No local or staging Supabase runtime is
 part of this workflow.
 
-All 15 migrations from `20260825215958_platform_foundation` through
-`20260901100000_admin_affiliate_management` are applied remotely. The
+All 16 migrations from `20260825215958_platform_foundation` through
+`20260901130000_admin_product_configuration_destination_redaction` are applied
+remotely. The
 deployed foundation now includes:
 
 - default-deny RLS and zero browser-role grants on public base tables;
@@ -149,6 +153,16 @@ Partner, Admin, and Auth surfaces now use the canonical `kissmyapps.dev` dark
 palette, Outfit typeface, and lips/sparkle mark. Favicons use the transparent live
 SVG/PNG assets rather than the supplied opaque-corner raster.
 
+### Admin Funnels & Links
+
+The protected `#admin/funnels-links` route is live as a global routing operations
+view. It summarizes products, funnels, live defaults, and issued main links and
+links each product back to its exact configuration workflow. It does not create
+placeholder data, open tracking links, or generate traffic. Owner and Operations
+roles can see configured destination URLs; Finance and Analyst roles receive
+truthful configured-state indicators with those URLs redacted, while Support is
+restricted.
+
 Hosted Auth uses `https://partners.kissmyapps.dev` as the Site URL and allows only
 the exact Partner/Admin `/#auth/reset` callbacks. Public Partner signup is
 enabled, confirmed-email sign-in and the 12-character minimum remain enforced,
@@ -196,7 +210,7 @@ pnpm format:check
 pnpm validate
 ```
 
-The current web suite covers 35 files and 458 tests, together with formatting,
+The current web suite covers 36 files and 504 tests, together with formatting,
 lint, the funnel integration contract, TypeScript, and a production build. It covers fixture
 calculations, token-hash invitation acceptance (including React Strict Mode's
 development effect replay), activation gating, auth/session behavior, tenant-safe
@@ -218,11 +232,15 @@ generation, and a clean console without creating additional product data.
 That evidence predates the deployed Admin Affiliate workspace and does not count
 as its authenticated production visual acceptance.
 
-The production backend validation additionally passes 724 of 724 PostgreSQL 17
-assertions across a fresh 15-migration replay and 16 pgTAP files, 51 of 51 Edge tests, all ten
+The production backend validation before the destination-redaction release passed
+724 of 724 PostgreSQL 17 assertions across a fresh 15-migration replay and 16
+pgTAP files, 51 of 51 Edge tests, all ten
 Function entrypoint checks, an exact remote migration-history read-back, and a
 clean remote database lint. The deployed Function smoke checks fail closed as
 expected while integration configuration is absent.
+The 16th additive migration is applied, history-matched, and remotely lint-clean;
+its checked-in pgTAP contract was not run locally because this workflow excludes
+local Supabase/Docker, so that assertion count has not been increased.
 
 Historical opt-in preview evidence and remaining manual browser/device gates are
 recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
@@ -232,8 +250,8 @@ recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 
 ## Remaining build order
 
-1. Complete the signed-in production Admin Affiliate desktop/mobile acceptance
-   pass without mutating the current QA Partner lifecycle.
+1. Complete the signed-in production Admin Funnels & Links desktop/mobile
+   acceptance pass without mutating product, funnel, link, or Partner state.
 2. Create or rename the first real draft product, then build and connect its real
    production funnel.
 3. Add the live Stripe subscription Price and secrets, configure the signed
