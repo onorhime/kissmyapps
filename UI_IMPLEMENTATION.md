@@ -20,12 +20,12 @@ No local Supabase or staging environment is used.
 | Area                | Implemented now                                                                                                                                                                   | Still open                                                                                                                                           |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Workspace context   | Auth-gated live workspace provider, typed partner gateway, product-independent zero-data state, plus opt-in fixture context on all four pages                                     | First product membership/effective agreement and authenticated production Affiliate responsive/accessibility acceptance                              |
-| Performance         | Tenant-safe summary/trend RPC contracts and live gateway with date, timezone, product/funnel/source/currency/completeness inputs; full historical preview interactions            | First non-empty live data, provider configuration/traffic, native downloaded-file acceptance, and authenticated chart/table verification             |
+| Performance         | Tenant-safe summary/trend RPCs plus direct tracking-only click/visitor/demo-event totals and source breakdowns; full historical preview interactions                            | First production demo traffic, native downloaded-file acceptance, and authenticated chart/table verification                                        |
 | Payouts             | Authorized summary/history/detail contracts and database-enforced immutable money snapshots; full historical calculation/status/statement preview                                 | Real commission events, private statement files, discrepancy delivery, human-approved release operations, and any later provider-transfer automation |
-| Links & Sources     | Authenticated create/update/status RPC contracts, configured-product/funnel gates, live zero-data behavior, and full historical link/QR preview                                   | First configured product/funnel, enabled redirect traffic, canonical acquisition continuity, and physical QR/native file acceptance                  |
+| Links & Sources     | Exact-parent Partner link creation with source/campaign/Sub-ID dimensions, copy actions, truthful unavailable states, and full historical link/QR preview                           | Authenticated production provisioning, TikTok/Instagram redirect acceptance, canonical acquisition continuity, and physical QR/native file acceptance |
 | Profile & Documents | Persistent profile/settings RPC contracts, private bucket and record-scoped read authorization, plus the full historical profile/document preview                                 | Upload/download-signing UI, real signatures, payment-destination verification/holds, and authenticated end-to-end document acceptance                |
 | Sign-in & recovery  | Real sign-in, completed recovery/activation and public confirmed-email registration, session handling, Partner/Admin route gating, sign-out, production URLs, and approved policy | Full session-expiry/device acceptance and broader lifecycle email                                                                                    |
-| Admin Products      | Protected Overview/Product routes, complete P2 roadmap navigation, protected catalog, and Operations/Owner draft-only name+slug creation                                          | Replace/rename the placeholder draft with the first approved product, then add its real funnel                                                       |
+| Admin Products      | Protected catalog/configuration plus Owner-approved tracking-only mode bound to an exact live-funnel snapshot                                                                       | Provision and exercise the separate demo product, then later create a distinct real commercial product/funnel                                       |
 | Admin Affiliates    | Protected summary/directory/detail routes; registration/legal/commercial evidence; responsive cards; audited pause/reactivate; Owner-only blocked termination                     | Authenticated production visual acceptance and later scoped View as Partner                                                                          |
 
 See [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md) for the requirement
@@ -97,9 +97,9 @@ VITE_ENABLE_UI_PREVIEW=true pnpm dev --host 127.0.0.1
 
 - Project: `mmyruzjemjecqyivhrgr` (`KissMyApps`), used directly with no local or
   staging Supabase runtime.
-- Applied migrations: all 19 versions from
+- Applied migrations: all 20 versions from
   `20260825215958_platform_foundation` through
-  `20260901180000_admin_platform_settings`.
+  `20260901190000_tracking_only_demo_mode`.
 - Remote security surface: public base tables remain RLS-protected with zero
   browser-role grants; authenticated access stays behind explicit Partner/Admin
   views and RPC allowlists, including the Admin Affiliate contracts.
@@ -109,8 +109,11 @@ VITE_ENABLE_UI_PREVIEW=true pnpm dev --host 127.0.0.1
   16-file migration suite; remote database lint reported no errors.
 - Application integration: real Auth/session/recovery/reset/sign-out plus a typed
   partner gateway and live authenticated zero-data workspace provider.
-- Live state: no active product, funnel, link, payout, or storage object; retained
-  QA registration data and a least-privilege Operations Admin remain intact.
+- Live state: the tracking-only schema/UI and owned demo page are deployed, but
+  no demo product, funnel, source, campaign, link, click, or event has been
+  provisioned because the controlled production browser is signed out. Retained
+  QA registration data, the preserved draft product, and storage state remain
+  intact.
 
 This proves the deployed foundation and its catalog/security contracts. It does
 not prove a non-empty authenticated user journey, document upload/signing,
@@ -142,13 +145,17 @@ is preserved.
 
 ## Automated verification
 
-- The current local web suite passed formatting, warning-free lint, 573 tests
-  across 41 files, TypeScript, and the Vite production build. It
+- The current local web suite passed formatting, warning-free lint, 590 tests
+  across 43 files, TypeScript, and the Vite production build. It
   includes live Auth/session, partner-gateway, and authenticated zero-data
-  coverage in addition to the fixture UI regressions. Source commit `e464942`
+  coverage in addition to the fixture UI regressions. Source commit `38e8410`
   is deployed at
-  `/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`;
-  authenticated production-browser acceptance remains open.
+  `/srv/kissmyapps/releases/20260901T173438Z-tracking-only-demo-38e8410c8e56`.
+  The Admin UI now supports explicit Owner approval of a tracking-only product,
+  and Partner Links/Performance surfaces expose real source and demo-event data
+  without fabricated commercial values. Authenticated production provisioning
+  and traffic acceptance remain open because the controlled browser was signed
+  out.
 - The historical 276-test preview milestone covers navigation, preview states, filter/no-match behavior,
   report grouping and pagination, UTC date windows, calendar gaps, currency
   minor units, payout totals/periods, CSV escaping/formula protection, reserved

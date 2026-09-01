@@ -20,6 +20,8 @@ The Admin Attribution and Data Health production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md).
 The current Admin Platform Settings production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01_ADMIN_SETTINGS.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_SETTINGS.md).
+The current tracking-only demo backend/frontend release is recorded in
+[RELEASE_EVIDENCE_2026-09-01_TRACKING_ONLY_DEMO.md](./RELEASE_EVIDENCE_2026-09-01_TRACKING_ONLY_DEMO.md).
 The current UI scope, review checklist, and live-integration boundaries are in
 [UI_IMPLEMENTATION.md](./UI_IMPLEMENTATION.md). The supplied four-page UX v2.0
 document has been fully reviewed; [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md)
@@ -69,8 +71,9 @@ workspace from the hostname. The dashboard runs in the isolated, unprivileged
 `kissmyapps-dashboard` container with no host port and joins the existing
 `dramapal_application` network only so the existing edge Caddy can proxy it.
 `go` forwards directly to the production `tracking-redirect` Edge Function.
-Tracking remains disabled, so this hosting milestone does not authorize live
-acquisition traffic.
+The tracking-only capability is deployed, but collection remains disabled until
+a password-proven Owner creates and approves the separate demo product chain.
+This hosting milestone does not authorize commercial acquisition traffic.
 
 ### Opt-in fixture preview
 
@@ -99,8 +102,8 @@ The application is linked directly to the real Supabase project
 `mmyruzjemjecqyivhrgr` (**KissMyApps**). No local or staging Supabase runtime is
 part of this workflow.
 
-All 19 migrations from `20260825215958_platform_foundation` through
-`20260901180000_admin_platform_settings` are applied
+All 20 migrations from `20260825215958_platform_foundation` through
+`20260901190000_tracking_only_demo_mode` are applied
 remotely. The
 deployed foundation now includes:
 
@@ -116,14 +119,18 @@ deployed foundation now includes:
 - per-funnel signing-key scope, public database rate limits, atomic retry
   handling, and privacy-minimized Stripe webhook storage;
 - ten active production Edge Functions with application-level authentication,
-  while tracking remains disabled and external integration secrets are absent;
+  while tracking remains disabled and commercial integration secrets are absent;
 - public Partner registration with immutable Terms/Privacy evidence and
   confirmed-email activation; and
 - protected Admin Affiliate summary, directory, detail, and audited lifecycle
   RPCs with Owner-only termination and commercial-record blockers; and
 - aggregate-only Admin Attribution, Data Health, and Platform Settings reads,
   with an Owner-only canonical tracking-origin/kill-switch mutation guarded by
-  password proof, optimistic concurrency, and server-enforced launch readiness.
+  password proof, optimistic concurrency, and server-enforced launch readiness;
+  and
+- a separate Owner-approved tracking-only mode with immutable non-commercial
+  link/click/event provenance, exact funnel snapshots, Partner link creation,
+  direct source/event reporting, and commercial-write rejection.
 
 No funnel, link, click, conversion, transaction, payout, or storage object has
 been seeded. One existing draft product named `test` was preserved. Public
@@ -142,8 +149,10 @@ link through password-proven RPCs; the browser has no direct base-table access.
 Activation is fail-closed. A usable link requires a live funnel, one exact active
 subscription offer verified against Stripe live mode, one supported active
 purchase rule, and a current agreement document signed by both parties. The
-other remaining top-level Admin modules stay visible as a roadmap but are not
-yet enabled.
+separate tracking-only path instead requires an exact Owner-approved live funnel
+snapshot and permanently marks its traffic non-commercial; it cannot create
+offers, agreements, commissions, subscriptions, or payouts. The other remaining
+top-level Admin modules stay visible as a roadmap but are not yet enabled.
 
 ### Admin affiliate management
 
@@ -204,11 +213,13 @@ partner record, invitation, or Auth user.
 
 Private document authorization exists at the database/storage layer, but the
 upload, download-signing, and legal-signature UI/end-to-end flow is not complete.
-The Stripe/redirect/commercial backend is deployed but deliberately unconfigured:
-there is no real funnel origin, Stripe secret/Price, webhook secret, signed
-agreement, worker schedule, or live traffic. Singular, Amplitude outbound
-processing, email, and payout-transfer automation are not deployed. Payout
-release remains a human-approved operational step.
+The tracking-only schema, Partner browser-event origin, and owned demo page are
+deployed, but no demo product/link/traffic has been provisioned. The commercial
+backend remains deliberately unconfigured: there is no real funnel, Stripe
+secret/Price, webhook secret, signed agreement, worker schedule, or commercial
+traffic. Singular, Amplitude outbound processing, email, and payout-transfer
+automation are not deployed. Payout release remains a human-approved operational
+step.
 
 ## Validation
 
@@ -217,7 +228,7 @@ pnpm format:check
 pnpm validate
 ```
 
-The current web suite covers 41 files and 573 tests, together with formatting,
+The current web suite covers 43 files and 590 tests, together with formatting,
 lint, the funnel integration contract, TypeScript, and a production build. It covers fixture
 calculations, token-hash invitation acceptance (including React Strict Mode's
 development effect replay), activation gating, auth/session behavior, tenant-safe
@@ -245,7 +256,7 @@ pgTAP files, 51 of 51 Edge tests, all ten
 Function entrypoint checks, an exact remote migration-history read-back, and a
 clean remote database lint. The deployed Function smoke checks fail closed as
 expected while integration configuration is absent.
-All 19 additive migrations are applied, history-matched, and remotely lint-clean
+All 20 additive migrations are applied, history-matched, and remotely lint-clean
 at error level. The checked-in contracts added after the historical 724-assertion
 replay were not run locally because this workflow excludes local Supabase/Docker,
 so that historical assertion count has not been increased.
@@ -258,9 +269,12 @@ recorded in [REPORTING_UI_QA.md](./REPORTING_UI_QA.md),
 
 ## Remaining build order
 
-1. Complete the signed-in production Admin Platform Settings desktop/mobile
-   acceptance pass without saving the origin or changing the tracking switch.
-2. Create or rename the first real draft product, then build and connect its real
+1. Sign in as a password-proven Owner, provision the separate tracking-only demo
+   product against `https://partners.kissmyapps.dev/demo-funnel.html`, issue the
+   QA Partner main link, create TikTok and Instagram variants, and verify
+   redirect/source/event reporting. No Stripe or commercial records belong to
+   this product.
+2. Create the first real commercial draft product, then build and connect its real
    production funnel.
 3. Add the live Stripe subscription Price and secrets, configure the signed
    webhook endpoint, and verify the offer from Admin.

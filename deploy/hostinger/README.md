@@ -23,18 +23,20 @@ Production builds remove the local `public/statements/SAMPLE-*.pdf` design
 fixtures, and the static server rejects `/statements/*`. Those files remain
 available only to the explicitly enabled local UI preview.
 
-Feature activation on the production host remains fail-closed: do not enable
-tracking, Stripe, workers, or funnel ingestion until the real funnel, signed
-agreement, and live Stripe configuration pass the activation runbook.
+Commercial activation on the production host remains fail-closed. A distinct
+Owner-approved tracking-only product may enable redirect/browser-event testing
+without Stripe or agreements, but its complete ancestry is permanently
+non-commercial. Do not enable Stripe, workers, signed funnel ingestion, or real
+acquisition traffic until the commercial activation runbook passes.
 
 The first deployed release is
 `/srv/kissmyapps/releases/20260830T063458Z-host-routing-v1`. The active release is
-`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`, its
+`/srv/kissmyapps/releases/20260901T173438Z-tracking-only-demo-38e8410c8e56`, its
 immediate predecessor and rollback target is
-`/srv/kissmyapps/releases/20260901T102651Z-admin-observability-bd960600703c`, and
+`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`, and
 the active symlink is `/srv/kissmyapps/current`. The active release manifest
 SHA-256 is
-`986dd5b89befdbf58bc0f03193ab2cb58ba29d50a8fd84d005b9c89cf1248b40`.
+`35e56aa425f4a8ae68538f03b9d9055f7db7a66cf0be19f9865e3bfbd020bb15`.
 The existing DramaPal Caddyfile
 backup made immediately before activation is:
 

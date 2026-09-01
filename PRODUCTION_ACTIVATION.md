@@ -31,14 +31,14 @@ The following inputs are still hard blockers:
 - The confirmed apex is `kissmyapps.dev`. Production hosts are
   `partners.kissmyapps.dev`, `admin.kissmyapps.dev`, and `go.kissmyapps.dev`.
   Hosting and DNS are complete; this does not authorize tracking traffic.
-- The deployed Admin Platform Settings source is commit
-  `e4649427be8a665a71f9f56051d18ba3a1e51676`, tagged
-  `production-20260901-admin-platform-settings-v1`. The initial backend
+- The deployed tracking-only demo source is commit
+  `38e8410c8e563f3b52961a946fe3e0f1677fd80b`, tagged
+  `production-20260901-tracking-only-demo-v1`. The initial backend
   release remains recorded with aggregate source digest
   `698c58044508e0ea5e6d10461477eec79038f3d5ba6e6660711d27463f30f2c6`.
   Require another clean reviewed commit/tag before every later release.
-- The linked migration history contains all 19 versions through
-  `20260901180000_admin_platform_settings`. The historical 15-migration replay
+- The linked migration history contains all 20 versions through
+  `20260901190000_tracking_only_demo_mode`. The historical 15-migration replay
   passed 724 of 724 assertions. Later migrations are history-matched and remotely
   lint-clean at error level, but their checked-in pgTAP contracts have not been
   run locally because this workflow excludes local Supabase/Docker. Continue
@@ -161,9 +161,9 @@ later release without broadening the boundaries:
    route before and after activation. Acquisition traffic stays off.
 
 The current immutable dashboard release is
-`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`.
+`/srv/kissmyapps/releases/20260901T173438Z-tracking-only-demo-38e8410c8e56`.
 Its predecessor is
-`/srv/kissmyapps/releases/20260901T102651Z-admin-observability-bd960600703c`.
+`/srv/kissmyapps/releases/20260901T112904Z-admin-platform-settings-e4649427be8a`.
 For a frontend rollback, switch only `/srv/kissmyapps/current` and recreate only
 `kissmyapps-dashboard`; keep the shared edge and DramaPal services unchanged.
 
@@ -218,7 +218,24 @@ All ten Functions intentionally have gateway JWT verification disabled in
 origin check, HMAC, Stripe signature, bearer session, or worker secret). Verify
 those application-level controls; do not make an unauthenticated worker public.
 
-## 5. Real commercial configuration
+## 5. Tracking-only production acceptance
+
+Before a real commercial funnel exists, an Owner may create one separate demo
+product whose destination is the owned
+`https://partners.kissmyapps.dev/demo-funnel.html` page. Create its live default
+funnel, approve tracking-only mode against that exact funnel ID/URL snapshot,
+activate the product, enable collection, and issue a main link only to the active
+QA Partner. Do not create an agreement, rule, billing offer, Stripe record,
+commission, subscription, or payout for this product.
+
+Create Partner-derived links with explicit source/campaign labels and exercise
+only the allowlisted demo events. TikTok and Instagram are dashboard source
+dimensions; those platforms do not automatically populate the labels. Once any
+tracking-only click/event exists, the product can never become commercial. A
+later real launch requires a separate commercial product and the full runbook
+below.
+
+## 6. Real commercial configuration
 
 Keep tracking false while an approved Owner/Operations operator creates the real
 draft product, exact funnel destination, source/campaign records, billing offer,
@@ -243,7 +260,7 @@ The current Stripe normalizer supports subscription Checkout. It rejects
 one-time `payment` Checkout events; a one-time offer is therefore a launch blocker
 until the normalization path and its tests are extended.
 
-## 6. Stripe endpoint
+## 7. Stripe endpoint
 
 Create one live webhook endpoint at:
 
@@ -264,7 +281,7 @@ The webhook must receive the exact raw body, verify its Stripe signature, accept
 only live-mode events, and persist duplicate IDs idempotently. Record endpoint ID,
 API version, event selection, and secret version—not the secret.
 
-## 7. Workers, scheduling, and monitoring
+## 8. Workers, scheduling, and monitoring
 
 Deploying a worker does not schedule it. No scheduler or alert thresholds are
 checked in, so cadence, retry/backlog SLOs, log retention, paging destination,
@@ -292,7 +309,7 @@ Workers never approve a payout or transfer funds. If a worker is faulty, pause
 its schedule while leaving the signed Stripe webhook ingesting durable events;
 repair, replay the queue idempotently, and reconcile before resuming.
 
-## 8. Privacy and retention gate
+## 9. Privacy and retention gate
 
 The tracker persists keyed hashes of IP, session, and user agent—not raw IP—and
 sets an HttpOnly/Secure/SameSite=Lax `kma_sid` cookie for one year. Funnel browser
@@ -315,7 +332,7 @@ or delete immutable agreement, commission, payout, audit, or reconciliation
 evidence ad hoc. Implement and test the approved policy, keep event/property
 allowlists free of PII, and complete cookie/privacy notice review before launch.
 
-## 9. Acceptance evidence and final activation
+## 10. Acceptance evidence and final activation
 
 All evidence must come from the real project and confirmed production hosts:
 
@@ -358,7 +375,7 @@ After the successful final smoke, recheck queue age, worker responses, Stripe
 delivery, canonical totals, partner-visible metrics, and error logs before public
 traffic is released.
 
-## 10. Rollback and kill switch
+## 11. Rollback and kill switch
 
 1. **Stop acquisition first:** use the password-proven Owner tracking action
    (`configure_admin_tracking`) to retain the confirmed base URL but set

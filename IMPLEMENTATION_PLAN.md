@@ -142,6 +142,17 @@ The UI QA pass is not full specification completion. Use the IDs in
       readiness blockers.
 - [x] Keep one-time payments, CPL, unsigned agreements, unverified Prices, and
       incomplete funnels fail-closed.
+- [x] Add a separate Owner-approved tracking-only mode bound to an exact live
+      funnel snapshot, with immutable non-commercial provenance and direct
+      rejection of every commercial write path.
+- [x] Add live Partner link derivation, source/event reporting, truthful
+      non-commercial metric states, and the owned no-checkout demo funnel page.
+- [x] Apply migration `20260901190000_tracking_only_demo_mode` and deploy source
+      `38e8410` to the immutable Hostinger release recorded in
+      `RELEASE_EVIDENCE_2026-09-01_TRACKING_ONLY_DEMO.md`.
+- [ ] Complete password-proven production provisioning and exercise the TikTok
+      and Instagram demo links. The controlled browser session is currently
+      signed out; no demo product, link, click, or event has been created yet.
 
 ### M1e - Admin Affiliate management
 
