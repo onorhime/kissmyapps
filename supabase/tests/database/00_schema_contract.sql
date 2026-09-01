@@ -215,6 +215,7 @@ select has_function(
 );
 select has_function('public', 'get_admin_sources', array[]::text[], 'admin source directory RPC exists');
 select has_function('public', 'get_admin_product_configuration', array['uuid'], 'admin product configuration RPC exists');
+select has_function('public', 'get_admin_platform_settings', array[]::text[], 'admin platform settings RPC exists');
 select has_function('public', 'configure_admin_tracking', array['jsonb'], 'admin tracking configuration RPC exists');
 select has_function('public', 'create_admin_funnel', array['jsonb'], 'admin funnel creation RPC exists');
 select has_function('public', 'update_admin_funnel', array['jsonb'], 'admin funnel update RPC exists');
@@ -416,8 +417,11 @@ select is(
     'get_admin_affiliate_directory(jsonb)',
     'get_admin_affiliate_summary()',
     'get_admin_affiliates()',
+    'get_admin_attribution_overview(jsonb)',
     'get_admin_billing_offer_verification_candidate(uuid)',
     'get_admin_context()',
+    'get_admin_data_health()',
+    'get_admin_platform_settings()',
     'get_admin_product_configuration(uuid)',
     'get_admin_products()',
     'get_admin_sources()',

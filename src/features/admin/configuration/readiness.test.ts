@@ -111,14 +111,14 @@ const launchReadyConfiguration: AdminProductConfiguration = {
 }
 
 describe('admin production readiness', () => {
-  it('keeps product activation independent from partner agreements', () => {
+  it('keeps product activation independent from partner agreements and the tracking kill switch', () => {
     expect(
       productActivationReadiness({
         ...configuration,
-        tracking: { enabled: true, baseUrl: 'https://go.example.test' },
+        tracking: { enabled: false, baseUrl: 'https://go.example.test' },
         readiness: {
           ...configuration.readiness,
-          trackingReady: true,
+          trackingReady: false,
           hasLiveDefaultFunnel: true,
         },
       }),

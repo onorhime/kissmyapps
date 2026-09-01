@@ -3282,6 +3282,328 @@ button.admin-routing-action,
   line-height: 1.55;
 }
 
+.admin-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-settings-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-settings-heading-actions .admin-secondary-button {
+  min-height: 36px;
+}
+
+.admin-settings-tracking,
+.admin-settings-hosts,
+.admin-settings-readiness {
+  min-width: 0;
+  padding: 22px;
+}
+
+.admin-settings-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-settings-panel-heading h2 {
+  margin: 7px 0 0;
+  color: var(--admin-text);
+  font-size: 19px;
+  letter-spacing: -0.35px;
+}
+
+.admin-settings-panel-heading p:last-child {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.admin-settings-panel-heading > svg {
+  flex: 0 0 auto;
+  color: var(--admin-pink-strong);
+}
+
+.admin-settings-status {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-settings-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.admin-settings-status-enabled,
+.admin-settings-status-ready {
+  border-color: color-mix(in srgb, var(--admin-green) 38%, var(--admin-line));
+  color: #dff9e8;
+  background: color-mix(in srgb, var(--admin-green) 11%, transparent);
+}
+
+.admin-settings-status-drift {
+  border-color: color-mix(in srgb, var(--admin-red) 42%, var(--admin-line));
+  color: #ffe5e9;
+  background: color-mix(in srgb, var(--admin-red) 9%, transparent);
+}
+
+.admin-settings-status:focus-visible {
+  outline: 2px solid var(--admin-cyan);
+  outline-offset: 3px;
+}
+
+.admin-settings-status-disabled,
+.admin-settings-status-blocked {
+  border-color: color-mix(in srgb, var(--admin-yellow) 34%, var(--admin-line));
+  color: #fff7c2;
+  background: color-mix(in srgb, var(--admin-yellow) 8%, transparent);
+}
+
+.admin-settings-current {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(180px, 0.65fr);
+  gap: 1px;
+  overflow: hidden;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-line);
+}
+
+.admin-settings-current > div {
+  min-width: 0;
+  padding: 13px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-settings-current dt,
+.admin-settings-hosts dt,
+.admin-settings-readiness-grid dt {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+.admin-settings-current dd,
+.admin-settings-hosts dd {
+  overflow-wrap: anywhere;
+  margin: 6px 0 0;
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-settings-form {
+  margin-top: 20px;
+}
+
+.admin-settings-form .admin-field label {
+  font-size: 12px;
+}
+
+.admin-settings-form .admin-field input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.admin-settings-actions,
+.admin-settings-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.admin-settings-disable {
+  border-color: color-mix(in srgb, var(--admin-red) 36%, var(--admin-line));
+  color: #ffe5e9;
+}
+
+.admin-settings-blocked,
+.admin-settings-confirm,
+.admin-settings-proof-limit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding: 13px;
+  border-radius: 10px;
+}
+
+.admin-settings-blocked {
+  border: 1px solid color-mix(in srgb, var(--admin-yellow) 30%, var(--admin-line));
+  color: #fff7c2;
+  background: color-mix(in srgb, var(--admin-yellow) 7%, transparent);
+}
+
+.admin-settings-blocked p,
+.admin-settings-confirm p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.admin-settings-confirm {
+  border: 1px solid color-mix(in srgb, var(--admin-pink) 40%, var(--admin-line));
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-pink) 8%, var(--admin-plum-deep));
+}
+
+.admin-settings-confirm > svg {
+  color: var(--admin-pink-strong);
+}
+
+.admin-settings-confirm strong {
+  display: block;
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-settings-confirm p {
+  margin-top: 5px;
+}
+
+.admin-settings-confirm-actions {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.admin-settings-feedback {
+  min-height: 22px;
+  margin-top: 12px;
+}
+
+.admin-settings-feedback p {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-settings-hosts dl {
+  display: grid;
+  gap: 11px;
+  margin: 20px 0 0;
+}
+
+.admin-settings-hosts dl > div {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-settings-readiness {
+  margin-top: 20px;
+}
+
+.admin-settings-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 11px;
+  margin: 20px 0 0;
+}
+
+.admin-settings-readiness-grid > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-settings-readiness-grid dd {
+  margin: 8px 0 0;
+  color: var(--admin-text);
+  font-size: 25px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-settings-evidence-note {
+  margin: 15px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.admin-settings-proof-limit {
+  margin-top: 20px;
+  border: 1px dashed color-mix(in srgb, var(--admin-muted) 45%, var(--admin-line));
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 4%, var(--admin-surface));
+}
+
+.admin-settings-proof-limit h2 {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-settings-proof-limit p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.admin-settings-state {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 34px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-surface);
+  text-align: center;
+}
+
+.admin-settings-state h2 {
+  margin: 14px 0 0;
+  color: var(--admin-text);
+  font-size: 20px;
+}
+
+.admin-settings-state p {
+  max-width: 520px;
+  margin: 8px 0 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.admin-settings-state .admin-primary-button {
+  margin-top: 18px;
+}
+
 @media (max-width: 1120px) {
   .admin-shell {
     grid-template-columns: 238px minmax(0, 1fr);
@@ -3326,6 +3648,14 @@ button.admin-routing-action,
   }
 
   .admin-health-provider-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-settings-readiness-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -3910,6 +4240,36 @@ button.admin-routing-action,
 
   .admin-observability-list li > span {
     text-align: left;
+  }
+
+  .admin-settings-tracking,
+  .admin-settings-hosts,
+  .admin-settings-readiness {
+    padding: 18px;
+  }
+
+  .admin-settings-panel-heading,
+  .admin-settings-current,
+  .admin-settings-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-settings-panel-heading {
+    display: grid;
+  }
+
+  .admin-settings-status {
+    justify-self: start;
+  }
+
+  .admin-settings-actions,
+  .admin-settings-confirm-actions {
+    display: grid;
+  }
+
+  .admin-settings-actions button,
+  .admin-settings-confirm-actions button {
+    width: 100%;
   }
 }
 

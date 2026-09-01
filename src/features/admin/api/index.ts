@@ -18,9 +18,11 @@ export {
   ADMIN_PRODUCT_STATUSES,
   ADMIN_READINESS_BLOCKERS,
   ADMIN_ROLES,
+  ADMIN_TRACKING_ORIGIN,
   hasAdminAffiliateManagementGateway,
   hasAdminConfigurationGateway,
   hasAdminObservabilityGateway,
+  hasAdminSettingsGateway,
 } from './types'
 export type {
   AdminActionReadiness,
@@ -88,9 +90,12 @@ export type {
   AdminProductConfiguration,
   AdminProductCreate,
   AdminProductStatus,
+  AdminPlatformSettings,
   AdminReadinessBlockerCode,
   AdminRole,
+  AdminSettingsGateway,
   AdminSource,
   AdminSourceCreate,
   AdminSupabaseClient,
+  AdminTrackingConfigurationUpdate,
 } from './types'

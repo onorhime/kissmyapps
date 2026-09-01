@@ -87,7 +87,10 @@ export function productActivationReadiness(
   if (!['draft', 'paused'].includes(configuration.product.status)) {
     blockers.push('product_status_not_activatable')
   }
-  if (!configuration.readiness.trackingReady) blockers.push(trackingBlocker(configuration))
+  // Product activation is the pre-launch step that unlocks live-offer
+  // verification. The kill switch deliberately remains off until the full
+  // product, funnel, agreement and offer chain is ready.
+  if (!configuration.tracking.baseUrl) blockers.push('tracking_not_configured')
   if (!configuration.readiness.hasLiveDefaultFunnel) blockers.push(funnelBlocker(configuration))
   return { allowed: blockers.length === 0, blockers }
 }

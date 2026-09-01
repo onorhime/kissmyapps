@@ -27,11 +27,18 @@ import { FunnelsLinksPage } from './funnels/FunnelsLinksPage'
 import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
+import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { useAdminWorkspace, type AdminWorkspaceStatus } from './useAdminWorkspace'
 import './AdminPortal.css'
 
 export type AdminPrimaryRoute =
-  'overview' | 'products' | 'affiliates' | 'funnels-links' | 'attribution' | 'data-health'
+  | 'overview'
+  | 'products'
+  | 'affiliates'
+  | 'funnels-links'
+  | 'attribution'
+  | 'data-health'
+  | 'settings'
 export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
 
 export type AdminIdentity = Readonly<{
@@ -53,7 +60,7 @@ export type AdminPortalAppProps = Readonly<{
   onSwitchToPartner: () => void | Promise<void>
 }>
 
-type UpcomingRoute = 'subscriptions' | 'payouts' | 'documents' | 'settings'
+type UpcomingRoute = 'subscriptions' | 'payouts' | 'documents'
 
 const navigation: readonly (
   | { id: AdminPrimaryRoute; label: string; icon: typeof Gauge; enabled: true }
@@ -68,7 +75,7 @@ const navigation: readonly (
   { id: 'payouts', label: 'Payouts', icon: BadgeDollarSign, enabled: false },
   { id: 'documents', label: 'Documents', icon: FileText, enabled: false },
   { id: 'data-health', label: 'Data Health', icon: DatabaseZap, enabled: true },
-  { id: 'settings', label: 'Settings', icon: Settings, enabled: false },
+  { id: 'settings', label: 'Settings', icon: Settings, enabled: true },
 ]
 
 const routeLabels: Record<AdminRoute, string> = {
@@ -78,6 +85,7 @@ const routeLabels: Record<AdminRoute, string> = {
   'funnels-links': 'Funnels & Links',
   attribution: 'Attribution',
   'data-health': 'Data Health',
+  settings: 'Settings',
   'product-configuration': 'Product configuration',
   'affiliate-detail': 'Affiliate details',
 }
@@ -182,11 +190,13 @@ export function AdminPortalApp({
   const mobileNavOpen = mobileNavRoute === route
   const funnelsLinksRestricted = context?.role === 'support'
   const observabilityRestricted = context?.role === 'support'
+  const settingsRestricted = context?.role === 'support'
 
   function isRestrictedRoute(routeId: string): boolean {
     return (
       (routeId === 'funnels-links' && funnelsLinksRestricted) ||
-      ((routeId === 'attribution' || routeId === 'data-health') && observabilityRestricted)
+      ((routeId === 'attribution' || routeId === 'data-health') && observabilityRestricted) ||
+      (routeId === 'settings' && settingsRestricted)
     )
   }
 
@@ -510,6 +520,35 @@ export function AdminPortalApp({
                   onOpenAffiliate={(nextAffiliateId) => onOpenAffiliate?.(nextAffiliateId)}
                   onCloseAffiliate={() => navigate('affiliates')}
                 />
+              ) : route === 'settings' ? (
+                settingsRestricted ? (
+                  <section
+                    className="admin-state-card"
+                    aria-labelledby="admin-settings-restricted-title"
+                  >
+                    <span className="admin-state-icon">
+                      <ShieldX size={30} aria-hidden="true" />
+                    </span>
+                    <p className="admin-eyebrow">RESTRICTED WORKSPACE</p>
+                    <h1 id="admin-settings-restricted-title">
+                      Platform Settings access restricted
+                    </h1>
+                    <p>
+                      Support accounts cannot read or change production routing configuration. Ask
+                      an Owner or Operations administrator when configuration assistance is
+                      required.
+                    </p>
+                    <button
+                      className="admin-secondary-button"
+                      type="button"
+                      onClick={() => navigate('overview')}
+                    >
+                      Open Overview
+                    </button>
+                  </section>
+                ) : (
+                  <PlatformSettingsPage context={context} gateway={effectiveGateway} />
+                )
               ) : (
                 <AdminOverview
                   products={state.products}

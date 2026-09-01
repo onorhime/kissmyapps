@@ -147,12 +147,12 @@ describe('Product configuration page', () => {
     const user = userEvent.setup()
     const configured: AdminProductConfiguration = {
       ...emptyConfiguration,
-      tracking: { enabled: true, baseUrl: 'https://go.example.test' },
+      tracking: { enabled: false, baseUrl: 'https://go.example.test' },
       readiness: {
         hasLiveDefaultFunnel: true,
         hasActiveAgreement: false,
         hasActiveBillingOffer: false,
-        trackingReady: true,
+        trackingReady: false,
       },
     }
     const gateway = fakeGateway(configured)
@@ -166,6 +166,9 @@ describe('Product configuration page', () => {
       />,
     )
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    expect(
+      screen.getByText(/tracking origin is configured; collection may remain disabled/i),
+    ).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Review product activation' }))
     await user.click(screen.getByRole('button', { name: 'Confirm activation' }))

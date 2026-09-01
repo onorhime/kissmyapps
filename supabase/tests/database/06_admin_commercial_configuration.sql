@@ -71,7 +71,7 @@ select set_config(
 );
 
 select throws_ok(
-  $$select public.configure_admin_tracking('{"base_url":"https://go.example.com","enabled":true}'::jsonb)$$,
+  $$select public.configure_admin_tracking('{"base_url":"https://go.example.com","enabled":true,"expected_updated_at":null}'::jsonb)$$,
   '42501', 'admin role cannot configure tracking',
   'operations cannot configure the platform tracking origin'
 );
@@ -116,24 +116,24 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select public.configure_admin_tracking('{"base_url":"http://127.0.0.1:5173","enabled":true}'::jsonb)$$,
-  '22023', 'tracking base URL must be an HTTPS origin without a path or trailing slash',
+  $$select public.configure_admin_tracking('{"base_url":"http://127.0.0.1:5173","enabled":true,"expected_updated_at":null}'::jsonb)$$,
+  '22023', 'tracking base URL must equal https://go.kissmyapps.dev',
   'tracking configuration rejects localhost and non-HTTPS origins'
 );
 select throws_ok(
-  $$select public.configure_admin_tracking('{"base_url":"https://go.example.test","enabled":true}'::jsonb)$$,
-  '22023', 'tracking base URL must be an HTTPS origin without a path or trailing slash',
+  $$select public.configure_admin_tracking('{"base_url":"https://go.example.test","enabled":true,"expected_updated_at":null}'::jsonb)$$,
+  '22023', 'tracking base URL must equal https://go.kissmyapps.dev',
   'tracking configuration rejects reserved test domains'
 );
 select throws_ok(
-  $$select public.configure_admin_tracking('{"base_url":"https://go.example.com","enabled":true}'::jsonb)$$,
-  '22023', 'tracking base URL must be an HTTPS origin without a path or trailing slash',
+  $$select public.configure_admin_tracking('{"base_url":"https://go.example.com","enabled":true,"expected_updated_at":null}'::jsonb)$$,
+  '22023', 'tracking base URL must equal https://go.kissmyapps.dev',
   'tracking configuration rejects IANA example domains'
 );
 select is(
-  public.configure_admin_tracking('{"base_url":"https://go.kissmyapps.dev","enabled":true}'::jsonb) ->> 'enabled',
-  'true',
-  'an owner can enable a production HTTPS tracking origin'
+  public.configure_admin_tracking('{"base_url":"https://go.kissmyapps.dev","enabled":false,"expected_updated_at":null}'::jsonb) ->> 'enabled',
+  'false',
+  'an owner can configure a production HTTPS tracking origin while the kill switch remains off'
 );
 
 select throws_ok(
@@ -296,6 +296,18 @@ select set_config(
   'request.jwt.claims',
   '{"sub":"10000000-0000-0000-0000-000000000061","role":"authenticated","amr":[{"method":"password","timestamp":1787951002}]}',
   true
+);
+
+select is(
+  public.configure_admin_tracking(
+    jsonb_build_object(
+      'base_url', 'https://go.kissmyapps.dev',
+      'enabled', true,
+      'expected_updated_at', public.get_admin_platform_settings() #>> '{tracking,updated_at}'
+    )
+  ) ->> 'enabled',
+  'true',
+  'the owner can enable tracking after the correlated production gates are satisfied'
 );
 
 select is(

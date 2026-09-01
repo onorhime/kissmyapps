@@ -108,12 +108,12 @@ export function ReadinessLinksSection({
             <ShieldCheck size={19} aria-hidden="true" />
             <div>
               <h3>Product activation</h3>
-              <p>Production tracking and the live default funnel are required.</p>
+              <p>The saved production origin and live default funnel are required.</p>
             </div>
           </div>
           <ul className="admin-readiness-list">
-            <ChecklistItem passed={configuration.readiness.trackingReady}>
-              Production tracking is configured and enabled
+            <ChecklistItem passed={Boolean(configuration.tracking.baseUrl)}>
+              Production tracking origin is configured; collection may remain disabled
             </ChecklistItem>
             <ChecklistItem passed={configuration.readiness.hasLiveDefaultFunnel}>
               One default HTTPS funnel is live

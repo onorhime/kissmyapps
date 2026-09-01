@@ -23,6 +23,8 @@ export { AttributionPage } from './observability/AttributionPage'
 export type { AttributionPageProps } from './observability/AttributionPage'
 export { DataHealthPage } from './observability/DataHealthPage'
 export type { DataHealthPageProps } from './observability/DataHealthPage'
+export { PlatformSettingsPage } from './settings/PlatformSettingsPage'
+export type { PlatformSettingsPageProps } from './settings/PlatformSettingsPage'
 export {
   dataHealthStatusLabel,
   formatAdminCount,

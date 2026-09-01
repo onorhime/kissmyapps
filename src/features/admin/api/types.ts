@@ -1,5 +1,7 @@
 export const ADMIN_ROLES = ['owner', 'operations', 'finance', 'analyst', 'support'] as const
 
+export const ADMIN_TRACKING_ORIGIN = 'https://go.kissmyapps.dev'
+
 export type AdminRole = (typeof ADMIN_ROLES)[number]
 
 export type AdminDataStatus = 'ready' | 'empty' | 'unauthorized' | 'unconfigured' | 'error'
@@ -651,6 +653,33 @@ export type AdminDataHealth = Readonly<{
   }>
 }>
 
+export type AdminPlatformSettings = Readonly<{
+  tracking: Readonly<{
+    baseUrl: string | null
+    enabled: boolean
+    updatedAt: string | null
+  }>
+  readiness: Readonly<{
+    canEnable: boolean
+    activeProductCount: number
+    liveDefaultFunnelCount: number
+    launchReadyAgreementCount: number
+    verifiedActiveOfferCount: number
+    enableReadyProductCount: number
+  }>
+  expectedHosts: Readonly<{
+    partner: string
+    admin: string
+    tracking: string
+  }>
+}>
+
+export type AdminTrackingConfigurationUpdate = Readonly<{
+  baseUrl: string | null
+  enabled: boolean
+  expectedUpdatedAt: string | null
+}>
+
 export interface AdminGateway {
   getAdminContext(): Promise<AdminDataResult<AdminContext | null>>
   getProducts(): Promise<AdminDataResult<AdminProduct[]>>
@@ -681,6 +710,8 @@ export interface AdminGateway {
   terminateAffiliate?: AdminAffiliateManagementGateway['terminateAffiliate']
   getAttributionOverview?: AdminObservabilityGateway['getAttributionOverview']
   getDataHealth?: AdminObservabilityGateway['getDataHealth']
+  getPlatformSettings?: AdminSettingsGateway['getPlatformSettings']
+  configureTracking?: AdminSettingsGateway['configureTracking']
 }
 
 /** Aggregate-only operational reads used by Attribution and Data Health. */
@@ -697,6 +728,22 @@ export function hasAdminObservabilityGateway(
   gateway: AdminGateway,
 ): gateway is AdminGateway & AdminObservabilityGateway {
   return observabilityGatewayMethods.every((method) => typeof gateway[method] === 'function')
+}
+
+/** Owner-only platform configuration used by the protected Admin settings route. */
+export interface AdminSettingsGateway {
+  getPlatformSettings(): Promise<AdminDataResult<AdminPlatformSettings | null>>
+  configureTracking(
+    input: AdminTrackingConfigurationUpdate,
+  ): Promise<AdminDataResult<AdminPlatformSettings | null>>
+}
+
+const settingsGatewayMethods = ['getPlatformSettings', 'configureTracking'] as const
+
+export function hasAdminSettingsGateway(
+  gateway: AdminGateway,
+): gateway is AdminGateway & AdminSettingsGateway {
+  return settingsGatewayMethods.every((method) => typeof gateway[method] === 'function')
 }
 
 /** Capability required only by the protected Admin affiliate-management routes. */

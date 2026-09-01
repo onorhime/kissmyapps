@@ -129,7 +129,7 @@ describe('Admin portal shell', () => {
     vi.restoreAllMocks()
   })
 
-  it('shows the complete navigation with routing and observability enabled', async () => {
+  it('shows the complete navigation with routing, observability, and settings enabled', async () => {
     const { props } = renderPortal()
     await screen.findByRole('heading', { name: 'Overview' })
     const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
@@ -143,7 +143,8 @@ describe('Admin portal shell', () => {
     expect(within(navigation).getByRole('button', { name: 'Funnels & Links' })).toBeEnabled()
     expect(within(navigation).getByRole('button', { name: 'Attribution' })).toBeEnabled()
     expect(within(navigation).getByRole('button', { name: 'Data Health' })).toBeEnabled()
-    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(4)
+    expect(within(navigation).getByRole('button', { name: 'Settings' })).toBeEnabled()
+    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(3)
     expect(screen.getByText('Kissmyapps')).toBeVisible()
     expect(screen.getByText('Admin', { selector: '.brand-context' })).toBeVisible()
 
@@ -164,11 +165,15 @@ describe('Admin portal shell', () => {
     await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Data Health' }))
     expect(props.onNavigate).toHaveBeenCalledWith('data-health')
 
+    await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Settings' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('settings')
+
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
     const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile admin navigation' })
     expect(within(mobileNavigation).getByRole('button', { name: 'Funnels & Links' })).toBeEnabled()
     expect(within(mobileNavigation).getByRole('button', { name: 'Attribution' })).toBeEnabled()
     expect(within(mobileNavigation).getByRole('button', { name: 'Data Health' })).toBeEnabled()
+    expect(within(mobileNavigation).getByRole('button', { name: 'Settings' })).toBeEnabled()
     expect(
       within(mobileNavigation).getByRole('button', { name: 'Switch to Partner' }),
     ).toBeEnabled()
@@ -177,6 +182,7 @@ describe('Admin portal shell', () => {
   it.each([
     ['attribution', 'Attribution'],
     ['data-health', 'Data Health'],
+    ['settings', 'Settings'],
   ] as const)('marks %s active in desktop and mobile navigation', async (route, label) => {
     renderPortal({ route })
 
@@ -313,6 +319,34 @@ describe('Admin portal shell', () => {
       ).toHaveTextContent('Restricted')
     },
   )
+
+  it('restricts Settings for support without reading platform configuration', async () => {
+    const supportContext: AdminContext = { ...context, role: 'support' }
+    const settingsReader = vi.fn()
+    const gateway = {
+      ...gatewayWith(
+        { data: supportContext, status: 'ready', error: null },
+        { data: [], status: 'empty', error: null },
+      ),
+      getPlatformSettings: settingsReader,
+      configureTracking: vi.fn(),
+    }
+
+    const { props } = renderPortal({ route: 'settings', gateway })
+
+    expect(
+      await screen.findByRole('heading', { name: 'Platform Settings access restricted' }),
+    ).toBeVisible()
+    expect(settingsReader).not.toHaveBeenCalled()
+    const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+    expect(within(navigation).queryByRole('button', { name: 'Settings' })).toBeNull()
+    expect(
+      within(navigation).getByText('Settings').closest('[aria-disabled="true"]'),
+    ).toHaveTextContent('Restricted')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open Overview' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('overview')
+  })
 
   it('does not call admin data while unauthenticated', () => {
     const gateway = gatewayWith()

@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { ADMIN_TRACKING_ORIGIN } from './types'
 import {
   mapAdminAffiliateDirectoryPage,
   mapAdminAffiliateDirectoryRecord,
@@ -18,6 +19,7 @@ import {
 } from './configurationMappers'
 import { mapAdminContext, mapAdminProduct, mapAdminRows, singleAdminRow } from './mappers'
 import { mapAdminAttributionOverview, mapAdminDataHealth } from './observabilityMappers'
+import { mapAdminPlatformSettings } from './settingsMappers'
 import type {
   AdminAffiliate,
   AdminAffiliateDirectoryPage,
@@ -39,6 +41,7 @@ import type {
   AdminFunnel,
   AdminGateway,
   AdminMainLink,
+  AdminPlatformSettings,
   AdminProduct,
   AdminProductConfiguration,
   AdminSource,
@@ -74,6 +77,8 @@ export const ADMIN_RPCS = Object.freeze({
   setBillingOfferStatus: 'set_admin_billing_offer_status',
   attributionOverview: 'get_admin_attribution_overview',
   dataHealth: 'get_admin_data_health',
+  platformSettings: 'get_admin_platform_settings',
+  configureTracking: 'configure_admin_tracking',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
@@ -208,7 +213,7 @@ function backendFailure<T>(
 
   if (status === 401 || code === '28000' || code === 'PGRST301') return unauthorized(empty, false)
   if (status === 403 || code === '42501') return unauthorized(empty, true)
-  if (status === 409 || code === '23505') {
+  if (status === 409 || code === '23505' || code === '40001') {
     return result(empty(), 'error', {
       code: 'conflict',
       message: messages.conflict ?? 'A record with those details already exists.',
@@ -405,6 +410,50 @@ export function createAdminGateway(
     async getDataHealth() {
       if (!client) return notConfigured<AdminDataHealth | null>(() => null)
       return mappedObject(client, ADMIN_RPCS.dataHealth, mapAdminDataHealth)
+    },
+
+    async getPlatformSettings() {
+      if (!client) return notConfigured<AdminPlatformSettings | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.platformSettings, mapAdminPlatformSettings)
+    },
+
+    async configureTracking(input) {
+      if (!client) return notConfigured<AdminPlatformSettings | null>(() => null)
+      const baseUrl = input.baseUrl?.trim() || null
+      if ((baseUrl !== null && baseUrl !== ADMIN_TRACKING_ORIGIN) || (input.enabled && !baseUrl)) {
+        return result<AdminPlatformSettings | null>(null, 'error', {
+          code: 'invalid_input',
+          message: `The tracking origin must be exactly ${ADMIN_TRACKING_ORIGIN}.`,
+          retryable: false,
+        })
+      }
+      if (
+        input.expectedUpdatedAt !== null &&
+        (typeof input.expectedUpdatedAt !== 'string' ||
+          !input.expectedUpdatedAt.trim() ||
+          Number.isNaN(Date.parse(input.expectedUpdatedAt)))
+      ) {
+        return result<AdminPlatformSettings | null>(null, 'error', {
+          code: 'invalid_input',
+          message: 'Refresh platform settings before trying this change again.',
+          retryable: false,
+        })
+      }
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.configureTracking,
+        {
+          base_url: baseUrl,
+          enabled: input.enabled,
+          expected_updated_at: input.expectedUpdatedAt,
+        },
+        mapAdminPlatformSettings,
+        {
+          conflict: 'Platform settings changed in another session. Refresh settings and try again.',
+          invalidInput: 'Enter the expected production HTTPS tracking origin.',
+          invalidState: 'Complete the required product configuration before enabling tracking.',
+        },
+      )
     },
 
     async getProductConfiguration(productId) {

@@ -530,6 +530,7 @@ describe('live partner session shell', () => {
   it.each([
     ['attribution', 'Attribution', 'Admin attribution · KissMyApps Admin'],
     ['data-health', 'Data Health', 'Admin data health · KissMyApps Admin'],
+    ['settings', 'Settings', 'Admin settings · KissMyApps Admin'],
   ] as const)(
     'opens the protected %s route directly with its canonical title and active navigation',
     async (route, label, title) => {
@@ -559,7 +560,7 @@ describe('live partner session shell', () => {
     },
   )
 
-  it.each(['attribution', 'data-health'] as const)(
+  it.each(['attribution', 'data-health', 'settings'] as const)(
     'keeps the Partner host authoritative over the %s Admin route',
     async (route) => {
       vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
