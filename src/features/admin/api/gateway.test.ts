@@ -42,6 +42,16 @@ describe('admin RPC gateway', () => {
       data: [],
       status: 'unconfigured',
     })
+    await expect(
+      gateway.getAttributionOverview?.({
+        startsAt: '2026-08-01T00:00:00.000Z',
+        endsAt: '2026-09-01T00:00:00.000Z',
+      }),
+    ).resolves.toMatchObject({ data: null, status: 'unconfigured' })
+    await expect(gateway.getDataHealth?.()).resolves.toMatchObject({
+      data: null,
+      status: 'unconfigured',
+    })
   })
 
   it('maps protected admin context and product RPC rows', async () => {
@@ -165,5 +175,53 @@ describe('admin RPC gateway', () => {
       status: 'error',
       error: { code: 'invalid_response', retryable: false },
     })
+  })
+
+  it('sends only the bounded attribution filter contract to the aggregate RPC', async () => {
+    const { client, rpc } = rpcClient(async () => ({ data: {}, error: null, status: 200 }))
+    const gateway = createAdminGateway(client)
+
+    const response = await gateway.getAttributionOverview!({
+      startsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-01T00:00:00.000Z',
+      productId: ' product-1 ',
+      sourceId: null,
+      limit: 20,
+      offset: 40,
+    })
+
+    expect(rpc).toHaveBeenCalledWith('get_admin_attribution_overview', {
+      p_input: {
+        starts_at: '2026-08-02T00:00:00.000Z',
+        ends_at: '2026-09-01T00:00:00.000Z',
+        product_id: 'product-1',
+        source_id: null,
+        limit: 20,
+        offset: 40,
+      },
+    })
+    expect(response).toMatchObject({
+      data: null,
+      status: 'error',
+      error: { code: 'invalid_response', retryable: false },
+    })
+  })
+
+  it('contains Data Health authorization details behind a safe denial', async () => {
+    const { client, rpc } = rpcClient(async () => ({
+      data: null,
+      error: { code: '42501', message: 'raw queue and worker policy details', status: 403 },
+      status: 403,
+    }))
+
+    const response = await createAdminGateway(client).getDataHealth!()
+
+    expect(rpc).toHaveBeenCalledWith('get_admin_data_health', undefined)
+    expect(response).toMatchObject({
+      data: null,
+      status: 'unauthorized',
+      error: { code: 'not_authorized', retryable: false },
+    })
+    expect(response.error?.message).not.toContain('worker policy')
   })
 })

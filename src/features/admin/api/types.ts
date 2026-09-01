@@ -498,6 +498,159 @@ export type AdminProductConfiguration = Readonly<{
   mainLinks: readonly AdminMainLink[]
 }>
 
+export type AdminAttributionInput = Readonly<{
+  startsAt: string
+  endsAt: string
+  productId?: string | null
+  sourceId?: string | null
+  limit?: number
+  offset?: number
+}>
+
+export type AdminAttributionOverview = Readonly<{
+  generatedAt: string
+  window: Readonly<{
+    startsAt: string
+    endsAt: string
+  }>
+  filters: Readonly<{
+    productId: string | null
+    sourceId: string | null
+  }>
+  readiness: Readonly<{
+    trackingEnabled: boolean
+    baseUrlConfigured: boolean
+    activeProductCount: number
+    liveFunnelCount: number
+    activeLinkCount: number
+    lastClickAt: string | null
+    lastEventAt: string | null
+    lastConversionAt: string | null
+  }>
+  summary: Readonly<{
+    clicks: number
+    botClicks: number
+    acquisitions: number
+    resolvedAcquisitions: number
+    rejectedAcquisitions: number
+    events: number
+    trustedEvents: number
+    commercialEligibleEvents: number
+    qualifiedConversions: number
+  }>
+  breakdown: readonly Readonly<{
+    productId: string
+    productName: string
+    sourceId: string | null
+    sourceName: string
+    clicks: number
+    acquisitions: number
+    qualifiedConversions: number
+  }>[]
+  eventTypes: readonly Readonly<{
+    eventName: string
+    eventCount: number
+    commercialEligibleCount: number
+    lastOccurredAt: string
+  }>[]
+  recentAcquisitions: Readonly<{
+    items: readonly Readonly<{
+      productName: string
+      partnerName: string | null
+      sourceName: string
+      campaignName: string | null
+      funnelName: string | null
+      attributionMethod: 'deterministic_web' | 'singular' | 'manual'
+      status: 'open' | 'resolved' | 'rejected'
+      clickCountry: string | null
+      installCountry: string | null
+      createdAt: string
+      resolvedAt: string | null
+    }>[]
+    totalCount: number
+  }>
+  sources: readonly Readonly<{
+    id: string
+    name: string
+  }>[]
+}>
+
+export const ADMIN_DATA_HEALTH_STATUSES = ['ready', 'attention', 'unobserved', 'disabled'] as const
+
+export type AdminDataHealthStatus = (typeof ADMIN_DATA_HEALTH_STATUSES)[number]
+
+export const ADMIN_DATA_HEALTH_PROVIDER_IDS = [
+  'click_tracker',
+  'funnel_events',
+  'stripe',
+  'singular',
+] as const
+
+export type AdminDataHealthProviderId = (typeof ADMIN_DATA_HEALTH_PROVIDER_IDS)[number]
+
+export const ADMIN_DATA_HEALTH_QUEUE_IDS = [
+  'stripe_events',
+  'commercial_facts',
+  'reporting_metrics',
+  'reconciliation',
+] as const
+
+export type AdminDataHealthQueueId = (typeof ADMIN_DATA_HEALTH_QUEUE_IDS)[number]
+
+export type AdminDataHealth = Readonly<{
+  generatedAt: string
+  overallStatus: AdminDataHealthStatus
+  catalog: Readonly<{
+    trackingEnabled: boolean
+    baseUrlConfigured: boolean
+    activeProductCount: number
+    liveFunnelCount: number
+    activeLinkCount: number
+    verifiedActiveOfferCount: number
+    launchReadyAgreementCount: number
+  }>
+  providers: readonly Readonly<{
+    id: AdminDataHealthProviderId
+    status: AdminDataHealthStatus
+    observedCount: number
+    verifiedCount: number
+    failedCount: number
+    lastObservedAt: string | null
+  }>[]
+  queues: readonly Readonly<{
+    id: AdminDataHealthQueueId
+    status: AdminDataHealthStatus
+    pendingCount: number
+    processingCount: number
+    processedCount: number
+    failedCount: number
+    retryReadyCount: number
+    staleLeaseCount: number
+    oldestPendingAt: string | null
+    lastProcessedAt: string | null
+  }>[]
+  metrics: Readonly<{
+    rowCount: number
+    partialCount: number
+    reconciledCount: number
+    finalizedCount: number
+    latestMetricDate: string | null
+    latestCalculatedAt: string | null
+  }>
+  reconciliation: Readonly<{
+    runCount: number
+    openExceptionCount: number
+    recentRuns: readonly Readonly<{
+      provider: 'stripe' | 'singular' | 'click_tracker'
+      status: 'queued' | 'running' | 'passed' | 'failed'
+      scheduledFor: string
+      startedAt: string | null
+      completedAt: string | null
+      exceptionCount: number
+    }>[]
+  }>
+}>
+
 export interface AdminGateway {
   getAdminContext(): Promise<AdminDataResult<AdminContext | null>>
   getProducts(): Promise<AdminDataResult<AdminProduct[]>>
@@ -526,6 +679,24 @@ export interface AdminGateway {
   getAffiliateDetail?: AdminAffiliateManagementGateway['getAffiliateDetail']
   setAffiliateStatus?: AdminAffiliateManagementGateway['setAffiliateStatus']
   terminateAffiliate?: AdminAffiliateManagementGateway['terminateAffiliate']
+  getAttributionOverview?: AdminObservabilityGateway['getAttributionOverview']
+  getDataHealth?: AdminObservabilityGateway['getDataHealth']
+}
+
+/** Aggregate-only operational reads used by Attribution and Data Health. */
+export interface AdminObservabilityGateway {
+  getAttributionOverview(
+    input: AdminAttributionInput,
+  ): Promise<AdminDataResult<AdminAttributionOverview | null>>
+  getDataHealth(): Promise<AdminDataResult<AdminDataHealth | null>>
+}
+
+const observabilityGatewayMethods = ['getAttributionOverview', 'getDataHealth'] as const
+
+export function hasAdminObservabilityGateway(
+  gateway: AdminGateway,
+): gateway is AdminGateway & AdminObservabilityGateway {
+  return observabilityGatewayMethods.every((method) => typeof gateway[method] === 'function')
 }
 
 /** Capability required only by the protected Admin affiliate-management routes. */

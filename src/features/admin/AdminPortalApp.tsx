@@ -24,11 +24,14 @@ import { AffiliatesPage } from './affiliates/AffiliatesPage'
 import { AdminOverview } from './AdminOverview'
 import { ProductConfigurationPage } from './configuration/ProductConfigurationPage'
 import { FunnelsLinksPage } from './funnels/FunnelsLinksPage'
+import { AttributionPage } from './observability/AttributionPage'
+import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { useAdminWorkspace, type AdminWorkspaceStatus } from './useAdminWorkspace'
 import './AdminPortal.css'
 
-export type AdminPrimaryRoute = 'overview' | 'products' | 'affiliates' | 'funnels-links'
+export type AdminPrimaryRoute =
+  'overview' | 'products' | 'affiliates' | 'funnels-links' | 'attribution' | 'data-health'
 export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
 
 export type AdminIdentity = Readonly<{
@@ -50,8 +53,7 @@ export type AdminPortalAppProps = Readonly<{
   onSwitchToPartner: () => void | Promise<void>
 }>
 
-type UpcomingRoute =
-  'attribution' | 'subscriptions' | 'payouts' | 'documents' | 'data-health' | 'settings'
+type UpcomingRoute = 'subscriptions' | 'payouts' | 'documents' | 'settings'
 
 const navigation: readonly (
   | { id: AdminPrimaryRoute; label: string; icon: typeof Gauge; enabled: true }
@@ -61,11 +63,11 @@ const navigation: readonly (
   { id: 'products', label: 'Products', icon: Package, enabled: true },
   { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: true },
   { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: true },
-  { id: 'attribution', label: 'Attribution', icon: Activity, enabled: false },
+  { id: 'attribution', label: 'Attribution', icon: Activity, enabled: true },
   { id: 'subscriptions', label: 'Subscriptions', icon: Boxes, enabled: false },
   { id: 'payouts', label: 'Payouts', icon: BadgeDollarSign, enabled: false },
   { id: 'documents', label: 'Documents', icon: FileText, enabled: false },
-  { id: 'data-health', label: 'Data Health', icon: DatabaseZap, enabled: false },
+  { id: 'data-health', label: 'Data Health', icon: DatabaseZap, enabled: true },
   { id: 'settings', label: 'Settings', icon: Settings, enabled: false },
 ]
 
@@ -74,6 +76,8 @@ const routeLabels: Record<AdminRoute, string> = {
   products: 'Products',
   affiliates: 'Affiliates',
   'funnels-links': 'Funnels & Links',
+  attribution: 'Attribution',
+  'data-health': 'Data Health',
   'product-configuration': 'Product configuration',
   'affiliate-detail': 'Affiliate details',
 }
@@ -177,6 +181,14 @@ export function AdminPortalApp({
   const workspaceReady = (state.status === 'ready' || state.status === 'empty') && context
   const mobileNavOpen = mobileNavRoute === route
   const funnelsLinksRestricted = context?.role === 'support'
+  const observabilityRestricted = context?.role === 'support'
+
+  function isRestrictedRoute(routeId: string): boolean {
+    return (
+      (routeId === 'funnels-links' && funnelsLinksRestricted) ||
+      ((routeId === 'attribution' || routeId === 'data-health') && observabilityRestricted)
+    )
+  }
 
   useEffect(() => {
     if (previousRoute.current !== route) {
@@ -245,7 +257,7 @@ export function AdminPortalApp({
           <nav className="admin-navigation" aria-label="Admin navigation">
             {navigation.map((item) => {
               const Icon = item.icon
-              const restricted = item.id === 'funnels-links' && funnelsLinksRestricted
+              const restricted = isRestrictedRoute(item.id)
               if (!item.enabled || restricted) {
                 return (
                   <span
@@ -341,7 +353,7 @@ export function AdminPortalApp({
           >
             <nav aria-label="Mobile admin navigation">
               {navigation.map((item) =>
-                item.enabled && !(item.id === 'funnels-links' && funnelsLinksRestricted) ? (
+                item.enabled && !isRestrictedRoute(item.id) ? (
                   <button
                     type="button"
                     key={item.id}
@@ -353,11 +365,7 @@ export function AdminPortalApp({
                 ) : (
                   <span key={item.id} aria-disabled="true">
                     {item.label}{' '}
-                    <small>
-                      {item.id === 'funnels-links' && funnelsLinksRestricted
-                        ? 'Restricted'
-                        : 'Upcoming'}
-                    </small>
+                    <small>{isRestrictedRoute(item.id) ? 'Restricted' : 'Upcoming'}</small>
                   </span>
                 ),
               )}
@@ -453,6 +461,44 @@ export function AdminPortalApp({
                     gateway={effectiveGateway}
                     onOpenProducts={() => navigate('products')}
                     onOpenProductConfiguration={onOpenProductConfiguration}
+                  />
+                )
+              ) : route === 'attribution' || route === 'data-health' ? (
+                observabilityRestricted ? (
+                  <section
+                    className="admin-state-card"
+                    aria-labelledby="admin-observability-restricted-title"
+                  >
+                    <span className="admin-state-icon">
+                      <ShieldX size={30} aria-hidden="true" />
+                    </span>
+                    <p className="admin-eyebrow">RESTRICTED WORKSPACE</p>
+                    <h1 id="admin-observability-restricted-title">
+                      Operational reporting access restricted
+                    </h1>
+                    <p>
+                      Support accounts cannot access platform-wide attribution or processing health.
+                      Ask an Owner, Operations, Finance, or Analyst administrator when an aggregate
+                      report is required.
+                    </p>
+                    <button
+                      className="admin-secondary-button"
+                      type="button"
+                      onClick={() => navigate('overview')}
+                    >
+                      Open Overview
+                    </button>
+                  </section>
+                ) : route === 'attribution' ? (
+                  <AttributionPage
+                    products={state.products}
+                    gateway={effectiveGateway}
+                    onOpenFunnelsLinks={() => navigate('funnels-links')}
+                  />
+                ) : (
+                  <DataHealthPage
+                    gateway={effectiveGateway}
+                    onOpenFunnelsLinks={() => navigate('funnels-links')}
                   />
                 )
               ) : route === 'affiliates' || route === 'affiliate-detail' ? (

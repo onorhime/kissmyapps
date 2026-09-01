@@ -17,6 +17,7 @@ import {
   mapAdminSource,
 } from './configurationMappers'
 import { mapAdminContext, mapAdminProduct, mapAdminRows, singleAdminRow } from './mappers'
+import { mapAdminAttributionOverview, mapAdminDataHealth } from './observabilityMappers'
 import type {
   AdminAffiliate,
   AdminAffiliateDirectoryPage,
@@ -24,6 +25,7 @@ import type {
   AdminAffiliateDirectorySummary,
   AdminAffiliateStatusChange,
   AdminAgreement,
+  AdminAttributionOverview,
   AdminBackendResponse,
   AdminBillingOffer,
   AdminBillingOfferVerification,
@@ -32,6 +34,7 @@ import type {
   AdminCommissionRule,
   AdminContext,
   AdminDataError,
+  AdminDataHealth,
   AdminDataResult,
   AdminFunnel,
   AdminGateway,
@@ -69,6 +72,8 @@ export const ADMIN_RPCS = Object.freeze({
   createBillingOffer: 'create_admin_billing_offer',
   updateBillingOffer: 'update_admin_billing_offer',
   setBillingOfferStatus: 'set_admin_billing_offer_status',
+  attributionOverview: 'get_admin_attribution_overview',
+  dataHealth: 'get_admin_data_health',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
@@ -375,6 +380,31 @@ export function createAdminGateway(
       } catch {
         return invalidResponse<AdminProduct | null>(() => null)
       }
+    },
+
+    async getAttributionOverview(input) {
+      if (!client) return notConfigured<AdminAttributionOverview | null>(() => null)
+      return mappedObject(
+        client,
+        ADMIN_RPCS.attributionOverview,
+        mapAdminAttributionOverview,
+        {
+          p_input: {
+            starts_at: input.startsAt,
+            ends_at: input.endsAt,
+            product_id: input.productId?.trim() || null,
+            source_id: input.sourceId?.trim() || null,
+            limit: input.limit ?? 25,
+            offset: input.offset ?? 0,
+          },
+        },
+        { invalidInput: 'Check the attribution date range and selected filters.' },
+      )
+    },
+
+    async getDataHealth() {
+      if (!client) return notConfigured<AdminDataHealth | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.dataHealth, mapAdminDataHealth)
     },
 
     async getProductConfiguration(productId) {

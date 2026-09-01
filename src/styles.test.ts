@@ -134,4 +134,28 @@ describe('reviewed accessibility color tokens (not a rendered-page audit)', () =
       /\.admin-routing-action,[\s\S]*?\.admin-routing-copy-button \{[\s\S]*?width: 100%;/,
     )
   })
+
+  it('keeps operational reporting responsive and distinguishes unobserved from attention', () => {
+    expect(adminStyles).toMatch(
+      /\.admin-observability-summary-grid \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/,
+    )
+    expect(adminStyles).toContain('.admin-health-badge-unobserved')
+    expect(adminStyles).toContain('.admin-health-badge-attention')
+    expect(adminStyles).toContain('.admin-health-badge-disabled')
+    expect(adminStyles).toMatch(
+      /\.admin-observability-presets button\.admin-observability-preset-active \{[\s\S]*?color: #1b1118;[\s\S]*?background: var\(--admin-yellow\);/,
+    )
+
+    const tabletStart = adminStyles.indexOf('@media (max-width: 820px)')
+    const mobileStart = adminStyles.indexOf('@media (max-width: 620px)')
+    const tabletStyles = adminStyles.slice(tabletStart, mobileStart)
+    expect(tabletStyles).toContain('.admin-observability-table tbody td::before')
+    expect(tabletStyles).toContain('content: attr(data-label);')
+
+    const reducedMotionStart = adminStyles.indexOf('@media (prefers-reduced-motion: reduce)')
+    const mobileStyles = adminStyles.slice(mobileStart, reducedMotionStart)
+    expect(mobileStyles).toContain('.admin-observability-summary-grid')
+    expect(mobileStyles).toContain('.admin-health-provider-grid')
+    expect(mobileStyles).toContain('grid-template-columns: 1fr;')
+  })
 })

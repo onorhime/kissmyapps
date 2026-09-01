@@ -975,6 +975,21 @@ button.admin-nav-item.admin-nav-item-active:hover {
   background: color-mix(in srgb, var(--admin-green) 10%, transparent);
 }
 
+.admin-status-open {
+  color: var(--admin-yellow);
+  background: color-mix(in srgb, var(--admin-yellow) 10%, transparent);
+}
+
+.admin-status-resolved {
+  color: var(--admin-green);
+  background: color-mix(in srgb, var(--admin-green) 10%, transparent);
+}
+
+.admin-status-rejected {
+  color: var(--admin-red);
+  background: color-mix(in srgb, var(--admin-red) 10%, transparent);
+}
+
 .admin-status-paused {
   color: var(--admin-pink-strong);
   background: color-mix(in srgb, var(--admin-pink) 10%, transparent);
@@ -2754,6 +2769,519 @@ button.admin-routing-action,
   }
 }
 
+.admin-observability-page {
+  min-width: 0;
+}
+
+.admin-observability-filters {
+  display: grid;
+  grid-template-columns: auto auto repeat(2, minmax(170px, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  background: var(--admin-surface);
+}
+
+.admin-observability-filter-label {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-observability-presets {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-observability-presets button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--admin-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-observability-presets button:hover,
+.admin-observability-presets button:focus-visible {
+  color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-pink) 12%, transparent);
+}
+
+.admin-observability-presets button.admin-observability-preset-active {
+  color: #1b1118;
+  background: var(--admin-yellow);
+}
+
+.admin-observability-filters label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-observability-filters select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 36px 0 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  color: var(--admin-text);
+  background: var(--admin-plum-deep);
+  font: inherit;
+  font-size: 11px;
+}
+
+.admin-observability-state,
+.admin-observability-zero {
+  min-height: 280px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 38px 24px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  color: var(--admin-pink-strong);
+  background: var(--admin-surface);
+  text-align: center;
+}
+
+.admin-observability-state h2,
+.admin-observability-zero h2 {
+  margin: 14px 0 0;
+  color: var(--admin-text);
+  font-size: 18px;
+}
+
+.admin-observability-state p,
+.admin-observability-zero p {
+  max-width: 580px;
+  margin: 8px 0 18px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.admin-observability-state-error,
+.admin-observability-state-unconfigured {
+  color: var(--admin-red);
+}
+
+.admin-observability-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 20px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--admin-green) 32%, var(--admin-line));
+  border-radius: 10px;
+  color: var(--admin-green);
+  background: color-mix(in srgb, var(--admin-green) 7%, var(--admin-surface));
+}
+
+.admin-observability-notice-warning {
+  border-color: color-mix(in srgb, var(--admin-yellow) 38%, var(--admin-line));
+  color: var(--admin-yellow);
+  background: color-mix(in srgb, var(--admin-yellow) 7%, var(--admin-surface));
+}
+
+.admin-observability-notice strong {
+  display: block;
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-observability-notice p {
+  margin: 3px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-observability-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.admin-observability-summary-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 10px;
+  padding: 18px;
+  border: 1px solid var(--admin-line);
+  border-radius: 13px;
+  color: var(--admin-pink-strong);
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--admin-pink) 5%, transparent), transparent 34%),
+    var(--admin-surface);
+}
+
+.admin-observability-summary-card > span {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.admin-observability-summary-card strong,
+.admin-observability-summary-card small {
+  grid-column: 1 / -1;
+}
+
+.admin-observability-summary-card strong {
+  margin-top: 8px;
+  color: var(--admin-text);
+  font-size: clamp(23px, 2.4vw, 31px);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.admin-observability-summary-card small {
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.admin-observability-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-surface);
+  box-shadow: 0 18px 55px #0502051f;
+}
+
+.admin-observability-panel + .admin-observability-panel,
+.admin-observability-zero + .admin-observability-panel,
+.admin-observability-two-column + .admin-observability-panel,
+.admin-observability-panel + .admin-observability-two-column {
+  margin-top: 20px;
+}
+
+.admin-observability-panel-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 19px 20px;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-observability-panel-heading h2 {
+  margin: 0;
+  color: var(--admin-text);
+  font-size: 17px;
+}
+
+.admin-observability-panel-heading p {
+  margin: 5px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-observability-table {
+  min-width: 880px;
+}
+
+.admin-observability-table th,
+.admin-observability-table td {
+  vertical-align: middle;
+}
+
+.admin-observability-table td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-observability-inline-empty {
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.admin-observability-two-column {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.admin-observability-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0 20px;
+  list-style: none;
+}
+
+.admin-observability-list li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-observability-list li:last-child {
+  border-bottom: 0;
+}
+
+.admin-observability-list strong,
+.admin-observability-list small {
+  display: block;
+}
+
+.admin-observability-list strong {
+  color: var(--admin-text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.admin-observability-list small,
+.admin-observability-list li > span {
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.admin-observability-list li > span {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.admin-observability-definition-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 7px 20px;
+}
+
+.admin-observability-definition-list > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(105px, 0.7fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-observability-definition-list > div:last-child {
+  border-bottom: 0;
+}
+
+.admin-observability-definition-list dt,
+.admin-observability-definition-list dd {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.admin-observability-definition-list dt {
+  color: var(--admin-muted);
+}
+
+.admin-observability-definition-list dd {
+  color: var(--admin-text);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.admin-health-overall {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--admin-line);
+  border-radius: 13px;
+  color: var(--admin-muted);
+  background: var(--admin-surface);
+}
+
+.admin-health-overall-ready {
+  border-color: color-mix(in srgb, var(--admin-green) 34%, var(--admin-line));
+  color: var(--admin-green);
+}
+
+.admin-health-overall-attention {
+  border-color: color-mix(in srgb, var(--admin-yellow) 38%, var(--admin-line));
+  color: var(--admin-yellow);
+}
+
+.admin-health-overall > div > span,
+.admin-health-overall > div > small {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.admin-health-overall > div > strong {
+  display: block;
+  margin: 3px 0;
+  color: var(--admin-text);
+  font-size: 16px;
+}
+
+.admin-health-badge {
+  min-height: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 10%, transparent);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.admin-health-badge-ready {
+  color: var(--admin-green);
+  background: color-mix(in srgb, var(--admin-green) 10%, transparent);
+}
+
+.admin-health-badge-unobserved {
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 10%, transparent);
+}
+
+.admin-health-badge-attention {
+  color: var(--admin-yellow);
+  background: color-mix(in srgb, var(--admin-yellow) 11%, transparent);
+}
+
+.admin-health-badge-disabled {
+  color: var(--admin-red);
+  background: color-mix(in srgb, var(--admin-red) 10%, transparent);
+}
+
+.admin-health-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 20px 20px;
+}
+
+.admin-health-provider-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 10px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-health-provider-card > div:first-child {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-pink-strong);
+}
+
+.admin-health-provider-card > div:first-child strong {
+  color: var(--admin-text);
+  font-size: 11px;
+}
+
+.admin-health-provider-card .admin-health-badge {
+  justify-self: start;
+}
+
+.admin-health-provider-card dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.admin-health-provider-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-health-provider-card dt,
+.admin-health-provider-card dd,
+.admin-health-provider-card > small {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.admin-health-provider-card dd {
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-health-queue-table {
+  min-width: 1080px;
+}
+
+.admin-health-run-list {
+  margin-top: 5px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-health-limitations {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px dashed color-mix(in srgb, var(--admin-muted) 45%, var(--admin-line));
+  border-radius: 11px;
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 4%, var(--admin-surface));
+}
+
+.admin-health-limitations strong {
+  display: block;
+  color: var(--admin-text);
+  font-size: 11px;
+}
+
+.admin-health-limitations p {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
 @media (max-width: 1120px) {
   .admin-shell {
     grid-template-columns: 238px minmax(0, 1fr);
@@ -2787,6 +3315,18 @@ button.admin-routing-action,
 
   .admin-affiliate-search {
     grid-column: span 2;
+  }
+
+  .admin-observability-filters {
+    grid-template-columns: auto 1fr;
+  }
+
+  .admin-observability-filters label {
+    grid-column: span 1;
+  }
+
+  .admin-health-provider-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3007,6 +3547,82 @@ button.admin-routing-action,
   .admin-routing-link-row > .admin-routing-url,
   .admin-routing-link-row > .admin-routing-action {
     grid-column: 1 / -1;
+  }
+
+  .admin-observability-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-observability-two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-observability-panel .admin-table-scroll {
+    overflow: visible;
+  }
+
+  .admin-observability-table {
+    min-width: 0;
+    display: block;
+    padding: 14px;
+    white-space: normal;
+  }
+
+  .admin-observability-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-observability-table tbody {
+    display: grid;
+    gap: 13px;
+  }
+
+  .admin-observability-table tbody tr {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    padding: 15px;
+    border: 1px solid var(--admin-line);
+    border-radius: 11px;
+    background: var(--admin-plum-deep);
+  }
+
+  .admin-observability-table tbody th,
+  .admin-observability-table tbody td {
+    min-width: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--admin-line);
+  }
+
+  .admin-observability-table tbody th {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+
+  .admin-observability-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .admin-observability-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--admin-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
   }
 }
 
@@ -3237,6 +3853,63 @@ button.admin-routing-action,
   .admin-routing-state.admin-routing-state-partial .admin-secondary-button {
     width: 100%;
     grid-column: 1 / -1;
+  }
+
+  .admin-observability-filters,
+  .admin-observability-summary-grid,
+  .admin-health-provider-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-observability-filter-label,
+  .admin-observability-filters label {
+    grid-column: auto;
+  }
+
+  .admin-observability-presets {
+    width: 100%;
+  }
+
+  .admin-observability-presets button {
+    flex: 1;
+  }
+
+  .admin-observability-notice,
+  .admin-health-overall,
+  .admin-health-limitations {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .admin-observability-notice .admin-text-button,
+  .admin-health-overall .admin-health-badge,
+  .admin-health-limitations > :last-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .admin-observability-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 17px;
+  }
+
+  .admin-observability-table tbody tr {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-observability-table tbody th,
+  .admin-observability-table tbody td {
+    grid-column: auto;
+  }
+
+  .admin-observability-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-observability-list li > span {
+    text-align: left;
   }
 }
 
