@@ -1,6 +1,7 @@
 export type Workspace = 'partner' | 'admin'
 
 const adminHostname = 'admin.kissmyapps.dev'
+const partnerHostname = 'partners.kissmyapps.dev'
 const partnerRoutes = new Set(['performance', 'payouts', 'links', 'profile'])
 
 function routePrefix(hash: string): string {
@@ -20,8 +21,14 @@ export function explicitWorkspaceFromHash(hash: string): Workspace | null {
 }
 
 export function defaultWorkspaceForHostname(hostname: string): Workspace {
+  return productionWorkspaceForHostname(hostname) ?? 'partner'
+}
+
+export function productionWorkspaceForHostname(hostname: string): Workspace | null {
   const normalizedHostname = hostname.trim().toLowerCase().replace(/\.$/, '')
-  return normalizedHostname === adminHostname ? 'admin' : 'partner'
+  if (normalizedHostname === adminHostname) return 'admin'
+  if (normalizedHostname === partnerHostname) return 'partner'
+  return null
 }
 
 export function initialWorkspace({
@@ -33,10 +40,50 @@ export function initialWorkspace({
   hostname: string
   previewMode: boolean
 }): Workspace {
+  // Preview and local development keep hash-based workspace switching. On the
+  // two production hosts, the hostname is the security and presentation
+  // boundary and a stale fragment must never select the other shell.
+  const productionWorkspace = productionWorkspaceForHostname(hostname)
+  if (productionWorkspace) return productionWorkspace
+
+  if (previewMode) return explicitWorkspaceFromHash(hash) ?? 'partner'
+
   const explicitWorkspace = explicitWorkspaceFromHash(hash)
   if (explicitWorkspace) return explicitWorkspace
 
-  // The UI showroom and test harness have always opened on the partner sample.
-  // Production hostname defaults only apply to the real authenticated app.
-  return previewMode ? 'partner' : defaultWorkspaceForHostname(hostname)
+  return defaultWorkspaceForHostname(hostname)
+}
+
+export function canonicalWorkspaceHash({
+  hash,
+  hostname,
+}: {
+  hash: string
+  hostname: string
+}): '#admin/overview' | '#performance' | null {
+  const productionWorkspace = productionWorkspaceForHostname(hostname)
+  const explicitWorkspace = explicitWorkspaceFromHash(hash)
+  if (!productionWorkspace || !explicitWorkspace || productionWorkspace === explicitWorkspace) {
+    return null
+  }
+
+  return productionWorkspace === 'admin' ? '#admin/overview' : '#performance'
+}
+
+export function productionWorkspaceUrl(
+  workspace: Workspace,
+  location?: Pick<Location, 'pathname' | 'search' | 'hash'>,
+): string {
+  const hostname = workspace === 'admin' ? adminHostname : partnerHostname
+  const url = new URL(`https://${hostname}/`)
+
+  if (location) {
+    url.pathname = location.pathname
+    url.search = location.search
+    url.hash = location.hash
+  } else {
+    url.hash = workspace === 'admin' ? 'admin/overview' : 'performance'
+  }
+
+  return url.toString()
 }

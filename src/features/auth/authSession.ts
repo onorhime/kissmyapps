@@ -41,12 +41,18 @@ export function useAuthSession(client: SupabaseClient | null = supabase): AuthSe
     let active = true
     const applySession = (event: AuthChangeEvent | null, session: Session | null) => {
       if (!active) return
-      setState((current) =>
-        stateFromSession(
-          session,
-          event === 'PASSWORD_RECOVERY' || (Boolean(session) && current.recoveryMode),
-        ),
-      )
+      setState((current) => {
+        const completedRecovery =
+          current.recoveryMode &&
+          event === 'SIGNED_IN' &&
+          Boolean(session) &&
+          session?.access_token !== current.session?.access_token
+        const recoveryMode =
+          !completedRecovery &&
+          (event === 'PASSWORD_RECOVERY' || (Boolean(session) && current.recoveryMode))
+
+        return stateFromSession(session, recoveryMode)
+      })
     }
 
     const {

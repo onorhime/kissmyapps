@@ -48,9 +48,10 @@ import { LivePartnerPortal, PartnerLiveWorkspaceProvider } from './features/part
 import { AdminPortalApp } from './features/admin'
 import type { AdminGateway, AdminRoute } from './features/admin'
 import {
-  defaultWorkspaceForHostname,
-  explicitWorkspaceFromHash,
+  canonicalWorkspaceHash,
   initialWorkspace,
+  productionWorkspaceForHostname,
+  productionWorkspaceUrl,
 } from './routing/workspace'
 import type { Workspace } from './routing/workspace'
 import './App.css'
@@ -142,6 +143,12 @@ type AppProps = {
   adminGateway?: AdminGateway
   /** Injectable for hostname-routing tests without replacing jsdom's Location object. */
   workspaceHostname?: string
+  /** Injectable so cross-origin production navigation is testable without leaving jsdom. */
+  externalNavigate?: (url: string, mode: 'assign' | 'replace') => void
+}
+
+function navigateBrowser(url: string, mode: 'assign' | 'replace') {
+  window.location[mode](url)
 }
 
 type InviteVerificationStatus = 'idle' | 'verifying' | 'ready' | 'error'
@@ -160,6 +167,7 @@ function App({
   partnerGateway,
   adminGateway,
   workspaceHostname = window.location.hostname,
+  externalNavigate = navigateBrowser,
 }: AppProps = {}) {
   const session = useAuthSession(previewMode ? null : authClient)
   const [initialInvite] = useState(() =>
@@ -168,6 +176,10 @@ function App({
   const [initialSignup] = useState(() =>
     previewMode ? null : signupCallbackFromSearch(window.location.search),
   )
+  const transferSignupToPartner =
+    !previewMode &&
+    Boolean(initialSignup) &&
+    productionWorkspaceForHostname(workspaceHostname) === 'admin'
   const inviteVerification = useRef<Promise<Session> | null>(null)
   const signupVerification = useRef<Promise<Session> | null>(null)
   const [authScreen, setAuthScreen] = useState<AuthScreen | null>(() =>
@@ -181,6 +193,7 @@ function App({
     initialSignup ? 'verifying' : 'idle',
   )
   const [signupError, setSignupError] = useState('')
+  const [recoveryComplete, setRecoveryComplete] = useState(false)
   const [activationState, setActivationState] = useState<ActivationState>(() => ({
     userId: null,
     status: previewMode ? 'active' : 'loading',
@@ -188,13 +201,11 @@ function App({
   const [page, setPage] = useState<PortalPage>(currentPage)
   const [profileSection, setProfileSection] = useState<ProfileSection>(currentProfileSection)
   const [workspaceMode, setWorkspaceMode] = useState<Workspace>(() =>
-    initialSignup
-      ? 'partner'
-      : initialWorkspace({
-          hash: window.location.hash,
-          hostname: workspaceHostname,
-          previewMode,
-        }),
+    initialWorkspace({
+      hash: window.location.hash,
+      hostname: workspaceHostname,
+      previewMode,
+    }),
   )
   const [adminRoute, setAdminRoute] = useState<AdminRoute>(currentAdminRoute)
   const [adminProductId, setAdminProductId] = useState<string | null>(currentAdminProductId)
@@ -241,7 +252,7 @@ function App({
     }
   }, [])
   const forcedPasswordScreen =
-    !previewMode && session.status === 'authenticated' && session.recoveryMode
+    !previewMode && session.status === 'authenticated' && session.recoveryMode && !recoveryComplete
       ? 'reset'
       : !previewMode &&
           session.status === 'authenticated' &&
@@ -287,7 +298,13 @@ function App({
   }, [authService, initialInvite, previewMode])
 
   useEffect(() => {
-    if (previewMode || !initialSignup) return
+    if (!transferSignupToPartner) return
+
+    externalNavigate(productionWorkspaceUrl('partner', window.location), 'replace')
+  }, [externalNavigate, transferSignupToPartner])
+
+  useEffect(() => {
+    if (previewMode || !initialSignup || transferSignupToPartner) return
     let active = true
 
     const verification =
@@ -317,7 +334,7 @@ function App({
     return () => {
       active = false
     }
-  }, [authService, initialSignup, previewMode])
+  }, [authService, initialSignup, previewMode, transferSignupToPartner])
 
   useEffect(() => {
     if (
@@ -350,25 +367,63 @@ function App({
   }, [authService, initialSignup, previewMode, session.status, session.user?.id, signupStatus])
 
   useEffect(() => {
-    if (previewMode || workspaceMode !== 'admin' || authScreen !== 'sign-up') return
+    if (
+      previewMode ||
+      transferSignupToPartner ||
+      workspaceMode !== 'admin' ||
+      authScreen !== 'sign-up'
+    ) {
+      return
+    }
     window.history.replaceState(null, '', `${window.location.pathname}#auth/sign-in`)
-  }, [authScreen, previewMode, workspaceMode])
+  }, [authScreen, previewMode, transferSignupToPartner, workspaceMode])
+
+  useEffect(() => {
+    const replacement = canonicalWorkspaceHash({
+      hash: window.location.hash,
+      hostname: workspaceHostname,
+    })
+    if (!replacement) return
+
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}${replacement}`,
+    )
+  }, [previewMode, workspaceHostname])
 
   useEffect(() => {
     const onHashChange = () => {
-      setAuthScreen(authScreenFromHash(window.location.hash))
-      const explicitWorkspace = explicitWorkspaceFromHash(window.location.hash)
-      if (explicitWorkspace === 'admin') {
-        setWorkspaceMode('admin')
-        setAdminRoute(currentAdminRoute())
-        setAdminProductId(currentAdminProductId())
-        setAdminAffiliateId(currentAdminAffiliateId())
-      } else if (explicitWorkspace === 'partner') {
-        setWorkspaceMode('partner')
-        setPage(currentPage())
-        setProfileSection(currentProfileSection())
-      } else if (!authScreenFromHash(window.location.hash)) {
-        setWorkspaceMode(previewMode ? 'partner' : defaultWorkspaceForHostname(workspaceHostname))
+      const replacement = canonicalWorkspaceHash({
+        hash: window.location.hash,
+        hostname: workspaceHostname,
+      })
+      if (replacement) {
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${window.location.search}${replacement}`,
+        )
+      }
+      const nextAuthScreen = authScreenFromHash(window.location.hash)
+      setAuthScreen(nextAuthScreen)
+      if (nextAuthScreen === 'reset') setRecoveryComplete(false)
+      if (!nextAuthScreen) {
+        const nextWorkspace = initialWorkspace({
+          hash: window.location.hash,
+          hostname: workspaceHostname,
+          previewMode,
+        })
+        if (nextWorkspace === 'admin') {
+          setWorkspaceMode('admin')
+          setAdminRoute(currentAdminRoute())
+          setAdminProductId(currentAdminProductId())
+          setAdminAffiliateId(currentAdminAffiliateId())
+        } else {
+          setWorkspaceMode('partner')
+          setPage(currentPage())
+          setProfileSection(currentProfileSection())
+        }
       }
       setMobileMenu(false)
       setHelpOpen(false)
@@ -500,7 +555,16 @@ function App({
     else navigate('performance')
   }
 
+  function switchToPartnerWorkspace() {
+    if (productionWorkspaceForHostname(workspaceHostname) === 'admin') {
+      externalNavigate(productionWorkspaceUrl('partner'), 'assign')
+      return
+    }
+    navigate('performance')
+  }
+
   function navigateAuth(screen: AuthScreen) {
+    if (screen === 'recover' || screen === 'reset') setRecoveryComplete(false)
     if (screen === 'sign-up') {
       setSignupStatus('idle')
       setSignupError('')
@@ -524,6 +588,15 @@ function App({
     } finally {
       setSignOutPending(false)
     }
+  }
+
+  if (transferSignupToPartner) {
+    return (
+      <main className="session-loading" id="main-content" tabIndex={-1}>
+        <LoaderCircle size={24} aria-hidden="true" />
+        <p role="status">Opening secure Partner confirmation…</p>
+      </main>
+    )
   }
 
   if (!previewMode && !effectiveAuthScreen && session.status === 'loading') {
@@ -551,6 +624,7 @@ function App({
         onNavigate={navigateAuth}
         onOpenDashboard={openRequestedWorkspace}
         onActivationComplete={(activatedSession, activatedStatus) => {
+          if (effectiveAuthScreen === 'reset') setRecoveryComplete(true)
           setActivationState({
             userId: workspaceMode === 'partner' ? activatedSession.user.id : null,
             status: workspaceMode === 'partner' ? activatedStatus : 'loading',
@@ -587,7 +661,7 @@ function App({
         onNavigate={navigateAdmin}
         onOpenProductConfiguration={openAdminProductConfiguration}
         onOpenAffiliate={openAdminAffiliate}
-        onSwitchToPartner={() => navigate('performance')}
+        onSwitchToPartner={switchToPartnerWorkspace}
         onSignOut={async () => {
           await authService.signOut()
           navigateAuth('sign-in')

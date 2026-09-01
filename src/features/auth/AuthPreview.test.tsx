@@ -69,16 +69,23 @@ function renderAuth(
 ) {
   const onNavigate = vi.fn()
   const onOpenDashboard = vi.fn()
-  const view = render(
+  const renderView = () => (
     <AuthPreview
       screen={screenName}
       authService={authService}
       onNavigate={onNavigate}
       onOpenDashboard={onOpenDashboard}
       {...options}
-    />,
+    />
   )
-  return { ...view, authService, onNavigate, onOpenDashboard }
+  const view = render(renderView())
+  return {
+    ...view,
+    authService,
+    onNavigate,
+    onOpenDashboard,
+    rerenderAuth: () => view.rerender(renderView()),
+  }
 }
 
 beforeEach(() => {
@@ -303,6 +310,76 @@ describe('password recovery and reset', () => {
     expect(authService.updatePassword).toHaveBeenCalledWith('new secure passphrase')
     expect(await screen.findByRole('heading', { name: 'Your password is ready.' })).toHaveFocus()
     expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
+  })
+
+  it('keeps an in-flight password update visible after the recovery session rotates', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    let finishUpdate!: (result: { session: Session; activationStatus: 'active' }) => void
+    const updatePassword = vi.fn(
+      () =>
+        new Promise<{ session: Session; activationStatus: 'active' }>((resolve) => {
+          finishUpdate = resolve
+        }),
+    )
+    const user = userEvent.setup()
+    const { rerenderAuth } = renderAuth('reset', service({ updatePassword }))
+    await user.type(screen.getByLabelText('New password'), 'new secure passphrase')
+    await user.type(screen.getByLabelText('Confirm new password'), 'new secure passphrase')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+
+    vi.mocked(useAuthSession).mockReturnValue({
+      ...authenticatedSession,
+      recoveryMode: false,
+    })
+    rerenderAuth()
+
+    expect(screen.getByRole('button', { name: 'Updating password…' })).toBeDisabled()
+    expect(
+      screen.queryByRole('heading', { name: 'A recovery link is required.' }),
+    ).not.toBeInTheDocument()
+
+    finishUpdate({ session: authenticatedSupabaseSession, activationStatus: 'active' })
+    expect(await screen.findByRole('heading', { name: 'Your password is ready.' })).toHaveFocus()
+  })
+
+  it('shows the password-update error after recovery session rotation', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    let failUpdate!: (error: unknown) => void
+    const updatePassword = vi.fn(
+      () =>
+        new Promise<{ session: Session; activationStatus: 'active' }>((_, reject) => {
+          failUpdate = reject
+        }),
+    )
+    const user = userEvent.setup()
+    const { rerenderAuth } = renderAuth('reset', service({ updatePassword }))
+    await user.type(screen.getByLabelText('New password'), 'new secure passphrase')
+    await user.type(screen.getByLabelText('Confirm new password'), 'new secure passphrase')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+
+    vi.mocked(useAuthSession).mockReturnValue({
+      ...authenticatedSession,
+      recoveryMode: false,
+    })
+    rerenderAuth()
+    failUpdate(
+      new PartnerAuthError(
+        'password-update',
+        'Your password was saved, but we could not reopen your account. Sign in with the new password to continue.',
+      ),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Your password was saved, but we could not reopen your account.',
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Sign in with your new password.' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to sign in' })).toBeEnabled()
+    expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'A recovery link is required.' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows a safe configuration error and disables account requests', () => {

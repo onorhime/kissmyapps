@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 const baseStyles = readFileSync('src/index.css', 'utf8')
 const appStyles = readFileSync('src/App.css', 'utf8')
 const authStyles = readFileSync('src/features/auth/AuthPreview.css', 'utf8')
+const adminStyles = readFileSync('src/features/admin/AdminPortal.css', 'utf8')
 const brandStyles = readFileSync('src/brand.css', 'utf8')
 
 function token(name: string) {
@@ -74,5 +75,13 @@ describe('reviewed accessibility color tokens (not a rendered-page audit)', () =
     expect(brandStyles).toContain('-webkit-text-fill-color: var(--brand-text)')
     expect(contrast(token('brand-light-blue'), token('brand-control'))).toBeGreaterThanOrEqual(4.5)
     expect(contrast(token('brand-muted'), token('brand-control'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps the active Admin navigation label dark and readable on pink', () => {
+    expect(adminStyles).toContain('button.admin-nav-item.admin-nav-item-active')
+    expect(adminStyles).toMatch(
+      /button\.admin-nav-item\.admin-nav-item-active[\s\S]*?color: var\(--admin-plum-deep\);[\s\S]*?background: var\(--admin-pink\);/,
+    )
+    expect(contrast(token('brand-bg-deep'), token('brand-pink'))).toBeGreaterThanOrEqual(4.5)
   })
 })

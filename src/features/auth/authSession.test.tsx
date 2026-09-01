@@ -30,6 +30,43 @@ describe('auth session state', () => {
     expect(unsubscribe).toHaveBeenCalledOnce()
   })
 
+  it('leaves recovery mode only after password re-authentication rotates the session', async () => {
+    let listener!: (event: AuthChangeEvent, session: Session | null) => void
+    const client = {
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        onAuthStateChange: vi.fn((callback) => {
+          listener = callback
+          return { data: { subscription: { unsubscribe: vi.fn() } } }
+        }),
+      },
+    } as unknown as SupabaseClient
+    const recoverySession = {
+      access_token: 'recovery-session',
+      user: { id: 'partner-user' },
+    } as Session
+    const authenticatedSession = {
+      access_token: 'authenticated-session',
+      user: { id: 'partner-user' },
+    } as Session
+
+    const { result } = renderHook(() => useAuthSession(client))
+    await waitFor(() => expect(result.current.status).toBe('anonymous'))
+
+    act(() => listener('PASSWORD_RECOVERY', recoverySession))
+    expect(result.current.recoveryMode).toBe(true)
+
+    act(() => listener('USER_UPDATED', recoverySession))
+    expect(result.current.recoveryMode).toBe(true)
+
+    act(() => listener('SIGNED_IN', recoverySession))
+    expect(result.current.recoveryMode).toBe(true)
+
+    act(() => listener('SIGNED_IN', authenticatedSession))
+    expect(result.current.recoveryMode).toBe(false)
+    expect(result.current.session?.access_token).toBe('authenticated-session')
+  })
+
   it('reports session lookup failures without exposing provider details', async () => {
     const client = {
       auth: {

@@ -235,7 +235,7 @@ describe('Admin portal shell', () => {
     const { container } = renderPortal({ route: 'affiliates', gateway: affiliateGatewayWith() })
     await screen.findByRole('heading', { name: 'Affiliate directory', level: 1 })
 
-    expect(screen.getByText('No affiliates yet')).toBeVisible()
+    expect(await screen.findByText('No affiliates yet')).toBeVisible()
     expect(
       within(screen.getByRole('navigation', { name: 'Admin navigation' })).getByRole('button', {
         name: 'Affiliates',

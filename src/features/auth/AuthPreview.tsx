@@ -356,7 +356,15 @@ export function AuthPreview({
   }
 
   const resetBlocked =
-    screen === 'reset' && (session.status !== 'authenticated' || !session.recoveryMode)
+    screen === 'reset' &&
+    !pending &&
+    !serviceError &&
+    (session.status !== 'authenticated' || !session.recoveryMode)
+  const resetFailedAfterRotation =
+    screen === 'reset' &&
+    Boolean(serviceError) &&
+    session.status === 'authenticated' &&
+    !session.recoveryMode
   const inviteReady =
     screen === 'invite' &&
     session.status === 'authenticated' &&
@@ -584,6 +592,15 @@ export function AuthPreview({
                   </p>
                   <button className="button button-white" onClick={() => onNavigate('recover')}>
                     Use password recovery <ArrowRight size={15} />
+                  </button>
+                </div>
+              ) : resetFailedAfterRotation ? (
+                <div className="auth-reset-blocked" role="alert">
+                  <CircleAlert size={26} />
+                  <h2>Sign in with your new password.</h2>
+                  <p>{serviceError}</p>
+                  <button className="button button-white" onClick={() => onNavigate('sign-in')}>
+                    Back to sign in <ArrowRight size={15} />
                   </button>
                 </div>
               ) : resetBlocked ? (

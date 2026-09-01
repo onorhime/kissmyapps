@@ -252,8 +252,10 @@ describe('live partner session shell', () => {
     expect(document.title).toBe('Sign in · KissMyApps Admin')
   })
 
-  it('lets an explicit partner route override the admin production hostname', async () => {
+  it('keeps the Admin shell authoritative and canonicalizes a Partner hash', async () => {
     vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const partnerGateway = emptyLiveGateway()
+    const getPartnerSummary = vi.spyOn(partnerGateway, 'getDashboardSummary')
     window.history.replaceState(null, '', '/#payouts')
 
     render(
@@ -261,21 +263,159 @@ describe('live partner session shell', () => {
         previewMode={false}
         workspaceHostname="admin.kissmyapps.dev"
         authService={authService()}
-        partnerGateway={emptyLiveGateway()}
+        partnerGateway={partnerGateway}
+        adminGateway={emptyAdminGateway()}
       />,
     )
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Payouts.' })).toBeInTheDocument()
-    expect(screen.getByRole('navigation', { name: 'Partner navigation' })).toBeInTheDocument()
-    expect(window.location.hash).toBe('#payouts')
-    expect(document.title).toBe('Payouts · KissMyApps Partners')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Partner navigation' })).not.toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#admin/overview'))
+    expect(getPartnerSummary).not.toHaveBeenCalled()
+    expect(document.title).toBe('Admin overview · KissMyApps Admin')
   })
 
-  it('keeps the UI showroom on its existing partner sample despite the admin hostname', () => {
+  it('keeps the Partner shell authoritative and canonicalizes an Admin hash', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const adminGateway = emptyAdminGateway()
+    const getAdminContext = vi.spyOn(adminGateway, 'getAdminContext')
+    window.history.replaceState(null, '', '/#admin/products')
+
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="partners.kissmyapps.dev"
+        authService={authService()}
+        partnerGateway={emptyLiveGateway()}
+        adminGateway={adminGateway}
+      />,
+    )
+
+    expect(await screen.findByText('No products are connected yet')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Partner navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Admin navigation' })).not.toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#performance'))
+    expect(getAdminContext).not.toHaveBeenCalled()
+    expect(document.title).toBe('Performance · KissMyApps Partners')
+  })
+
+  it('does not switch shells when a cross-workspace hash is entered at runtime', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="admin.kissmyapps.dev"
+        authService={authService()}
+        adminGateway={emptyAdminGateway()}
+      />,
+    )
+    expect(await screen.findByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+
+    window.location.hash = 'performance'
+
+    await waitFor(() => expect(window.location.hash).toBe('#admin/overview'))
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Partner navigation' })).not.toBeInTheDocument()
+  })
+
+  it('does not switch the Partner host to Admin when an Admin hash is entered at runtime', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const adminGateway = emptyAdminGateway()
+    const getAdminContext = vi.spyOn(adminGateway, 'getAdminContext')
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="partners.kissmyapps.dev"
+        authService={authService()}
+        partnerGateway={emptyLiveGateway()}
+        adminGateway={adminGateway}
+      />,
+    )
+    expect(await screen.findByText('No products are connected yet')).toBeInTheDocument()
+
+    window.location.hash = 'admin/products'
+
+    await waitFor(() => expect(window.location.hash).toBe('#performance'))
+    expect(screen.getByRole('navigation', { name: 'Partner navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Admin navigation' })).not.toBeInTheDocument()
+    expect(getAdminContext).not.toHaveBeenCalled()
+  })
+
+  it('switches from Admin to the canonical Partner origin', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const externalNavigate = vi.fn()
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="admin.kissmyapps.dev"
+        authService={authService()}
+        adminGateway={emptyAdminGateway()}
+        externalNavigate={externalNavigate}
+      />,
+    )
+    await screen.findByRole('heading', { level: 1, name: 'Overview' })
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Switch to Partner' }))
+
+    expect(externalNavigate).toHaveBeenCalledWith(
+      'https://partners.kissmyapps.dev/#performance',
+      'assign',
+    )
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+  })
+
+  it('moves a Partner signup callback off the Admin host before consuming it', () => {
+    const service = authService()
+    const externalNavigate = vi.fn()
+    window.history.replaceState(
+      null,
+      '',
+      '/?auth_action=signup&type=email&token_hash=one-time-secret',
+    )
+
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="admin.kissmyapps.dev"
+        authService={service}
+        externalNavigate={externalNavigate}
+      />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Opening secure Partner confirmation…')
+    expect(externalNavigate).toHaveBeenCalledWith(
+      'https://partners.kissmyapps.dev/?auth_action=signup&type=email&token_hash=one-time-secret',
+      'replace',
+    )
+    expect(service.confirmSignUp).not.toHaveBeenCalled()
+  })
+
+  it('keeps the Admin hostname authoritative even when UI preview is enabled', () => {
     render(<App previewMode workspaceHostname="admin.kissmyapps.dev" />)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Performance.' })).toBeInTheDocument()
-    expect(screen.getByText('Sample data only. Not connected to Supabase.')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Partner navigation' })).not.toBeInTheDocument()
+  })
+
+  it('keeps preview-enabled Admin workspace switching on the canonical Partner origin', async () => {
+    const externalNavigate = vi.fn()
+    render(
+      <App
+        previewMode
+        workspaceHostname="admin.kissmyapps.dev"
+        externalNavigate={externalNavigate}
+      />,
+    )
+
+    await userEvent.setup().click(screen.getAllByRole('button', { name: 'Switch to Partner' })[0])
+
+    expect(externalNavigate).toHaveBeenCalledWith(
+      'https://partners.kissmyapps.dev/#performance',
+      'assign',
+    )
+    expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Partner navigation' })).not.toBeInTheDocument()
   })
 
   it.each(['anonymous', 'unconfigured', 'error'] as const)(
@@ -432,6 +572,49 @@ describe('live partner session shell', () => {
     ).toBeInTheDocument()
     expect(window.location.hash).toBe('#auth/reset')
     expect(document.title).toBe('Reset password · KissMyApps Partners')
+  })
+
+  it('opens Partner Performance after a password reset without requiring a refresh', async () => {
+    const user = userEvent.setup()
+    const recoverySession = {
+      access_token: 'recovery-session',
+      user: authenticatedUser,
+    } as Session
+    const signedInSession = {
+      access_token: 'signed-in-session',
+      user: authenticatedUser,
+    } as Session
+    vi.mocked(useAuthSession).mockReturnValue({
+      ...authenticatedSession,
+      session: recoverySession,
+      recoveryMode: true,
+    })
+    const service = authService({
+      updatePassword: vi.fn(async () => ({
+        session: signedInSession,
+        activationStatus: 'active' as const,
+      })),
+    })
+    window.history.replaceState(null, '', '/#auth/reset')
+
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="partners.kissmyapps.dev"
+        authService={service}
+        partnerGateway={emptyLiveGateway()}
+      />,
+    )
+
+    await user.type(screen.getByLabelText('New password'), 'new secure passphrase')
+    await user.type(screen.getByLabelText('Confirm new password'), 'new secure passphrase')
+    await user.click(screen.getByRole('button', { name: 'Update password' }))
+    expect(await screen.findByRole('heading', { name: 'Your password is ready.' })).toHaveFocus()
+
+    await user.click(screen.getByRole('button', { name: 'Open partner dashboard' }))
+
+    expect(await screen.findByText('No products are connected yet')).toBeInTheDocument()
+    expect(window.location.hash).toBe('#performance')
   })
 
   it('verifies an invite token hash, clears it from the URL, and requires password setup', async () => {

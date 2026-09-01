@@ -183,9 +183,9 @@ button.admin-nav-item:hover {
   background: color-mix(in srgb, var(--admin-plum-soft) 58%, transparent);
 }
 
-.admin-nav-item-active,
-button.admin-nav-item-active:hover {
-  color: #23101d;
+button.admin-nav-item.admin-nav-item-active,
+button.admin-nav-item.admin-nav-item-active:hover {
+  color: var(--admin-plum-deep);
   background: var(--admin-pink);
   font-weight: 800;
 }
