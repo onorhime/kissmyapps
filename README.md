@@ -14,8 +14,10 @@ The first Hostinger dashboard/gateway release is recorded in
 [RELEASE_EVIDENCE_2026-08-30.md](./RELEASE_EVIDENCE_2026-08-30.md).
 The current Admin Affiliate production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01.md](./RELEASE_EVIDENCE_2026-09-01.md).
-The current Admin Funnels & Links production release is recorded in
+The Admin Funnels & Links production release is recorded in
 [RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_FUNNELS_LINKS.md).
+The current Admin Attribution and Data Health production release is recorded in
+[RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md](./RELEASE_EVIDENCE_2026-09-01_ADMIN_OBSERVABILITY.md).
 The current UI scope, review checklist, and live-integration boundaries are in
 [UI_IMPLEMENTATION.md](./UI_IMPLEMENTATION.md). The supplied four-page UX v2.0
 document has been fully reviewed; [UX_SPEC_RECONCILIATION.md](./UX_SPEC_RECONCILIATION.md)
