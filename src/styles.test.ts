@@ -84,4 +84,54 @@ describe('reviewed accessibility color tokens (not a rendered-page audit)', () =
     )
     expect(contrast(token('brand-bg-deep'), token('brand-pink'))).toBeGreaterThanOrEqual(4.5)
   })
+
+  it('keeps the Admin routing overview contained, touchable, and card-based on small screens', () => {
+    expect(adminStyles).toMatch(
+      /\.admin-routing-summary-grid \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/,
+    )
+    expect(adminStyles).toMatch(
+      /\.admin-routing-destination,[\s\S]*?\.admin-routing-url,[\s\S]*?\.admin-routing-link-url \{[\s\S]*?overflow-wrap: anywhere;/,
+    )
+    expect(adminStyles).toMatch(
+      /\.admin-routing-action \.admin-table-action,[\s\S]*?\.admin-routing-copy-button \{[\s\S]*?min-height: 44px;/,
+    )
+    expect(adminStyles).toContain('.admin-routing-state-partial')
+    expect(adminStyles).toContain('.admin-routing-state-error')
+    expect(adminStyles).toContain('.admin-routing-state-empty')
+    expect(adminStyles).toMatch(
+      /\.admin-routing-state\.admin-routing-state-partial \{[\s\S]*?min-height: auto;[\s\S]*?grid-template-columns: auto minmax\(0, 1fr\) auto;/,
+    )
+
+    const tabletStart = adminStyles.indexOf('@media (max-width: 820px)')
+    const mobileStart = adminStyles.indexOf('@media (max-width: 620px)')
+    expect(tabletStart).toBeGreaterThan(-1)
+    expect(mobileStart).toBeGreaterThan(tabletStart)
+    const tabletStyles = adminStyles.slice(tabletStart, mobileStart)
+    expect(tabletStyles).toMatch(
+      /\.admin-mobile-navigation-wrap \{[\s\S]*?position: sticky;[\s\S]*?top: 68px;/,
+    )
+    expect(tabletStyles).toContain('.admin-routing-table tbody tr')
+    expect(tabletStyles).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
+    expect(tabletStyles).toContain('.admin-routing-table tbody td::before')
+    expect(tabletStyles).toContain('content: attr(data-label);')
+    expect(tabletStyles).toContain(".admin-routing-table tbody td[data-label='Action']")
+    expect(tabletStyles).toContain(
+      ".admin-routing-table tbody td[data-label='Action'] .admin-table-action",
+    )
+
+    const reducedMotionStart = adminStyles.indexOf('@media (prefers-reduced-motion: reduce)')
+    const mobileStyles = adminStyles.slice(mobileStart, reducedMotionStart)
+    expect(mobileStyles).toMatch(/\.admin-sign-out-label \{[\s\S]*?display: none;/)
+    expect(mobileStyles).toMatch(
+      /\.admin-routing-directory-heading \.admin-count-badge,[\s\S]*?align-self: flex-start;/,
+    )
+    expect(mobileStyles).toContain('.admin-routing-link-row')
+    expect(mobileStyles).toContain('grid-template-columns: 1fr;')
+    expect(mobileStyles).toMatch(
+      /\.admin-routing-table tbody td\[data-label='Action'\] \{[\s\S]*?flex-direction: column;/,
+    )
+    expect(mobileStyles).toMatch(
+      /\.admin-routing-action,[\s\S]*?\.admin-routing-copy-button \{[\s\S]*?width: 100%;/,
+    )
+  })
 })

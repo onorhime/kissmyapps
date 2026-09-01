@@ -500,6 +500,57 @@ describe('live partner session shell', () => {
     expect(document.title).toBe('Admin products · KissMyApps Admin')
   })
 
+  it('opens the protected Funnels & Links route directly with its canonical title and active navigation', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const service = authService({
+      getPartnerActivationStatus: vi.fn().mockResolvedValue('none'),
+    })
+    window.history.replaceState(null, '', '/#admin/funnels-links')
+
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="admin.kissmyapps.dev"
+        authService={service}
+        adminGateway={emptyAdminGateway()}
+      />,
+    )
+
+    const adminNavigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+    expect(
+      within(adminNavigation).getByRole('button', { name: 'Funnels & Links' }),
+    ).toHaveAttribute('aria-current', 'page')
+    expect(
+      screen.getByText('Funnels & Links', { selector: '.admin-breadcrumb strong' }),
+    ).toBeVisible()
+    expect(window.location.hash).toBe('#admin/funnels-links')
+    await waitFor(() => expect(document.title).toBe('Admin funnels & links · KissMyApps Admin'))
+  })
+
+  it('keeps the Partner host authoritative over the Funnels & Links Admin route', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const adminGateway = emptyAdminGateway()
+    const getAdminContext = vi.spyOn(adminGateway, 'getAdminContext')
+    window.history.replaceState(null, '', '/#admin/funnels-links')
+
+    render(
+      <App
+        previewMode={false}
+        workspaceHostname="partners.kissmyapps.dev"
+        authService={authService()}
+        partnerGateway={emptyLiveGateway()}
+        adminGateway={adminGateway}
+      />,
+    )
+
+    expect(await screen.findByText('No products are connected yet')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.hash).toBe('#performance'))
+    expect(screen.getByRole('navigation', { name: 'Partner navigation' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Admin navigation' })).not.toBeInTheDocument()
+    expect(getAdminContext).not.toHaveBeenCalled()
+    expect(document.title).toBe('Performance · KissMyApps Partners')
+  })
+
   it('preserves the explicit product-configuration deep route through admin authentication', async () => {
     vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
     const service = authService({

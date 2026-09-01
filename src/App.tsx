@@ -89,6 +89,7 @@ function currentAdminRoute(): AdminRoute {
     return currentAdminAffiliateId() ? 'affiliate-detail' : 'affiliates'
   }
   if (segments[1] === 'affiliates') return 'affiliates'
+  if (segments[1] === 'funnels-links') return 'funnels-links'
   return segments[1] === 'products' ? 'products' : 'overview'
 }
 
@@ -450,9 +451,11 @@ function App({
             ? 'Admin products'
             : adminRoute === 'affiliates'
               ? 'Admin affiliates'
-              : adminRoute === 'affiliate-detail'
-                ? 'Affiliate details'
-                : 'Product configuration'
+              : adminRoute === 'funnels-links'
+                ? 'Admin funnels & links'
+                : adminRoute === 'affiliate-detail'
+                  ? 'Affiliate details'
+                  : 'Product configuration'
         : navigation.find((item) => item.id === page)?.label
     document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
     const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)

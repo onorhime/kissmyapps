@@ -344,6 +344,7 @@ button.admin-nav-item.admin-nav-item-active:hover {
   color: var(--admin-text);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .admin-mobile-nav-button {
@@ -2241,6 +2242,508 @@ button.admin-nav-item.admin-nav-item-active:hover {
   padding-top: 4px;
 }
 
+.admin-routing-page {
+  min-width: 0;
+}
+
+.admin-routing-summary,
+.admin-routing-summary-grid {
+  margin-bottom: 20px;
+}
+
+.admin-routing-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.admin-routing-summary-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 11px;
+  padding: 19px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--admin-pink) 4%, transparent), transparent 34%),
+    var(--admin-surface);
+  box-shadow: 0 18px 55px #05020526;
+}
+
+.admin-routing-summary-card > span:not(.admin-routing-summary-icon) {
+  min-width: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-routing-summary-card strong,
+.admin-routing-summary-card small {
+  grid-column: 1 / -1;
+}
+
+.admin-routing-summary-card strong {
+  margin-top: 8px;
+  color: var(--admin-text);
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-routing-summary-card small {
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.admin-routing-summary-icon {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--admin-pink-strong);
+  background: color-mix(in srgb, var(--admin-pink) 13%, transparent);
+}
+
+.admin-routing-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  color: var(--admin-muted);
+  background: var(--admin-surface);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.admin-routing-notice p {
+  margin: 0;
+}
+
+.admin-routing-notice-partial,
+.admin-routing-state-partial,
+.admin-routing-partial {
+  border-color: color-mix(in srgb, var(--admin-yellow) 38%, var(--admin-line));
+  background: color-mix(in srgb, var(--admin-yellow) 8%, var(--admin-surface));
+}
+
+.admin-routing-notice-error,
+.admin-routing-state-error,
+.admin-routing-error {
+  color: #ffe5e9;
+  border-color: color-mix(in srgb, var(--admin-red) 42%, var(--admin-line));
+  background: color-mix(in srgb, var(--admin-red) 10%, var(--admin-surface));
+}
+
+.admin-routing-directory,
+.admin-routing-links,
+.admin-routing-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--admin-pink) 4%, transparent), transparent 34%),
+    var(--admin-surface);
+  box-shadow: 0 18px 55px #05020526;
+}
+
+.admin-routing-directory + .admin-routing-directory,
+.admin-routing-directory + .admin-routing-links,
+.admin-routing-panel + .admin-routing-panel,
+.admin-routing-panel + .admin-routing-links {
+  margin-top: 20px;
+}
+
+.admin-routing-directory-heading,
+.admin-routing-panel-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 21px;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-routing-directory-heading > div,
+.admin-routing-panel-heading > div {
+  min-width: 0;
+}
+
+.admin-routing-directory-heading h2,
+.admin-routing-panel-heading h2 {
+  margin: 7px 0 0;
+  color: var(--admin-text);
+  font-size: 18px;
+}
+
+.admin-routing-directory-heading p:last-child,
+.admin-routing-panel-heading p:last-child {
+  margin: 5px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.admin-routing-table {
+  min-width: 980px;
+}
+
+.admin-routing-table th,
+.admin-routing-table td {
+  vertical-align: middle;
+}
+
+.admin-routing-table tbody tr:hover {
+  background: color-mix(in srgb, var(--admin-pink) 3%, transparent);
+}
+
+.admin-routing-name-cell,
+.admin-routing-product {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-routing-name-cell strong,
+.admin-routing-product strong {
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-routing-secondary,
+.admin-routing-name-cell small,
+.admin-routing-product small,
+.admin-routing-funnel-cell small {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.admin-routing-secondary,
+.admin-routing-name-cell code,
+.admin-routing-product code,
+.admin-routing-funnel-cell code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.admin-routing-funnel-cell {
+  min-width: 145px;
+}
+
+.admin-routing-funnel-cell strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--admin-text);
+}
+
+.admin-routing-readiness {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.admin-routing-readiness-ready {
+  color: var(--admin-green);
+  background: color-mix(in srgb, var(--admin-green) 10%, transparent);
+}
+
+.admin-routing-readiness-blocked {
+  color: var(--admin-yellow);
+  background: color-mix(in srgb, var(--admin-yellow) 10%, transparent);
+}
+
+.admin-routing-readiness-unavailable {
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 10%, transparent);
+}
+
+.admin-routing-destination,
+.admin-routing-url,
+.admin-routing-link-url {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--admin-pink-strong);
+  font:
+    11px/1.5 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.admin-routing-table .admin-routing-url,
+.admin-routing-table .admin-routing-destination {
+  display: block;
+  max-width: 290px;
+}
+
+.admin-routing-action {
+  min-width: 0;
+  white-space: normal;
+}
+
+button.admin-routing-action,
+.admin-routing-action .admin-table-action,
+.admin-routing-copy-button {
+  min-height: 44px;
+}
+
+.admin-routing-groups,
+.admin-routing-directory-body {
+  display: grid;
+  gap: 18px;
+  padding: 20px 21px;
+}
+
+.admin-routing-group {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--admin-line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--admin-surface-raised) 70%, transparent);
+}
+
+.admin-routing-group-heading,
+.admin-routing-record-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-routing-group-heading h3,
+.admin-routing-record-heading strong {
+  color: var(--admin-text);
+}
+
+.admin-routing-group-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.admin-routing-group-heading p,
+.admin-routing-record-heading small {
+  margin: 5px 0 0;
+  color: var(--admin-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-routing-record-list,
+.admin-routing-link-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-routing-links > .admin-routing-link-list {
+  margin: 0;
+  padding: 18px 20px;
+}
+
+.admin-routing-record {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(170px, 0.8fr) minmax(210px, 1fr);
+  align-items: center;
+  gap: 10px 16px;
+  padding: 13px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-routing-link-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(145px, 0.75fr) minmax(145px, 0.75fr) minmax(220px, 1.35fr) minmax(
+      118px,
+      auto
+    );
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-routing-record-heading,
+.admin-routing-link-row > :first-child {
+  min-width: 0;
+}
+
+.admin-routing-record-heading code {
+  display: block;
+  margin-top: 4px;
+  color: var(--admin-pink-strong);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.admin-routing-record-meta {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.admin-routing-record-meta > span {
+  min-height: 29px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--admin-line);
+  border-radius: 7px;
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.admin-routing-record > .admin-routing-destination,
+.admin-routing-record > .admin-routing-url,
+.admin-routing-link-control {
+  grid-column: 1 / -1;
+}
+
+.admin-routing-link-control {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-routing-copy-button {
+  flex: 0 0 auto;
+}
+
+.admin-routing-link-row .admin-routing-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-routing-copy-feedback {
+  flex-basis: 100%;
+  min-height: 20px;
+  margin: 0;
+  color: var(--admin-green);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.admin-routing-copy-feedback[role='alert'] {
+  color: var(--admin-red);
+}
+
+.admin-routing-state,
+.admin-routing-empty {
+  min-height: 260px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0;
+  padding: 38px 24px;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  color: var(--admin-pink-strong);
+  background: var(--admin-surface);
+  text-align: center;
+}
+
+.admin-routing-directory > .admin-routing-state,
+.admin-routing-directory > .admin-routing-empty,
+.admin-routing-links > .admin-routing-state,
+.admin-routing-links > .admin-routing-empty {
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-routing-state-loading,
+.admin-routing-loading {
+  color: var(--admin-pink-strong);
+}
+
+.admin-routing-state-empty,
+.admin-routing-empty {
+  color: var(--admin-muted);
+}
+
+.admin-routing-state h2,
+.admin-routing-state h3,
+.admin-routing-empty h2,
+.admin-routing-empty h3 {
+  margin: 14px 0 0;
+  color: var(--admin-text);
+  font-size: 17px;
+}
+
+.admin-routing-state p,
+.admin-routing-empty p {
+  max-width: 540px;
+  margin: 8px 0 18px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.admin-routing-state.admin-routing-state-partial {
+  min-height: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  place-content: normal;
+  justify-items: stretch;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  color: var(--admin-muted);
+  text-align: left;
+}
+
+.admin-routing-state.admin-routing-state-partial strong {
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.admin-routing-state.admin-routing-state-partial p {
+  max-width: none;
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.admin-routing-state.admin-routing-state-partial .admin-secondary-button {
+  min-width: 92px;
+}
+
 .admin-spin {
   animation: admin-spin 0.8s linear infinite;
 }
@@ -2303,6 +2806,12 @@ button.admin-nav-item.admin-nav-item-active:hover {
 
   .admin-mobile-nav-button {
     display: inline-flex;
+  }
+
+  .admin-mobile-navigation-wrap {
+    position: sticky;
+    top: 68px;
+    z-index: 19;
   }
 
   .admin-breadcrumb > span:first-child,
@@ -2401,6 +2910,104 @@ button.admin-nav-item.admin-nav-item-active:hover {
   .admin-affiliate-table .admin-table-action {
     flex: 1;
   }
+
+  .admin-routing-summary,
+  .admin-routing-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-routing-directory .admin-table-scroll,
+  .admin-routing-panel .admin-table-scroll {
+    overflow: visible;
+  }
+
+  .admin-routing-table {
+    min-width: 0;
+    display: block;
+    padding: 14px;
+    white-space: normal;
+  }
+
+  .admin-routing-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-routing-table tbody {
+    display: grid;
+    gap: 13px;
+  }
+
+  .admin-routing-table tbody tr {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+    padding: 15px;
+    border: 1px solid var(--admin-line);
+    border-radius: 11px;
+    background: var(--admin-plum-deep);
+  }
+
+  .admin-routing-table tbody th,
+  .admin-routing-table tbody td {
+    min-width: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--admin-line);
+  }
+
+  .admin-routing-table tbody th {
+    grid-column: 1 / -1;
+    padding-top: 0;
+  }
+
+  .admin-routing-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    white-space: normal;
+  }
+
+  .admin-routing-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--admin-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.35px;
+    text-transform: uppercase;
+  }
+
+  .admin-routing-table tbody td[data-label='Action'] {
+    grid-column: 1 / -1;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .admin-routing-table tbody td[data-label='Action'] .admin-table-action {
+    flex: 1;
+  }
+
+  .admin-routing-table .admin-routing-url,
+  .admin-routing-table .admin-routing-destination {
+    max-width: min(62%, 360px);
+    text-align: right;
+  }
+
+  .admin-routing-link-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-routing-link-row > .admin-routing-url,
+  .admin-routing-link-row > .admin-routing-action {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 620px) {
@@ -2415,7 +3022,10 @@ button.admin-nav-item.admin-nav-item-active:hover {
   .admin-sign-out-button {
     width: 44px;
     padding-inline: 0;
-    font-size: 0;
+  }
+
+  .admin-sign-out-label {
+    display: none;
   }
 
   .admin-page-heading {
@@ -2532,6 +3142,101 @@ button.admin-nav-item.admin-nav-item-active:hover {
   .admin-affiliate-table tbody th,
   .admin-affiliate-table tbody td:last-child {
     grid-column: auto;
+  }
+
+  .admin-routing-summary,
+  .admin-routing-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-routing-directory-heading,
+  .admin-routing-panel-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 13px;
+    padding: 18px;
+  }
+
+  .admin-routing-directory-heading .admin-table-action,
+  .admin-routing-panel-heading .admin-table-action {
+    width: 100%;
+  }
+
+  .admin-routing-directory-heading .admin-count-badge,
+  .admin-routing-panel-heading .admin-count-badge {
+    align-self: flex-start;
+  }
+
+  .admin-routing-table tbody tr,
+  .admin-routing-record,
+  .admin-routing-link-row,
+  .admin-routing-link-control {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-routing-table tbody th,
+  .admin-routing-table tbody td,
+  .admin-routing-table tbody td[data-label='Action'],
+  .admin-routing-record > .admin-routing-destination,
+  .admin-routing-record > .admin-routing-url,
+  .admin-routing-link-control {
+    grid-column: auto;
+  }
+
+  .admin-routing-table tbody td {
+    align-items: flex-start;
+  }
+
+  .admin-routing-table tbody td[data-label='Action'] {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-routing-table .admin-routing-url,
+  .admin-routing-table .admin-routing-destination {
+    max-width: 60%;
+  }
+
+  .admin-routing-action,
+  .admin-routing-link-row .admin-routing-action,
+  .admin-routing-action .admin-table-action,
+  .admin-routing-copy-button {
+    width: 100%;
+  }
+
+  .admin-routing-link-row .admin-routing-action {
+    justify-content: stretch;
+  }
+
+  .admin-routing-copy-feedback {
+    text-align: left;
+  }
+
+  .admin-routing-groups,
+  .admin-routing-directory-body,
+  .admin-routing-links > .admin-routing-link-list {
+    padding: 15px;
+  }
+
+  .admin-routing-record-meta {
+    justify-content: flex-start;
+  }
+
+  .admin-routing-state,
+  .admin-routing-empty {
+    min-height: 230px;
+    padding: 32px 18px;
+  }
+
+  .admin-routing-state.admin-routing-state-partial {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    padding: 12px;
+  }
+
+  .admin-routing-state.admin-routing-state-partial .admin-secondary-button {
+    width: 100%;
+    grid-column: 1 / -1;
   }
 }
 

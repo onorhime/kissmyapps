@@ -90,6 +90,49 @@ describe('admin configuration RPC gateway', () => {
     })
   })
 
+  it('maps an explicitly configured funnel when its protected destination is redacted', async () => {
+    const rpcClient = client({
+      data: {
+        product,
+        tracking: { enabled: false, base_url: null },
+        readiness: {
+          has_live_default_funnel: false,
+          has_active_agreement: false,
+          has_active_billing_offer: false,
+          tracking_ready: false,
+        },
+        funnels: [
+          {
+            id: 'funnel-1',
+            product_id: product.id,
+            key: 'checkout',
+            name: 'Checkout',
+            destination_configured: true,
+            is_default: true,
+            status: 'draft',
+            created_at: product.created_at,
+            updated_at: product.updated_at,
+          },
+        ],
+        campaigns: [],
+        agreements: [],
+        billing_offers: [],
+        main_links: [],
+      },
+      error: null,
+      status: 200,
+    })
+
+    const result = await createAdminGateway(rpcClient.value).getProductConfiguration?.('product-1')
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      data: {
+        funnels: [{ destinationConfigured: true, destinationUrl: null }],
+      },
+    })
+  })
+
   it('maps signed-agreement and verified-billing launch gates from the server contract', async () => {
     const rpcClient = client({
       data: {
@@ -164,7 +207,20 @@ describe('admin configuration RPC gateway', () => {
             updated_at: product.updated_at,
           },
         ],
-        main_links: [],
+        main_links: [
+          {
+            id: 'link-1',
+            affiliate_id: 'affiliate-1',
+            partner_name: 'Creator Studio',
+            product_id: product.id,
+            funnel_id: 'funnel-1',
+            name: 'Daily Planner · Main',
+            public_code: 'abcdefghijklmnop',
+            tracking_url: 'https://go.example.test/r/partner/abcdefghijklmnop',
+            status: 'active',
+            created_at: product.created_at,
+          },
+        ],
       },
       error: null,
       status: 200,
@@ -184,6 +240,7 @@ describe('admin configuration RPC gateway', () => {
             stripePriceVerified: true,
           },
         ],
+        mainLinks: [{ partnerName: 'Creator Studio' }],
       },
     })
   })
@@ -205,13 +262,17 @@ describe('admin configuration RPC gateway', () => {
       status: 200,
     })
 
-    await createAdminGateway(rpcClient.value).setFunnelStatus?.({
+    const result = await createAdminGateway(rpcClient.value).setFunnelStatus?.({
       funnelId: 'funnel-1',
       status: 'live',
     })
 
     expect(rpcClient.rpc).toHaveBeenCalledWith('set_admin_funnel_status', {
       p_input: { funnel_id: 'funnel-1', status: 'live' },
+    })
+    expect(result?.data).toMatchObject({
+      destinationConfigured: true,
+      destinationUrl: 'https://example.test/checkout',
     })
   })
 
@@ -220,6 +281,7 @@ describe('admin configuration RPC gateway', () => {
       data: {
         id: 'link-1',
         affiliate_id: 'affiliate-1',
+        partner_name: 'Creator Studio',
         product_id: 'product-1',
         funnel_id: 'funnel-1',
         name: 'Daily Planner · Main',
@@ -232,7 +294,7 @@ describe('admin configuration RPC gateway', () => {
       status: 200,
     })
 
-    await createAdminGateway(rpcClient.value).issueMainLink?.({
+    const result = await createAdminGateway(rpcClient.value).issueMainLink?.({
       affiliateId: 'affiliate-1',
       productId: 'product-1',
     })
@@ -242,6 +304,7 @@ describe('admin configuration RPC gateway', () => {
       p_input: { affiliate_id: 'affiliate-1', product_id: 'product-1' },
     })
     expect(Object.keys(payload.p_input)).toEqual(['affiliate_id', 'product_id'])
+    expect(result?.data).toMatchObject({ partnerName: 'Creator Studio' })
   })
 
   it('sanitizes lifecycle failures instead of returning database wording', async () => {

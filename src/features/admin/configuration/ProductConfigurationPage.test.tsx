@@ -119,7 +119,8 @@ describe('Product configuration page', () => {
           productId: 'product-1',
           key: 'checkout',
           name: 'Checkout',
-          destinationUrl: destination,
+          destinationConfigured: true,
+          destinationUrl: null,
           isDefault: true,
           status: 'live',
           createdAt: product.createdAt,
@@ -138,6 +139,7 @@ describe('Product configuration page', () => {
 
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
     expect(screen.queryByText(destination)).not.toBeInTheDocument()
+    expect(screen.getByText('HTTPS destination configured')).toBeVisible()
     expect(screen.getByText(/destinations remain masked/i)).toBeVisible()
   })
 
@@ -258,6 +260,7 @@ describe('Product configuration page', () => {
       ready({
         id: 'link-1',
         affiliateId: affiliate.id,
+        partnerName: affiliate.publicName,
         productId: product.id,
         funnelId: 'funnel-1',
         name: null,

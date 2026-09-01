@@ -19,15 +19,16 @@ import {
   Users,
 } from 'lucide-react'
 import { Brand } from '../../components/Brand'
-import type { AdminGateway } from './api'
+import { adminGateway as defaultAdminGateway, type AdminGateway } from './api'
 import { AffiliatesPage } from './affiliates/AffiliatesPage'
 import { AdminOverview } from './AdminOverview'
 import { ProductConfigurationPage } from './configuration/ProductConfigurationPage'
+import { FunnelsLinksPage } from './funnels/FunnelsLinksPage'
 import { ProductsPage } from './products/ProductsPage'
 import { useAdminWorkspace, type AdminWorkspaceStatus } from './useAdminWorkspace'
 import './AdminPortal.css'
 
-export type AdminPrimaryRoute = 'overview' | 'products' | 'affiliates'
+export type AdminPrimaryRoute = 'overview' | 'products' | 'affiliates' | 'funnels-links'
 export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
 
 export type AdminIdentity = Readonly<{
@@ -43,20 +44,14 @@ export type AdminPortalAppProps = Readonly<{
   productId?: string | null
   affiliateId?: string | null
   onNavigate: (route: AdminRoute) => void
-  onOpenProductConfiguration?: (productId: string) => void
+  onOpenProductConfiguration: (productId: string) => void
   onOpenAffiliate?: (affiliateId: string) => void
   onSignOut: () => void | Promise<void>
   onSwitchToPartner: () => void | Promise<void>
 }>
 
 type UpcomingRoute =
-  | 'funnels-links'
-  | 'attribution'
-  | 'subscriptions'
-  | 'payouts'
-  | 'documents'
-  | 'data-health'
-  | 'settings'
+  'attribution' | 'subscriptions' | 'payouts' | 'documents' | 'data-health' | 'settings'
 
 const navigation: readonly (
   | { id: AdminPrimaryRoute; label: string; icon: typeof Gauge; enabled: true }
@@ -65,7 +60,7 @@ const navigation: readonly (
   { id: 'overview', label: 'Overview', icon: Gauge, enabled: true },
   { id: 'products', label: 'Products', icon: Package, enabled: true },
   { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: true },
-  { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: false },
+  { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: true },
   { id: 'attribution', label: 'Attribution', icon: Activity, enabled: false },
   { id: 'subscriptions', label: 'Subscriptions', icon: Boxes, enabled: false },
   { id: 'payouts', label: 'Payouts', icon: BadgeDollarSign, enabled: false },
@@ -78,6 +73,7 @@ const routeLabels: Record<AdminRoute, string> = {
   overview: 'Overview',
   products: 'Products',
   affiliates: 'Affiliates',
+  'funnels-links': 'Funnels & Links',
   'product-configuration': 'Product configuration',
   'affiliate-detail': 'Affiliate details',
 }
@@ -164,9 +160,10 @@ export function AdminPortalApp({
   onSignOut,
   onSwitchToPartner,
 }: AdminPortalAppProps) {
+  const effectiveGateway = gateway ?? defaultAdminGateway
   const { state, retry, createProduct, replaceProduct } = useAdminWorkspace({
     sessionUserId,
-    gateway,
+    gateway: effectiveGateway,
   })
   const [mobileNavRoute, setMobileNavRoute] = useState<AdminRoute | null>(null)
   const [shellError, setShellError] = useState('')
@@ -179,6 +176,7 @@ export function AdminPortalApp({
   const initial = displayName.slice(0, 1).toUpperCase() || 'A'
   const workspaceReady = (state.status === 'ready' || state.status === 'empty') && context
   const mobileNavOpen = mobileNavRoute === route
+  const funnelsLinksRestricted = context?.role === 'support'
 
   useEffect(() => {
     if (previousRoute.current !== route) {
@@ -247,7 +245,8 @@ export function AdminPortalApp({
           <nav className="admin-navigation" aria-label="Admin navigation">
             {navigation.map((item) => {
               const Icon = item.icon
-              if (!item.enabled) {
+              const restricted = item.id === 'funnels-links' && funnelsLinksRestricted
+              if (!item.enabled || restricted) {
                 return (
                   <span
                     className="admin-nav-item admin-nav-item-upcoming"
@@ -256,7 +255,7 @@ export function AdminPortalApp({
                   >
                     <Icon size={18} aria-hidden="true" />
                     <span>{item.label}</span>
-                    <small>Upcoming</small>
+                    <small>{restricted ? 'Restricted' : 'Upcoming'}</small>
                   </span>
                 )
               }
@@ -320,6 +319,7 @@ export function AdminPortalApp({
                 className="admin-sign-out-button"
                 type="button"
                 disabled={signOutPending || !sessionUserId}
+                aria-label={signOutPending ? 'Signing out…' : 'Sign out'}
                 onClick={() => void safelySignOut()}
               >
                 {signOutPending ? (
@@ -327,7 +327,9 @@ export function AdminPortalApp({
                 ) : (
                   <LogOut size={17} aria-hidden="true" />
                 )}
-                {signOutPending ? 'Signing out…' : 'Sign out'}
+                <span className="admin-sign-out-label">
+                  {signOutPending ? 'Signing out…' : 'Sign out'}
+                </span>
               </button>
             </div>
           </header>
@@ -339,7 +341,7 @@ export function AdminPortalApp({
           >
             <nav aria-label="Mobile admin navigation">
               {navigation.map((item) =>
-                item.enabled ? (
+                item.enabled && !(item.id === 'funnels-links' && funnelsLinksRestricted) ? (
                   <button
                     type="button"
                     key={item.id}
@@ -350,7 +352,12 @@ export function AdminPortalApp({
                   </button>
                 ) : (
                   <span key={item.id} aria-disabled="true">
-                    {item.label} <small>Upcoming</small>
+                    {item.label}{' '}
+                    <small>
+                      {item.id === 'funnels-links' && funnelsLinksRestricted
+                        ? 'Restricted'
+                        : 'Upcoming'}
+                    </small>
                   </span>
                 ),
               )}
@@ -382,7 +389,7 @@ export function AdminPortalApp({
                   <ProductConfigurationPage
                     productId={productId}
                     context={context}
-                    gateway={gateway}
+                    gateway={effectiveGateway}
                     onBack={() => navigate('products')}
                     onProductRead={replaceProduct}
                   />
@@ -413,11 +420,46 @@ export function AdminPortalApp({
                   onCreate={createProduct}
                   onConfigure={onOpenProductConfiguration}
                 />
+              ) : route === 'funnels-links' ? (
+                funnelsLinksRestricted ? (
+                  <section
+                    className="admin-state-card"
+                    aria-labelledby="admin-funnels-links-restricted-title"
+                  >
+                    <span className="admin-state-icon">
+                      <ShieldX size={30} aria-hidden="true" />
+                    </span>
+                    <p className="admin-eyebrow">RESTRICTED WORKSPACE</p>
+                    <h1 id="admin-funnels-links-restricted-title">
+                      Funnels &amp; Links access restricted
+                    </h1>
+                    <p>
+                      Support accounts cannot access protected product routing or issued partner
+                      links. Ask an Owner or Operations administrator when routing assistance is
+                      required.
+                    </p>
+                    <button
+                      className="admin-secondary-button"
+                      type="button"
+                      onClick={() => navigate('overview')}
+                    >
+                      Open Overview
+                    </button>
+                  </section>
+                ) : (
+                  <FunnelsLinksPage
+                    context={context}
+                    products={state.products}
+                    gateway={effectiveGateway}
+                    onOpenProducts={() => navigate('products')}
+                    onOpenProductConfiguration={onOpenProductConfiguration}
+                  />
+                )
               ) : route === 'affiliates' || route === 'affiliate-detail' ? (
                 <AffiliatesPage
                   key={context.userId}
                   context={context}
-                  gateway={gateway}
+                  gateway={effectiveGateway}
                   affiliateId={route === 'affiliate-detail' ? affiliateId : null}
                   onOpenAffiliate={(nextAffiliateId) => onOpenAffiliate?.(nextAffiliateId)}
                   onCloseAffiliate={() => navigate('affiliates')}

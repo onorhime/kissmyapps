@@ -107,12 +107,19 @@ export function mapAdminAffiliate(value: unknown): AdminAffiliate {
 
 export function mapAdminFunnel(value: unknown): AdminFunnel {
   const row = record(value)
+  const destinationUrl = nullableString(row, 'destination_url', 'destinationUrl')
+  const configuredValue = valueAt(row, 'destination_configured', 'destinationConfigured')
+  const destinationConfigured =
+    configuredValue === undefined
+      ? destinationUrl !== null
+      : boolean(row, 'destination_configured', 'destinationConfigured')
   return {
     id: requiredString(row, 'id'),
     productId: requiredString(row, 'product_id', 'productId'),
     key: requiredString(row, 'key'),
     name: requiredString(row, 'name'),
-    destinationUrl: nullableString(row, 'destination_url', 'destinationUrl'),
+    destinationConfigured,
+    destinationUrl,
     isDefault: boolean(row, 'is_default', 'isDefault'),
     status: enumValue<AdminFunnelStatus>(row.status, ADMIN_FUNNEL_STATUSES),
     createdAt: requiredString(row, 'created_at', 'createdAt'),
@@ -241,6 +248,7 @@ export function mapAdminMainLink(value: unknown, fallbackProductId?: string): Ad
   return {
     id: requiredString(row, 'id'),
     affiliateId: requiredString(row, 'affiliate_id', 'affiliateId'),
+    partnerName: nullableString(row, 'partner_name', 'partnerName'),
     productId:
       nullableString(row, 'product_id', 'productId') ??
       (fallbackProductId ||

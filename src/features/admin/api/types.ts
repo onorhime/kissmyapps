@@ -201,6 +201,8 @@ export type AdminFunnel = Readonly<{
   productId: string
   key: string
   name: string
+  /** Truthful server-provided state even when the protected URL is redacted for this role. */
+  destinationConfigured: boolean
   destinationUrl: string | null
   isDefault: boolean
   status: AdminFunnelStatus
@@ -368,6 +370,7 @@ export type AdminProductActivation = Readonly<{
 export type AdminMainLink = Readonly<{
   id: string
   affiliateId: string
+  partnerName: string | null
   productId: string
   funnelId: string
   name: string | null

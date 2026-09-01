@@ -30,6 +30,7 @@ describe('production workspace host routing', () => {
   it.each([
     ['#admin/overview', 'admin'],
     ['#admin/products/product%2Fone/configuration', 'admin'],
+    ['#admin/funnels-links', 'admin'],
     ['#admin', 'admin'],
     ['#performance', 'partner'],
     ['#payouts', 'partner'],
@@ -69,6 +70,7 @@ describe('production workspace host routing', () => {
     ['admin.kissmyapps.dev', '#payouts', '#admin/overview'],
     ['partners.kissmyapps.dev', '#admin/products', '#performance'],
     ['partners.kissmyapps.dev', '#admin/affiliates', '#performance'],
+    ['partners.kissmyapps.dev', '#admin/funnels-links', '#performance'],
     ['admin.kissmyapps.dev', '#auth/sign-in', null],
     ['partners.kissmyapps.dev', '#auth/reset', null],
     ['localhost', '#admin/products', null],

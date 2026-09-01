@@ -1,7 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { adminGateway } from './api'
 import type {
   AdminAffiliateDirectoryPage,
   AdminAffiliateDirectorySummary,
@@ -9,6 +10,7 @@ import type {
   AdminDataResult,
   AdminGateway,
   AdminProduct,
+  AdminProductConfiguration,
 } from './api'
 import { AdminPortalApp } from './AdminPortalApp'
 
@@ -24,6 +26,31 @@ const emptyProducts: AdminDataResult<AdminProduct[]> = {
   data: [],
   status: 'empty',
   error: null,
+}
+
+const product: AdminProduct = {
+  id: 'product-planner',
+  name: 'Daily Planner',
+  slug: 'daily-planner',
+  status: 'draft',
+  createdAt: '2026-08-28T10:00:00.000Z',
+  updatedAt: '2026-08-31T10:00:00.000Z',
+}
+
+const productConfiguration: AdminProductConfiguration = {
+  product,
+  tracking: { enabled: false, baseUrl: null },
+  readiness: {
+    hasLiveDefaultFunnel: false,
+    hasActiveAgreement: false,
+    hasActiveBillingOffer: false,
+    trackingReady: false,
+  },
+  funnels: [],
+  campaigns: [],
+  agreements: [],
+  billingOffers: [],
+  mainLinks: [],
 }
 
 function gatewayWith(
@@ -89,6 +116,7 @@ function renderPortal(overrides: Partial<React.ComponentProps<typeof AdminPortal
     gateway: gatewayWith(),
     identity: { name: 'Fallback Admin', email: 'fallback@example.test' },
     onNavigate: vi.fn(),
+    onOpenProductConfiguration: vi.fn(),
     onSignOut: vi.fn(),
     onSwitchToPartner: vi.fn(),
     ...overrides,
@@ -97,7 +125,11 @@ function renderPortal(overrides: Partial<React.ComponentProps<typeof AdminPortal
 }
 
 describe('Admin portal shell', () => {
-  it('shows the complete P2 navigation with Overview, Products, and Affiliates enabled', async () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('shows the complete navigation with Funnels & Links enabled', async () => {
     const { props } = renderPortal()
     await screen.findByRole('heading', { name: 'Overview' })
     const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
@@ -108,13 +140,8 @@ describe('Admin portal shell', () => {
     )
     expect(within(navigation).getByRole('button', { name: 'Products' })).toBeEnabled()
     expect(within(navigation).getByRole('button', { name: 'Affiliates' })).toBeEnabled()
-    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(7)
-    expect(
-      within(navigation).getByText('Funnels & Links').closest('[aria-disabled="true"]'),
-    ).not.toBeNull()
-    expect(
-      within(navigation).queryByRole('button', { name: 'Funnels & Links' }),
-    ).not.toBeInTheDocument()
+    expect(within(navigation).getByRole('button', { name: 'Funnels & Links' })).toBeEnabled()
+    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(6)
     expect(screen.getByText('Kissmyapps')).toBeVisible()
     expect(screen.getByText('Admin', { selector: '.brand-context' })).toBeVisible()
 
@@ -124,13 +151,103 @@ describe('Admin portal shell', () => {
     await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Affiliates' }))
     expect(props.onNavigate).toHaveBeenCalledWith('affiliates')
 
+    await userEvent
+      .setup()
+      .click(within(navigation).getByRole('button', { name: 'Funnels & Links' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('funnels-links')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
+    const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile admin navigation' })
+    expect(within(mobileNavigation).getByRole('button', { name: 'Funnels & Links' })).toBeEnabled()
+    expect(
+      within(mobileNavigation).getByRole('button', { name: 'Switch to Partner' }),
+    ).toBeEnabled()
+  })
+
+  it('marks Funnels & Links active in desktop and mobile navigation', async () => {
+    renderPortal({ route: 'funnels-links' })
+
+    const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+    expect(within(navigation).getByRole('button', { name: 'Funnels & Links' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(
+      screen.getByText('Funnels & Links', { selector: '.admin-breadcrumb strong' }),
+    ).toBeVisible()
+
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
     expect(
       within(screen.getByRole('navigation', { name: 'Mobile admin navigation' })).getByRole(
         'button',
-        { name: 'Switch to Partner' },
+        { name: 'Funnels & Links' },
       ),
-    ).toBeEnabled()
+    ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('uses the imported default gateway for a non-empty Funnels & Links route', async () => {
+    const contextReader = vi.spyOn(adminGateway, 'getAdminContext').mockResolvedValue({
+      data: context,
+      status: 'ready',
+      error: null,
+    })
+    const productsReader = vi.spyOn(adminGateway, 'getProducts').mockResolvedValue({
+      data: [product],
+      status: 'ready',
+      error: null,
+    })
+    const configurationReader = vi
+      .spyOn(adminGateway, 'getProductConfiguration')
+      .mockResolvedValue({ data: productConfiguration, status: 'ready', error: null })
+
+    renderPortal({ route: 'funnels-links', gateway: undefined })
+
+    expect(await screen.findByRole('heading', { name: 'Product routing overview' })).toBeVisible()
+    expect(screen.getAllByText('Daily Planner').length).toBeGreaterThan(0)
+    expect(contextReader).toHaveBeenCalledOnce()
+    expect(productsReader).toHaveBeenCalledOnce()
+    expect(configurationReader).toHaveBeenCalledOnce()
+    expect(configurationReader).toHaveBeenCalledWith(product.id)
+  })
+
+  it('restricts Funnels & Links for support without reading product configuration', async () => {
+    const supportContext: AdminContext = { ...context, role: 'support' }
+    const gateway = gatewayWith(
+      { data: supportContext, status: 'ready', error: null },
+      { data: [product], status: 'ready', error: null },
+    )
+    const configurationReader = vi.fn(async () => ({
+      data: productConfiguration,
+      status: 'ready' as const,
+      error: null,
+    }))
+    gateway.getProductConfiguration = configurationReader
+    const { props } = renderPortal({ route: 'funnels-links', gateway })
+
+    expect(
+      await screen.findByRole('heading', { name: 'Funnels & Links access restricted' }),
+    ).toBeVisible()
+    expect(
+      screen.getByText(/Support accounts cannot access protected product routing/i),
+    ).toBeVisible()
+    expect(configurationReader).not.toHaveBeenCalled()
+
+    const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+    expect(within(navigation).queryByRole('button', { name: 'Funnels & Links' })).toBeNull()
+    const desktopRestrictedLabel = within(navigation).getByText('Funnels & Links')
+    expect(desktopRestrictedLabel.closest('[aria-disabled="true"]')).toHaveTextContent('Restricted')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
+    const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile admin navigation' })
+    expect(within(mobileNavigation).queryByRole('button', { name: 'Funnels & Links' })).toBeNull()
+    expect(
+      within(mobileNavigation)
+        .getByText(/Funnels & Links/)
+        .closest('[aria-disabled="true"]'),
+    ).toHaveTextContent('Restricted')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open Overview' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('overview')
   })
 
   it('does not call admin data while unauthenticated', () => {

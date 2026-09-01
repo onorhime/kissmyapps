@@ -189,7 +189,9 @@ export function FunnelSection({
                     </span>
                   )}
                   <span>
-                    {funnel.destinationUrl ? 'HTTPS destination configured' : 'Destination missing'}
+                    {funnel.destinationConfigured
+                      ? 'HTTPS destination configured'
+                      : 'Destination missing'}
                   </span>
                 </div>
                 {canManage && funnel.destinationUrl && (
@@ -265,7 +267,7 @@ export function FunnelSection({
                     <button
                       className="admin-primary-button"
                       type="button"
-                      disabled={!funnel.destinationUrl || busy}
+                      disabled={!funnel.destinationConfigured || busy}
                       onClick={() => void changeStatus(funnel, 'live')}
                     >
                       Set live

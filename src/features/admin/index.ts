@@ -17,6 +17,8 @@ export {
 } from './affiliates/affiliatePresentation'
 export { ProductConfigurationPage } from './configuration/ProductConfigurationPage'
 export type { ProductConfigurationPageProps } from './configuration/ProductConfigurationPage'
+export { FunnelsLinksPage } from './funnels/FunnelsLinksPage'
+export type { FunnelsLinksPageProps } from './funnels/FunnelsLinksPage'
 export {
   mainLinkReadiness,
   productActivationReadiness,
