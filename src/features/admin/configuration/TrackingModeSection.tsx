@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, CircleAlert, FlaskConical, LoaderCircle, LockKeyhole } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  CircleAlert,
+  FlaskConical,
+  LoaderCircle,
+  LockKeyhole,
+} from 'lucide-react'
 import type { AdminConfigurationGateway, AdminProductConfiguration } from '../api'
 import type { ConfigurationActionRunner } from './actionTypes'
 
@@ -30,6 +37,7 @@ export function TrackingModeSection({
   runAction: ConfigurationActionRunner
 }) {
   const [confirmation, setConfirmation] = useState<TrackingModeAction | null>(null)
+  const [disclosureOpen, setDisclosureOpen] = useState(false)
   const status = useRef<HTMLSpanElement | null>(null)
   const actionButton = useRef<HTMLButtonElement | null>(null)
   const confirmButton = useRef<HTMLButtonElement | null>(null)
@@ -73,6 +81,7 @@ export function TrackingModeSection({
     )
     if (changed) {
       setConfirmation(null)
+      setDisclosureOpen(false)
       focusStatusAfterReload.current = true
     }
   }
@@ -96,11 +105,108 @@ export function TrackingModeSection({
             button: 'Confirm tracking-only mode',
           }
 
+  const confirmGroup = confirmation ? (
+    <div
+      className="admin-confirm-action admin-tracking-mode-confirm"
+      role="group"
+      aria-labelledby="admin-tracking-mode-confirm-title"
+    >
+      <p>
+        <strong id="admin-tracking-mode-confirm-title">{actionCopy.title}</strong>
+        <span>{actionCopy.body}</span>
+      </p>
+      <div className="admin-record-actions">
+        <button
+          ref={confirmButton}
+          className="admin-primary-button"
+          type="button"
+          disabled={busy}
+          onClick={() => void changeMode(confirmation)}
+        >
+          {busy && <LoaderCircle className="admin-spin" size={16} aria-hidden="true" />}
+          {busy ? 'Saving mode…' : actionCopy.button}
+        </button>
+        <button
+          className="admin-secondary-button"
+          type="button"
+          disabled={busy}
+          onClick={cancelConfirmation}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  ) : null
+
+  if (!trackingOnly) {
+    return (
+      <section
+        className="admin-config-section admin-mode-strip"
+        aria-labelledby="admin-tracking-mode-title"
+      >
+        <span ref={status} tabIndex={-1} className="admin-mode-badge admin-mode-badge-commercial">
+          Commercial
+        </span>
+        <p className="admin-mode-strip-copy">
+          <strong>Full production launch gates are enforced.</strong> Links require a verified
+          subscription offer and a bilaterally signed agreement.
+        </p>
+        {canManageMode && (
+          <button
+            ref={actionButton}
+            className="admin-text-button admin-mode-strip-toggle"
+            type="button"
+            aria-expanded={disclosureOpen || Boolean(confirmation)}
+            disabled={busy}
+            onClick={() => setDisclosureOpen((open) => !open)}
+          >
+            <FlaskConical size={14} aria-hidden="true" /> Tracking-only testing
+            <ChevronDown
+              className={disclosureOpen ? 'admin-disclosure-chevron-open' : ''}
+              size={14}
+              aria-hidden="true"
+            />
+          </button>
+        )}
+        {!canManageMode && (
+          <span className="admin-mode-strip-locked">
+            <LockKeyhole size={14} aria-hidden="true" /> Owner-only mode control
+          </span>
+        )}
+        {canManageMode && (disclosureOpen || confirmation) && (
+          <div className="admin-mode-disclosure">
+            <p>
+              Tracking-only mode approves the current live default funnel for non-commercial
+              redirect and event testing. It disables checkout, commissions, and payouts for this
+              product, and a product with tracking-only traffic can never return to commercial mode.
+            </p>
+            {!configuration.readiness.hasLiveDefaultFunnel && (
+              <small className="admin-gate-copy">
+                Configure one live default HTTPS funnel before tracking-only mode can be approved.
+              </small>
+            )}
+            {!confirmation && (
+              <div className="admin-record-actions">
+                <button
+                  className="admin-secondary-button"
+                  type="button"
+                  disabled={!canManageMode || !configuration.readiness.hasLiveDefaultFunnel || busy}
+                  onClick={() => requestConfirmation('enable')}
+                >
+                  Review tracking-only mode
+                </button>
+              </div>
+            )}
+            {confirmGroup}
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <section
-      className={`admin-config-section admin-tracking-mode admin-tracking-mode-${
-        trackingOnly ? 'tracking-only' : 'commercial'
-      }`}
+      className="admin-config-section admin-tracking-mode admin-tracking-mode-tracking-only"
       aria-labelledby="admin-tracking-mode-title"
     >
       <div className="admin-config-section-heading admin-tracking-mode-heading">
@@ -111,59 +217,32 @@ export function TrackingModeSection({
           <p className="admin-eyebrow">PRODUCT MODE</p>
           <h2 id="admin-tracking-mode-title">Tracking-only testing</h2>
           <p>
-            Test redirects, attribution dimensions, and browser events on production infrastructure
-            before checkout is connected.
+            Redirects, attribution dimensions, and approved browser events run on production
+            infrastructure. Checkout, commissions, and payouts stay disabled.
           </p>
         </div>
-        <span
-          ref={status}
-          tabIndex={-1}
-          className={`admin-mode-badge admin-mode-badge-${trackingOnly ? 'test' : 'commercial'}`}
-        >
-          {trackingOnly ? 'Tracking only' : 'Commercial'}
+        <span ref={status} tabIndex={-1} className="admin-mode-badge admin-mode-badge-test">
+          Tracking only
         </span>
       </div>
 
-      <div className="admin-tracking-mode-grid">
+      <dl className="admin-tracking-mode-status">
         <div>
-          <strong>{trackingOnly ? 'Available for testing' : 'Current behavior'}</strong>
-          <p>
-            {trackingOnly
-              ? 'Server-issued redirects, source and campaign attribution, and approved browser funnel events.'
-              : 'Links continue to require verified billing and launch-ready signed partner terms.'}
-          </p>
+          <dt>Approved funnel snapshot</dt>
+          <dd className={trackingOnlyReady ? 'admin-mode-ready' : 'admin-mode-stale'}>
+            {trackingOnlyReady ? (
+              <Check size={15} aria-hidden="true" />
+            ) : (
+              <CircleAlert size={15} aria-hidden="true" />
+            )}
+            {trackingOnlyReady ? 'Current' : 'Changed — re-approval required'}
+          </dd>
         </div>
         <div>
-          <strong>
-            {trackingOnly ? 'Commercial activity disabled' : 'Tracking-only mode is off'}
-          </strong>
-          <p>
-            {trackingOnly
-              ? 'No checkout sessions, qualified purchases, commissions, or payouts can be created in this mode.'
-              : 'Nothing is bypassed. Existing production launch gates remain unchanged.'}
-          </p>
+          <dt>Owner approval</dt>
+          <dd>{formattedTimestamp(configuration.product.trackingOnlyApprovedAt)}</dd>
         </div>
-      </div>
-
-      {trackingOnly && (
-        <dl className="admin-tracking-mode-status">
-          <div>
-            <dt>Approved funnel snapshot</dt>
-            <dd className={trackingOnlyReady ? 'admin-mode-ready' : 'admin-mode-stale'}>
-              {trackingOnlyReady ? (
-                <Check size={15} aria-hidden="true" />
-              ) : (
-                <CircleAlert size={15} aria-hidden="true" />
-              )}
-              {trackingOnlyReady ? 'Current' : 'Changed — re-approval required'}
-            </dd>
-          </div>
-          <div>
-            <dt>Owner approval</dt>
-            <dd>{formattedTimestamp(configuration.product.trackingOnlyApprovedAt)}</dd>
-          </div>
-        </dl>
-      )}
+      </dl>
 
       {!canManageMode && (
         <div className="admin-inline-notice" role="note">
@@ -172,40 +251,11 @@ export function TrackingModeSection({
         </div>
       )}
 
-      {confirmation ? (
-        <div
-          className="admin-confirm-action admin-tracking-mode-confirm"
-          role="group"
-          aria-labelledby="admin-tracking-mode-confirm-title"
-        >
-          <p>
-            <strong id="admin-tracking-mode-confirm-title">{actionCopy.title}</strong>
-            <span>{actionCopy.body}</span>
-          </p>
-          <div className="admin-record-actions">
-            <button
-              ref={confirmButton}
-              className="admin-primary-button"
-              type="button"
-              disabled={busy}
-              onClick={() => void changeMode(confirmation)}
-            >
-              {busy && <LoaderCircle className="admin-spin" size={16} aria-hidden="true" />}
-              {busy ? 'Saving mode…' : actionCopy.button}
-            </button>
-            <button
-              className="admin-secondary-button"
-              type="button"
-              disabled={busy}
-              onClick={cancelConfirmation}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+      {confirmGroup ? (
+        confirmGroup
       ) : (
         <div className="admin-tracking-mode-actions">
-          {trackingOnly && !trackingOnlyReady && (
+          {!trackingOnlyReady && (
             <button
               ref={actionButton}
               className="admin-primary-button"
@@ -217,25 +267,15 @@ export function TrackingModeSection({
             </button>
           )}
           <button
-            ref={trackingOnlyReady || !trackingOnly ? actionButton : undefined}
-            className={trackingOnly ? 'admin-secondary-button' : 'admin-primary-button'}
+            ref={trackingOnlyReady ? actionButton : undefined}
+            className="admin-secondary-button"
             type="button"
-            disabled={
-              !canManageMode ||
-              (!trackingOnly && !configuration.readiness.hasLiveDefaultFunnel) ||
-              busy
-            }
-            onClick={() => requestConfirmation(trackingOnly ? 'commercial' : 'enable')}
+            disabled={!canManageMode || busy}
+            onClick={() => requestConfirmation('commercial')}
           >
-            {trackingOnly ? 'Review commercial mode' : 'Review tracking-only mode'}
+            Review commercial mode
           </button>
         </div>
-      )}
-
-      {!trackingOnly && !configuration.readiness.hasLiveDefaultFunnel && (
-        <small className="admin-gate-copy">
-          Configure one live default HTTPS funnel before tracking-only mode can be approved.
-        </small>
       )}
     </section>
   )

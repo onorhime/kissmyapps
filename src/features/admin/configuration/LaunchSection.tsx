@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import {
   Check,
   CircleAlert,
+  CircleCheck,
   ExternalLink,
   Link2,
   LoaderCircle,
-  Rocket,
   ShieldCheck,
   X,
 } from 'lucide-react'
@@ -17,6 +17,7 @@ import {
   productActivationReadiness,
   readinessCopy,
 } from './readiness'
+import { Select } from '../../../components/Select'
 import type { ConfigurationActionRunner } from './actionTypes'
 
 function ChecklistItem({ passed, children }: { passed: boolean; children: React.ReactNode }) {
@@ -30,7 +31,7 @@ function ChecklistItem({ passed, children }: { passed: boolean; children: React.
   )
 }
 
-export function ReadinessLinksSection({
+export function LaunchSection({
   configuration,
   affiliates,
   gateway,
@@ -88,40 +89,43 @@ export function ReadinessLinksSection({
   }
 
   return (
-    <section className="admin-config-section" aria-labelledby="admin-readiness-title">
+    <section className="admin-config-section" aria-labelledby="admin-launch-title">
       <div className="admin-config-section-heading">
         <span className="admin-panel-icon">
-          <Rocket size={20} aria-hidden="true" />
+          <ShieldCheck size={20} aria-hidden="true" />
         </span>
         <div>
-          <p className="admin-eyebrow">
-            {trackingOnly ? 'TRACKING-ONLY GATES' : 'PRODUCTION GATES'}
-          </p>
-          <h2 id="admin-readiness-title">
-            {trackingOnly
-              ? 'Demo readiness and main links'
-              : 'Readiness, activation, and main links'}
-          </h2>
+          <p className="admin-eyebrow">LAUNCH</p>
+          <h2 id="admin-launch-title">Launch and partner links</h2>
           <p>
-            {trackingOnly
-              ? 'The server still requires an active product, approved funnel snapshot, canonical tracking switch, and active partner.'
-              : 'These are separate server-validated actions. Saving configuration never launches the product automatically.'}
+            Two server-validated steps: activate the product, then issue one canonical link per
+            partner. Saving configuration never launches the product automatically.
           </p>
         </div>
       </div>
 
-      <div className="admin-config-two-columns admin-launch-grid">
-        <article className="admin-config-subpanel">
+      <div className="admin-launch-steps">
+        <article className="admin-config-subpanel admin-launch-step">
           <div className="admin-subpanel-heading">
-            <ShieldCheck size={19} aria-hidden="true" />
+            <span className="admin-launch-step-number" aria-hidden="true">
+              1
+            </span>
             <div>
-              <h3>Product activation</h3>
-              <p>The saved production origin and live default funnel are required.</p>
+              <h3>Activate the product</h3>
+              <p>
+                Requires a saved production tracking origin and one live default HTTPS funnel. The
+                server rechecks readiness when activation is submitted.
+              </p>
             </div>
+            {productActive && (
+              <span className="admin-launch-step-state admin-launch-step-done">
+                <CircleCheck size={15} aria-hidden="true" /> Active
+              </span>
+            )}
           </div>
           <ul className="admin-readiness-list">
             <ChecklistItem passed={Boolean(configuration.tracking.baseUrl)}>
-              Production tracking origin is configured; collection may remain disabled
+              Production tracking origin is configured
             </ChecklistItem>
             <ChecklistItem passed={configuration.readiness.hasLiveDefaultFunnel}>
               One default HTTPS funnel is live
@@ -147,9 +151,9 @@ export function ReadinessLinksSection({
               aria-label="Confirm product activation"
             >
               <p>
-                Activate <strong>{configuration.product.name}</strong>{' '}
-                {trackingOnly ? 'for tracking-only testing' : 'for production'}? This does not issue
-                partner links.
+                Activate <strong>{configuration.product.name}</strong>
+                {trackingOnly ? ' for tracking-only testing' : ' for production'}? This does not
+                issue partner links.
               </p>
               <div className="admin-record-actions">
                 <button
@@ -180,25 +184,29 @@ export function ReadinessLinksSection({
               disabled={!canManage || !activation.allowed || busy}
               onClick={() => setConfirmActivation(true)}
             >
-              Review product activation
+              Activate product
             </button>
           )}
-          <small className="admin-gate-copy">
-            Server readiness is rechecked when activation is submitted.
-          </small>
         </article>
 
-        <article className="admin-config-subpanel">
+        <article className="admin-config-subpanel admin-launch-step">
           <div className="admin-subpanel-heading">
-            <Link2 size={19} aria-hidden="true" />
+            <span className="admin-launch-step-number" aria-hidden="true">
+              2
+            </span>
             <div>
-              <h3>Issue partner main link</h3>
+              <h3>Issue a partner main link</h3>
               <p>
                 {trackingOnly
-                  ? 'The server can issue a non-commercial coded URL after the approved demo chain is ready.'
-                  : 'The server requires verified billing and signed partner terms before it creates the canonical coded URL.'}
+                  ? 'One non-commercial coded URL per partner after the approved demo chain is ready.'
+                  : 'One canonical coded URL per partner. Partners create their own tracked variants — sources, campaigns, and sub-IDs — in the partner dashboard.'}
               </p>
             </div>
+            {configuration.mainLinks.length > 0 && (
+              <span className="admin-launch-step-state">
+                {configuration.mainLinks.length} issued
+              </span>
+            )}
           </div>
           <ul className="admin-readiness-list">
             <ChecklistItem passed={productActive}>Product is active</ChecklistItem>
@@ -248,24 +256,22 @@ export function ReadinessLinksSection({
               <p>{issuance.blockers.map((blocker) => readinessCopy[blocker]).join(' ')}</p>
             </div>
           )}
-          <label className="admin-field">
-            <span>Eligible partner</span>
-            <select
-              value={affiliateId}
-              onChange={(event) => {
-                setAffiliateId(event.target.value)
-                setConfirmIssuance(false)
-              }}
-              disabled={!canManage || !issuance.allowed || busy}
-            >
-              <option value="">Choose a partner</option>
-              {eligibleAffiliates.map((affiliate) => (
-                <option value={affiliate.id} key={affiliate.id}>
-                  {affiliate.publicName}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Select
+            label="Eligible partner"
+            options={[
+              { value: '', label: 'Choose a partner' },
+              ...eligibleAffiliates.map((affiliate) => ({
+                value: affiliate.id,
+                label: affiliate.publicName,
+              })),
+            ]}
+            value={affiliateId}
+            onChange={(next) => {
+              setAffiliateId(next)
+              setConfirmIssuance(false)
+            }}
+            disabled={!canManage || !issuance.allowed || busy}
+          />
           {confirmIssuance && selectedAffiliate ? (
             <div
               className="admin-confirm-action"
@@ -306,14 +312,9 @@ export function ReadinessLinksSection({
               disabled={!selectedAffiliate || busy}
               onClick={() => setConfirmIssuance(true)}
             >
-              Review main-link issuance
+              Issue main link
             </button>
           )}
-          <small className="admin-gate-copy">
-            {trackingOnly
-              ? 'The server rechecks the approved funnel snapshot and blocks checkout, commissions, and payouts.'
-              : 'Partners never provide or receive the raw production destination. The server rechecks billing, signatures, and purchase terms at issuance.'}
-          </small>
         </article>
       </div>
 
@@ -321,8 +322,11 @@ export function ReadinessLinksSection({
         <div className="admin-subpanel-heading">
           <Link2 size={18} aria-hidden="true" />
           <div>
-            <h3>Issued main links</h3>
-            <p>Only server-returned production links are shown.</p>
+            <h3>Partner main links</h3>
+            <p>
+              The canonical per-partner links issued by the server. Partner-created variants live in
+              the partner dashboard.
+            </p>
           </div>
         </div>
         {configuration.mainLinks.length ? (

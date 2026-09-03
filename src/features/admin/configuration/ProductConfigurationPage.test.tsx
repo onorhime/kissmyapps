@@ -108,7 +108,7 @@ describe('Product configuration page', () => {
     expect(screen.getByRole('heading', { name: 'No billing offers configured' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'No main links issued' })).toBeVisible()
     expect(screen.queryByText(/\.invalid/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Review product activation' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate product' })).toBeDisabled()
     expect(
       (await axe.run(container, { rules: { 'color-contrast': { enabled: false } } })).violations,
     ).toEqual([])
@@ -173,11 +173,9 @@ describe('Product configuration page', () => {
       />,
     )
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
-    expect(
-      screen.getByText(/tracking origin is configured; collection may remain disabled/i),
-    ).toBeVisible()
+    expect(screen.getByText(/Production tracking origin is configured/i)).toBeVisible()
 
-    await user.click(screen.getByRole('button', { name: 'Review product activation' }))
+    await user.click(screen.getByRole('button', { name: 'Activate product' }))
     await user.click(screen.getByRole('button', { name: 'Confirm activation' }))
 
     await waitFor(() => expect(gateway.activateProduct).toHaveBeenCalledOnce())
@@ -210,8 +208,9 @@ describe('Product configuration page', () => {
         onBack={vi.fn()}
       />,
     )
-    await screen.findByRole('heading', { name: 'Tracking-only testing' })
+    await screen.findByRole('button', { name: /Tracking-only testing/ })
 
+    await user.click(screen.getByRole('button', { name: /Tracking-only testing/ }))
     await user.click(screen.getByRole('button', { name: 'Review tracking-only mode' }))
     const confirm = screen.getByRole('button', { name: 'Confirm tracking-only mode' })
     await waitFor(() => expect(confirm).toHaveFocus())
@@ -245,8 +244,10 @@ describe('Product configuration page', () => {
       />,
     )
 
-    expect(await screen.findByText(/only an owner can approve or change/i)).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Review tracking-only mode' })).toBeDisabled()
+    expect(await screen.findByText(/Owner-only mode control/i)).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Review tracking-only mode' }),
+    ).not.toBeInTheDocument()
   })
 
   it('issues a main link with only partner and product identifiers', async () => {
@@ -358,7 +359,7 @@ describe('Product configuration page', () => {
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
 
     await user.selectOptions(screen.getByLabelText('Eligible partner'), affiliate.id)
-    await user.click(screen.getByRole('button', { name: 'Review main-link issuance' }))
+    await user.click(screen.getByRole('button', { name: 'Issue main link' }))
     await user.click(screen.getByRole('button', { name: 'Confirm link issuance' }))
 
     await waitFor(() => expect(gateway.issueMainLink).toHaveBeenCalledOnce())
@@ -418,14 +419,16 @@ describe('Product configuration page', () => {
     )
 
     expect(await screen.findByText('Tracking only')).toBeVisible()
-    expect(screen.getByText(/no checkout sessions, qualified purchases/i)).toBeVisible()
+    expect(
+      screen.getByText(/approved browser events run on production infrastructure/i),
+    ).toBeVisible()
     expect(screen.getByText('Server tracking-only link gate is ready')).toBeVisible()
     expect(screen.queryByText(/live-verified subscription offer exists/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Billing offers' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Partner agreements' })).not.toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Eligible partner'), affiliate.id)
-    await user.click(screen.getByRole('button', { name: 'Review main-link issuance' }))
+    await user.click(screen.getByRole('button', { name: 'Issue main link' }))
     expect(screen.getByText(/this link cannot create commercial facts/i)).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Confirm link issuance' }))
 

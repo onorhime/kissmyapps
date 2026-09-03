@@ -21,6 +21,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Dialog } from '../../../components/Dialog'
+import { Select } from '../../../components/Select'
 import type {
   AdminAffiliateDirectoryInput,
   AdminAffiliateDirectoryRecord,
@@ -660,48 +661,41 @@ export function AffiliatesPage({
           </label>
           <label>
             <span className="sr-only">Affiliate status</span>
-            <select
+            <Select
+              options={[
+                { value: '', label: 'All statuses' },
+                ...statuses.map((option) => ({
+                  value: option,
+                  label: affiliateStatusLabel(option),
+                })),
+              ]}
               value={status}
-              onChange={(event) => setStatus(event.target.value as AdminAffiliateStatus | '')}
-            >
-              <option value="">All statuses</option>
-              {statuses.map((option) => (
-                <option value={option} key={option}>
-                  {affiliateStatusLabel(option)}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => setStatus(next as AdminAffiliateStatus | '')}
+            />
           </label>
           <label>
             <span className="sr-only">Email confirmation status</span>
-            <select
+            <Select
+              options={[
+                { value: '', label: 'All confirmation states' },
+                ...confirmationStatuses.map((option) => ({
+                  value: option,
+                  label: confirmationStatusLabel(option),
+                })),
+              ]}
               value={confirmationStatus}
-              onChange={(event) =>
-                setConfirmationStatus(
-                  event.target.value as AdminAffiliateEmailConfirmationStatus | '',
-                )
+              onChange={(next) =>
+                setConfirmationStatus(next as AdminAffiliateEmailConfirmationStatus | '')
               }
-            >
-              <option value="">All confirmation states</option>
-              {confirmationStatuses.map((option) => (
-                <option value={option} key={option}>
-                  {confirmationStatusLabel(option)}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             <span className="sr-only">Directory sort order</span>
-            <select
+            <Select
+              options={sorts.map((option) => ({ value: option.value, label: option.label }))}
               value={sort}
-              onChange={(event) => setSort(event.target.value as AdminAffiliateDirectorySort)}
-            >
-              {sorts.map((option) => (
-                <option value={option.value} key={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => setSort(next as AdminAffiliateDirectorySort)}
+            />
           </label>
           <button className="admin-primary-button" type="submit">
             Apply filters

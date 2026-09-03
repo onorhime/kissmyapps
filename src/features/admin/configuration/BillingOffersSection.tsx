@@ -23,6 +23,7 @@ import {
 } from './configurationValidation'
 import type { ConfigurationActionRunner } from './actionTypes'
 import { billingOfferActivationBlockers, canVerifyBillingOfferPrice } from './billingOfferReadiness'
+import { Select } from '../../../components/Select'
 
 type OfferForm = {
   name: string
@@ -206,15 +207,14 @@ export function BillingOffersSection({
               </label>
               <label className="admin-field">
                 <span>Billing mode</span>
-                <select
+                <Select
+                  options={[
+                    { value: 'subscription', label: 'Subscription' },
+                    { value: 'payment', label: 'One-time payment · draft only' },
+                  ]}
                   value={form.billingMode}
-                  onChange={(event) =>
-                    updateForm('billingMode', event.target.value as AdminBillingMode)
-                  }
-                >
-                  <option value="subscription">Subscription</option>
-                  <option value="payment">One-time payment · draft only</option>
-                </select>
+                  onChange={(next) => updateForm('billingMode', next as AdminBillingMode)}
+                />
               </label>
               <label className="admin-field">
                 <span>Stripe Price ID</span>

@@ -15,6 +15,7 @@ import {
 import type { AdminGateway, AdminProduct } from '../api'
 import { formatAdminCount, formatAdminOperationalTimestamp } from './observabilityPresentation'
 import { useAttributionOverview } from './useObservability'
+import { Select } from '../../../components/Select'
 
 export type AttributionPageProps = Readonly<{
   products: readonly AdminProduct[]
@@ -143,25 +144,28 @@ export function AttributionPage({ products, gateway, onOpenFunnelsLinks }: Attri
         </div>
         <label>
           <span>Product</span>
-          <select value={productId} onChange={(event) => setProductId(event.target.value)}>
-            <option value="">All products</option>
-            {products.map((product) => (
-              <option value={product.id} key={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            options={[
+              { value: '', label: 'All products' },
+              ...products.map((product) => ({ value: product.id, label: product.name })),
+            ]}
+            value={productId}
+            onChange={setProductId}
+          />
         </label>
         <label>
           <span>Source</span>
-          <select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
-            <option value="">All sources</option>
-            {(state.data?.sources ?? []).map((source) => (
-              <option value={source.id} key={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            options={[
+              { value: '', label: 'All sources' },
+              ...(state.data?.sources ?? []).map((source) => ({
+                value: source.id,
+                label: source.name,
+              })),
+            ]}
+            value={sourceId}
+            onChange={setSourceId}
+          />
         </label>
       </div>
 

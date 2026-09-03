@@ -1,0 +1,64 @@
+.kma-select-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.kma-select-label {
+  display: block;
+  color: var(--kma-select-label-color, var(--admin-text, #ffffff));
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.kma-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--kma-select-border, var(--admin-line, #4a4a4a));
+  border-radius: var(--kma-select-radius, 8px);
+  background: var(--kma-select-bg, var(--admin-plum-deep, #111111));
+  color: var(--kma-select-color, var(--admin-text, #ffffff));
+}
+
+.kma-select:focus-within {
+  outline: 3px solid var(--kma-select-focus, var(--admin-focus, #66ccff));
+  outline-offset: 3px;
+}
+
+.kma-select-control {
+  appearance: none;
+  width: 100%;
+  align-self: stretch;
+  padding: 9px 34px 9px 11px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.kma-select-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* The wrapper carries the focus ring; the native control must stay silent. */
+.kma-select:focus-within .kma-select-control,
+.kma-select-control:focus-visible {
+  outline: none;
+}
+
+.kma-select-chevron {
+  position: absolute;
+  right: 10px;
+  color: var(--kma-select-icon, var(--admin-muted, #a9a9ae));
+  pointer-events: none;
+}
+
+.kma-select-invalid {
+  border-color: var(--kma-select-danger, var(--admin-red, #ff6767));
+}

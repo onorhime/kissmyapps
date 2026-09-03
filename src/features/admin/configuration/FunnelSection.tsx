@@ -98,7 +98,10 @@ export function FunnelSection({
         <div>
           <p className="admin-eyebrow">PROTECTED ROUTING</p>
           <h2 id="admin-funnels-title">Production funnels</h2>
-          <p>The destination is managed here by admins and is never accepted from a partner.</p>
+          <p>
+            A funnel is the production URL partner clicks land on. Destinations are admin-only —
+            never accepted from a partner.
+          </p>
         </div>
       </div>
 
@@ -139,8 +142,8 @@ export function FunnelSection({
                   <small className="admin-field-error">{errors.destination}</small>
                 ) : (
                   <small className="admin-field-hint">
-                    Leave blank until the real funnel exists. A funnel cannot be set live without
-                    its production HTTPS destination.
+                    The live page clicks redirect to. Leave blank until it exists — a funnel cannot
+                    go live without a production HTTPS destination.
                   </small>
                 )}
               </label>

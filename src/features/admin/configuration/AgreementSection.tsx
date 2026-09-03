@@ -19,6 +19,7 @@ import {
   isSupportedActivePurchaseRule,
 } from './readiness'
 import type { ConfigurationActionRunner } from './actionTypes'
+import { Select } from '../../../components/Select'
 
 const modelLabels: Record<AdminCommissionModel, string> = {
   cpl: 'CPL · draft only (not launch-supported)',
@@ -203,34 +204,32 @@ export function AgreementSection({
             <div className="admin-config-form-grid">
               <label className="admin-field admin-config-span-two">
                 <span>Partner</span>
-                <select
+                <Select
+                  options={[
+                    { value: '', label: 'Choose an active or paused partner' },
+                    ...availableAffiliates.map((affiliate) => ({
+                      value: affiliate.id,
+                      label: `${affiliate.publicName} · ${affiliate.status}`,
+                    })),
+                  ]}
                   value={affiliateId}
-                  onChange={(event) => setAffiliateId(event.target.value)}
-                  aria-invalid={Boolean(agreementErrors.affiliateId)}
-                >
-                  <option value="">Choose an active or paused partner</option>
-                  {availableAffiliates.map((affiliate) => (
-                    <option value={affiliate.id} key={affiliate.id}>
-                      {affiliate.publicName} · {affiliate.status}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setAffiliateId}
+                  invalid={Boolean(agreementErrors.affiliateId)}
+                />
                 {agreementErrors.affiliateId && (
                   <small className="admin-field-error">{agreementErrors.affiliateId}</small>
                 )}
               </label>
               <label className="admin-field admin-config-span-two">
                 <span>Commission model</span>
-                <select
+                <Select
+                  options={Object.entries(modelLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
                   value={model}
-                  onChange={(event) => setModel(event.target.value as AdminCommissionModel)}
-                >
-                  {Object.entries(modelLabels).map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) => setModel(next as AdminCommissionModel)}
+                />
               </label>
               <label className="admin-field">
                 <span>Attribution window (days)</span>
@@ -310,23 +309,22 @@ export function AgreementSection({
             <div className="admin-config-form-grid">
               <label className="admin-field admin-config-span-two">
                 <span>Agreement</span>
-                <select
+                <Select
+                  options={[
+                    { value: '', label: 'Choose a draft agreement' },
+                    ...configuration.agreements
+                      .filter((agreement) =>
+                        ['draft', 'awaiting_signature', 'active'].includes(agreement.status),
+                      )
+                      .map((agreement) => ({
+                        value: agreement.id,
+                        label: `${agreement.partnerName ?? agreement.affiliateId} · v${agreement.version} · ${agreement.status}`,
+                      })),
+                  ]}
                   value={ruleAgreementId}
-                  onChange={(event) => setRuleAgreementId(event.target.value)}
-                  aria-invalid={Boolean(ruleErrors.ruleAgreementId)}
-                >
-                  <option value="">Choose a draft agreement</option>
-                  {configuration.agreements
-                    .filter((agreement) =>
-                      ['draft', 'awaiting_signature', 'active'].includes(agreement.status),
-                    )
-                    .map((agreement) => (
-                      <option value={agreement.id} key={agreement.id}>
-                        {agreement.partnerName ?? agreement.affiliateId} · v{agreement.version} ·{' '}
-                        {agreement.status}
-                      </option>
-                    ))}
-                </select>
+                  onChange={setRuleAgreementId}
+                  invalid={Boolean(ruleErrors.ruleAgreementId)}
+                />
                 {ruleErrors.ruleAgreementId && (
                   <small className="admin-field-error">{ruleErrors.ruleAgreementId}</small>
                 )}

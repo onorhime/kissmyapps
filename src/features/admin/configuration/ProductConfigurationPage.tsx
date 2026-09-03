@@ -19,7 +19,7 @@ import { AgreementSection } from './AgreementSection'
 import { BillingOffersSection } from './BillingOffersSection'
 import { CampaignSourcesSection } from './CampaignSourcesSection'
 import { FunnelSection } from './FunnelSection'
-import { ReadinessLinksSection } from './ReadinessLinksSection'
+import { LaunchSection } from './LaunchSection'
 import { TrackingModeSection } from './TrackingModeSection'
 import type { ConfigurationActionRunner } from './actionTypes'
 import { useProductConfiguration } from './useProductConfiguration'
@@ -143,15 +143,13 @@ export function ProductConfigurationPage({
           </h1>
           <p>
             {trackingOnlySelected
-              ? 'Configure protected demo routing and attribution without enabling checkout, commissions, or payouts.'
-              : 'Configure protected routing, attribution dimensions, commercial terms, and server-issued links without exposing raw destinations to partners.'}
+              ? 'This product is in tracking-only mode: redirects and attribution run, but checkout, commissions, and payouts stay disabled.'
+              : 'Configure routing, attribution, commercial terms, and partner links. Production destinations stay admin-only.'}
           </p>
         </div>
         <span className="admin-heading-chip">
           <ShieldCheck size={16} aria-hidden="true" />{' '}
-          {trackingOnlySelected
-            ? 'Tracking only · production infrastructure'
-            : 'Production controls'}
+          {trackingOnlySelected ? 'Tracking-only product' : 'Production controls'}
         </span>
       </header>
 
@@ -186,23 +184,16 @@ export function ProductConfigurationPage({
         />
       ) : (
         <div className="admin-config-stack">
-          <TrackingModeSection
+          <FunnelSection
             configuration={state.configuration}
-            gateway={configurationGateway}
-            canManageMode={canManageTrackingMode}
-            pendingKey={pendingKey}
-            runAction={runAction}
-          />
-          <ReadinessLinksSection
-            configuration={state.configuration}
-            affiliates={state.affiliates}
             gateway={configurationGateway}
             canManage={canManage}
             pendingKey={pendingKey}
             runAction={runAction}
           />
-          <FunnelSection
+          <CampaignSourcesSection
             configuration={state.configuration}
+            sources={state.sources}
             gateway={configurationGateway}
             canManage={canManage}
             pendingKey={pendingKey}
@@ -217,14 +208,6 @@ export function ProductConfigurationPage({
               runAction={runAction}
             />
           )}
-          <CampaignSourcesSection
-            configuration={state.configuration}
-            sources={state.sources}
-            gateway={configurationGateway}
-            canManage={canManage}
-            pendingKey={pendingKey}
-            runAction={runAction}
-          />
           {!trackingOnlySelected && (
             <AgreementSection
               configuration={state.configuration}
@@ -235,6 +218,21 @@ export function ProductConfigurationPage({
               runAction={runAction}
             />
           )}
+          <LaunchSection
+            configuration={state.configuration}
+            affiliates={state.affiliates}
+            gateway={configurationGateway}
+            canManage={canManage}
+            pendingKey={pendingKey}
+            runAction={runAction}
+          />
+          <TrackingModeSection
+            configuration={state.configuration}
+            gateway={configurationGateway}
+            canManageMode={canManageTrackingMode}
+            pendingKey={pendingKey}
+            runAction={runAction}
+          />
         </div>
       )}
     </section>

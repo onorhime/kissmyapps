@@ -112,7 +112,10 @@ export function CampaignSourcesSection({
         <div>
           <p className="admin-eyebrow">ATTRIBUTION DIMENSIONS</p>
           <h2 id="admin-dimensions-title">Sources and campaigns</h2>
-          <p>Configure real tracking dimensions now; link variants can use them after launch.</p>
+          <p>
+            Labels that tag clicks for reporting. They never change where a click lands — partners
+            attach them when creating link variants.
+          </p>
         </div>
       </div>
 
@@ -122,7 +125,10 @@ export function CampaignSourcesSection({
             <Tags size={18} aria-hidden="true" />
             <div>
               <h3>Global sources</h3>
-              <p>Reusable channel labels such as newsletter or paid-social.</p>
+              <p>
+                Reusable traffic channels shared by every product — TikTok, Instagram, newsletter. A
+                source tags which channel a click came from.
+              </p>
             </div>
           </div>
           <form className="admin-compact-form" onSubmit={createSource} noValidate>
@@ -190,7 +196,10 @@ export function CampaignSourcesSection({
             <CalendarRange size={18} aria-hidden="true" />
             <div>
               <h3>Product campaigns</h3>
-              <p>Optional schedules remain draft until explicitly activated.</p>
+              <p>
+                Named pushes for this product, e.g. “launch-week”. Dates are optional reporting
+                windows; campaigns stay draft until you activate them.
+              </p>
             </div>
           </div>
           <form className="admin-compact-form" onSubmit={createCampaign} noValidate>
