@@ -40,3 +40,20 @@ the behaviour.
   51/51 Edge tests, `deno fmt --check`, and `pnpm build` passed. Both hosts
   serve an index.html byte-identical to the local build; the container is
   healthy.
+
+## Follow-up (commit d712a4fb70ee)
+
+Root-caused the remaining deletion failure against the live database: the
+foundation `agreements_protect_history` trigger rejected every DELETE
+unconditionally ("agreement versions cannot be deleted"), so the deletion
+RPC failed even for empty drafts. Migration
+`20260904200000_allow_draft_agreement_delete` preserves the trigger's
+INSERT/UPDATE logic exactly and permits the deletable subset: draft or
+awaiting-signature versions without a fully signed document. Verified with
+a rolled-back DELETE test against the live database.
+
+The Owner supplied the Resend API key and the `send.kissmyapps.dev` sending
+domain; `RESEND_API_KEY` and `AGREEMENT_EMAIL_FROM`
+(`partners@send.kissmyapps.dev`) are set. A live signing-request email for
+the real pending document was delivered successfully (HTTP 200, sent: 1)
+through the branded template.
