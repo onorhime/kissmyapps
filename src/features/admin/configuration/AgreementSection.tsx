@@ -881,6 +881,12 @@ export function AgreementSection({
                 ) : (
                   <p className="admin-record-empty-copy">No commission rules yet.</p>
                 )}
+                {canManage && agreement.hasSignedDocument && (
+                  <p className="admin-record-empty-copy">
+                    This agreement has a fully signed document, which is preserved as evidence and
+                    cannot be deleted. Only a new version can replace its terms.
+                  </p>
+                )}
                 <div className="admin-record-actions admin-agreement-card-actions">
                   {canManage && ['draft', 'awaiting_signature'].includes(agreement.status) && (
                     <button
@@ -894,6 +900,7 @@ export function AgreementSection({
                   )}
                   {canManage &&
                     ['draft', 'awaiting_signature'].includes(agreement.status) &&
+                    !agreement.hasSignedDocument &&
                     typeof gateway.deleteAgreement === 'function' && (
                       <button
                         className="admin-text-button admin-danger-button"
