@@ -331,3 +331,19 @@ export type PartnerDocument = Readonly<{
   supersededByDocumentId: string | null
   downloadAvailable: boolean
 }>
+
+export type PartnerSignatureRequest = Readonly<{
+  documentId: string
+  name: string
+  version: number
+  agreementId: string
+  productId: string
+  productName: string
+  model: PartnerCommissionModel
+  attributionWindowDays: number
+  payoutFrequencyDays: number
+  payoutCurrency: string
+  minimumPayoutMinor: number
+  filePath: string
+  requestedAt: string
+}>

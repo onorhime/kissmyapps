@@ -411,8 +411,9 @@ export function PartnerLiveWorkspaceProvider({
       isRefreshing: loadedMatchesRequest && isRefreshing,
       mutation,
       actions,
+      gateway,
     }),
-    [actions, isRefreshing, loadedMatchesRequest, mutation, selectedProductId, snapshot],
+    [actions, gateway, isRefreshing, loadedMatchesRequest, mutation, selectedProductId, snapshot],
   )
 
   return (

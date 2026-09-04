@@ -292,6 +292,7 @@ describe('Product configuration page', () => {
           partnerSlug: affiliate.slug,
           hasSignedDocument: true,
           launchReady: true,
+          document: null,
           commissionRules: [
             {
               id: 'rule-1',

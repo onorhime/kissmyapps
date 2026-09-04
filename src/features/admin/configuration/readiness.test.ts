@@ -98,6 +98,7 @@ const launchReadyAgreement: AdminAgreement = {
   partnerSlug: affiliate.slug,
   hasSignedDocument: true,
   launchReady: true,
+  document: null,
 }
 
 const launchReadyConfiguration: AdminProductConfiguration = {

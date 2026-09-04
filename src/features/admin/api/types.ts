@@ -315,6 +315,43 @@ export type AdminCommissionRule = Readonly<{
   updatedAt: string
 }>
 
+export const ADMIN_DOCUMENT_STATUSES = [
+  'draft',
+  'awaiting_partner_signature',
+  'awaiting_kissmyapps_signature',
+  'signed',
+  'active',
+  'superseded',
+  'expired',
+  'terminated',
+] as const
+
+export type AdminDocumentStatus = (typeof ADMIN_DOCUMENT_STATUSES)[number]
+
+export type AdminAgreementDocument = Readonly<{
+  id: string
+  name: string
+  version: number
+  status: AdminDocumentStatus
+  partnerSignerName: string | null
+  partnerSignedAt: string | null
+  companySignedAt: string | null
+  /** Raw storage path is redacted server-side for read-only admin roles. */
+  filePath: string | null
+  createdAt: string | null
+}>
+
+export type AdminAgreementDocumentRecord = Readonly<{
+  agreementId: string
+  name: string
+  filePath: string
+}>
+
+export type AdminAgreementDocumentRevocation = Readonly<{
+  documentId: string
+  reason: string
+}>
+
 export type AdminAgreement = Readonly<{
   id: string
   affiliateId: string
@@ -336,6 +373,7 @@ export type AdminAgreement = Readonly<{
   partnerSlug: string | null
   hasSignedDocument: boolean
   launchReady: boolean
+  document: AdminAgreementDocument | null
 }>
 
 export type AdminAgreementCreate = Readonly<{
@@ -367,6 +405,16 @@ export type AdminCommissionRuleStatusUpdate = Readonly<{
 
 export type AdminAgreementActivation = Readonly<{
   agreementId: string
+}>
+
+export type AdminAgreementDocumentUpload = Readonly<{
+  agreementId: string
+  affiliateId: string
+  file: File
+}>
+
+export type AdminAgreementDocumentSigning = Readonly<{
+  documentId: string
 }>
 
 export type AdminProductActivation = Readonly<{
@@ -713,6 +761,10 @@ export interface AdminGateway {
   createCommissionRule?: AdminConfigurationGateway['createCommissionRule']
   setCommissionRuleStatus?: AdminConfigurationGateway['setCommissionRuleStatus']
   activateAgreement?: AdminConfigurationGateway['activateAgreement']
+  createAgreementDocument?: AdminConfigurationGateway['createAgreementDocument']
+  uploadAgreementDocument?: AdminConfigurationGateway['uploadAgreementDocument']
+  countersignAgreementDocument?: AdminConfigurationGateway['countersignAgreementDocument']
+  revokeAgreementDocument?: AdminConfigurationGateway['revokeAgreementDocument']
   activateProduct?: AdminConfigurationGateway['activateProduct']
   setProductTrackingMode?: AdminConfigurationGateway['setProductTrackingMode']
   issueMainLink?: AdminConfigurationGateway['issueMainLink']
@@ -819,6 +871,19 @@ export interface AdminConfigurationGateway {
   activateAgreement(
     input: AdminAgreementActivation,
   ): Promise<AdminDataResult<AdminAgreement | null>>
+  /** Optional: agreement-document signing may be absent in older deployments. */
+  uploadAgreementDocument?: (
+    input: AdminAgreementDocumentUpload,
+  ) => Promise<AdminDataResult<AdminAgreementDocument | null>>
+  createAgreementDocument?: (
+    input: AdminAgreementDocumentRecord,
+  ) => Promise<AdminDataResult<AdminAgreementDocument | null>>
+  countersignAgreementDocument?: (
+    input: AdminAgreementDocumentSigning,
+  ) => Promise<AdminDataResult<AdminAgreementDocument | null>>
+  revokeAgreementDocument?: (
+    input: AdminAgreementDocumentRevocation,
+  ) => Promise<AdminDataResult<AdminAgreementDocument | null>>
   activateProduct(input: AdminProductActivation): Promise<AdminDataResult<AdminProduct | null>>
   setProductTrackingMode(
     input: AdminProductTrackingModeUpdate,

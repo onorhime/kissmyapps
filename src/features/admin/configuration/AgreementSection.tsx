@@ -1,5 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { BadgeDollarSign, FileSignature, LoaderCircle, Plus, ShieldCheck } from 'lucide-react'
+import {
+  BadgeDollarSign,
+  Check,
+  FileSignature,
+  LoaderCircle,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react'
 import type {
   AdminAffiliate,
   AdminAgreement,
@@ -26,6 +33,23 @@ const modelLabels: Record<AdminCommissionModel, string> = {
   cpa: 'CPA · fixed amount per acquisition',
   revenue_share: 'Revenue share · percentage',
   hybrid: 'Hybrid · fixed amount plus percentage',
+}
+
+const DOCUMENT_STATUS_COPY: Record<string, string> = {
+  awaiting_partner_signature: 'Awaiting partner signature',
+  awaiting_kissmyapps_signature: 'Awaiting KissMyApps countersignature',
+  signed: 'Signed',
+}
+
+function formatTimestamp(value: string | null): string {
+  if (!value) return 'pending'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'unavailable'
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(date)
 }
 
 function formatMinor(value: number, currency: string): string {
@@ -66,6 +90,13 @@ export function AgreementSection({
   const [ratePercent, setRatePercent] = useState('')
   const [validationHours, setValidationHours] = useState('72')
   const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({})
+  const [pendingDocument, setPendingDocument] = useState<{
+    agreementId: string
+    affiliateId: string
+    file: File
+  } | null>(null)
+  const [revoking, setRevoking] = useState<{ documentId: string; reason: string } | null>(null)
+  const [revokeError, setRevokeError] = useState<string | null>(null)
   const busy = pendingKey?.startsWith('commercial:') ?? false
   const availableAffiliates = affiliates.filter((affiliate) =>
     ['active', 'paused'].includes(affiliate.status),
@@ -175,6 +206,48 @@ export function AgreementSection({
       () => gateway.activateAgreement({ agreementId: agreement.id }),
       `Agreement version ${agreement.version} is active.`,
     )
+  }
+
+  async function uploadAgreementDocument() {
+    if (!pendingDocument || pendingKey || !gateway.uploadAgreementDocument) return
+    const uploaded = await runAction(
+      `commercial:doc:upload:${pendingDocument.agreementId}`,
+      () =>
+        gateway.uploadAgreementDocument!({
+          agreementId: pendingDocument.agreementId,
+          affiliateId: pendingDocument.affiliateId,
+          file: pendingDocument.file,
+        }),
+      'Agreement sent to the partner for signature.',
+    )
+    if (uploaded) setPendingDocument(null)
+  }
+
+  function countersignDocument(agreement: AdminAgreement) {
+    if (!agreement.document || !gateway.countersignAgreementDocument) return
+    return runAction(
+      `commercial:doc:countersign:${agreement.document.id}`,
+      () => gateway.countersignAgreementDocument!({ documentId: agreement.document!.id }),
+      'KissMyApps countersignature recorded. The agreement document is fully signed.',
+    )
+  }
+
+  async function revokeDocument() {
+    if (!revoking || pendingKey || !gateway.revokeAgreementDocument) return
+    if (revoking.reason.trim().length < 10) {
+      setRevokeError('Enter a reason between 10 and 500 characters.')
+      return
+    }
+    const revoked = await runAction(
+      `commercial:doc:revoke:${revoking.documentId}`,
+      () =>
+        gateway.revokeAgreementDocument!({
+          documentId: revoking.documentId,
+          reason: revoking.reason,
+        }),
+      'Agreement document revoked.',
+    )
+    if (revoked) setRevoking(null)
   }
 
   return (
@@ -443,13 +516,195 @@ export function AgreementSection({
                   </div>
                   <div>
                     <dt>Bilateral document</dt>
-                    <dd>{agreement.hasSignedDocument ? 'Signed' : 'Missing signatures'}</dd>
+                    <dd>
+                      {agreement.hasSignedDocument
+                        ? 'Signed'
+                        : agreement.document
+                          ? DOCUMENT_STATUS_COPY[agreement.document.status]
+                          : 'Not uploaded'}
+                    </dd>
                   </div>
                   <div>
                     <dt>Partner-link gate</dt>
                     <dd>{agreement.launchReady ? 'Launch ready' : 'Blocked'}</dd>
                   </div>
                 </dl>
+                <div className="admin-agreement-document">
+                  <p className="admin-eyebrow">AGREEMENT DOCUMENT</p>
+                  {agreement.document ? (
+                    <ul className="admin-doc-timeline">
+                      <li
+                        className={
+                          agreement.document.partnerSignedAt
+                            ? 'admin-check-passed'
+                            : 'admin-check-blocked'
+                        }
+                      >
+                        <span>
+                          {agreement.document.partnerSignedAt ? (
+                            <Check size={15} aria-hidden="true" />
+                          ) : (
+                            <LoaderCircle className="admin-spin" size={15} aria-hidden="true" />
+                          )}
+                        </span>
+                        {agreement.document.partnerSignedAt
+                          ? `Partner signed${agreement.document.partnerSignerName ? ` as ${agreement.document.partnerSignerName}` : ''} · ${formatTimestamp(agreement.document.partnerSignedAt)}`
+                          : 'Waiting for the partner to sign'}
+                      </li>
+                      <li
+                        className={
+                          agreement.document.companySignedAt
+                            ? 'admin-check-passed'
+                            : 'admin-check-blocked'
+                        }
+                      >
+                        <span>
+                          {agreement.document.companySignedAt ? (
+                            <Check size={15} aria-hidden="true" />
+                          ) : (
+                            <LoaderCircle className="admin-spin" size={15} aria-hidden="true" />
+                          )}
+                        </span>
+                        {agreement.document.companySignedAt
+                          ? `KissMyApps countersigned · ${formatTimestamp(agreement.document.companySignedAt)}`
+                          : 'Waiting for the KissMyApps countersignature'}
+                      </li>
+                    </ul>
+                  ) : (
+                    <p className="admin-record-empty-copy">
+                      Upload the signed-terms PDF, then the partner signs it in their dashboard and
+                      an Owner or Operations administrator countersigns.
+                    </p>
+                  )}
+                  {canManage &&
+                    (typeof gateway.uploadAgreementDocument === 'function' ||
+                      typeof gateway.countersignAgreementDocument === 'function' ||
+                      typeof gateway.revokeAgreementDocument === 'function') &&
+                    (agreement.document?.status === 'awaiting_partner_signature' ||
+                      agreement.document?.status === 'awaiting_kissmyapps_signature' ||
+                      (!agreement.document &&
+                        !['superseded', 'expired', 'terminated'].includes(agreement.status))) && (
+                      <div className="admin-doc-actions">
+                        {!agreement.document && (
+                          <>
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              className="admin-doc-file"
+                              aria-label={`Agreement PDF for version ${agreement.version}`}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0]
+                                setRevokeError(null)
+                                setPendingDocument(
+                                  file
+                                    ? {
+                                        agreementId: agreement.id,
+                                        affiliateId: agreement.affiliateId,
+                                        file,
+                                      }
+                                    : null,
+                                )
+                              }}
+                            />
+                            {pendingDocument?.agreementId === agreement.id && (
+                              <button
+                                className="admin-primary-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void uploadAgreementDocument()}
+                              >
+                                <LoaderCircle
+                                  className={
+                                    pendingKey === `commercial:doc:upload:${agreement.id}`
+                                      ? 'admin-spin'
+                                      : ''
+                                  }
+                                  size={16}
+                                  aria-hidden="true"
+                                />{' '}
+                                Send for partner signature
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {agreement.document?.status === 'awaiting_kissmyapps_signature' && (
+                          <button
+                            className="admin-primary-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void countersignDocument(agreement)}
+                          >
+                            <ShieldCheck size={16} aria-hidden="true" /> Countersign for KissMyApps
+                          </button>
+                        )}
+                        {agreement.document &&
+                          !revoking?.documentId &&
+                          agreement.document.status !== 'signed' && (
+                            <button
+                              className="admin-text-button"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                setRevokeError(null)
+                                setRevoking({ documentId: agreement.document!.id, reason: '' })
+                              }}
+                            >
+                              Revoke
+                            </button>
+                          )}
+                      </div>
+                    )}
+                  {revoking?.documentId === agreement.document?.id &&
+                    revoking &&
+                    agreement.document && (
+                      <div
+                        className="admin-confirm-action"
+                        role="group"
+                        aria-label="Revoke document"
+                      >
+                        <p>
+                          <strong>Revoke this agreement document?</strong>
+                          <span>
+                            The partner loses the signing request. Give a reason for the audit log.
+                          </span>
+                        </p>
+                        <label className="admin-field">
+                          <span>Reason</span>
+                          <input
+                            value={revoking.reason}
+                            onChange={(event) =>
+                              setRevoking({
+                                documentId: revoking.documentId,
+                                reason: event.target.value,
+                              })
+                            }
+                            aria-invalid={Boolean(revokeError)}
+                          />
+                          {revokeError && (
+                            <small className="admin-field-error">{revokeError}</small>
+                          )}
+                        </label>
+                        <div className="admin-record-actions">
+                          <button
+                            className="admin-primary-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void revokeDocument()}
+                          >
+                            Confirm revocation
+                          </button>
+                          <button
+                            className="admin-secondary-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setRevoking(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                </div>
                 {agreement.commissionRules.length ? (
                   <ul className="admin-rule-list">
                     {agreement.commissionRules.map((rule) => (

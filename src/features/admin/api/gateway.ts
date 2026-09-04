@@ -9,6 +9,7 @@ import {
 import {
   mapAdminAffiliate,
   mapAdminAgreement,
+  mapAdminAgreementDocument,
   mapAdminBillingOffer,
   mapAdminCampaign,
   mapAdminCommissionRule,
@@ -27,6 +28,7 @@ import type {
   AdminAffiliateDirectorySummary,
   AdminAffiliateStatusChange,
   AdminAgreement,
+  AdminAgreementDocument,
   AdminAttributionOverview,
   AdminBackendResponse,
   AdminBillingOffer,
@@ -70,6 +72,9 @@ export const ADMIN_RPCS = Object.freeze({
   createCommissionRule: 'create_admin_commission_rule',
   setCommissionRuleStatus: 'set_admin_commission_rule_status',
   activateAgreement: 'activate_admin_agreement',
+  createAgreementDocument: 'create_admin_agreement_document',
+  countersignAgreementDocument: 'admin_countersign_agreement_document',
+  revokeAgreementDocument: 'revoke_admin_agreement_document',
   activateProduct: 'activate_admin_product',
   setProductTrackingMode: 'set_admin_product_tracking_mode',
   issueMainLink: 'issue_admin_main_link',
@@ -732,6 +737,107 @@ export function createAdminGateway(
         { agreement_id: input.agreementId },
         mapAdminAgreement,
         { invalidState: 'Activate at least one compatible commission rule first.' },
+      )
+    },
+
+    async uploadAgreementDocument(input) {
+      if (!supabase) {
+        return notConfigured<AdminAgreementDocument | null>(() => null)
+      }
+      const file = input.file
+      if (file.type !== 'application/pdf' || file.size < 1 || file.size > 10 * 1024 * 1024) {
+        return result<AdminAgreementDocument | null>(null, 'error', {
+          code: 'invalid_input',
+          message: 'The agreement document must be a PDF of at most 10 MB.',
+          retryable: false,
+        })
+      }
+      const objectPath = `agreements/${input.agreementId}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, '-')}`
+      let uploadedPath: string | null = null
+      try {
+        const upload = await supabase.storage
+          .from('affiliate-private-documents')
+          .upload(objectPath, file, {
+            contentType: 'application/pdf',
+            upsert: false,
+          })
+        if (upload.error || !upload.data?.path) throw new Error('upload failed')
+        uploadedPath = upload.data.path
+      } catch {
+        return result<AdminAgreementDocument | null>(null, 'error', {
+          code: 'temporarily_unavailable',
+          message: 'The agreement document could not be uploaded. Try again.',
+          retryable: true,
+        })
+      }
+      if (!client) {
+        return notConfigured<AdminAgreementDocument | null>(() => null)
+      }
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.createAgreementDocument,
+        {
+          agreement_id: input.agreementId,
+          name:
+            file.name
+              .replace(/\.[^.]+$/, '')
+              .trim()
+              .slice(0, 160) || 'Partner agreement',
+          file_path: uploadedPath,
+        },
+        mapAdminAgreementDocument,
+        {
+          invalidState: 'The document was uploaded but could not be recorded. Remove it and retry.',
+          invalidReference: 'That agreement is no longer available.',
+        },
+      )
+    },
+
+    async createAgreementDocument(input) {
+      if (!client) return notConfigured<AdminAgreementDocument | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.createAgreementDocument,
+        {
+          agreement_id: input.agreementId,
+          name: input.name.trim(),
+          file_path: input.filePath.trim(),
+        },
+        mapAdminAgreementDocument,
+        {
+          invalidState: 'This agreement already has a current document.',
+          invalidReference: 'That agreement is no longer available.',
+        },
+      )
+    },
+
+    async countersignAgreementDocument(input) {
+      if (!client) return notConfigured<AdminAgreementDocument | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.countersignAgreementDocument,
+        { document_id: input.documentId },
+        mapAdminAgreementDocument,
+        {
+          invalidState:
+            'Only a document that the partner already signed can receive the KissMyApps countersignature.',
+          invalidReference: 'That agreement document is no longer available.',
+        },
+      )
+    },
+
+    async revokeAgreementDocument(input) {
+      if (!client) return notConfigured<AdminAgreementDocument | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.revokeAgreementDocument,
+        { document_id: input.documentId, reason: input.reason.trim() },
+        mapAdminAgreementDocument,
+        {
+          invalidInput: 'Enter a revocation reason between 10 and 500 characters.',
+          invalidState: 'Only a document that has not been fully signed can be revoked.',
+          invalidReference: 'That agreement document is no longer available.',
+        },
       )
     },
 

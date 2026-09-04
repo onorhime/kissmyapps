@@ -22,6 +22,8 @@ export const PARTNER_RPCS = Object.freeze({
   setLinkStatus: 'set_partner_link_status',
   updateProfile: 'update_partner_profile',
   updateSettings: 'update_partner_settings',
+  signatureQueue: 'get_partner_agreement_signature_queue',
+  signAgreement: 'partner_sign_agreement_document',
 })
 
 // Explicit selections are a second line of defence. Security must still be

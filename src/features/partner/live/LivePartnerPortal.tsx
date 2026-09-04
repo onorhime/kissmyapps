@@ -12,6 +12,7 @@ import {
 import type { PartnerMetricValues, PartnerTrendPoint } from '../api'
 import type { PortalPage } from '../data'
 import { toPartnerLiveWorkspaceContext } from './adapters'
+import { AgreementSignBanner } from './AgreementSignBanner'
 import { LiveLinksPage } from './LiveLinksPage'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 
@@ -236,6 +237,8 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
           </p>
         </div>
       </div>
+
+      {!loading && !failed && <AgreementSignBanner gateway={workspace.gateway} />}
 
       {loading ? (
         <section className="panel live-data-state" aria-busy="true">

@@ -7,10 +7,12 @@ import {
   ADMIN_CAMPAIGN_STATUSES,
   ADMIN_COMMISSION_MODELS,
   ADMIN_COMMISSION_RULE_STATUSES,
+  ADMIN_DOCUMENT_STATUSES,
   ADMIN_FUNNEL_STATUSES,
   type AdminAffiliate,
   type AdminAffiliateStatus,
   type AdminAgreement,
+  type AdminAgreementDocument,
   type AdminAgreementStatus,
   type AdminBillingMode,
   type AdminBillingOffer,
@@ -20,6 +22,7 @@ import {
   type AdminCommissionModel,
   type AdminCommissionRule,
   type AdminCommissionRuleStatus,
+  type AdminDocumentStatus,
   type AdminFunnel,
   type AdminFunnelStatus,
   type AdminMainLink,
@@ -202,6 +205,60 @@ export function mapAdminCommissionRule(value: unknown): AdminCommissionRule {
   }
 }
 
+const ADMIN_AGREEMENT_DOCUMENT_STATUSES = [
+  'awaiting_partner_signature',
+  'awaiting_kissmyapps_signature',
+  'signed',
+] as const
+
+const documentStatuses: readonly AdminDocumentStatus[] = ADMIN_DOCUMENT_STATUSES
+
+function nullableDocument(
+  row: Record<string, unknown>,
+  ...keys: string[]
+): AdminAgreementDocument | null {
+  const value = valueAt(row, ...keys)
+  if (value === null || value === undefined) return null
+  const documentRow = record(value)
+  const status = enumValue<AdminDocumentStatus>(documentRow.status, documentStatuses)
+  if (!ADMIN_AGREEMENT_DOCUMENT_STATUSES.includes(status as 'signed')) {
+    return null
+  }
+  return mapAgreementDocumentRow(documentRow, status)
+}
+
+function mapAgreementDocumentRow(
+  row: Record<string, unknown>,
+  status: AdminDocumentStatus,
+): AdminAgreementDocument {
+  return {
+    id: requiredString(row, 'id'),
+    name: requiredString(row, 'name'),
+    version: integer(row, 'version'),
+    status,
+    partnerSignerName: nullableString(row, 'partner_signer_name', 'partnerSignerName'),
+    partnerSignedAt: nullableString(
+      row,
+      'signed_by_partner_at',
+      'partner_signed_at',
+      'partnerSignedAt',
+    ),
+    companySignedAt: nullableString(
+      row,
+      'signed_by_kissmyapps_at',
+      'signed_by_kissmyapps_at',
+      'companySignedAt',
+    ),
+    filePath: nullableString(row, 'file_path', 'filePath'),
+    createdAt: nullableString(row, 'created_at', 'createdAt'),
+  }
+}
+
+export function mapAdminAgreementDocument(value: unknown): AdminAgreementDocument {
+  const row = record(value)
+  return mapAgreementDocumentRow(row, enumValue<AdminDocumentStatus>(row.status, documentStatuses))
+}
+
 function mapAgreementWithRules(value: unknown, topLevelRules: readonly unknown[]): AdminAgreement {
   const row = record(value)
   const id = requiredString(row, 'id')
@@ -236,6 +293,7 @@ function mapAgreementWithRules(value: unknown, topLevelRules: readonly unknown[]
     partnerSlug: nullableString(row, 'partner_slug', 'partnerSlug'),
     hasSignedDocument: boolean(row, 'has_signed_document', 'hasSignedDocument'),
     launchReady: boolean(row, 'launch_ready', 'launchReady'),
+    document: nullableDocument(row, 'document'),
   }
 }
 

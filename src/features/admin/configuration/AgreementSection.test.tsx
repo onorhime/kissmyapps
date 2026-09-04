@@ -56,6 +56,7 @@ const agreement: AdminAgreement = {
   partnerSlug: affiliate.slug,
   hasSignedDocument: false,
   launchReady: false,
+  document: null,
 }
 
 function configuration(currentAgreement: AdminAgreement): AdminProductConfiguration {
@@ -148,5 +149,113 @@ describe('Admin agreement launch gates', () => {
     await user.click(screen.getByRole('button', { name: 'Activate agreement' }))
 
     expect(activateAgreement).toHaveBeenCalledWith({ agreementId: agreement.id })
+  })
+})
+
+describe('Admin agreement document signing', () => {
+  const awaitingPartnerDocument = {
+    id: 'document-1',
+    name: 'Partner agreement',
+    version: 1,
+    status: 'awaiting_partner_signature' as const,
+    partnerSignerName: null,
+    partnerSignedAt: null,
+    companySignedAt: null,
+    filePath: null,
+    createdAt: createdAt,
+  }
+
+  it('offers upload and send-for-signature when no document exists', async () => {
+    const user = userEvent.setup()
+    const uploadAgreementDocument = vi.fn(async () => ({
+      data: awaitingPartnerDocument,
+      status: 'ready' as const,
+      error: null,
+    }))
+    render(
+      <AgreementSection
+        configuration={configuration(agreement)}
+        affiliates={[affiliate]}
+        gateway={{ uploadAgreementDocument } as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async (_key, operation) => Boolean((await operation()).data)}
+      />,
+    )
+
+    expect(screen.getByText(/Upload the signed-terms PDF/i)).toBeVisible()
+
+    await user.upload(
+      screen.getByLabelText(/Agreement PDF for version 1/i),
+      new File(['pdf'], 'terms.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Send for partner signature/i }))
+
+    expect(uploadAgreementDocument).toHaveBeenCalledWith({
+      agreementId: agreement.id,
+      affiliateId: agreement.affiliateId,
+      file: expect.objectContaining({ type: 'application/pdf' }),
+    })
+  })
+
+  it('shows the countersign action only after the partner signed', async () => {
+    const user = userEvent.setup()
+    const countersignAgreementDocument = vi.fn(async () => ({
+      data: { ...awaitingPartnerDocument, status: 'signed' as const },
+      status: 'ready' as const,
+      error: null,
+    }))
+    render(
+      <AgreementSection
+        configuration={configuration({
+          ...agreement,
+          document: {
+            ...awaitingPartnerDocument,
+            status: 'awaiting_kissmyapps_signature',
+            partnerSignerName: 'Victory Onorhime',
+            partnerSignedAt: '2026-09-04T09:00:00.000Z',
+          },
+        })}
+        affiliates={[affiliate]}
+        gateway={{ countersignAgreementDocument } as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async (_key, operation) => Boolean((await operation()).data)}
+      />,
+    )
+
+    expect(screen.getByText(/Waiting for the KissMyApps countersignature/i)).toBeVisible()
+    expect(screen.getByText(/Partner signed as Victory Onorhime/i)).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: /Countersign for KissMyApps/i }))
+
+    expect(countersignAgreementDocument).toHaveBeenCalledWith({ documentId: 'document-1' })
+  })
+
+  it('keeps signed documents immutable without further actions', () => {
+    render(
+      <AgreementSection
+        configuration={configuration({
+          ...agreement,
+          hasSignedDocument: true,
+          document: {
+            ...awaitingPartnerDocument,
+            status: 'signed',
+            partnerSignerName: 'Victory Onorhime',
+            partnerSignedAt: '2026-09-04T09:00:00.000Z',
+            companySignedAt: '2026-09-04T10:00:00.000Z',
+          },
+        })}
+        affiliates={[affiliate]}
+        gateway={{} as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async () => false}
+      />,
+    )
+
+    expect(screen.getByText(/KissMyApps countersigned/i)).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Revoke/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Countersign/i })).not.toBeInTheDocument()
   })
 })

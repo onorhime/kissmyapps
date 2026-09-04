@@ -11,6 +11,7 @@ import {
   mapPartnerPayoutSummary,
   mapPartnerProduct,
   mapPartnerProfile,
+  mapPartnerSignatureQueue,
   mapPartnerTrendPoint,
   mapRows,
   mapSingleRow,
@@ -34,6 +35,7 @@ import type {
   PartnerProfile,
   PartnerProfileUpdate,
   PartnerSettingsUpdate,
+  PartnerSignatureRequest,
   PartnerTrendPoint,
   PartnerTrendQuery,
 } from './types'
@@ -92,6 +94,15 @@ export interface PartnerDataGateway {
   updatePartnerSettings(
     settings: PartnerSettingsUpdate,
   ): Promise<PartnerDataResult<PartnerProfile | null>>
+  /** Optional: agreement-signing capability may be absent in older deployments. */
+  getSignatureQueue?: () => Promise<PartnerDataResult<readonly PartnerSignatureRequest[]>>
+  signAgreement?: (input: {
+    documentId: string
+    legalName: string
+  }) => Promise<PartnerDataResult<PartnerDocument | null>>
+  getAgreementDocumentUrl?: (input: {
+    filePath: string
+  }) => Promise<PartnerDataResult<string | null>>
 }
 
 const emptyMetrics = () => ({
@@ -561,6 +572,78 @@ export function createPartnerDataGateway(
         mapPartnerProfile,
         () => null,
       )
+    },
+
+    async getSignatureQueue() {
+      if (!client) return unconfigured((): readonly PartnerSignatureRequest[] => [])
+      try {
+        const response = await client.rpc(PARTNER_RPCS.signatureQueue)
+        if (response.error) {
+          return backendFailure(response.error, response.status, () => [])
+        }
+        const queue = mapPartnerSignatureQueue(response.data)
+        return dataResult(queue, queue.length ? 'ready' : 'empty')
+      } catch {
+        return thrownFailure((): readonly PartnerSignatureRequest[] => [])
+      }
+    },
+
+    async signAgreement(input) {
+      if (!client) return noClientSingle<PartnerDocument>()
+      try {
+        const response = await client.rpc(PARTNER_RPCS.signAgreement, {
+          p_input: {
+            document_id: input.documentId,
+            legal_name: input.legalName.trim(),
+          },
+        })
+        if (response.error) {
+          const code = response.error.code ?? ''
+          if (code === 'P0001' || code === '55000') {
+            return dataResult(null, 'error', {
+              code: 'conflict',
+              message: 'This agreement document cannot be signed right now. Refresh and try again.',
+              retryable: false,
+            })
+          }
+          if (code === '22023') {
+            return dataResult(null, 'error', {
+              code: 'conflict',
+              message: 'Enter your full legal name exactly as it should appear on the agreement.',
+              retryable: false,
+            })
+          }
+          return backendFailure(response.error, response.status, () => null)
+        }
+        try {
+          return dataResult(mapSingleRow(response.data, mapPartnerDocument), 'ready')
+        } catch {
+          return invalidResponse(() => null)
+        }
+      } catch {
+        return thrownFailure(() => null)
+      }
+    },
+
+    async getAgreementDocumentUrl(input) {
+      if (!supabase) {
+        return unconfigured(() => null)
+      }
+      try {
+        const signed = await supabase.storage
+          .from('affiliate-private-documents')
+          .createSignedUrl(input.filePath, 300)
+        if (signed.error || !signed.data?.signedUrl) {
+          return dataResult(null, 'error', {
+            code: 'temporarily_unavailable',
+            message: 'The agreement document could not be opened. Try again.',
+            retryable: true,
+          })
+        }
+        return dataResult(signed.data.signedUrl, 'ready')
+      } catch {
+        return thrownFailure(() => null)
+      }
     },
   }
 }

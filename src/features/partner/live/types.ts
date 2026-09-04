@@ -128,6 +128,8 @@ export type PartnerLiveWorkspaceValue = Readonly<{
   isRefreshing: boolean
   mutation: PartnerLiveMutationState
   actions: PartnerLiveWorkspaceActions
+  /** The resolved gateway, exposed for self-contained capability surfaces. */
+  gateway: PartnerDataGateway
 }>
 
 export type PartnerLiveWorkspaceProviderProps = Readonly<{

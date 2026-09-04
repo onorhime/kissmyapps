@@ -23,6 +23,7 @@ import type {
   PartnerProfile,
   PartnerReconciliationStage,
   PartnerRole,
+  PartnerSignatureRequest,
   PartnerStatus,
   PartnerTrendPoint,
 } from './types'
@@ -419,6 +420,25 @@ export function mapPartnerDocument(value: unknown): PartnerDocument {
     ),
     downloadAvailable: boolean(row.download_available, 'download_available'),
   }
+}
+
+export function mapPartnerSignatureQueue(value: unknown): readonly PartnerSignatureRequest[] {
+  if (value === null || value === undefined) return []
+  return records(value, 'signature queue').map((row) => ({
+    documentId: string(row.document_id, 'document_id'),
+    name: string(row.name, 'name'),
+    version: integer(row.version, 'version'),
+    agreementId: string(row.agreement_id, 'agreement_id'),
+    productId: string(row.product_id, 'product_id'),
+    productName: string(row.product_name, 'product_name'),
+    model: enumValue(row.model, commissionModels, 'model'),
+    attributionWindowDays: integer(row.attribution_window_days, 'attribution_window_days'),
+    payoutFrequencyDays: integer(row.payout_frequency_days, 'payout_frequency_days'),
+    payoutCurrency: string(row.payout_currency, 'payout_currency'),
+    minimumPayoutMinor: integer(row.minimum_payout_minor, 'minimum_payout_minor'),
+    filePath: string(row.file_path, 'file_path'),
+    requestedAt: string(row.requested_at, 'requested_at'),
+  }))
 }
 
 export function mapRows<T>(value: unknown, mapper: (row: unknown) => T): T[] {
