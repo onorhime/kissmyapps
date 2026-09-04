@@ -75,6 +75,8 @@ export const ADMIN_RPCS = Object.freeze({
   createAgreementDocument: 'create_admin_agreement_document',
   countersignAgreementDocument: 'admin_countersign_agreement_document',
   revokeAgreementDocument: 'revoke_admin_agreement_document',
+  deleteCommissionRule: 'delete_admin_draft_commission_rule',
+  deleteAgreement: 'delete_admin_draft_agreement',
   activateProduct: 'activate_admin_product',
   setProductTrackingMode: 'set_admin_product_tracking_mode',
   issueMainLink: 'issue_admin_main_link',
@@ -846,6 +848,35 @@ export function createAdminGateway(
           invalidInput: 'Enter a revocation reason between 10 and 500 characters.',
           invalidState: 'Only a document that has not been fully signed can be revoked.',
           invalidReference: 'That agreement document is no longer available.',
+        },
+      )
+    },
+
+    async deleteCommissionRule(input) {
+      if (!client) return notConfigured<AdminCommissionRule | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.deleteCommissionRule,
+        { commission_rule_id: input.commissionRuleId },
+        mapAdminCommissionRule,
+        {
+          invalidReference: 'That commission rule is no longer available.',
+          invalidState: 'Rules on an active agreement are immutable history.',
+        },
+      )
+    },
+
+    async deleteAgreement(input) {
+      if (!client) return notConfigured<AdminAgreement | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.deleteAgreement,
+        { agreement_id: input.agreementId },
+        mapAdminAgreement,
+        {
+          invalidReference: 'That agreement is no longer available.',
+          invalidState:
+            'Only a draft or awaiting-signature agreement without a live document can be deleted.',
         },
       )
     },

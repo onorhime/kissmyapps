@@ -2,11 +2,13 @@ import { useMemo, useState, type FormEvent } from 'react'
 import {
   BadgeDollarSign,
   Check,
+  Clock3,
   FileSignature,
   LoaderCircle,
   Paperclip,
   Plus,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
 import type {
   AdminAffiliate,
@@ -98,6 +100,10 @@ export function AgreementSection({
   } | null>(null)
   const [revoking, setRevoking] = useState<{ documentId: string; reason: string } | null>(null)
   const [revokeError, setRevokeError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<
+    { kind: 'rule'; id: string } | { kind: 'agreement'; id: string } | null
+  >(null)
+  const [supersedingRuleId, setSupersedingRuleId] = useState<string | null>(null)
   const busy = pendingKey?.startsWith('commercial:') ?? false
   const availableAffiliates = affiliates.filter((affiliate) =>
     ['active', 'paused'].includes(affiliate.status),
@@ -207,6 +213,27 @@ export function AgreementSection({
       () => gateway.setCommissionRuleStatus({ commissionRuleId: rule.id, status }),
       `${rule.name} is now ${status}.`,
     )
+  }
+
+  async function confirmDeletion() {
+    if (!deleting || pendingKey) return
+    if (deleting.kind === 'rule') {
+      if (!gateway.deleteCommissionRule) return
+      const removed = await runAction(
+        `commercial:rule:delete:${deleting.id}`,
+        () => gateway.deleteCommissionRule!({ commissionRuleId: deleting.id }),
+        'Commission rule deleted.',
+      )
+      if (removed) setDeleting(null)
+      return
+    }
+    if (!gateway.deleteAgreement) return
+    const removed = await runAction(
+      `commercial:agreement:delete:${deleting.id}`,
+      () => gateway.deleteAgreement!({ agreementId: deleting.id }),
+      'Draft agreement deleted.',
+    )
+    if (removed) setDeleting(null)
   }
 
   function activateAgreement(agreement: AdminAgreement) {
@@ -498,8 +525,21 @@ export function AgreementSection({
               hasExactlyOneSupportedActivePurchaseRule(agreement)
             const canActivateAgreement =
               agreement.hasSignedDocument && hasExactlyOneSupportedPurchaseRule
+            // Only one agreement per partner can ever be active; older drafts
+            // are clutter from earlier working copies and are de-emphasised.
+            const isNewestDraftForPartner =
+              agreement.status !== 'draft' ||
+              !configuration.agreements.some(
+                (candidate) =>
+                  candidate.affiliateId === agreement.affiliateId &&
+                  candidate.status === 'draft' &&
+                  candidate.version > agreement.version,
+              )
             return (
-              <article className="admin-config-record" key={agreement.id}>
+              <article
+                className={`admin-config-record${agreement.status === 'draft' && !isNewestDraftForPartner ? ' admin-agreement-older-draft' : ''}`}
+                key={agreement.id}
+              >
                 <div className="admin-config-record-heading">
                   <div>
                     <h3>
@@ -512,8 +552,13 @@ export function AgreementSection({
                       Version {agreement.version} · {modelLabels[agreement.model]}
                     </p>
                   </div>
-                  <span className={`admin-status-badge admin-status-${agreement.status}`}>
-                    {agreement.status.replace('_', ' ')}
+                  <span className="admin-config-record-badges">
+                    {agreement.status === 'draft' && !isNewestDraftForPartner && (
+                      <span className="admin-older-draft-badge">OLDER DRAFT</span>
+                    )}
+                    <span className={`admin-status-badge admin-status-${agreement.status}`}>
+                      {agreement.status.replace('_', ' ')}
+                    </span>
                   </span>
                 </div>
                 <dl className="admin-terms-grid">
@@ -559,7 +604,7 @@ export function AgreementSection({
                           {agreement.document.partnerSignedAt ? (
                             <Check size={15} aria-hidden="true" />
                           ) : (
-                            <LoaderCircle className="admin-spin" size={15} aria-hidden="true" />
+                            <Clock3 size={15} aria-hidden="true" />
                           )}
                         </span>
                         {agreement.document.partnerSignedAt
@@ -577,7 +622,7 @@ export function AgreementSection({
                           {agreement.document.companySignedAt ? (
                             <Check size={15} aria-hidden="true" />
                           ) : (
-                            <LoaderCircle className="admin-spin" size={15} aria-hidden="true" />
+                            <Clock3 size={15} aria-hidden="true" />
                           )}
                         </span>
                         {agreement.document.companySignedAt
@@ -751,31 +796,147 @@ export function AgreementSection({
                             Activate rule
                           </button>
                         )}
-                        {canManage && rule.status === 'active' && (
-                          <button
-                            className="admin-text-button admin-danger-button"
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void setRuleStatus(rule, 'superseded')}
-                          >
-                            Supersede
-                          </button>
-                        )}
+                        {canManage &&
+                          rule.status === 'active' &&
+                          ['draft', 'awaiting_signature'].includes(agreement.status) && (
+                            <button
+                              className="admin-text-button"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void setRuleStatus(rule, 'active')}
+                            >
+                              Activate rule
+                            </button>
+                          )}
+                        {canManage &&
+                          rule.status === 'active' &&
+                          agreement.status === 'active' &&
+                          (supersedingRuleId === rule.id ? (
+                            <span className="admin-record-actions">
+                              <button
+                                className="admin-text-button admin-danger-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  void setRuleStatus(rule, 'superseded')
+                                  setSupersedingRuleId(null)
+                                }}
+                              >
+                                Confirm supersede
+                              </button>
+                              <button
+                                className="admin-text-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setSupersedingRuleId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              className="admin-text-button admin-danger-button"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setSupersedingRuleId(rule.id)}
+                            >
+                              Supersede
+                            </button>
+                          ))}
+                        {canManage &&
+                          agreement.status !== 'active' &&
+                          typeof gateway.deleteCommissionRule === 'function' &&
+                          (deleting?.kind === 'rule' && deleting.id === rule.id ? (
+                            <span className="admin-record-actions">
+                              <button
+                                className="admin-text-button admin-danger-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void confirmDeletion()}
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                className="admin-text-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setDeleting(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              className="admin-text-button admin-danger-button"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setDeleting({ kind: 'rule', id: rule.id })}
+                            >
+                              <Trash2 size={14} aria-hidden="true" /> Delete
+                            </button>
+                          ))}
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <p className="admin-record-empty-copy">No commission rules yet.</p>
                 )}
-                {canManage && ['draft', 'awaiting_signature'].includes(agreement.status) && (
-                  <button
-                    className="admin-secondary-button"
-                    type="button"
-                    disabled={!canActivateAgreement || busy}
-                    onClick={() => void activateAgreement(agreement)}
+                <div className="admin-record-actions admin-agreement-card-actions">
+                  {canManage && ['draft', 'awaiting_signature'].includes(agreement.status) && (
+                    <button
+                      className="admin-secondary-button"
+                      type="button"
+                      disabled={!canActivateAgreement || busy}
+                      onClick={() => void activateAgreement(agreement)}
+                    >
+                      <ShieldCheck size={16} aria-hidden="true" /> Activate agreement
+                    </button>
+                  )}
+                  {canManage &&
+                    ['draft', 'awaiting_signature'].includes(agreement.status) &&
+                    typeof gateway.deleteAgreement === 'function' && (
+                      <button
+                        className="admin-text-button admin-danger-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setDeleting({ kind: 'agreement', id: agreement.id })}
+                      >
+                        <Trash2 size={14} aria-hidden="true" /> Delete draft
+                      </button>
+                    )}
+                </div>
+                {deleting?.kind === 'agreement' && deleting.id === agreement.id && (
+                  <div
+                    className="admin-confirm-action"
+                    role="group"
+                    aria-label="Delete draft agreement"
                   >
-                    <ShieldCheck size={16} aria-hidden="true" /> Activate agreement
-                  </button>
+                    <p>
+                      <strong>Delete this draft agreement?</strong>
+                      <span>
+                        Its commission rules are removed with it. Active agreements can never be
+                        deleted, only superseded by a new version.
+                      </span>
+                    </p>
+                    <div className="admin-record-actions">
+                      <button
+                        className="admin-primary-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void confirmDeletion()}
+                      >
+                        Confirm deletion
+                      </button>
+                      <button
+                        className="admin-secondary-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setDeleting(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {['draft', 'awaiting_signature'].includes(agreement.status) && (
                   <div className="admin-gate-copy">

@@ -417,6 +417,14 @@ export type AdminAgreementDocumentSigning = Readonly<{
   documentId: string
 }>
 
+export type AdminCommissionRuleDeletion = Readonly<{
+  commissionRuleId: string
+}>
+
+export type AdminAgreementDeletion = Readonly<{
+  agreementId: string
+}>
+
 export type AdminProductActivation = Readonly<{
   productId: string
 }>
@@ -765,6 +773,8 @@ export interface AdminGateway {
   uploadAgreementDocument?: AdminConfigurationGateway['uploadAgreementDocument']
   countersignAgreementDocument?: AdminConfigurationGateway['countersignAgreementDocument']
   revokeAgreementDocument?: AdminConfigurationGateway['revokeAgreementDocument']
+  deleteCommissionRule?: AdminConfigurationGateway['deleteCommissionRule']
+  deleteAgreement?: AdminConfigurationGateway['deleteAgreement']
   activateProduct?: AdminConfigurationGateway['activateProduct']
   setProductTrackingMode?: AdminConfigurationGateway['setProductTrackingMode']
   issueMainLink?: AdminConfigurationGateway['issueMainLink']
@@ -884,6 +894,12 @@ export interface AdminConfigurationGateway {
   revokeAgreementDocument?: (
     input: AdminAgreementDocumentRevocation,
   ) => Promise<AdminDataResult<AdminAgreementDocument | null>>
+  deleteCommissionRule?: (
+    input: AdminCommissionRuleDeletion,
+  ) => Promise<AdminDataResult<AdminCommissionRule | null>>
+  deleteAgreement?: (
+    input: AdminAgreementDeletion,
+  ) => Promise<AdminDataResult<AdminAgreement | null>>
   activateProduct(input: AdminProductActivation): Promise<AdminDataResult<AdminProduct | null>>
   setProductTrackingMode(
     input: AdminProductTrackingModeUpdate,

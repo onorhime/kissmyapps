@@ -4616,3 +4616,32 @@ button.admin-routing-action,
 .admin-config-record .admin-gate-copy {
   margin-top: 10px;
 }
+
+/* De-emphasis for superseded working drafts of the same partner agreement. */
+.admin-agreement-older-draft {
+  opacity: 0.62;
+}
+
+.admin-config-record-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-older-draft-badge {
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-muted) 14%, transparent);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.admin-agreement-card-actions {
+  margin-top: 16px;
+}
+
+.admin-config-record .admin-doc-timeline .admin-check-blocked {
+  color: var(--admin-muted);
+}
