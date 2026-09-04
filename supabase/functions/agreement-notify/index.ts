@@ -12,7 +12,7 @@ import {
   requireJsonContentType,
   requireMethod,
 } from "../_shared/http.ts";
-import { renderPlatformEmail } from "../_shared/email-template.ts";
+import { paragraph, renderPlatformEmail } from "../_shared/email-template.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 
 const EVENT_TYPES = new Set([
@@ -176,15 +176,27 @@ function renderEmail(
       subject:
         `Action required: sign your KissMyApps agreement for ${context.productName}`,
       html: renderPlatformEmail({
+        preheader:
+          `Review and sign the partnership agreement for ${context.productName} to open your tracked links and earnings.`,
         eyebrow: "Signature requested",
-        title: "Your partnership agreement is ready to sign",
-        bodyHtml: `<p style="margin:0 0 10px 0;">Hi ${context.partnerName},</p>
-<p style="margin:0;">KissMyApps recorded the commercial terms for ${termsLine} and needs your signature to unlock your partner link and earnings.</p>
-<p style="margin:12px 0 0 0;">Open your dashboard, review the document, and sign with your full legal name. KissMyApps countersigns right after you.</p>`,
+        title: "Sign your partnership agreement",
+        greetingHtml: `Hi ${context.partnerName},`,
+        bodyHtml: `${
+          paragraph(
+            "KissMyApps recorded the commercial terms for your partnership: " +
+              termsLine + ".",
+          )
+        }` +
+          paragraph(
+            "Before your tracked links and commissions can go live, we both sign the agreement. Review the document in your dashboard, then sign with your full legal name.",
+          ),
         actionLabel: "Review & sign the agreement",
         actionUrl: `${PARTNER_PORTAL_URL}/#links`,
+        noteTitle: "What happens next?",
         noteHtml:
-          `Signing records your legal name, account, and the exact document version as immutable evidence. If you were not expecting this, contact the KissMyApps team before signing.`,
+          "Sign the document in your dashboard, and KissMyApps countersigns right after. Signing records your legal name, account, and the exact document version as immutable evidence. If you were not expecting this email, contact us before signing.",
+        closingHtml:
+          `Welcome aboard,<br /><strong style="color:#222222">Founder, KissMyApps</strong>`,
       }),
     };
   }
@@ -195,14 +207,20 @@ function renderEmail(
       subject:
         `Partner signed: ${context.partnerName} · ${context.productName}`,
       html: renderPlatformEmail({
+        preheader:
+          `${context.partnerName} signed the agreement for ${context.productName}; it now waits for the KissMyApps countersignature.`,
         eyebrow: "Partner signature received",
         title: `${context.partnerName} signed the agreement`,
-        bodyHtml:
-          `<p style="margin:0;">The partner signed the agreement document for ${termsLine}. The document now waits for the KissMyApps countersignature before the agreement can be activated.</p>`,
+        greetingHtml: "Hi team,",
+        bodyHtml: paragraph(
+          `The partner signed the agreement document for ${termsLine}. The document now waits for the KissMyApps countersignature before the agreement can be activated.`,
+        ),
         actionLabel: "Open product configuration",
         actionUrl: `${ADMIN_PORTAL_URL}/#admin/products`,
+        noteTitle: "Before you countersign",
         noteHtml:
-          `Verify the typed partner name before countersigning. The countersignature completes the bilateral evidence.`,
+          "Verify the typed partner name against the agreement terms. The countersignature completes the bilateral evidence, which is then preserved permanently.",
+        closingHtml: `— KissMyApps platform notifications`,
       }),
     };
   }
@@ -212,15 +230,24 @@ function renderEmail(
     subject:
       `Countersigned: your KissMyApps agreement for ${context.productName} is complete`,
     html: renderPlatformEmail({
+      preheader:
+        `Both signatures are recorded for ${context.productName}. The agreement terms are now in force.`,
       eyebrow: "Agreement fully signed",
       title: "Your agreement is complete",
-      bodyHtml: `<p style="margin:0 0 10px 0;">Hi ${context.partnerName},</p>
-<p style="margin:0;">KissMyApps countersigned the agreement for ${termsLine}. Both signatures are recorded and the terms are in force.</p>
-<p style="margin:12px 0 0 0;">Your tracked links and earnings appear in your dashboard once the product launches.</p>`,
+      greetingHtml: `Hi ${context.partnerName},`,
+      bodyHtml: paragraph(
+        `KissMyApps countersigned the agreement for ${termsLine}. Both signatures are recorded and the terms are in force.`,
+      ) +
+        paragraph(
+          "Your tracked links and earnings appear in your dashboard once the product launches.",
+        ),
       actionLabel: "Open your dashboard",
       actionUrl: `${PARTNER_PORTAL_URL}/#performance`,
+      noteTitle: "Keep this for your records",
       noteHtml:
-        `Keep this email for your records. The signed agreement is available in Profile & Documents.`,
+        "The signed agreement is always available in Profile & Documents. Commission follows the terms you signed, including the attribution window and payout cadence.",
+      closingHtml:
+        `Welcome aboard,<br /><strong style="color:#222222">Founder, KissMyApps</strong>`,
     }),
   };
 }
