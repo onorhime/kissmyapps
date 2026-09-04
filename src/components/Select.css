@@ -54,6 +54,8 @@
 
 .kma-select-chevron {
   position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   right: 10px;
   color: var(--kma-select-icon, var(--admin-muted, #a9a9ae));
   pointer-events: none;

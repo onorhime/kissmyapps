@@ -752,7 +752,11 @@ export function createAdminGateway(
           retryable: false,
         })
       }
-      const objectPath = `agreements/${input.agreementId}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, '-')}`
+      const safeName = file.name.replace(/[^\w.-]+/g, '-') || 'agreement.pdf'
+      // The private bucket and the recording RPC both require the exact
+      // partner-scoped path prefix, so the object is stored under the
+      // agreement's affiliate id.
+      const objectPath = `${input.affiliateId}/agreements/${input.agreementId}/${Date.now()}-${safeName}`
       let uploadedPath: string | null = null
       try {
         const upload = await supabase.storage
@@ -773,7 +777,7 @@ export function createAdminGateway(
       if (!client) {
         return notConfigured<AdminAgreementDocument | null>(() => null)
       }
-      return mappedMutation(
+      const recorded = await mappedMutation(
         client,
         ADMIN_RPCS.createAgreementDocument,
         {
@@ -787,10 +791,15 @@ export function createAdminGateway(
         },
         mapAdminAgreementDocument,
         {
-          invalidState: 'The document was uploaded but could not be recorded. Remove it and retry.',
+          invalidState: 'This agreement already has a current document.',
           invalidReference: 'That agreement is no longer available.',
         },
       )
+      if (recorded.status !== 'ready') {
+        // Best-effort cleanup so an unrecorded upload does not linger.
+        await supabase.storage.from('affiliate-private-documents').remove([uploadedPath])
+      }
+      return recorded
     },
 
     async createAgreementDocument(input) {

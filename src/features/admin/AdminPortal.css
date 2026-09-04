@@ -4527,3 +4527,70 @@ button.admin-routing-action,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Agreement document signing block */
+.admin-agreement-document {
+  display: grid;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-doc-timeline {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-doc-timeline li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--admin-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-doc-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px dashed var(--admin-line);
+  border-radius: 8px;
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.admin-doc-picker:hover {
+  border-color: var(--admin-pink);
+}
+
+.admin-doc-picker-chosen {
+  border-style: solid;
+  border-color: var(--admin-pink);
+  color: var(--admin-pink-strong);
+}
+
+.admin-field-locked {
+  color: var(--admin-muted);
+  background: color-mix(in srgb, var(--admin-surface-raised) 60%, transparent);
+  cursor: not-allowed;
+}

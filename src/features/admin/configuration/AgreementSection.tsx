@@ -4,6 +4,7 @@ import {
   Check,
   FileSignature,
   LoaderCircle,
+  Paperclip,
   Plus,
   ShieldCheck,
 } from 'lucide-react'
@@ -78,14 +79,14 @@ export function AgreementSection({
   const [affiliateId, setAffiliateId] = useState('')
   const [model, setModel] = useState<AdminCommissionModel>('cpa')
   const [attributionDays, setAttributionDays] = useState('30')
-  const [renewalDays, setRenewalDays] = useState('')
+  const [renewalDays, setRenewalDays] = useState('7')
   const [payoutDays, setPayoutDays] = useState('14')
   const [currency, setCurrency] = useState('USD')
-  const [minimumPayout, setMinimumPayout] = useState('100.00')
+  const [minimumPayout, setMinimumPayout] = useState('20.00')
   const [agreementErrors, setAgreementErrors] = useState<Record<string, string>>({})
   const [ruleAgreementId, setRuleAgreementId] = useState('')
   const [ruleName, setRuleName] = useState('')
-  const [triggerEvent, setTriggerEvent] = useState('purchase.completed')
+  const TRIGGER_EVENT = 'purchase.completed' as const
   const [fixedAmount, setFixedAmount] = useState('')
   const [ratePercent, setRatePercent] = useState('')
   const [validationHours, setValidationHours] = useState('72')
@@ -144,7 +145,15 @@ export function AgreementSection({
         }),
       'Draft partner agreement created. Add and activate a commission rule next.',
     )
-    if (created) setAffiliateId('')
+    if (created) {
+      setAffiliateId('')
+      setModel('cpa')
+      setAttributionDays('30')
+      setRenewalDays('7')
+      setPayoutDays('14')
+      setCurrency('USD')
+      setMinimumPayout('20.00')
+    }
   }
 
   async function createRule(event: FormEvent<HTMLFormElement>) {
@@ -153,7 +162,7 @@ export function AgreementSection({
     const nextErrors: Record<string, string> = {
       ...validateCommissionValues({
         model: selectedModel,
-        triggerEvent,
+        triggerEvent: TRIGGER_EVENT,
         fixedAmount,
         ratePercent,
         currency,
@@ -177,7 +186,7 @@ export function AgreementSection({
           agreementId: ruleAgreement.id,
           name: ruleName.trim(),
           model: selectedModel,
-          triggerEvent: triggerEvent.trim().toLowerCase(),
+          triggerEvent: TRIGGER_EVENT,
           fixedAmountMinor: usesFixed ? moneyToMinor(fixedAmount) : null,
           rateBasisPoints: usesRate ? percentageToBasisPoints(ratePercent) : null,
           currency: usesFixed ? currency.trim().toUpperCase() : null,
@@ -324,8 +333,13 @@ export function AgreementSection({
                   onChange={(event) => setRenewalDays(event.target.value)}
                   aria-invalid={Boolean(agreementErrors.renewalDays)}
                 />
-                {agreementErrors.renewalDays && (
+                {agreementErrors.renewalDays ? (
                   <small className="admin-field-error">{agreementErrors.renewalDays}</small>
+                ) : (
+                  <small className="admin-field-hint">
+                    How many days renewals keep earning commission. Blank means for as long as the
+                    subscription stays active.
+                  </small>
                 )}
               </label>
               <label className="admin-field">
@@ -416,13 +430,14 @@ export function AgreementSection({
               <label className="admin-field">
                 <span>Trigger event</span>
                 <input
-                  value={triggerEvent}
-                  onChange={(event) => setTriggerEvent(event.target.value)}
-                  aria-invalid={Boolean(ruleErrors.triggerEvent)}
+                  value="purchase.completed"
+                  readOnly
+                  aria-readonly="true"
+                  className="admin-field-locked"
                 />
-                {ruleErrors.triggerEvent && (
-                  <small className="admin-field-error">{ruleErrors.triggerEvent}</small>
-                )}
+                <small className="admin-field-hint">
+                  Fixed for launch: commission is earned when a purchase completes.
+                </small>
               </label>
               {ruleAgreement?.model !== 'revenue_share' && (
                 <label className="admin-field">
@@ -587,25 +602,33 @@ export function AgreementSection({
                       <div className="admin-doc-actions">
                         {!agreement.document && (
                           <>
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              className="admin-doc-file"
-                              aria-label={`Agreement PDF for version ${agreement.version}`}
-                              onChange={(event) => {
-                                const file = event.target.files?.[0]
-                                setRevokeError(null)
-                                setPendingDocument(
-                                  file
-                                    ? {
-                                        agreementId: agreement.id,
-                                        affiliateId: agreement.affiliateId,
-                                        file,
-                                      }
-                                    : null,
-                                )
-                              }}
-                            />
+                            <label
+                              className={`admin-doc-picker${pendingDocument?.agreementId === agreement.id ? ' admin-doc-picker-chosen' : ''}`}
+                            >
+                              <input
+                                type="file"
+                                accept="application/pdf"
+                                className="sr-only"
+                                aria-label={`Agreement PDF for version ${agreement.version}`}
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0]
+                                  setRevokeError(null)
+                                  setPendingDocument(
+                                    file
+                                      ? {
+                                          agreementId: agreement.id,
+                                          affiliateId: agreement.affiliateId,
+                                          file,
+                                        }
+                                      : null,
+                                  )
+                                }}
+                              />
+                              <Paperclip size={15} aria-hidden="true" />
+                              {pendingDocument?.agreementId === agreement.id
+                                ? pendingDocument.file.name
+                                : 'Choose the agreement PDF'}
+                            </label>
                             {pendingDocument?.agreementId === agreement.id && (
                               <button
                                 className="admin-primary-button"
