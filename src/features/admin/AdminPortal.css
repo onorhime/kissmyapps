@@ -4594,3 +4594,25 @@ button.admin-routing-action,
   background: color-mix(in srgb, var(--admin-surface-raised) 60%, transparent);
   cursor: not-allowed;
 }
+
+/* Vertical rhythm between rule rows, actions, and gate copy inside an
+   agreement record. */
+.admin-config-record .admin-rule-list {
+  margin-bottom: 4px;
+}
+
+.admin-config-record .admin-rule-list li {
+  padding: 13px 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--admin-surface-raised) 70%, transparent);
+}
+
+.admin-config-record > .admin-secondary-button,
+.admin-config-record > .admin-primary-button {
+  margin-top: 16px;
+}
+
+.admin-config-record .admin-gate-copy {
+  margin-top: 10px;
+}
