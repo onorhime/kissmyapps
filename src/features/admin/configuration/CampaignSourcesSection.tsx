@@ -126,8 +126,9 @@ export function CampaignSourcesSection({
             <div>
               <h3>Global sources</h3>
               <p>
-                Reusable traffic channels shared by every product — TikTok, Instagram, newsletter. A
-                source tags which channel a click came from.
+                Standard channels — TikTok, Instagram, YouTube, newsletter and more — are preloaded
+                for every product. Add a custom one only if you need it. A source tags which channel
+                a click came from.
               </p>
             </div>
           </div>

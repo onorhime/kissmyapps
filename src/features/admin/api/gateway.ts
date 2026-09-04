@@ -77,6 +77,7 @@ export const ADMIN_RPCS = Object.freeze({
   revokeAgreementDocument: 'revoke_admin_agreement_document',
   deleteCommissionRule: 'delete_admin_draft_commission_rule',
   deleteAgreement: 'delete_admin_draft_agreement',
+  deleteProduct: 'delete_admin_product',
   activateProduct: 'activate_admin_product',
   setProductTrackingMode: 'set_admin_product_tracking_mode',
   issueMainLink: 'issue_admin_main_link',
@@ -877,6 +878,21 @@ export function createAdminGateway(
           invalidReference: 'That agreement is no longer available.',
           invalidState:
             'Only a draft or awaiting-signature agreement without a live document can be deleted.',
+        },
+      )
+    },
+
+    async deleteProduct(input) {
+      if (!client) return notConfigured<AdminProduct | null>(() => null)
+      return mappedMutation(
+        client,
+        ADMIN_RPCS.deleteProduct,
+        { product_id: input.productId, confirmation: input.confirmation.trim() },
+        mapAdminProduct,
+        {
+          invalidInput: 'Type the exact product slug to confirm deletion.',
+          invalidReference: 'That product is no longer available.',
+          invalidState: 'This product already has commercial records and cannot be deleted.',
         },
       )
     },

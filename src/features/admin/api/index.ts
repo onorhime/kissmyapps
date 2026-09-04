@@ -51,6 +51,7 @@ export type {
   AdminAgreementDocumentSigning,
   AdminAgreementDocumentUpload,
   AdminAgreementDeletion,
+  AdminProductDeletion,
   AdminAgreementStatus,
   AdminAttributionInput,
   AdminAttributionOverview,

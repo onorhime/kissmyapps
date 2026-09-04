@@ -4645,3 +4645,62 @@ button.admin-routing-action,
 .admin-config-record .admin-doc-timeline .admin-check-blocked {
   color: var(--admin-muted);
 }
+
+/* Collapsible product-configuration sections. The header stays visible;
+   every other direct child of the section is hidden when closed. */
+.admin-collapsible {
+  position: relative;
+}
+
+.admin-collapse-toggle {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  background: var(--admin-plum-deep);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.admin-collapse-toggle:hover {
+  color: var(--admin-text);
+  border-color: var(--admin-pink);
+}
+
+.admin-collapsible-closed > .admin-collapse-toggle svg {
+  transform: rotate(-90deg);
+}
+
+.admin-collapsible-closed
+  > .admin-collapse-region
+  > .admin-config-section
+  > *:not(.admin-config-section-heading) {
+  display: none !important;
+}
+
+.admin-collapsible-closed > .admin-collapse-region > .admin-config-section {
+  padding-bottom: 20px;
+}
+
+/* Danger zone */
+.admin-danger-zone {
+  border-color: color-mix(in srgb, var(--admin-red) 38%, var(--admin-line));
+}
+
+.admin-panel-icon-danger {
+  color: var(--admin-red);
+  background: color-mix(in srgb, var(--admin-red) 12%, transparent);
+}
+
+.admin-danger-button-solid {
+  background: var(--admin-red);
+  color: #ffffff;
+}
