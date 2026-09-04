@@ -914,8 +914,9 @@ export function AgreementSection({
                     <p>
                       <strong>Delete this draft agreement?</strong>
                       <span>
-                        Its commission rules are removed with it. Active agreements can never be
-                        deleted, only superseded by a new version.
+                        Pending signing requests are cancelled and its commission rules are removed
+                        with it. Active agreements can never be deleted, only superseded by a new
+                        version.
                       </span>
                     </p>
                     <div className="admin-record-actions">
