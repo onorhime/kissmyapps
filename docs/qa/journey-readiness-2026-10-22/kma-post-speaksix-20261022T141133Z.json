@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-22T14:11:33.505Z",
+  "completed_at": "2026-10-22T14:11:34.598Z",
+  "boundary": "Final KMA readback after coordinating agent confirmed SpeakSix release20f5c4a healthy at manifest71",
+  "financial_gates": {
+    "MANAGED_CHECKOUT_ENABLED": false,
+    "CREATOR_TRANSFERS_ENABLED": false,
+    "CREATOR_CONNECT_ENABLED": false,
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": false,
+    "MERCHANT_CONNECT_LIVE_ENABLED": false
+  },
+  "endpoints": [
+    {
+      "url": "https://admin.kissmyapps.dev/healthz",
+      "method": "GET",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true
+    },
+    {
+      "url": "https://partners.kissmyapps.dev/healthz",
+      "method": "GET",
+      "status": 200,
+      "expected_status": 200,
+      "passed": true
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/funnel-metric-events",
+      "method": "GET",
+      "status": 405,
+      "expected_status": 405,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "read_only": true,
+  "mutations_performed": false,
+  "provider_actions": false,
+  "job_replays": false,
+  "emails_sent": false,
+  "scope": "Gate digests and HTTP GET health only. Container preservation is verified separately by the coordinating agent."
+}

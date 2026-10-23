@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-10-22",
+  "recorded_at": "2026-10-22T10:50:57.687788+00:00",
+  "environment": "hosted KMA Supabase",
+  "evidence_source": "Read-only SQL executed by the coordinating agent in the authenticated Safari Supabase SQL editor; this record preserves its observed results.",
+  "access": {
+    "browser_sql_editor": "verified",
+    "cli_management_api": "HTTP 403; browser verification used"
+  },
+  "query_manifest_note": "Hashes identify the checked reference scripts. The readiness audit was pasted into Safari without comments. The function comparison was executed as an inline comparison against the baseline67 manifest values, returning 17 matches and no mismatches, rather than returning full definition bodies.",
+  "query_manifest": [
+    {
+      "path": "scripts/hosted-partner-readiness-readonly.sql",
+      "sha256": "61a18f170d05fc9f84e84066f66a718503ca4b3b7fa8912660f9084f305ceb83",
+      "transaction": "BEGIN READ ONLY; ROLLBACK",
+      "changes_performed": false
+    },
+    {
+      "path": "scripts/hosted-partner-definitions-readonly.sql",
+      "sha256": "f6d331facad8fd483ddab98005fc94ac205c9ed06ed7da643c12552d1b9777f6",
+      "transaction": "BEGIN READ ONLY; ROLLBACK",
+      "changes_performed": false
+    }
+  ],
+  "transactions": {
+    "read_only": true,
+    "timeouts_set": true,
+    "rolled_back": true
+  },
+  "migration_state": {
+    "count": 67,
+    "latest": "20261019100000",
+    "candidate_version": "20261022100000",
+    "candidate_applied": false
+  },
+  "acceptance": {
+    "security_contract": "passed",
+    "anonymous_denial": "passed",
+    "missing_jwt_denial": "passed",
+    "nonmember_denial": "passed",
+    "unrelated_product_denial": "passed",
+    "member_reporting": {
+      "status": "passed",
+      "full_product_projection_rows": 2,
+      "full_option_projection_rows": 13,
+      "main_link_present": true,
+      "main_tracking_url_present": true,
+      "traffic_cache_rows": 2,
+      "trend_rows": 2,
+      "summary_has_data": true,
+      "agreement_ready": true,
+      "traffic_completeness_contract": "passed",
+      "billing_queue_ready": false,
+      "billing_totals_withheld": true,
+      "billing_backlog_suppression": "passed"
+    },
+    "definition_comparison": {
+      "reference": "baseline67-definition-manifest.json",
+      "definitions_checked": 17,
+      "present": 14,
+      "expected_pending_candidate_definitions": 3,
+      "matches": 17,
+      "mismatches": 0,
+      "compared_fields": [
+        "source_md5",
+        "security_definer",
+        "volatility",
+        "search_path/settings",
+        "anon_execute",
+        "authenticated_execute"
+      ]
+    }
+  },
+  "operational_state": {
+    "unresolved_stripe_receipts": 4,
+    "unresolved_commercial_facts": 0,
+    "scoped_unresolved_metric_refreshes": 0,
+    "managed_checkout_products": 0,
+    "settlement_platforms": 0,
+    "settlement_jobs": 0,
+    "settlement_batches": 0,
+    "managed_checkout_schedule": {
+      "enabled": true,
+      "paused": false,
+      "current_run_present": false
+    },
+    "legacy_processing_schedule": {
+      "enabled": false,
+      "pause_reason": "worker_http_failure"
+    }
+  },
+  "gate_state": {
+    "verification_method": "Supabase secret digests compared to known boolean values; raw secrets and digests are intentionally omitted.",
+    "MANAGED_CHECKOUT_ENABLED": false,
+    "CREATOR_TRANSFERS_ENABLED": false,
+    "CREATOR_CONNECT_ENABLED": false,
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": false,
+    "MERCHANT_CONNECT_LIVE_ENABLED": false,
+    "MANAGED_CHECKOUT_WORKER_ENABLED": true,
+    "MERCHANT_CONNECT_ENABLED": true,
+    "merchant_connect_provider_enabled": true,
+    "merchant_invitation_email_enabled": true
+  },
+  "local_regression_reference": {
+    "migrations": 68,
+    "passed_suites": 58,
+    "failed_suites": 0,
+    "skipped_suites": 0,
+    "full_run": "/tmp/kma-all-sql-db.DBbn83/result.json",
+    "traffic_entrypoint_run": "/tmp/kma-all-sql-db.ipDfSq/result.json",
+    "billing_entrypoint_run": "/tmp/kma-all-sql-db.UP2uCV/result.json",
+    "readonly_baseline67_audit_test": "/tmp/kma-hosted-readonly-local.yJ4dcA/result.json",
+    "qualification": "Local tests are synthetic and do not replace hosted/provider verification."
+  },
+  "readiness": {
+    "hosted_baseline_readonly_acceptance": "passed",
+    "candidate_status": "Pending deployment; the candidate migration and v2 receiver are not established as hosted by this baseline audit.",
+    "release_scope": "Evidence supports preparing a gated deployment with checkout and payouts kept disabled; deployment itself remains a separate authorized operation. Refresh CLI authorization and confirm final artifact/headroom requirements before executing it.",
+    "financial_activation": "Not cleared. Resolve or explicitly disposition the four unresolved Stripe receipts and paused legacy processing, configure the actual product/funnel and settlement scope, and complete provider/payment/payout acceptance before enabling financial gates.",
+    "managed_worker": "The baseline query showed no current run lease; it did not establish an absence of historical runs. Follow-up read-only inspection confirmed successful scheduled worker history, including periodic reconciliation of an existing fully refunded TEST order. Financial activation remains disabled.",
+    "zoom": "Real licensed-host, scheduled-webinar and attendance acceptance remains separate.",
+    "post_deployment": "Recheck migration presence, receiver contract, controlled v2 delivery and reports after a separately authorized deployment."
+  },
+  "performed_actions": {
+    "deployment": false,
+    "remote_data_mutation": false,
+    "remote_settings_mutation": false,
+    "remote_job_mutation": false,
+    "emails_sent": false,
+    "external_provider_calls": false
+  },
+  "privacy": "No raw secrets, emails, learner/creator identifiers, individual orders, financial amounts or function bodies are included.",
+  "corrections": [
+    {
+      "recorded_at": "2026-10-22T11:14:37.275837+00:00",
+      "field": "operational_state.managed_checkout_schedule.current_run_present",
+      "reason": "The source query tests run_id IS NOT NULL, which indicates a current run lease, not whether the worker has ever run. Prior has_run wording was inaccurate."
+    }
+  ]
+}

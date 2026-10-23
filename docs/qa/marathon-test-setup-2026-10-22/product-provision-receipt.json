@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-22T14:54:56.498Z",
+  "service_product_configuration": [
+    {
+      "product_id": "5f10a99c-34ba-4818-bcc8-78a21b5be160",
+      "enabled": true
+    }
+  ],
+  "global_checkout_enabled": false,
+  "creator_transfers_enabled": false
+}

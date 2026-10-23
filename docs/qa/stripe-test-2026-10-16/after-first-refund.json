@@ -1,0 +1,298 @@
+{
+  "at": "2026-10-16T21:36:47.665Z",
+  "status": {
+    "startedAt": "2026-10-16T21:26:36.079Z",
+    "realProvider": true,
+    "livemode": false,
+    "checkoutCreated": 7,
+    "accountId": "acct_1SaSp9E47mNwFlz1",
+    "priceId": "price_1URIc0E47mNwFlz15KgkKFdd",
+    "appData": "disposable local PostgreSQL",
+    "checkedAt": "2026-10-16T21:36:44.166Z",
+    "orders": [
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "77e75028-4c15-436a-92e8-2b8c1a5ea9f4",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "9142a13b-5b8c-49d3-8454-c3c7d19d57f5",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      },
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "705483de-211b-45ff-8df3-148e5a2120e6",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "930e6431-8225-496e-a394-e387a2c59f6d",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      },
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "a671e05b-0156-428a-bdfe-83b5f21ce660",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "4d755888-f4a6-4195-bafa-ad4c1d55604a",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      },
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "25801e00-c608-4f8b-b313-2f0476c45ac1",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "8b422a11-54f7-4f04-88a9-955d0eb5e96e",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      },
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "bbb06aaa-c473-4e91-93d9-a2cb22ce9190",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "c93d74a9-8d3b-488a-bdd4-11ff2a2e6b87",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      },
+      {
+        "status": "refunded",
+        "currency": "USD",
+        "livemode": false,
+        "order_id": "67dfe4fa-2163-4cea-adf2-5c9d7b91ab58",
+        "revision": 4,
+        "account_id": "acct_1SaSp9E47mNwFlz1",
+        "attempt_id": "1aa9374a-ba9c-40e4-9ecf-7d2043551a55",
+        "amount_minor": 16900,
+        "refund_status": "succeeded",
+        "payment_status": "paid"
+      }
+    ],
+    "pending_callbacks": 0,
+    "refund_operations": 6,
+    "earned_commissions": 6,
+    "canonical_purchases": 6,
+    "delivered_callbacks": 12,
+    "commission_reversals": 6,
+    "provider_adjustment_receipts": 6,
+    "captures": 6,
+    "entitlements": 216,
+    "cohort_status": "cancelled",
+    "capture_refunds": [
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "a0e82193-8bc1-42cb-b456-4e20e4a75034",
+        "refund_status": null
+      },
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "f8ee8a89-4729-4822-9ec2-bc0a12e99485",
+        "refund_status": null
+      },
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "c63bb2d5-ee18-4143-8821-7e7b3bfb7deb",
+        "refund_status": null
+      },
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "628cc513-2cce-4e2a-8898-c9579fadaddd",
+        "refund_status": null
+      },
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "b9c3a459-bc7b-4135-95e2-2f7a35a17119",
+        "refund_status": null
+      },
+      {
+        "status": "refunded",
+        "refund_id": null,
+        "capture_id": "1977d3a9-317a-4fa4-b922-3d31274649d1",
+        "refund_status": null
+      }
+    ],
+    "cancelled_entitlements": 216,
+    "webhookReady": true,
+    "webhookProcessed": 24,
+    "webhookRejected": 0,
+    "webhookAcks": 12,
+    "lastError": null
+  },
+  "kma": {
+    "awards": [
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      },
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      },
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      },
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      },
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      },
+      {
+        "status": "reversed",
+        "current_minor": 0,
+        "original_minor": 4225,
+        "reversed_minor": 4225
+      }
+    ],
+    "refunds": [
+      {
+        "status": "succeeded",
+        "order_id": "77e75028-4c15-436a-92e8-2b8c1a5ea9f4",
+        "refund_id": "re_3URIhXE47mNwFlz11hZZrfEK",
+        "amount_minor": 16900
+      },
+      {
+        "status": "succeeded",
+        "order_id": "705483de-211b-45ff-8df3-148e5a2120e6",
+        "refund_id": "re_3URIixE47mNwFlz113WS27np",
+        "amount_minor": 16900
+      },
+      {
+        "status": "succeeded",
+        "order_id": "a671e05b-0156-428a-bdfe-83b5f21ce660",
+        "refund_id": "re_3URIfPE47mNwFlz11wnWwj8E",
+        "amount_minor": 16900
+      },
+      {
+        "status": "succeeded",
+        "order_id": "25801e00-c608-4f8b-b313-2f0476c45ac1",
+        "refund_id": "re_3URIkuE47mNwFlz11igqMsEL",
+        "amount_minor": 16900
+      },
+      {
+        "status": "succeeded",
+        "order_id": "bbb06aaa-c473-4e91-93d9-a2cb22ce9190",
+        "refund_id": "re_3URIjqE47mNwFlz11W60drVC",
+        "amount_minor": 16900
+      },
+      {
+        "status": "succeeded",
+        "order_id": "67dfe4fa-2163-4cea-adf2-5c9d7b91ab58",
+        "refund_id": "re_3URIgkE47mNwFlz11MlOFZsb",
+        "amount_minor": 16900
+      }
+    ],
+    "settlement_jobs": 0,
+    "pending_callbacks": 0,
+    "refund_operations": 6,
+    "pending_refund_operations": 0
+  },
+  "speaksix": {
+    "captures": [
+      {
+        "id": "a0e82193-8bc1-42cb-b456-4e20e4a75034",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      },
+      {
+        "id": "f8ee8a89-4729-4822-9ec2-bc0a12e99485",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      },
+      {
+        "id": "c63bb2d5-ee18-4143-8821-7e7b3bfb7deb",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      },
+      {
+        "id": "628cc513-2cce-4e2a-8898-c9579fadaddd",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      },
+      {
+        "id": "b9c3a459-bc7b-4135-95e2-2f7a35a17119",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      },
+      {
+        "id": "1977d3a9-317a-4fa4-b922-3d31274649d1",
+        "status": "refunded",
+        "amount_cents": 16900,
+        "refunded_cents": 16900
+      }
+    ],
+    "snapshots": [
+      {
+        "refund_id": "re_3URIgkE47mNwFlz11MlOFZsb",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      },
+      {
+        "refund_id": "re_3URIhXE47mNwFlz11hZZrfEK",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      },
+      {
+        "refund_id": "re_3URIkuE47mNwFlz11igqMsEL",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      },
+      {
+        "refund_id": "re_3URIfPE47mNwFlz11wnWwj8E",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      },
+      {
+        "refund_id": "re_3URIixE47mNwFlz113WS27np",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      },
+      {
+        "refund_id": "re_3URIjqE47mNwFlz11W60drVC",
+        "refund_status": "succeeded",
+        "refunded_minor": 16900
+      }
+    ],
+    "entitlements": 216,
+    "refund_receipts": 6,
+    "cancelled_entitlements": 216
+  }
+}

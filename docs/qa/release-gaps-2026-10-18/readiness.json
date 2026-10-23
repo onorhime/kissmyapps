@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-18",
+  "status": "Local gaps resolved; ready for a controlled disabled deployment after release preflight. Hosted payment activation is not yet accepted.",
+  "scope": {
+    "deployment": false,
+    "hosted_configuration_changes": false,
+    "real_provider_calls": false,
+    "external_emails": false,
+    "public_checkout_enabled": false,
+    "creator_payouts_enabled": false,
+    "hosted_inventory_boundary": "Local source and fixtures only; prior hosted inventory remains separately dated."
+  },
+  "fixes": [
+    "Separate default-off managed reconciliation schedule with durable ownership, bounded single-item callback leasing, crash recovery, admin health and existing operational alert aggregation.",
+    "Eight-digit merchant email-code input and compatible confirmation/magic-link templates; Auth remains the verifier, partner flow preserved.",
+    "Independent default-off SpeakSix KMA callback gate allowing signed existing-order updates while public checkout and outbound payment operations remain disabled."
+  ],
+  "validation": {
+    "kma_edge": {
+      "passed": 308,
+      "failed": 0,
+      "boundary": "Broad suite before final alert-only wiring; final focused worker/alert19 and healthUI18 passed afterward."
+    },
+    "kma_frontend": {
+      "initial_passed": 920,
+      "initial_failed": 3,
+      "failure_type": "5000ms timeouts under concurrent local load",
+      "focused_retest_passed": 3,
+      "focused_retest_timeout_ms": 15000,
+      "health_ui_final_passed": 18,
+      "merchant_ui_passed": 28,
+      "note": "Not a claim that the default-timeout broad invocation exited successfully."
+    },
+    "kma_script_tests": {
+      "passed": 26,
+      "failed": 0
+    },
+    "kma_database": {
+      "migrations": 63,
+      "suite_passed": 50,
+      "suite_failed": 0,
+      "skipped": 3,
+      "skip_reason": "Historical suites require named production records; not executed against hosted data."
+    },
+    "kma_scheduler": {
+      "concurrent_connections": 6,
+      "owners": 1,
+      "native_sql": true,
+      "pg_net_delivery": "stubbed loopback recording; hosted transport unverified"
+    },
+    "merchant_auth": {
+      "native_supabase_auth": true,
+      "real_go_templates": true,
+      "otp_length": 8,
+      "grouped_checks_passed": 4,
+      "email_boundary": "6 synthetic emails to in-memory loopback SMTP only"
+    },
+    "crossapp": {
+      "merchant_direct_checks_passed": 11,
+      "legacy_platform_checks_passed": 11,
+      "actual_worker_and_sql": true,
+      "receiver_public_sales_enabled": false,
+      "receiver_outbound_credentials": "empty",
+      "stripe_transport": "local fake only"
+    },
+    "speaksix": {
+      "marathon_suite_commands_passed": 33,
+      "sql_migrations": 68,
+      "sql_tests_passed": 54,
+      "actual_next_http_callback_test": "passed; paid/refunded/replayed/invalid/persistence-failure cases with sales off",
+      "typescript": "passed",
+      "marathon_worker_checks": "passed"
+    },
+    "builds": {
+      "kma": "passed final build",
+      "speaksix": "passed Next production build",
+      "warnings": [
+        "Existing KMA chunk-size warning; no build failure."
+      ]
+    },
+    "whitespace_checks": "passed both repositories"
+  },
+  "remaining_release_steps": [
+    "Obtain deployment approval; retain disabled public checkout and creator payouts.",
+    "Apply KMA merchant and managed-schedule migrations and SpeakSix pay-first migration; install updated handlers/UI/worker/alerts as one coherent release.",
+    "Use owner-created production product/funnel/offer and exact merchant account/mode bindings; do not invent commercial configuration.",
+    "Install merchant Auth templates and scoped callback secrets; retain hosted8-digit policy.",
+    "Provision distinct Stripe platform-payment, connected-payment and merchant-status destinations and signing secrets; configure dedicated scheduler Vault/Edge secret and cron.",
+    "Enable only approved callback/reconciliation gates for controlled hosted TEST acceptance while public checkout and payouts remain disabled.",
+    "Prove actual hosted cron/Edge/signature delivery, retry/duplicate/refund acknowledgement, fresh/returning email sign-in and monitoring delivery. Local proof is not hosted proof.",
+    "Recheck VPS capacity against release image size before deployment; no cleanup authorized or performed in this task.",
+    "Payment/payout activation and Zoom webinar acceptance remain separately gated."
+  ],
+  "evidence": [
+    "crossapp-merchant.json",
+    "crossapp-platform.json",
+    "../managed-worker-2026-10-18/README.md",
+    "../merchant-auth-2026-10-18/README.md",
+    "../../../../Bclearn-Pilot/docs/qa/kma-callbacks-2026-10-18/README.md",
+    "../hosted-webhooks-2026-10-18/readiness-summary.json"
+  ]
+}

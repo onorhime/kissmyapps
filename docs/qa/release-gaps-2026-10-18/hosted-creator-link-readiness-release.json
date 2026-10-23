@@ -1,0 +1,43 @@
+{
+  "at": "2026-10-18T11:18:39.112Z",
+  "project": "mmyruzjemjecqyivhrgr",
+  "migration": {
+    "file": "20261018110000_admin_managed_link_readiness.sql",
+    "version": "20261018110000",
+    "name": "admin_managed_link_readiness",
+    "sha256": "581753241a31d4e7eb64982b20bdf39b9e8f658dfb54b9d6de2823165ed6b37d"
+  },
+  "migrations": 64,
+  "changedFunctions": [
+    "public.configure_admin_tracking(p_input jsonb)",
+    "public.get_admin_data_health()",
+    "public.get_admin_platform_settings()",
+    "public.get_admin_product_configuration(p_product_id uuid)",
+    "public.product_has_launch_ready_billing_offer(p_product_id uuid)",
+    "public.validate_active_link_billing_readiness()"
+  ],
+  "addedFunctions": [
+    "kma_internal.billing_offer_is_launch_ready(p_offer_id uuid)",
+    "public.get_admin_data_health_before_managed_link_readiness()",
+    "public.get_admin_platform_settings_before_managed_link_readiness()"
+  ],
+  "unchangedFunctions": 308,
+  "edgeFunctionsPreserved": true,
+  "tablesPreserved": 107,
+  "secretDigestsPreserved": true,
+  "financialGatesDisabled": [
+    "MANAGED_CHECKOUT_ENABLED",
+    "CREATOR_TRANSFERS_ENABLED",
+    "CREATOR_CONNECT_ENABLED",
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED"
+  ],
+  "pausedFourJobsUnchanged": true,
+  "legacySchedulerPaused": true,
+  "cronDefinitionsUnchanged": true,
+  "rehearsal": "Passed and rolled back before commit",
+  "scope": "Additive creator-link readiness migration only; frontend release is separate",
+  "publicDataChanged": false,
+  "newLinksCreated": false,
+  "providerCalls": false,
+  "jobRecoveryAttempted": false
+}

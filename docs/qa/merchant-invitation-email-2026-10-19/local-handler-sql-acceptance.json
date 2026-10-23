@@ -1,0 +1,19 @@
+{
+  "passed": 12,
+  "cases": [
+    "create sends one invitation with server-owned recipient and link",
+    "same request replay returns existing invitation without a duplicate email",
+    "request identity cannot be reused with different merchant details",
+    "admin retrieves the same secure link without sending another email",
+    "workspace and stored invitation never contain the raw bearer link token",
+    "immediate resend is throttled before a provider call",
+    "recipient portal, unapproved origin and invalid session cannot send or recover admin invitations",
+    "known provider rejection preserves invitation and reports failure",
+    "ambiguous provider response does not claim sent or failed",
+    "explicit resend after cooldown uses the same link and replays once",
+    "uncertain delivery recovery reuses the exact provider idempotency key and payload",
+    "revoked invitation cannot be copied or resent"
+  ],
+  "hostedWrites": false,
+  "externalMail": false
+}

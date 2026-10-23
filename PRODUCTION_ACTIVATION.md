@@ -283,9 +283,16 @@ API version, event selection, and secret version—not the secret.
 
 ## 8. Workers, scheduling, and monitoring
 
-Deploying a worker does not schedule it. No scheduler or alert thresholds are
-checked in, so cadence, retry/backlog SLOs, log retention, paging destination,
-and on-call ownership must be approved before scheduling.
+Deploying a worker does not schedule it. The approved September 6 sequential
+schedule and initial health thresholds are documented in
+`PROCESSING_SCHEDULER_RUNBOOK.md`. Its schema is disabled by default; the guarded
+release helper separately provisions a dedicated credential and enables the
+minute tick. The September 7 diagnostics/Admin health release also enabled
+independent worker/queue failure and stable-recovery email alerts to
+`onorhimevictory2017@gmail.com`; see
+`RELEASE_EVIDENCE_2026-09-07_PROCESSING_ALERTS.md`. Its setup test was accepted by
+Resend, with inbox receipt still unverified. Outside-Supabase outage paging,
+retention policy and public-launch operational ownership remain separate gates.
 
 Invoke each worker with `POST` and `x-kma-worker-secret`, in dependency order:
 

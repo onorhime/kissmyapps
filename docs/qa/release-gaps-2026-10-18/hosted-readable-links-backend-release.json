@@ -1,0 +1,90 @@
+{
+  "scope": "Readable-link schema and tracking-redirect backend release only; gateway/frontend acceptance coordinated separately",
+  "migration": {
+    "at": "2026-10-18T11:36:29.363Z",
+    "migration": {
+      "file": "20261018120000_readable_creator_links.sql",
+      "version": "20261018120000",
+      "name": "readable_creator_links",
+      "sha256": "bd922f11a06c17e6dc813479da45eeaa261a00230116259b332689c1df1ad13d"
+    },
+    "migrations": 65,
+    "existingTablesPreserved": 107,
+    "newTables": 3,
+    "existingViewsAndCompositeOidsPreserved": true,
+    "changedFunctions": [
+      "public.get_admin_product_configuration(p_product_id uuid)",
+      "public.issue_admin_main_link(p_input jsonb)"
+    ],
+    "addedFunctions": [
+      "kma_internal.ensure_tracking_link_alias(p_link_id uuid)",
+      "kma_internal.protect_tracking_alias_identity()",
+      "kma_internal.readable_handle(p_text text, p_fallback text, p_max integer)",
+      "kma_internal.tracking_link_short_url(p_link_id uuid)",
+      "public.allocate_tracking_link_alias()",
+      "public.get_admin_product_configuration_before_short_urls(p_product_id uuid)",
+      "public.issue_admin_main_link_before_short_urls(p_input jsonb)",
+      "public.partner_link_short_url(p_link_id uuid)",
+      "public.register_short_tracking_click(p_path text, p_context jsonb)"
+    ],
+    "unchangedFunctions": 315,
+    "aliases": {
+      "links": 4,
+      "aliases": 4,
+      "unaliased": 0,
+      "creator_handles": 2,
+      "product_handles": 2
+    },
+    "secretDigestsPreserved": true,
+    "financialGatesDisabled": [
+      "MANAGED_CHECKOUT_ENABLED",
+      "CREATOR_TRANSFERS_ENABLED",
+      "CREATOR_CONNECT_ENABLED",
+      "EXTERNAL_COMMERCE_WEBHOOK_ENABLED"
+    ],
+    "pausedFourJobsUnchanged": true,
+    "cronPreserved": true
+  },
+  "edge": {
+    "at": "2026-10-18T11:37:35.445Z",
+    "deployed": "tracking-redirect",
+    "versionBefore": 16,
+    "versionAfter": 17,
+    "verify_jwt": false,
+    "ezbr_sha256": "c24d2722d0d785f0689eee0d1e6a6e1df10465b09f42c9bc550702be20df9650",
+    "deployedBundleSha256": "b59c08fc5c8f1413cb7a1e21f8904a2588a7cd60501537635530da62921159ad",
+    "unrelatedFunctionsPreserved": 28,
+    "financialGatesAndPausedJobsUnchanged": true,
+    "allSecretDigestsPreserved": true,
+    "supabaseManagedSecretMetadataRefreshedByFunctionDeployment": 7
+  },
+  "sourceParity": {
+    "applicationModules": 8,
+    "allEqualFrozenSource": true,
+    "priorApplicationModulesBackedUp": 8
+  },
+  "localVerification": {
+    "sqlSuitesPassed": 52,
+    "sqlSuitesFailed": 0,
+    "existingProductionFixtureSkips": 3,
+    "newAliasAssertions": 33,
+    "edgeTestsPassed": 13,
+    "gatewayTestsPassed": 3,
+    "twoConcurrentRealRpcIssuancesPassed": true
+  },
+  "preserved": {
+    "legacyUrls": true,
+    "attributionDimensions": true,
+    "existingViewOidsAndCompositeTypes": true,
+    "allSecretDigests": true,
+    "financialGatesDisabled": true,
+    "fourPausedJobsAndSchedulerPause": true
+  },
+  "notPerformed": [
+    "No financial gate enabled",
+    "No queue recovery",
+    "No payment, refund or payout",
+    "No emails",
+    "No new production affiliate, product or agreement"
+  ]
+}

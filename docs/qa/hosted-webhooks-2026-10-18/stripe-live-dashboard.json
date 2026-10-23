@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-18T00:23:06.410Z",
+  "method": "manual native Safari accessibility inspection",
+  "accountId": "acct_1SaSp9E47mNwFlz1",
+  "business": "Futura Funds Inc.",
+  "url": "https://dashboard.stripe.com/acct_1SaSp9E47mNwFlz1/workbench/webhooks",
+  "mode": "live",
+  "observation": "Event destinations table contained only column headers and no destination rows on settled reads. Read-only label visible. No settings changed.",
+  "limitation": "Dashboard observation, not live-key API inventory."
+}

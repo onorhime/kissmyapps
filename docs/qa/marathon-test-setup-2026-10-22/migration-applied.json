@@ -1,0 +1,42 @@
+{
+  "startedAt": "2026-10-22T15:05:11.868Z",
+  "finishedAt": "2026-10-22T15:05:17.709Z",
+  "checks": {
+    "migration69": true,
+    "previousHistoryPreserved": true,
+    "definitionsMatch": true,
+    "privatePermissions": true,
+    "secretDigestsPreserved": true,
+    "edgeFunctionsPreserved": true
+  },
+  "passed": true,
+  "result": [
+    {
+      "receipt": {
+        "migration": "20261022110000",
+        "definitions": [
+          {
+            "name": "kma_internal.filtered_compute_metrics",
+            "source_md5": "037bcd2044895c8c6889434dd07ddacf"
+          },
+          {
+            "name": "kma_internal.filtered_metric_rows",
+            "source_md5": "3aeb6e2fbbd0278e93db008bd15a66a8"
+          },
+          {
+            "name": "public.funnel_metrics_report",
+            "source_md5": "d27b02d464c3ab2d27258d7f6bd50bdb"
+          },
+          {
+            "name": "public.funnel_metrics_report_v1",
+            "source_md5": "73d27cfa743213d0eb5def29d1c143ac"
+          }
+        ],
+        "financial_rows_unchanged": true,
+        "original_tables_preserved": 117,
+        "original_functions_preserved": 336
+      }
+    }
+  ],
+  "apply_sha256": "1de2c072e144f001b1c4fb1ef12cb855ca986175ac36dea341dd851acf3393b5"
+}

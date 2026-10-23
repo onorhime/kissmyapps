@@ -1,0 +1,77 @@
+{
+  "state": "local review complete; deployment pending full frontend regression",
+  "fullEdgeRegression": {
+    "passed": 333,
+    "failed": 0,
+    "externalNetworkAllowed": false,
+    "log": ".cache/merchant-invitation-email-20261019/review/full-deno.log"
+  },
+  "concurrency": {
+    "at": "2026-10-19T14:25:54.318Z",
+    "migrationSha256": "2d969c77faa5a20d70570ffaa55f227ce2e0bc82d8c6c2d565e6a1c97cd91d1a",
+    "concurrentCreateCalls": 6,
+    "concurrentInitialSendCalls": 6,
+    "concurrentRecoverySendCalls": 6,
+    "oneInvitation": true,
+    "oneSendLeasePerWave": true,
+    "sameDurableProviderKeyForUnknownRetry": true,
+    "counts": {
+      "attempts": 2,
+      "requests": 1,
+      "deliveries": 1,
+      "invitations": 1
+    },
+    "fixturePath": "/tmp/kma-managed-crossapp.dU4ENw",
+    "hostedWrites": false,
+    "providerCalls": 0
+  },
+  "backend": {
+    "state": "local only; deployment pending root release",
+    "database": {
+      "migrations": 66,
+      "suites_passed": 53,
+      "failed": 0,
+      "skipped": 3,
+      "skips": "historical production-row-specific suites28,31,33",
+      "new_assertions": 45,
+      "result": "/tmp/kma-all-sql-db.j3X7Bh/result.json",
+      "exact_frozen_source": true
+    },
+    "deno": {
+      "passed": 39,
+      "failed": 0,
+      "suites": [
+        "merchant-connect/index_test.ts",
+        "merchant-connect/invitation-email_test.ts",
+        "merchant-connect-webhook/index_test.ts"
+      ],
+      "typecheck": "passed"
+    },
+    "lint": "passed",
+    "diff_check": "passed",
+    "provider_requests": "zero external; only mocked transport",
+    "financial_gates": "untouched",
+    "legacy_jobs": "untouched; four remain paused"
+  },
+  "reviewedGuards": [
+    "Admin password role check and portal origin separation precede invitation actions",
+    "Required stable request UUID and canonical payload reject mismatched replay",
+    "HMAC link token is not stored as plaintext or included in workspace summaries",
+    "Expired, used, revoked and hash-only legacy invitation handling is explicit",
+    "Actor and recipient rate limits are serialized",
+    "Uncertain deliveries reuse frozen full envelope and durable provider key within 23 hours",
+    "Provider payload conflict is terminal; concurrent conflict remains bounded same-key retry",
+    "Resend redirects are disallowed; sender domain click and open tracking are disabled",
+    "Only service role can persist provider receipt; admins cannot forge accepted status",
+    "No new cron, background worker, Stripe mutation or financial enablement"
+  ],
+  "issuesResolved": [
+    "Actor rate-limit race",
+    "Legacy can_retry mismatch",
+    "Numeric template version NULL validation",
+    "UUID case normalization",
+    "Different-payload provider 409 retry",
+    "Provider redirect policy"
+  ],
+  "hostedWrites": false
+}

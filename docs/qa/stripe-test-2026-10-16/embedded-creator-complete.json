@@ -1,0 +1,23 @@
+{
+  "mode": "stripe-test",
+  "counts": {
+    "reads": 113,
+    "accountCreates": 1,
+    "accountSessions": 8,
+    "deniedProviderCalls": 0,
+    "successfulSessions": 8,
+    "statusChecks": 18
+  },
+  "account": {
+    "status": "ready",
+    "verifiedAt": "2026-10-16T23:24:33.426+01:00",
+    "payoutsEnabled": true,
+    "requirementsDue": [],
+    "detailsSubmitted": true,
+    "transfersEnabled": true,
+    "connectedAccountId": "acct_1URJIdE2asTL6F4V"
+  },
+  "databaseOnlyLocal": true,
+  "moneyMovementEnabled": false,
+  "authentication": "synthetic fresh password AMR; real reauthentication and MFA not exercised"
+}

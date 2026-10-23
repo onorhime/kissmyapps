@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-22T17:09:52.475Z",
+  "results": [
+    {
+      "label": "Unsigned ingestion denied",
+      "status": 401,
+      "code": null,
+      "passed": true
+    },
+    {
+      "label": "Browser ingestion denied",
+      "status": 403,
+      "code": null,
+      "passed": true
+    },
+    {
+      "label": "GET ingestion denied",
+      "status": 405,
+      "code": null,
+      "passed": true
+    },
+    {
+      "label": "get_admin_funnel_journey_definition deployed and anonymous access denied",
+      "status": 401,
+      "code": "42501",
+      "passed": true
+    },
+    {
+      "label": "save_admin_funnel_journey_definition deployed and anonymous access denied",
+      "status": 401,
+      "code": "42501",
+      "passed": true
+    },
+    {
+      "label": "publish_admin_funnel_journey_definition deployed and anonymous access denied",
+      "status": 401,
+      "code": "42501",
+      "passed": true
+    }
+  ],
+  "gates": {
+    "MANAGED_CHECKOUT_ENABLED": "disabled",
+    "CREATOR_TRANSFERS_ENABLED": "disabled",
+    "CREATOR_CONNECT_ENABLED": "disabled",
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": "disabled",
+    "MERCHANT_CONNECT_LIVE_ENABLED": "disabled"
+  },
+  "secretDigestsPreserved": true,
+  "eventsSent": 0,
+  "providerActions": 0,
+  "passed": true
+}

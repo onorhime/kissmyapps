@@ -1,0 +1,224 @@
+{
+  "startedAt": "2026-10-17T16:39:13.563Z",
+  "realStripe": true,
+  "livemode": false,
+  "applicationData": "disposable local PostgreSQL",
+  "authentication": "synthetic local fixture identity",
+  "platformAccountId": "acct_1SaSp9E47mNwFlz1",
+  "payoutsEnabled": false,
+  "checkedAt": "2026-10-17T16:57:08.304Z",
+  "ready": true,
+  "kma": {
+    "orders": [
+      {
+        "id": "5ab848a9-927e-4df7-b095-d3947ebf862f",
+        "status": "refunded",
+        "currency": "USD",
+        "account_id": "acct_1UMD6aCYo7AEhAYn",
+        "attempt_id": "9df56f5c-0ee2-44b4-9851-4e0846c67969",
+        "amount_minor": 16900,
+        "payment_status": "paid",
+        "application_fee_id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+        "platform_account_id": "acct_1SaSp9E47mNwFlz1",
+        "refunded_amount_minor": 16900,
+        "application_fee_amount": 4225,
+        "application_fee_verified_at": "2026-10-17T17:57:02.299429+01:00",
+        "application_fee_refunded_amount": 4225
+      },
+      {
+        "id": "359643a8-d8ee-4783-9fb0-1fbc376c08d3",
+        "status": "refunded",
+        "currency": "USD",
+        "account_id": "acct_1UMD6aCYo7AEhAYn",
+        "attempt_id": "11504431-0576-4423-9601-9b03dd70c829",
+        "amount_minor": 16900,
+        "payment_status": "paid",
+        "application_fee_id": null,
+        "platform_account_id": "acct_1SaSp9E47mNwFlz1",
+        "refunded_amount_minor": 16900,
+        "application_fee_amount": 0,
+        "application_fee_verified_at": null,
+        "application_fee_refunded_amount": 0
+      }
+    ],
+    "commissions": [
+      {
+        "status": "reversed",
+        "blocker": "verified_refund_or_lost_dispute",
+        "current": 0,
+        "order_id": "5ab848a9-927e-4df7-b095-d3947ebf862f",
+        "original": 4225,
+        "reversed": 4225
+      }
+    ],
+    "fee_refunds": [
+      {
+        "completed": true,
+        "refund_id": "fr_1URaiuCYo7AEhAYndilAgS96",
+        "amount_minor": 4225
+      }
+    ],
+    "payout_jobs": 0,
+    "pending_callbacks": 0
+  },
+  "speaksix": {
+    "captures": 2,
+    "pay_first_orders": [
+      {
+        "id": "5ab848a9-927e-4df7-b095-d3947ebf862f",
+        "status": "refunded",
+        "refunded": 16900,
+        "cohort_id": null,
+        "registration_id": null
+      },
+      {
+        "id": "359643a8-d8ee-4783-9fb0-1fbc376c08d3",
+        "status": "refunded",
+        "refunded": 16900,
+        "cohort_id": null,
+        "registration_id": null
+      }
+    ]
+  },
+  "bridge": {
+    "permittedMerchant": "acct_1UMD6aCYo7AEhAYn",
+    "webhooksReady": true,
+    "merchantInventoryEvidence": {
+      "accountId": "acct_1UMD6aCYo7AEhAYn",
+      "livemode": false,
+      "method": "stripe-dashboard-manual",
+      "observedAt": "2026-10-17T16:36:59.708Z",
+      "expiresAt": "2026-10-17T17:06:59.708Z",
+      "totalDestinations": 0,
+      "enabledDestinations": 0,
+      "screenshotPath": "/tmp/kma-speaksix-sandbox-webhook-inventory-20261017.jpg",
+      "screenshotSha256": "ad7377aa8d45bc7aa59ab3eee9aa6edb7e4ee7e07ab79c02def7c7ba665e3c3e",
+      "observation": "Parent operator verified exact acct_1UMD6aCYo7AEhAYn in Stripe Dashboard with Sandbox banner and SpeakSix sandbox identity. Event destinations table has headers only and no rows on two settled accessibility reads. Text evidence retained in /tmp/kma-speaksix-sandbox-webhook-inventory-20261017.txt.",
+      "apiRestriction": "403 oauth_not_supported",
+      "limitation": "Merchant webhook inventory was observed manually in Stripe Dashboard; it was not verified through the API."
+    },
+    "providerReads": 2440,
+    "oauthExchanges": 1,
+    "checkoutWrites": 2,
+    "refundWrites": 2,
+    "feeRefundWrites": 1,
+    "webhookAccepted": 10,
+    "webhookRejected": 0,
+    "webhookIgnored": 0,
+    "connectedWebhookAccepted": 8,
+    "platformWebhookAccepted": 2,
+    "accountingEvidence": [
+      {
+        "id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+        "object": "application_fee",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "charge": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+        "amount": 4225,
+        "amount_refunded": 4225,
+        "currency": "usd",
+        "balance_transaction": "txn_1URagYE47mNwFlz1FG2mSJMV",
+        "livemode": false
+      },
+      {
+        "id": "txn_1URagYE47mNwFlz1FG2mSJMV",
+        "object": "balance_transaction",
+        "amount": 4225,
+        "currency": "usd",
+        "type": "application_fee",
+        "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+        "exchange_rate": null,
+        "net": 4225,
+        "fee": 0
+      },
+      {
+        "id": "txn_3URagSCYo7AEhAYn1tpflhBF",
+        "object": "balance_transaction",
+        "amount": 23904,
+        "currency": "cad",
+        "type": "charge",
+        "source": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+        "exchange_rate": 1.41443,
+        "net": 16536,
+        "fee": 7368
+      }
+    ],
+    "webhookEvidence": [
+      {
+        "id": "evt_1URagTCYo7AEhAYnzcTsyWzX",
+        "type": "checkout.session.completed",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_1URagYE47mNwFlz1OsiErC0M",
+        "type": "application_fee.created",
+        "account": null,
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_1URahtCYo7AEhAYnjaBS9rzE",
+        "type": "checkout.session.completed",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URagSCYo7AEhAYn1yRvDUIE",
+        "type": "charge.refunded",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URagSCYo7AEhAYn10xUCBs1",
+        "type": "refund.created",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URagSCYo7AEhAYn1HnfmqLw",
+        "type": "refund.updated",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_1URaivE47mNwFlz18TmT7sMi",
+        "type": "application_fee.refunded",
+        "account": null,
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URahsCYo7AEhAYn0R9TbRK4",
+        "type": "refund.created",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URahsCYo7AEhAYn0CEiKwuu",
+        "type": "charge.refunded",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      },
+      {
+        "id": "evt_3URahsCYo7AEhAYn00x7GFLq",
+        "type": "refund.updated",
+        "account": "acct_1UMD6aCYo7AEhAYn",
+        "received": true,
+        "ignored": false
+      }
+    ]
+  },
+  "lastError": null,
+  "merchant": {
+    "accountId": "acct_1UMD6aCYo7AEhAYn",
+    "status": "connected",
+    "businessName": "SpeakSix TEST merchant"
+  }
+}

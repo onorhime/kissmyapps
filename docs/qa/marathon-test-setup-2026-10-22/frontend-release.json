@@ -1,0 +1,19 @@
+{
+  "release": "20261022T150000Z-marathon-test-reporting-550d501eac2a",
+  "archive_sha256": "6ad64e7d83328600b6bc2dfdd90c0027def562dcbc90fac89059c47dde2e3263",
+  "archive_bytes": 680820,
+  "files": 34,
+  "changed_files": [
+    "src/features/funnel-metrics/admin/FunnelMetricsPanel.test.tsx",
+    "src/features/funnel-metrics/admin/FunnelMetricsPanel.tsx",
+    "src/features/funnel-metrics/admin/MetricDiagnostics.tsx",
+    "src/features/funnel-metrics/admin/MetricEditor.tsx",
+    "src/features/funnel-metrics/admin/RecordedPerformance.tsx",
+    "src/features/funnel-metrics/gateway.test.ts",
+    "src/features/funnel-metrics/templates.ts",
+    "src/features/funnel-metrics/validation.ts"
+  ],
+  "tests_passed": 50,
+  "typecheck_build": "passed",
+  "preview_enabled": false
+}

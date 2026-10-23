@@ -1,0 +1,8 @@
+{
+  "at": "2026-10-22T14:53:21.996Z",
+  "status": "dedicated_test_binding_added",
+  "binding": "speaksix-marathon-test",
+  "previous_bindings_preserved": true,
+  "unrelated_secret_values_preserved": true,
+  "financial_gates_disabled": true
+}

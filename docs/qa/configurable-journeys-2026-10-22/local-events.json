@@ -1,0 +1,29 @@
+{
+  "environment": "disposable local database",
+  "events": [
+    {
+      "event_id": "4d64b370-1691-44ed-9fe3-49b8706ba3aa",
+      "duplicate": false
+    },
+    {
+      "event_id": "578be456-09a1-41e5-aaa7-b5e5c9a3e48f",
+      "duplicate": false
+    },
+    {
+      "event_id": "6a86f8bb-56bc-4a40-82e2-407e8fe2df17",
+      "duplicate": false
+    },
+    {
+      "event_id": "37e338e2-6d63-4c3d-8289-9428cfef48bc",
+      "duplicate": false
+    }
+  ],
+  "expected": {
+    "trial": 2,
+    "project": 2,
+    "conversionNumerator": 1,
+    "conversionDenominator": 2,
+    "rate": 50,
+    "pathPeople": 1
+  }
+}

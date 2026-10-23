@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-19T15:39:22.966156+00:00",
+  "status": "deployed and static-host verified",
+  "release": "20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+  "artifact_sha256": "be4723d7d3601acacc795666c3e0690bf523ff941a4e90a2d613a8cdf1ff65bb",
+  "manifest_sha256": "5f7ad1a1bddf638b760c48ce20a2588a8cb9dee3bc22ed544932829b561f4881",
+  "exact_files": 34,
+  "hosted_http_checks": {
+    "passed": 78,
+    "failed": 0,
+    "hosts": [
+      "admin.kissmyapps.dev",
+      "partners.kissmyapps.dev"
+    ]
+  },
+  "runtime": {
+    "at": "2026-10-19T15:38:53.448417+00:00",
+    "current": "/srv/kissmyapps/releases/20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+    "free_bytes": 4083867648,
+    "healthy": true,
+    "restarts": 0,
+    "files": 34,
+    "config_hashes": {
+      "compose.yaml": "c8c2d249200c76748eb224bf7cd592b412f5638ab6cdaf12034aea074cec7147",
+      "dashboard.Caddyfile": "0aaea8e8c08ab1e3958290c49d8485a8c20a5f3431eb506eb4d52b317ea48b4c"
+    },
+    "previous_release_preserved": "/srv/kissmyapps/releases/20261019T143158Z-merchant-invitation-email-e64a622475c9",
+    "other_containers_preserved": 15
+  },
+  "boundary": "Only the dashboard container and current release pointer changed. No edge configuration, provider setting, checkout/payout gate, queue, invitation, email, payment or payout was changed by this static release.",
+  "recipient_auto_email_delivery": "Not tested with a real invitation by this frontend release; root owns hosted Auth verification."
+}

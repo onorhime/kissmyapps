@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "checks": [
+    "Disabled checkout and another learner cannot create a payment",
+    "Lost provider response recovers the same durable payment attempt",
+    "With sales closed, a paid callback commits one capture even when its acknowledgement is lost",
+    "Retry and duplicate callback acknowledge the same event without double fulfillment",
+    "Bad signatures and signed wrong-mode callbacks cannot modify payment truth",
+    "Existing signed commission terms create one award and one earned ledger entry",
+    "Lost initial KMA request is recovered by the same saved attempt",
+    "A definitively expired session renews within the same reservation and frozen offer",
+    "All six matching-first reservations fulfill only after six verified paid orders",
+    "Cancellation refund recovers a lost response and reverses commission once",
+    "Pay-first intake purchase crosses both real schemas without a registration or cohort"
+  ],
+  "migrations": {
+    "kma": 63,
+    "speaksix": 68
+  },
+  "boundary": "Actual KMA HTTP/service/worker and both PostgreSQL schemas; actual SpeakSix Node adapter accepts callbacks with sales disabled and no outbound checkout credentials. Stripe transport and callbacks run only in isolated local fixtures. No live Stripe, email, bank transfer or deployment."
+}

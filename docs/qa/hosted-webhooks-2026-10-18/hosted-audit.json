@@ -1,0 +1,453 @@
+{
+  "checkedAt": "2026-10-18T00:19:40.082Z",
+  "scope": "Read-only hosted inventory and rejection probes; no deployment or provider mutation",
+  "project": "mmyruzjemjecqyivhrgr",
+  "functions": [
+    {
+      "slug": "tracking-redirect",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942191020
+    },
+    {
+      "slug": "browser-events",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942221837
+    },
+    {
+      "slug": "funnel-events",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942221837
+    },
+    {
+      "slug": "checkout-session",
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": 1788771616335
+    },
+    {
+      "slug": "stripe-price-verifier",
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": 1788620414417
+    },
+    {
+      "slug": "stripe-webhook",
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": 1788770771601
+    },
+    {
+      "slug": "stripe-worker",
+      "version": 18,
+      "verifyJwt": false,
+      "updatedAt": 1788771566849
+    },
+    {
+      "slug": "commercial-worker",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942221837
+    },
+    {
+      "slug": "metrics-worker",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942221837
+    },
+    {
+      "slug": "reconciliation-worker",
+      "version": 15,
+      "verifyJwt": false,
+      "updatedAt": 1787942221837
+    },
+    {
+      "slug": "agreement-notify",
+      "version": 16,
+      "verifyJwt": false,
+      "updatedAt": 1788569182402
+    },
+    {
+      "slug": "funnel-checkout-context",
+      "version": 8,
+      "verifyJwt": false,
+      "updatedAt": 1788771622480
+    },
+    {
+      "slug": "processing-dispatch",
+      "version": 5,
+      "verifyJwt": false,
+      "updatedAt": 1788795037781
+    },
+    {
+      "slug": "checkout-preflight",
+      "version": 7,
+      "verifyJwt": false,
+      "updatedAt": 1788775974964
+    },
+    {
+      "slug": "processing-alerts",
+      "version": 2,
+      "verifyJwt": false,
+      "updatedAt": 1788795040635
+    },
+    {
+      "slug": "sbfenv",
+      "version": 4,
+      "verifyJwt": false,
+      "updatedAt": 1792210683022
+    },
+    {
+      "slug": "creator-connect",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "creator-connect-webhook",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "creator-payout-worker",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "external-commerce",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "external-commerce-webhook",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "funnel-metric-events",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "funnel-order-eligibility",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "managed-checkout",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "managed-checkout-webhook",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "managed-checkout-worker",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    },
+    {
+      "slug": "managed-price-verifier",
+      "version": 1,
+      "verifyJwt": false,
+      "updatedAt": 1792229596948
+    }
+  ],
+  "secrets": [
+    {
+      "name": "TRACKING_HASH_SECRET"
+    },
+    {
+      "name": "INTERNAL_WORKER_SECRET"
+    },
+    {
+      "name": "SUPABASE_URL"
+    },
+    {
+      "name": "SUPABASE_ANON_KEY"
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY"
+    },
+    {
+      "name": "SUPABASE_PUBLISHABLE_KEYS"
+    },
+    {
+      "name": "SUPABASE_SECRET_KEYS"
+    },
+    {
+      "name": "SUPABASE_DB_URL"
+    },
+    {
+      "name": "SUPABASE_JWKS"
+    },
+    {
+      "name": "BROWSER_EVENT_ALLOWED_ORIGINS"
+    },
+    {
+      "name": "AGREEMENT_NOTIFY_SECRET"
+    },
+    {
+      "name": "RESEND_API_KEY"
+    },
+    {
+      "name": "AGREEMENT_EMAIL_FROM"
+    },
+    {
+      "name": "STRIPE_SECRET_KEY"
+    },
+    {
+      "name": "ADMIN_ALLOWED_ORIGINS"
+    },
+    {
+      "name": "FUNNEL_HMAC_BINDINGS"
+    },
+    {
+      "name": "CHECKOUT_ALLOWED_REDIRECT_ORIGINS"
+    },
+    {
+      "name": "FREE_CHECKOUT_PROMOTION_BINDINGS"
+    },
+    {
+      "name": "STRIPE_WEBHOOK_SECRET"
+    },
+    {
+      "name": "PROCESSING_SCHEDULER_SECRET"
+    },
+    {
+      "name": "PROCESSING_ALERT_SECRET"
+    },
+    {
+      "name": "MANAGED_CHECKOUT_ENABLED",
+      "disabled": true
+    },
+    {
+      "name": "MANAGED_CHECKOUT_WORKER_ENABLED",
+      "disabled": true
+    },
+    {
+      "name": "CREATOR_TRANSFERS_ENABLED",
+      "disabled": true
+    },
+    {
+      "name": "CREATOR_CONNECT_ENABLED",
+      "disabled": true
+    },
+    {
+      "name": "EXTERNAL_COMMERCE_WEBHOOK_ENABLED",
+      "disabled": true
+    }
+  ],
+  "database": [
+    {
+      "audit": {
+        "cron": [
+          {
+            "name": "kma-agreement-maintenance",
+            "active": true,
+            "schedule": "* * * * *",
+            "calls_managed_checkout": false
+          },
+          {
+            "name": "kma-processing-alerts",
+            "active": true,
+            "schedule": "* * * * *",
+            "calls_managed_checkout": false
+          },
+          {
+            "name": "kma-processing-chain",
+            "active": true,
+            "schedule": "* * * * *",
+            "calls_managed_checkout": false
+          }
+        ],
+        "migration_count": 61,
+        "latest_migration": "20261017010000",
+        "managed_order_count": 0,
+        "managed_outbox_count": 0,
+        "merchant_table_present": false,
+        "verified_managed_prices": 0,
+        "enabled_managed_products": 0,
+        "merchant_migration_present": false
+      }
+    }
+  ],
+  "probes": [
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook",
+      "method": "GET",
+      "origin": null,
+      "status": 405,
+      "error": "method_not_allowed",
+      "responseSha256": "417adff26926f87ad0e4406e2552741f2431abebc04bd05969508c43690fbde5"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 503,
+      "error": "binding_unavailable",
+      "responseSha256": "3f7ba9060114b1517eefdee1ff7a1dd7638186d9e1e888865a26d319e7460e4c"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook?binding_id=hosted-audit-unconfigured",
+      "method": "POST",
+      "origin": null,
+      "status": 503,
+      "error": "binding_unavailable",
+      "responseSha256": "5f5362dc7de6e32cd9e2220adbc1a3d46ea54419f96ca34f7c99ea856a3e1d24"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook",
+      "method": "POST",
+      "origin": "https://admin.kissmyapps.dev",
+      "status": 403,
+      "error": "browser_request_rejected",
+      "responseSha256": "cfbe5f16b9135dea844839f00caf50520f7d058231c7f2c3425ad17870be1205"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "method": "GET",
+      "origin": null,
+      "status": 405,
+      "error": "method_not_allowed",
+      "responseSha256": "5fed5f033ac3bf1136b1109eaeb380e57d9e19a6cbeb8f5dab70c8f0cd6f1612"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "method": "POST",
+      "origin": null,
+      "status": 401,
+      "error": "unauthorized",
+      "responseSha256": "db265452370fe41651b335f095eeddb9292fc1564c6048211c843729d71620e2"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect",
+      "method": "GET",
+      "origin": null,
+      "status": 404,
+      "error": null,
+      "responseSha256": "43a88ae05fc9cd3b3fa54eb73291ee137f745709bd986305422ce257fecd9e69"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook",
+      "method": "GET",
+      "origin": null,
+      "status": 404,
+      "error": null,
+      "responseSha256": "43a88ae05fc9cd3b3fa54eb73291ee137f745709bd986305422ce257fecd9e69"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 404,
+      "error": null,
+      "responseSha256": "43a88ae05fc9cd3b3fa54eb73291ee137f745709bd986305422ce257fecd9e69"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/creator-connect-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 503,
+      "error": "connect_webhook_unavailable",
+      "responseSha256": "8d915a529ce30739ff058c1e078d2e29dc4cf36e8549e068fe250bc2b49cfb76"
+    },
+    {
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/external-commerce-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 503,
+      "error": "merchant_webhook_unavailable",
+      "responseSha256": "60b9f2bb7e4707a007b2357f4d9d5d662f3e2658ef039f4a9e05e67e18ba4d32"
+    },
+    {
+      "url": "https://marathon.speaksix.com/api/marathon/kma-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 404,
+      "error": null,
+      "responseSha256": "e3ebaa16dd9d9b9fc107c42183fb6cf9d22927e1af03dbbdfa0ccc38e4e4ac31"
+    },
+    {
+      "url": "https://marathon.speaksix.com/api/marathon/kma-webhook",
+      "method": "POST",
+      "origin": "https://marathon.speaksix.com",
+      "status": 404,
+      "error": null,
+      "responseSha256": "e3ebaa16dd9d9b9fc107c42183fb6cf9d22927e1af03dbbdfa0ccc38e4e4ac31"
+    },
+    {
+      "url": "https://speaksix.com/api/marathon/kma-webhook",
+      "method": "POST",
+      "origin": null,
+      "status": 404,
+      "error": null,
+      "responseSha256": "e3ebaa16dd9d9b9fc107c42183fb6cf9d22927e1af03dbbdfa0ccc38e4e4ac31"
+    },
+    {
+      "url": "https://marathon.speaksix.com/api/marathon/config",
+      "method": "GET",
+      "origin": null,
+      "status": 200,
+      "error": null,
+      "publicConfig": {
+        "mode": "connected",
+        "local": false,
+        "payments": false,
+        "webinars": [],
+        "intakes": []
+      }
+    }
+  ],
+  "stripeTest": {
+    "accountId": "acct_1SaSp9E47mNwFlz1",
+    "hasMore": false,
+    "endpoints": [
+      {
+        "id": "we_1Sd6hjE47mNwFlz1iGKc1MpH",
+        "origin": "https://nzzeimpaajhehfwvfebq.supabase.co",
+        "path": "/functions/v1/stripe-webhook",
+        "status": "disabled",
+        "livemode": false,
+        "apiVersion": "2025-11-17.clover",
+        "events": [
+          "checkout.session.completed",
+          "checkout.session.expired",
+          "customer.subscription.created",
+          "customer.subscription.updated",
+          "customer.subscription.deleted",
+          "invoice.paid",
+          "invoice.payment_failed",
+          "charge.refunded",
+          "charge.dispute.closed"
+        ]
+      },
+      {
+        "id": "we_1Sc90yE47mNwFlz1GHigAmee",
+        "origin": "https://api.funnelfox.io",
+        "path": "/webhook/v1/stripe/01KBFMQ8SK0G5QR39RA36ZMJK5",
+        "status": "enabled",
+        "livemode": false,
+        "apiVersion": "2024-04-10",
+        "events": [
+          "*"
+        ]
+      }
+    ],
+    "newManagedDestinations": 0
+  }
+}

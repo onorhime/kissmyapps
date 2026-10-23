@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "observed_date": "2026-10-22",
+  "recorded_at": "2026-10-22T11:24:26.888408+00:00",
+  "scope": "KMA backend deployment only; frontend and SpeakSix releases have separate receipts",
+  "authorization": "Coordinating agent explicitly authorized committing the frozen migration once and deploying only the frozen funnel-metric-events receiver, with financial gates unchanged.",
+  "migration": {
+    "version": "20261022100000",
+    "count_before": 67,
+    "count_after": 68,
+    "migration_sha256": "011b2ffead124de1eac9702ca5bb3eb16afac66508d89933b6446ff5b9e09b9b",
+    "atomic_apply_sha256": "981e62d5f3f7ec2c7f7f5374b78dfd6fc234c1bb9a580b0c385809e6f8fe116f",
+    "transaction": "Migration and registry committed atomically once after a separate rollback-only rehearsal",
+    "original_tables_preserved_in_transaction": 114,
+    "registry_prior_entries_unchanged": true
+  },
+  "receiver": {
+    "slug": "funnel-metric-events",
+    "version": 5,
+    "verify_jwt": false,
+    "ezbr_sha256": "fef7b44b322373b722d09d8744286c65619af95414c3ec18851ad6b5b9336de9",
+    "bundleSha256": "a3ef54d3db117dd213b94942c3b068c79b6192e4d0a1ff5518dc6964cb792580"
+  },
+  "validation": {
+    "passed": true,
+    "local_edge_tests_passed": 7,
+    "local_journey_sql_regression": "passed after applying exact frozen atomic SQL",
+    "hosted_source_modules_matched": 8,
+    "candidate_sql_definitions_and_role_privileges_matched": 10,
+    "unrelated_edge_functions_preserved": 28,
+    "checks": {
+      "functionsPreserved": true,
+      "settingsPreserved": true,
+      "sourceParity": true,
+      "historyCorrect": true,
+      "definitionsCorrect": true,
+      "unrelatedDefinitionsPreserved": true,
+      "secretsPreserved": true,
+      "financialFlagsRemainFalse": true,
+      "cronPreserved": true,
+      "unrelatedRowDataPreserved": true,
+      "noHistoricExport": true,
+      "rejectionProbesPassed": true,
+      "secretNamesAndDigestsPreserved": true
+    },
+    "rejection_probes": [
+      {
+        "name": "unsigned_post",
+        "status": 401,
+        "expected": 401,
+        "code": null
+      },
+      {
+        "name": "browser_post",
+        "status": 403,
+        "expected": 403,
+        "code": null
+      },
+      {
+        "name": "get_rejected",
+        "status": 405,
+        "expected": 405,
+        "code": null
+      }
+    ]
+  },
+  "platform_metadata_refresh": {
+    "fields": [
+      "updated_at"
+    ],
+    "builtInSecretNames": [
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_DB_URL",
+      "SUPABASE_JWKS",
+      "SUPABASE_PUBLISHABLE_KEYS",
+      "SUPABASE_SECRET_KEYS",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ],
+    "digestsUnchanged": true,
+    "customSecretsUnchanged": true
+  },
+  "financial_gates": {
+    "MANAGED_CHECKOUT_ENABLED": false,
+    "CREATOR_TRANSFERS_ENABLED": false,
+    "CREATOR_CONNECT_ENABLED": false,
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": false,
+    "MERCHANT_CONNECT_LIVE_ENABLED": false
+  },
+  "capture_state": {
+    "journey_configurations": 0,
+    "classified_clicks": 0,
+    "identities": 0,
+    "v2_events": 0,
+    "historical_export_performed": false,
+    "historical_reclassification_performed": false,
+    "speak_six_capture_and_delivery_gates": "No change by this backend release; coordinating release must keep them off."
+  },
+  "preservation": {
+    "cron_and_schedule_configuration": "unchanged",
+    "secret_names_and_digests": "all unchanged",
+    "custom_secret_metadata": "unchanged",
+    "concurrent_existing_worker_activity": "Existing enabled managed reconciliation continued independently. The one old refunded TEST order and worker/health timestamp rows can refresh. All original other-table hashes remained unchanged.",
+    "billing_and_receipt_jobs": "No requeue, replay or manual worker trigger performed",
+    "provider_actions": "No payment, refund, payout, email, onboarding or Zoom action initiated by the release"
+  },
+  "rollback": "Keep additive schema and migration history; restore saved receiver v4 and revert producer/frontend if needed. No telemetry or historical rows should be deleted.",
+  "limits": [
+    "This proves the gated KMA backend deployment, not financial activation or live Zoom attendance.",
+    "No signed synthetic business telemetry was submitted to hosted ingestion.",
+    "SpeakSix v2 capture/delivery and historical outbox release remain outside this backend activation."
+  ],
+  "privacy": "No raw secrets, email addresses, learner/creator identifiers, individual order references or financial amounts are included."
+}

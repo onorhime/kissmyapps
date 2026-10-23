@@ -1,0 +1,17 @@
+{
+  "checked_at": "2026-10-19T15:37:30.933186+00:00",
+  "account": "Futura Funds Inc.",
+  "mode": "TEST",
+  "approval": "explicit user approval for exact hosted callback",
+  "added_redirect": "https://partners.kissmyapps.dev/merchant/callback",
+  "preserved_redirect": "http://127.0.0.1:5194/merchant/callback",
+  "preserved_default": "http://127.0.0.1:5194/merchant/callback",
+  "oauth_previously_enabled": true,
+  "saved_list_verified_in_safari": true,
+  "authorize_request_accepted": true,
+  "acceptance": "Stripe Get started with Stripe screen with test-data banner; no invalid redirect error",
+  "account_authorization_submitted": false,
+  "live_settings_changed": false,
+  "proof": "stripe-test-callback-accepted.png",
+  "native_setting_screenshot": "Not retained: native tool returned a miniature perspective window image; saved state was verified in accessibility output."
+}

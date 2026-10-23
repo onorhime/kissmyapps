@@ -1,0 +1,209 @@
+{
+  "cohort": "518e1d28-2d8b-4cb2-aede-f583bf2b41ee",
+  "checks": [
+    {
+      "stage": "commerce_and_metrics",
+      "result": {
+        "enabled": true,
+        "expiredCohorts": 0,
+        "reconciledAttempts": 0,
+        "confirmedRefunds": 0,
+        "pendingRefunds": 0,
+        "acceptedEmails": 0,
+        "errors": [],
+        "webinarMessages": {
+          "scheduled": 0
+        },
+        "lifecycleMessages": {
+          "scheduled": 0
+        },
+        "classes": [],
+        "classErrors": [],
+        "attribution": {
+          "accepted": 1,
+          "deferred": 0,
+          "disabled": false
+        },
+        "metrics": {
+          "accepted": 0,
+          "deferred": 0,
+          "disabled": false
+        },
+        "eligibility": {
+          "accepted": 0,
+          "deferred": 0,
+          "disabled": false
+        }
+      }
+    },
+    {
+      "stage": "commerce_and_metrics",
+      "result": {
+        "enabled": true,
+        "expiredCohorts": 0,
+        "reconciledAttempts": 0,
+        "confirmedRefunds": 0,
+        "pendingRefunds": 0,
+        "acceptedEmails": 0,
+        "errors": [],
+        "webinarMessages": {
+          "scheduled": 0
+        },
+        "lifecycleMessages": {
+          "scheduled": 0
+        },
+        "classes": [],
+        "classErrors": [],
+        "attribution": {
+          "accepted": 0,
+          "deferred": 0,
+          "disabled": false
+        },
+        "metrics": {
+          "accepted": 0,
+          "deferred": 0,
+          "disabled": false
+        },
+        "eligibility": {
+          "accepted": 0,
+          "deferred": 0,
+          "disabled": false
+        }
+      }
+    },
+    {
+      "stage": "verified_purchase_no_identity",
+      "blocker": "verified_order_identity_required"
+    },
+    {
+      "stage": "pending",
+      "blocker": "awaiting_verified_fulfilment",
+      "commissionMinor": 4475,
+      "eligibleAt": "2026-10-15T12:25:57+01:00",
+      "worker": {
+        "accepted": 1,
+        "deferred": 0,
+        "disabled": false
+      }
+    },
+    {
+      "stage": "fulfilled",
+      "blocker": "validation_window",
+      "commissionMinor": 4475,
+      "eligibleAt": "2026-10-15T12:25:59.617482+01:00",
+      "worker": {
+        "accepted": 1,
+        "deferred": 0,
+        "disabled": false
+      }
+    },
+    {
+      "stage": "immutable_order_identity",
+      "purchaseSequence": 1,
+      "contextId": "518e1d28-2d8b-4cb2-aede-f583bf2b41ee",
+      "dimensions": {
+        "channel": "local-sdk-test",
+        "intake_id": "f90db9bb-2e46-45c8-ac00-90a2fbfa424b",
+        "context_id": "518e1d28-2d8b-4cb2-aede-f583bf2b41ee",
+        "webinar_id": "b611cb49-8bf2-486d-bbd0-e2f53eab9f7b",
+        "entry_variant": "webinar"
+      }
+    },
+    {
+      "stage": "dimension_report",
+      "metrics": [
+        {
+          "key": "registrations",
+          "value": 0
+        },
+        {
+          "key": "started",
+          "value": 0
+        },
+        {
+          "key": "completed",
+          "value": 0
+        },
+        {
+          "key": "completion",
+          "value": null
+        },
+        {
+          "key": "pool",
+          "value": 0
+        },
+        {
+          "key": "confirmed",
+          "value": 1
+        },
+        {
+          "key": "attended",
+          "value": null
+        },
+        {
+          "key": "live",
+          "value": null
+        },
+        {
+          "key": "email_leads",
+          "value": 0
+        },
+        {
+          "key": "requests",
+          "value": null
+        },
+        {
+          "key": "checkout_opened",
+          "value": 1
+        },
+        {
+          "key": "checkout_closed",
+          "value": 3
+        },
+        {
+          "key": "resource_accessed",
+          "value": null
+        },
+        {
+          "key": "attendance_confirmed",
+          "value": null
+        },
+        {
+          "key": "attendance_missed",
+          "value": null
+        }
+      ],
+      "sales": [
+        {
+          "refunds": 0,
+          "currency": "USD",
+          "livemode": false,
+          "net_minor": 17900,
+          "purchases": 1,
+          "gross_minor": 17900,
+          "refunded_minor": 0
+        }
+      ]
+    },
+    {
+      "stage": "sender_receipts",
+      "rows": [
+        {
+          "status": "accepted",
+          "eligibility": "pending"
+        },
+        {
+          "status": "accepted",
+          "eligibility": "fulfilled"
+        }
+      ]
+    },
+    {
+      "stage": "final_commerce_key_binding",
+      "duplicateReplay": true,
+      "wrongAccountRejected": 403,
+      "wrongModeRejected": 403
+    }
+  ],
+  "passed": true
+}

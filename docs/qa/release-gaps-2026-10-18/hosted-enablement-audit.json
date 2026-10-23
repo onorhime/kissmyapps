@@ -1,0 +1,72 @@
+{
+  "checkedAt": "2026-10-18T11:48:17.303Z",
+  "scope": "Read-only current hosted configuration audit. No provider/login changes or mutations.",
+  "realMarathonProductExists": false,
+  "currentProducts": [
+    {
+      "name": "BC Learn",
+      "status": "active",
+      "managed_enabled": false,
+      "offer_launch_ready": true
+    },
+    {
+      "name": "Coin Flip",
+      "status": "active",
+      "managed_enabled": false,
+      "offer_launch_ready": true
+    },
+    {
+      "name": "TEST ONLY - Hosted webhook acceptance",
+      "status": "draft",
+      "managed_enabled": false,
+      "offer_launch_ready": false
+    }
+  ],
+  "counts": {
+    "merchantConnections": 0,
+    "merchantAssignments": 0,
+    "managedPriceProofs": 0,
+    "fundingTerms": 0,
+    "creatorSettlementAccounts": 0
+  },
+  "currentBindings": {
+    "merchantModes": [
+      "test"
+    ],
+    "managedCheckoutModes": [
+      "test"
+    ],
+    "currentDigestMatchesRetainedReviewedDefinitions": true
+  },
+  "gates": {
+    "managedCheckout": false,
+    "creatorTransfers": false,
+    "creatorConnect": false,
+    "externalCommerceWebhook": false,
+    "merchantConnect": true,
+    "merchantProvider": true,
+    "merchantLive": false,
+    "managedWorker": true
+  },
+  "ownerCanPrepareNow": [
+    "Create the real SpeakSix Marathon product in commercial mode",
+    "Create its HTTPS marathon.speaksix.com funnel and select the default funnel",
+    "Prepare the one-time USD169 billing offer using exact16900minor units and its Stripe Price reference",
+    "Create/reuse the appropriate signed creator agreement and purchase commission rule; select attribution, refund cutoff, hold, payout cadence and minimum"
+  ],
+  "requiresIntegrationConfigurationFirst": [
+    "LIVE merchant OAuth binding and approved production callback before LIVE invitations appear",
+    "Merchant confirms intended LIVE Stripe business and admin assigns to product",
+    "LIVE managed checkout binding and merchant-owned price verification before activating payment offer",
+    "Approved application-fee funding mapping referencing the same signed agreement/rule",
+    "SpeakSix checkout signing/callback binding and live intake wiring",
+    "Enable creator setup separately and require actual Stripe onboarding/capability readiness before transfers"
+  ],
+  "unverified": [
+    "No connected LIVE merchant account exists in hosted app to verify current Stripe capability readiness",
+    "No positive hosted referred application-fee reconciliation yet; real referred charge/commission/refund was tested locally",
+    "No live creator settlement account or hosted money-transfer acceptance"
+  ],
+  "legacyQueue": "Four unrelated BC Learn LIVE provider events remain paused intentionally; current task did not recover them",
+  "unchanged": "Checkout and payouts remain disabled. Product/funnel and other business records untouched."
+}

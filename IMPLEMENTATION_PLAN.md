@@ -203,6 +203,9 @@ The UI QA pass is not full specification completion. Use the IDs in
 - [x] Normalize paid subscription Checkout, renewals, cancellations, refunds, and
       disputes into canonical immutable facts.
 - [ ] Load premium entitlement after app login.
+      Deferred by the owner on September 7, 2026: BC Learn has no app/backend yet.
+      Future developer requirements are documented in funnel API section 7.1
+      and `APP_ACCESS_INTEGRATION_2026-09-07.md`; this is not a live access API.
 
 ## M4-M6 - Attribution, behavior, and money
 
@@ -224,10 +227,33 @@ The UI QA pass is not full specification completion. Use the IDs in
 - [x] Add protected Funnels & Links, Attribution, Data Health, and Platform
       Settings workflows without placeholder commercial data. Keep the canonical
       tracking switch disabled until one correlated launch chain is ready.
-- [ ] Add the remaining Subscriptions, Payouts, Documents, and scoped “View as
-      Partner” workflows.
+- [x] Implement and locally validate the read-only Admin Subscriptions directory,
+      filters and billing/attribution details (September 7). See
+      `ADMIN_SUBSCRIPTIONS_2026-09-07.md`; the candidate database checks rolled back.
+- [x] Deploy Admin Subscriptions (September 7): additive read-only RPC, 108 public
+      asset checks and unchanged billing/role/security fingerprints. See
+      `RELEASE_EVIDENCE_2026-09-07_ADMIN_SUBSCRIPTIONS.md`.
+- [ ] Verify the password-authenticated Admin Subscriptions production view;
+      the Admin browser is signed out. Database role-context acceptance and
+      authenticated Partner-host separation passed, separately from this gate.
+- [x] Implement and locally validate the internal Admin Payouts period/statement,
+      review, approval, hold/resume and single-agreement carry-forward workflow
+      (September 7). See `ADMIN_PAYOUTS_2026-09-07.md`. No transfers or paid-state API;
+      candidate migration tests roll back and synthetic fixtures are not live money proof.
+- [ ] Deploy the Admin Payouts candidate with approval, then verify authenticated
+      production Admin behavior. Real period creation is a separate operator decision.
+- [ ] Complete payment-destination onboarding/provider verification, statement
+      PDF/delivery, non-14-day cadence and mixed-agreement carry policy, controlled
+      payout release and real financial acceptance. Never bypass verification gates.
+- [ ] Add the remaining Documents and scoped “View as Partner” workflows.
 - [x] Add durable webhook, commercial-fact, metric-refresh, and reconciliation
       queues with bounded leases/retries and redacted diagnostics.
+- [x] Deploy current-run failure diagnostics and password-proven Owner/Operations
+      processing health in Admin Data Health (September 7). Authenticated live UI
+      acceptance remains open; see the processing-alerts release evidence.
+- [x] Enable an independent operational failure/recovery email monitor to the
+      approved recipient (September 7). Resend accepted the setup test; inbox
+      receipt and outside-Supabase outage monitoring remain separate gates.
 - [x] Add evidence-backed reconciliation processing; scheduling and a real
       unexplained Stripe difference of `$0.00` remain an activation test.
 - [ ] Complete authenticated desktop, tablet, mobile, and accessibility QA.

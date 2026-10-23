@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-19T14:55:50.514077+00:00",
+  "scope": "Read-only Safari Stripe TEST OAuth settings and deployed KMA management configuration",
+  "platform": "Futura Funds Inc.",
+  "testClientIdMatchesHosted": true,
+  "oauthEnabled": true,
+  "stripeAllowedRedirects": [
+    "http://127.0.0.1:5194/merchant/callback"
+  ],
+  "stripeDefaultRedirect": "http://127.0.0.1:5194/merchant/callback",
+  "hostedCallback": "https://partners.kissmyapps.dev/merchant/callback",
+  "hostedCallbackRegistered": false,
+  "cause": "Hosted OAuth request names an exact return URI absent from the selected TEST application allowlist.",
+  "requiredChange": "Add exact hosted HTTPS callback to TEST OAuth Redirects, preserving localhost and default.",
+  "stripeConfigurationChanged": false,
+  "merchantAuthorizationPerformed": false,
+  "fiveFinancialFlagsFalse": true,
+  "fourLegacyJobsPaused": true,
+  "officialReferences": [
+    "https://docs.stripe.com/connect/oauth-reference",
+    "https://docs.stripe.com/connect/oauth-standard-accounts",
+    "https://stripe.com/connect/pricing"
+  ],
+  "costScope": "Registering the callback does not itself process a payment; this TEST application indicates no real transactions. Live Connect processing and payout charges depend on platform pricing model."
+}

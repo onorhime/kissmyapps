@@ -1,0 +1,72 @@
+{
+  "at": "2026-10-18T19:11:43.802Z",
+  "function": "merchant-connect",
+  "versionBefore": 2,
+  "versionAfterCode": 3,
+  "versionAfterEnvironmentRefresh": 4,
+  "verify_jwt": false,
+  "ezbr_sha256": "de9f4ae8a38795a1dce2364d7840cae6fc5aaa84942d73f2a68cdb060357c44e",
+  "bundleSha256": "7907f528a8bda4eaa00ce644dbc189ae14fde55e27bb5207f93c6be7201eb54d",
+  "exactSourceModulesVerified": 7,
+  "unrelatedFunctionCodeAndSettingsPreserved": 28,
+  "environmentRefresh": {
+    "functionRevisionCountersIncremented": 29,
+    "increment": 1,
+    "allOtherFunctionMetadataUnchanged": true
+  },
+  "changedConfigNames": [
+    "MERCHANT_CONNECT_ALLOWED_ORIGINS",
+    "MERCHANT_CONNECT_BINDINGS_JSON"
+  ],
+  "merchantAndCallbackOriginPreserved": true,
+  "testCredentialsPreserved": true,
+  "testOnly": true,
+  "fiveProtectedFlagsRemainFalse": true,
+  "fourPausedJobsUnchanged": true,
+  "cronAndMigrationHistoryUnchanged": true,
+  "merchantInvitationsAndAssignmentsUnchanged": true,
+  "preflightProbes": [
+    {
+      "origin": "https://admin.kissmyapps.dev",
+      "status": 204,
+      "allowOrigin": "https://admin.kissmyapps.dev"
+    },
+    {
+      "origin": "https://partners.kissmyapps.dev",
+      "status": 204,
+      "allowOrigin": "https://partners.kissmyapps.dev"
+    },
+    {
+      "origin": "https://unconfigured.example",
+      "status": 403,
+      "allowOrigin": null
+    }
+  ],
+  "realOwnerBrowserStatus": {
+    "verified": true,
+    "method": "Root used existing authenticated owner Safari session at admin.kissmyapps.dev; clicked Reload connections.",
+    "observed": [
+      "Previous request error disappeared",
+      "No merchant accounts connected yet",
+      "Invite a merchant form: Business name, Merchant contact email, Stripe environment",
+      "TEST platform option visible in dropdown"
+    ],
+    "mutations": "Dropdown dismissed without selecting/submitting. No invitation, OAuth connection, email or provider action."
+  },
+  "stripeOAuthCallbackAllowlist": "Not inspected or changed; existing partners callback preserved.",
+  "localChecks": {
+    "targetedTestsPassed": 26,
+    "targetedTestsFailed": 0,
+    "newRegressionTests": 7,
+    "independentlyRepeated": true,
+    "lintFormatAndTypecheckPassed": true
+  },
+  "remainingProductSetup": {
+    "product": "SpeakSix Marathon Test",
+    "merchantConnectionExists": false,
+    "managedProductFunnelBindingConfigured": false,
+    "billingOfferConfigured": false,
+    "required": "Create its own managed product/funnel integration binding, draft one-time billing offer and merchant-owned Stripe Price; connection alone does not finish payment-product configuration.",
+    "scope": "Not configured or created during this fix."
+  }
+}

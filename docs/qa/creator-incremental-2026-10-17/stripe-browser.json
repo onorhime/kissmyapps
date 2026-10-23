@@ -1,0 +1,409 @@
+{
+  "mode": "stripe-test",
+  "counts": {
+    "reads": 38,
+    "accountCreates": 1,
+    "accountSessions": 5,
+    "deniedProviderCalls": 0,
+    "successfulSessions": 5,
+    "statusChecks": 3,
+    "providerHttpFailures": 0
+  },
+  "account": {
+    "status": "restricted",
+    "verifiedAt": "2026-10-17T01:11:28.343+01:00",
+    "payoutsEnabled": false,
+    "requirementsDue": [
+      "business_profile.mcc",
+      "business_profile.url",
+      "external_account",
+      "tos_acceptance.date",
+      "tos_acceptance.ip"
+    ],
+    "detailsSubmitted": false,
+    "transfersEnabled": false,
+    "connectedAccountId": "acct_1URL8yCwssLKlEpr"
+  },
+  "creationPrefill": {
+    "confirmedSyntheticEmail": true,
+    "storedEntityType": true,
+    "individualEmail": false,
+    "inventedIndividualName": false,
+    "transfersOnly": true
+  },
+  "settlementJobs": 0,
+  "databaseOnlyLocal": true,
+  "moneyMovementEnabled": false,
+  "runId": "8389d46a08c8f522c6fba3b3",
+  "resumed": false,
+  "expectedConnectedAccountId": null,
+  "providerTimings": [
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:05:51.936Z",
+      "duration_ms": 958,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:05:52.898Z",
+      "duration_ms": 359,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:09.081Z",
+      "duration_ms": 419,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:09.504Z",
+      "duration_ms": 318,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:09.823Z",
+      "duration_ms": 416,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:32.985Z",
+      "duration_ms": 421,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:33.407Z",
+      "duration_ms": 351,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:33.759Z",
+      "duration_ms": 448,
+      "status": 200
+    },
+    {
+      "kind": "account_create",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:35.083Z",
+      "duration_ms": 771,
+      "status": 200
+    },
+    {
+      "kind": "account_create",
+      "method": "POST",
+      "started_at": "2026-10-17T00:06:35.856Z",
+      "duration_ms": 2535,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:06:38.426Z",
+      "duration_ms": 593,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:06:39.019Z",
+      "duration_ms": 443,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:29.944Z",
+      "duration_ms": 924,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:30.873Z",
+      "duration_ms": 345,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:31.220Z",
+      "duration_ms": 410,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:32.107Z",
+      "duration_ms": 695,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:43.544Z",
+      "duration_ms": 416,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:43.964Z",
+      "duration_ms": 344,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:44.308Z",
+      "duration_ms": 495,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:45.025Z",
+      "duration_ms": 671,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:08:45.723Z",
+      "duration_ms": 624,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:08:46.347Z",
+      "duration_ms": 404,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:09:24.030Z",
+      "duration_ms": 406,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:09:24.437Z",
+      "duration_ms": 317,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:09:24.754Z",
+      "duration_ms": 389,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:09:25.229Z",
+      "duration_ms": 556,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:09:25.815Z",
+      "duration_ms": 642,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:09:26.458Z",
+      "duration_ms": 414,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:06.027Z",
+      "duration_ms": 478,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:06.506Z",
+      "duration_ms": 345,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:06.851Z",
+      "duration_ms": 397,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:07.326Z",
+      "duration_ms": 597,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:23.719Z",
+      "duration_ms": 462,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:24.181Z",
+      "duration_ms": 351,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:24.532Z",
+      "duration_ms": 392,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:24.998Z",
+      "duration_ms": 693,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:10:25.721Z",
+      "duration_ms": 610,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:10:26.331Z",
+      "duration_ms": 389,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:11:28.344Z",
+      "duration_ms": 457,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:11:28.808Z",
+      "duration_ms": 335,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:11:29.145Z",
+      "duration_ms": 362,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:11:29.588Z",
+      "duration_ms": 666,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:11:30.320Z",
+      "duration_ms": 780,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:11:31.101Z",
+      "duration_ms": 383,
+      "status": 200
+    }
+  ],
+  "requestTimings": [
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:06:08.895Z",
+      "duration_ms": 1814,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:06:32.923Z",
+      "duration_ms": 6540,
+      "status": 200,
+      "session_expires_at": 1792195719
+    },
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:08:29.885Z",
+      "duration_ms": 2965,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:08:43.431Z",
+      "duration_ms": 3322,
+      "status": 200,
+      "session_expires_at": 1792195846
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:09:23.928Z",
+      "duration_ms": 2945,
+      "status": 200,
+      "session_expires_at": 1792195886
+    },
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:10:05.902Z",
+      "duration_ms": 2050,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:10:23.609Z",
+      "duration_ms": 3111,
+      "status": 200,
+      "session_expires_at": 1792195946
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:11:28.237Z",
+      "duration_ms": 3248,
+      "status": 200,
+      "session_expires_at": 1792196011
+    }
+  ],
+  "authentication": "synthetic fresh password AMR; real reauthentication and MFA not exercised"
+}

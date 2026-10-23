@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-10-17T16:56:29.911Z",
+  "passed": true,
+  "customerRefundWritesBefore": 2,
+  "customerRefundWritesAfter": 2,
+  "feeRefundWritesBefore": 1,
+  "feeRefundWritesAfter": 1,
+  "feeRefunds": [
+    {
+      "completed": true,
+      "refund_id": "fr_1URaiuCYo7AEhAYndilAgS96",
+      "amount_minor": 4225
+    }
+  ]
+}

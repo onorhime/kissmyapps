@@ -1,0 +1,41 @@
+{
+  "startedAt": "2026-10-17T15:12:31.541Z",
+  "realStripe": false,
+  "livemode": false,
+  "applicationData": "disposable local PostgreSQL",
+  "authentication": "synthetic local fixture identity",
+  "platformAccountId": "acct_localplatform",
+  "payoutsEnabled": false,
+  "checkedAt": "2026-10-17T15:12:37.110Z",
+  "ready": false,
+  "kma": {
+    "orders": [],
+    "commissions": [],
+    "fee_refunds": [],
+    "payout_jobs": 0,
+    "pending_callbacks": 0
+  },
+  "speaksix": {
+    "captures": 0,
+    "pay_first_orders": []
+  },
+  "bridge": {
+    "permittedMerchant": null,
+    "webhooksReady": false,
+    "providerReads": 0,
+    "oauthExchanges": 0,
+    "checkoutWrites": 0,
+    "refundWrites": 0,
+    "feeRefundWrites": 0,
+    "webhookAccepted": 0,
+    "webhookRejected": 0,
+    "webhookIgnored": 0,
+    "connectedWebhookAccepted": 0,
+    "platformWebhookAccepted": 0,
+    "accountingEvidence": [],
+    "webhookEvidence": []
+  },
+  "lastError": null,
+  "localProcessesStopped": true,
+  "smokeOnly": true
+}

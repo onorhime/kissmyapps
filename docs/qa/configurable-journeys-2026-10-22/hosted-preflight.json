@@ -1,0 +1,80 @@
+{
+  "free_bytes": 3108016128,
+  "kma_current": "/srv/kissmyapps/releases/20261022T150000Z-marathon-test-reporting-550d501eac2a",
+  "speaksix_services": {
+    "bclearn-email-1": {
+      "image": "sha256:f776114dccfb1a5055941537ccaa9dc83721595d5722d4af792225911154eb39",
+      "started": "2026-10-22T14:08:37.896524114Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    },
+    "bclearn-automation-1": {
+      "image": "sha256:f776114dccfb1a5055941537ccaa9dc83721595d5722d4af792225911154eb39",
+      "started": "2026-10-22T14:08:37.9070863Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    },
+    "bclearn-zoom-1": {
+      "image": "sha256:f776114dccfb1a5055941537ccaa9dc83721595d5722d4af792225911154eb39",
+      "started": "2026-10-22T14:08:37.928041853Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    },
+    "bclearn-generation-1": {
+      "image": "sha256:f776114dccfb1a5055941537ccaa9dc83721595d5722d4af792225911154eb39",
+      "started": "2026-10-22T14:08:37.90973371Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    },
+    "bclearn-marathon-1": {
+      "image": "sha256:f776114dccfb1a5055941537ccaa9dc83721595d5722d4af792225911154eb39",
+      "started": "2026-10-22T14:08:37.905287274Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    },
+    "bclearn-bclearn-web-1": {
+      "image": "sha256:aa3138e6ac6c12d186939e3f1b71be1584146b4ffb2234f307907199ebfc9dac",
+      "started": "2026-10-22T14:08:29.542696572Z",
+      "health": "healthy",
+      "gates": {
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_JOURNEY_V2_RELEASE": "unset",
+        "SPEAKSIX_MARATHON_ZOOM_ATTENDANCE": "unset"
+      }
+    }
+  },
+  "checked_at": "2026-10-22T17:03:36.397432+00:00",
+  "public_config": {
+    "mode": "connected",
+    "local": false,
+    "payments": false
+  },
+  "webinars_count": 0,
+  "intakes_count": 0
+}

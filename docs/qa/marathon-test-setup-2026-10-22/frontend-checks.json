@@ -1,0 +1,554 @@
+{
+  "at": "2026-10-22T15:06:03.284Z",
+  "release": "20261022T150000Z-marathon-test-reporting-550d501eac2a",
+  "total": 78,
+  "passed": 78,
+  "results": [
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/statements/SAMPLE-release-probe.pdf",
+      "status": 404,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/healthz",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/merchant/callback",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/apple-touch-icon.png",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/merchant/connect",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/browser-Bg25_sDh.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/dashboard-Dz2awUJt.css",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/demoFunnel-C7-sfoKz.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/demoFunnel-i2Kr1m7l.css",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-400-normal-BGsTXAXT.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-600-normal-B7SfZ07L.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-400-normal-DMwTpYkH.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-700-normal-Cu9v6i1X.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-600-normal-BEfTtDA7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-700-normal-D4itBLBr.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-800-normal-CQna6-G7.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-800-normal-BRHLSPcU.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-400-normal-5tcqmc2S.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/TrendChart-D98gvgsC.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-400-normal-DHm7mdGe.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-600-normal-B85nYjL1.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-600-normal-CWJcPgd7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-700-normal-CI4iH74K.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-700-normal-fjS8-Gm7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-800-normal-DRv2ic_2.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-800-normal-DyhPHUt-.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/pure-DUuclADj.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/rolldown-runtime-hePW80VL.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/demo-funnel.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/developers/funnels/openapi.json",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/developers/funnels/index.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/favicon-32.png",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/developers/funnels/funnel-api.md",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/favicon.svg",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/index.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/kissmyapps-mark.svg",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/healthz",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/merchant/connect",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/merchant/callback",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "admin.kissmyapps.dev",
+      "path": "/assets/dashboard-COzKsHzY.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/apple-touch-icon.png",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/browser-Bg25_sDh.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/statements/SAMPLE-release-probe.pdf",
+      "status": 404,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/demoFunnel-C7-sfoKz.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/demoFunnel-i2Kr1m7l.css",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/TrendChart-D98gvgsC.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-400-normal-DMwTpYkH.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-600-normal-B7SfZ07L.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-400-normal-BGsTXAXT.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/dashboard-Dz2awUJt.css",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-700-normal-Cu9v6i1X.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-700-normal-D4itBLBr.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-800-normal-BRHLSPcU.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-600-normal-BEfTtDA7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-400-normal-5tcqmc2S.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-800-normal-CQna6-G7.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/dashboard-COzKsHzY.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-400-normal-DHm7mdGe.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-600-normal-B85nYjL1.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-700-normal-CI4iH74K.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-700-normal-fjS8-Gm7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-800-normal-DRv2ic_2.woff2",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/rolldown-runtime-hePW80VL.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/pure-DUuclADj.js",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/demo-funnel.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-800-normal-DyhPHUt-.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/assets/outfit-latin-ext-600-normal-CWJcPgd7.woff",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/favicon-32.png",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/developers/funnels/funnel-api.md",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/developers/funnels/openapi.json",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/developers/funnels/index.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/favicon.svg",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/kissmyapps-mark.svg",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    },
+    {
+      "host": "partners.kissmyapps.dev",
+      "path": "/index.html",
+      "status": 200,
+      "passed": true,
+      "errors": []
+    }
+  ]
+}

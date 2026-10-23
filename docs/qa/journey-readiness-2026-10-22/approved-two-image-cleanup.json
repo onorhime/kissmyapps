@@ -1,0 +1,277 @@
+{
+  "release": "7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d",
+  "authorized_tags_and_image_ids": {
+    "bclearn-web:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d": "sha256:48ce8caad7c97b95ddd67c3846daf639e59c726d0c3f89dd21eebdfd4bd93333",
+    "bclearn-workers:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d": "sha256:184be8edbfdf49782f0e5a03762c69629c35a24086bdefda594558d6ae5bcba2"
+  },
+  "started_at": "2026-10-22T13:55:53.537693+00:00",
+  "deletion_attempted": true,
+  "protected_references_before": {
+    "current": "/opt/bclearn/releases/d0ca6e4d9aa019ed36643a04ce22edfb0f14b17a",
+    "previous": "/opt/bclearn/releases/9a0652cd175d7556ef7d808fc570580c7d319179",
+    "/opt/bclearn/current/full.rollback.json": "6da5bf820cefee63adb449495a29956e597e21cec70263916c80814f6cf66dc6",
+    "/opt/bclearn/previous/full.rollback.json": "63ed9bcfd23fbf98c4327e93045216c29fe583b9ed340716f946918994c9f9bd",
+    "/opt/bclearn/shared/backend-current.json": "4306d9d476f13305f05ecf1b993ce7bc504aa2c5cc8cfd8152e229ff292b7263"
+  },
+  "containers_before": {
+    "/kissmyapps-dashboard": {
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "started": "2026-10-22T11:23:58.150065856Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-generation-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.096631107Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-zoom-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.124971791Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-email-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.111038639Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-marathon-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.07279159Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-automation-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.066316098Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-bclearn-web-1": {
+      "image": "sha256:dcaf2ea36648ebedb1ca3749f7cb8b828ace7b5b1c744cd5848ad152d69aba9e",
+      "started": "2026-10-18T08:49:57.741081416Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-caddy-1": {
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "started": "2026-10-18T11:38:07.026293059Z",
+      "status": "running",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-web-1": {
+      "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+      "started": "2026-10-17T16:35:18.112364766Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-web-mobile-1": {
+      "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+      "started": "2026-10-17T16:35:18.096885882Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-core-1": {
+      "image": "sha256:97f7e153a7019252dc3567c4f3ec2788e266bd9fff2fc392b32658cc9cb0b62b",
+      "started": "2026-10-17T16:35:18.293218436Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-hosted-complete": {
+      "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+      "started": "2026-08-07T20:18:30.559938505Z",
+      "status": "exited",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-hosted-stage20": {
+      "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+      "started": "2026-08-07T20:07:18.813108868Z",
+      "status": "exited",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-web-1": {
+      "image": "sha256:53ef6f4febb5918781f107fb15f4e556ac6027e3296080346f12ba4289d33fa7",
+      "started": "2026-10-17T16:35:18.288818327Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-core-1": {
+      "image": "sha256:484a40e47c8dc9c09e774b7bd0b0853ed8ee0af19c8388d5ee26affdefd46937",
+      "started": "2026-10-17T16:35:18.286905187Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-database-1": {
+      "image": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "started": "2026-10-17T16:35:18.124740165Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    }
+  },
+  "archive_path": "/opt/bclearn/releases/7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d/images.tar.gz",
+  "archive_bytes": 473316554,
+  "archive_sha256_before": "94cd0e514dd55c9cdb54cabb5aea650fb6aa7cebe2b5a840cad7a0739c61af96",
+  "free_bytes_before": 4072083456,
+  "command": [
+    "docker",
+    "image",
+    "rm",
+    "--no-prune",
+    "bclearn-web:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d",
+    "bclearn-workers:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d"
+  ],
+  "removal_exit_code": 0,
+  "removal_output": "Untagged: bclearn-web:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d\nDeleted: sha256:48ce8caad7c97b95ddd67c3846daf639e59c726d0c3f89dd21eebdfd4bd93333\nUntagged: bclearn-workers:7eaa7605c6b3a8ca7b9ec846d183ea793eb2056d\nDeleted: sha256:184be8edbfdf49782f0e5a03762c69629c35a24086bdefda594558d6ae5bcba2\n",
+  "removed_image_ids": [
+    "sha256:184be8edbfdf49782f0e5a03762c69629c35a24086bdefda594558d6ae5bcba2",
+    "sha256:48ce8caad7c97b95ddd67c3846daf639e59c726d0c3f89dd21eebdfd4bd93333"
+  ],
+  "unexpected_added_image_ids": [],
+  "containers_after": {
+    "/kissmyapps-dashboard": {
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "started": "2026-10-22T11:23:58.150065856Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-generation-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.096631107Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-zoom-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.124971791Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-email-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.111038639Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-marathon-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.07279159Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-automation-1": {
+      "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+      "started": "2026-10-18T08:50:04.066316098Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/bclearn-bclearn-web-1": {
+      "image": "sha256:dcaf2ea36648ebedb1ca3749f7cb8b828ace7b5b1c744cd5848ad152d69aba9e",
+      "started": "2026-10-18T08:49:57.741081416Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-caddy-1": {
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "started": "2026-10-18T11:38:07.026293059Z",
+      "status": "running",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-web-1": {
+      "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+      "started": "2026-10-17T16:35:18.112364766Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-web-mobile-1": {
+      "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+      "started": "2026-10-17T16:35:18.096885882Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-core-1": {
+      "image": "sha256:97f7e153a7019252dc3567c4f3ec2788e266bd9fff2fc392b32658cc9cb0b62b",
+      "started": "2026-10-17T16:35:18.293218436Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-hosted-complete": {
+      "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+      "started": "2026-08-07T20:18:30.559938505Z",
+      "status": "exited",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-hosted-stage20": {
+      "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+      "started": "2026-08-07T20:07:18.813108868Z",
+      "status": "exited",
+      "health": null,
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-web-1": {
+      "image": "sha256:53ef6f4febb5918781f107fb15f4e556ac6027e3296080346f12ba4289d33fa7",
+      "started": "2026-10-17T16:35:18.288818327Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-core-1": {
+      "image": "sha256:484a40e47c8dc9c09e774b7bd0b0853ed8ee0af19c8388d5ee26affdefd46937",
+      "started": "2026-10-17T16:35:18.286905187Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    },
+    "/dramapal-sandbox-sandbox-database-1": {
+      "image": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+      "started": "2026-10-17T16:35:18.124740165Z",
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0
+    }
+  },
+  "all_containers_unchanged": true,
+  "protected_references_after": {
+    "current": "/opt/bclearn/releases/d0ca6e4d9aa019ed36643a04ce22edfb0f14b17a",
+    "previous": "/opt/bclearn/releases/9a0652cd175d7556ef7d808fc570580c7d319179",
+    "/opt/bclearn/current/full.rollback.json": "6da5bf820cefee63adb449495a29956e597e21cec70263916c80814f6cf66dc6",
+    "/opt/bclearn/previous/full.rollback.json": "63ed9bcfd23fbf98c4327e93045216c29fe583b9ed340716f946918994c9f9bd",
+    "/opt/bclearn/shared/backend-current.json": "4306d9d476f13305f05ecf1b993ce7bc504aa2c5cc8cfd8152e229ff292b7263"
+  },
+  "archive_sha256_after": "94cd0e514dd55c9cdb54cabb5aea650fb6aa7cebe2b5a840cad7a0739c61af96",
+  "free_bytes_after": 6506000384,
+  "recovered_bytes": 2433916928,
+  "status": "approved_two_image_cleanup_complete",
+  "finished_at": "2026-10-22T13:56:09.321133+00:00",
+  "executed_script_sha256": "7ac78f9456a4c5a237fce9788d6770c4e7be418de98196a303a255841000a36f"
+}

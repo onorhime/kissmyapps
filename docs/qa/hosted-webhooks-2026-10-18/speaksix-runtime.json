@@ -1,0 +1,62 @@
+{
+  "runtimeSafeSettings": {
+    "SPEAKSIX_MARATHON_CONNECTED": "1",
+    "SPEAKSIX_MARATHON_ORIGIN": "https://marathon.speaksix.com",
+    "SPEAKSIX_MARATHON_PAYMENTS": "0",
+    "SPEAKSIX_MARATHON_KMA_ENABLED": "0",
+    "SPEAKSIX_MARATHON_KMA_COMMERCE": "0",
+    "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+    "SPEAKSIX_MARATHON_KMA_ELIGIBILITY": "0",
+    "SPEAKSIX_MARATHON_WORKER": "1",
+    "SPEAKSIX_MARATHON_STRIPE_MODE": "test",
+    "SPEAKSIX_MARATHON_CHECKOUT_PROVIDER": "kma"
+  },
+  "databaseHost": "peqfxjechwnntsrnivje.supabase.co",
+  "callbackKeyCount": 0,
+  "checkoutKeysPresent": [],
+  "currentRelease": "/opt/bclearn/releases/5f4439ab4464baa3858104664699ea6166d2b788",
+  "migrationManifestTail": [
+    "78114615785e514c514cd638620fbe256b02d0eb718c3a3d38bbac8097709071  202610150064_marathon_lifecycle_emails.sql",
+    "63d25debe87e90e51937766752cf9536cda8b55c26677930fd92b6d836dc7c94  202610150065_marathon_workflow_tracking.sql",
+    "100f548da457f2a73a7aef3deb427183e91b1d28a62ffd8cb034f941856d2405  202610160066_marathon_kma_checkout.sql"
+  ],
+  "containers": [
+    {
+      "container": "/bclearn-bclearn-web-1",
+      "image": "bclearn-web:5f4439ab4464baa3858104664699ea6166d2b788",
+      "health": "healthy",
+      "safeFlags": {
+        "SPEAKSIX_MARATHON_CONNECTED": "1",
+        "SPEAKSIX_MARATHON_ORIGIN": "https://marathon.speaksix.com",
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_ENABLED": "0",
+        "SPEAKSIX_MARATHON_KMA_COMMERCE": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_KMA_ELIGIBILITY": "0",
+        "SPEAKSIX_MARATHON_WORKER": "1",
+        "SPEAKSIX_MARATHON_STRIPE_MODE": "test",
+        "SPEAKSIX_MARATHON_CHECKOUT_PROVIDER": "kma"
+      },
+      "marathonRuntimeMatchesFile": true
+    },
+    {
+      "container": "/bclearn-marathon-1",
+      "image": "bclearn-workers:5f4439ab4464baa3858104664699ea6166d2b788",
+      "health": "healthy",
+      "safeFlags": {
+        "SPEAKSIX_MARATHON_CONNECTED": "1",
+        "SPEAKSIX_MARATHON_ORIGIN": "https://marathon.speaksix.com",
+        "SPEAKSIX_MARATHON_PAYMENTS": "0",
+        "SPEAKSIX_MARATHON_KMA_ENABLED": "0",
+        "SPEAKSIX_MARATHON_KMA_COMMERCE": "0",
+        "SPEAKSIX_MARATHON_KMA_METRICS": "0",
+        "SPEAKSIX_MARATHON_KMA_ELIGIBILITY": "0",
+        "SPEAKSIX_MARATHON_WORKER": "1",
+        "SPEAKSIX_MARATHON_STRIPE_MODE": "test",
+        "SPEAKSIX_MARATHON_CHECKOUT_PROVIDER": "kma"
+      },
+      "marathonRuntimeMatchesFile": true
+    }
+  ],
+  "diskAvailableBytes": 2616217600
+}

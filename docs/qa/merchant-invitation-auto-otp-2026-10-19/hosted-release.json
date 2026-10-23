@@ -1,0 +1,162 @@
+{
+  "at": "2026-10-19T15:40:19.971878+00:00",
+  "status": "deployed and verified; live recipient code delivery ready for user retest",
+  "backend": {
+    "at": "2026-10-19T15:37:21.407Z",
+    "function": "merchant-connect",
+    "versionBefore": 6,
+    "versionAfter": 7,
+    "verify_jwt": false,
+    "ezbr_sha256": "d876c72c0d0f545db6232780d66bb94c0d7303e0cffefe45e42961b7db0024c8",
+    "bundleSha256": "b4163cb7ecf460864297609e65ee8fa2900740d95c078d72de903fed030f7023",
+    "exactSourceModulesVerified": 10,
+    "unrelatedFunctionsPreserved": 28,
+    "newSecretNames": [],
+    "allExistingSecretDigestsPreserved": true,
+    "disabledFlags": [
+      "MANAGED_CHECKOUT_ENABLED",
+      "CREATOR_TRANSFERS_ENABLED",
+      "CREATOR_CONNECT_ENABLED",
+      "EXTERNAL_COMMERCE_WEBHOOK_ENABLED",
+      "MERCHANT_CONNECT_LIVE_ENABLED"
+    ],
+    "fourPausedJobsUnchanged": true,
+    "cronAndFinancialStateUnchanged": true,
+    "existingMerchantAndInvitationStateUnchanged": true,
+    "preflightProbes": [
+      {
+        "origin": "https://admin.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://admin.kissmyapps.dev"
+      },
+      {
+        "origin": "https://partners.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://partners.kissmyapps.dev"
+      },
+      {
+        "origin": "https://unconfigured.example",
+        "status": 403,
+        "allowOrigin": null
+      }
+    ],
+    "hostedOtpAcceptance": "No-delivery hosted guards verified; valid code delivery verified with real local Auth and SMTP sink; user live-inbox retest remains."
+  },
+  "migration": {
+    "at": "2026-10-19T15:36:46.755Z",
+    "migration": {
+      "file": "20261019100000_merchant_invitation_otp.sql",
+      "version": "20261019100000",
+      "name": "merchant_invitation_otp",
+      "sha256": "b5a633c5fddb997b14a17d231247e82b8ef329ecf049e65c59d4bf161cf9876a"
+    },
+    "migrations": 67,
+    "existingTablesPreserved": 113,
+    "newTables": [
+      "kma_internal.merchant_invitation_code_requests"
+    ],
+    "changedFunctions": [],
+    "addedFunctions": [
+      "public.finish_merchant_invitation_code(p_request_id uuid, p_lease_id uuid, p_status text)",
+      "public.prepare_merchant_invitation_code(p_token_sha256 text, p_request_id uuid, p_recipient_origin text)"
+    ],
+    "unchangedFunctions": 331,
+    "fiveProtectedFlagsRemainFalse": true,
+    "pausedFourJobsUnchanged": true,
+    "cronAndFinancialStatePreserved": true
+  },
+  "frontend": {
+    "at": "2026-10-19T15:39:22.966156+00:00",
+    "status": "deployed and static-host verified",
+    "release": "20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+    "artifact_sha256": "be4723d7d3601acacc795666c3e0690bf523ff941a4e90a2d613a8cdf1ff65bb",
+    "manifest_sha256": "5f7ad1a1bddf638b760c48ce20a2588a8cb9dee3bc22ed544932829b561f4881",
+    "exact_files": 34,
+    "hosted_http_checks": {
+      "passed": 78,
+      "failed": 0,
+      "hosts": [
+        "admin.kissmyapps.dev",
+        "partners.kissmyapps.dev"
+      ]
+    },
+    "runtime": {
+      "at": "2026-10-19T15:38:53.448417+00:00",
+      "current": "/srv/kissmyapps/releases/20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+      "free_bytes": 4083867648,
+      "healthy": true,
+      "restarts": 0,
+      "files": 34,
+      "config_hashes": {
+        "compose.yaml": "c8c2d249200c76748eb224bf7cd592b412f5638ab6cdaf12034aea074cec7147",
+        "dashboard.Caddyfile": "0aaea8e8c08ab1e3958290c49d8485a8c20a5f3431eb506eb4d52b317ea48b4c"
+      },
+      "previous_release_preserved": "/srv/kissmyapps/releases/20261019T143158Z-merchant-invitation-email-e64a622475c9",
+      "other_containers_preserved": 15
+    },
+    "boundary": "Only the dashboard container and current release pointer changed. No edge configuration, provider setting, checkout/payout gate, queue, invitation, email, payment or payout was changed by this static release.",
+    "recipient_auto_email_delivery": "Not tested with a real invitation by this frontend release; root owns hosted Auth verification."
+  },
+  "stripe": {
+    "checked_at": "2026-10-19T15:37:30.933186+00:00",
+    "account": "Futura Funds Inc.",
+    "mode": "TEST",
+    "approval": "explicit user approval for exact hosted callback",
+    "added_redirect": "https://partners.kissmyapps.dev/merchant/callback",
+    "preserved_redirect": "http://127.0.0.1:5194/merchant/callback",
+    "preserved_default": "http://127.0.0.1:5194/merchant/callback",
+    "oauth_previously_enabled": true,
+    "saved_list_verified_in_safari": true,
+    "authorize_request_accepted": true,
+    "acceptance": "Stripe Get started with Stripe screen with test-data banner; no invalid redirect error",
+    "account_authorization_submitted": false,
+    "live_settings_changed": false,
+    "proof": "stripe-test-callback-accepted.png",
+    "native_setting_screenshot": "Not retained: native tool returned a miniature perspective window image; saved state was verified in accessibility output."
+  },
+  "no_delivery_hosted_checks": {
+    "at": "2026-10-19T15:39:50.748Z",
+    "probes": [
+      {
+        "name": "unknown invitation on recipient portal",
+        "status": 403,
+        "errorCode": "invitation_unavailable",
+        "message": "This invitation is unavailable. Ask your KMA administrator for a new link.",
+        "recipientDisclosed": false
+      },
+      {
+        "name": "recipient action blocked on admin portal",
+        "status": 403,
+        "errorCode": "origin_rejected",
+        "message": "This action is not configured for this site.",
+        "recipientDisclosed": false
+      },
+      {
+        "name": "protected inspect requires authentication",
+        "status": 401,
+        "errorCode": "unauthorized",
+        "message": "Sign in to manage a merchant connection.",
+        "recipientDisclosed": false
+      }
+    ],
+    "syntheticTokenConfirmedAbsent": true,
+    "codeRequestRowsBefore": 0,
+    "codeRequestRowsAfter": 0,
+    "noDispatchLeasesCreated": true,
+    "providerEmailSendsBySmoke": 0,
+    "allFiveFinancialFlagsFalse": true,
+    "fourPausedJobsUnchanged": true,
+    "allSecretDigestsUnchanged": true,
+    "cronFinancialAndMerchantStateUnchanged": true,
+    "migrationCount": 67,
+    "merchantConnectVersion": 7
+  },
+  "browser": {
+    "new_automatic_code_entry_rendered": true,
+    "synthetic_unknown_invitation_rejected": true,
+    "real_invitation_opened": false,
+    "real_inbox_retest_performed": false,
+    "screenshot": "hosted-invalid-invitation.png"
+  },
+  "checkout_and_payouts_disabled": true
+}

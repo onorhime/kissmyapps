@@ -1,0 +1,279 @@
+{
+  "checkedAt": "2026-10-18T11:01:56.670825+00:00",
+  "scope": "Read-only hosted investigation; no scheduler recovery, job processing, provider mutation or email send",
+  "product": {
+    "id": "fdbabb87-9743-4521-bc8d-11804fe1185f",
+    "name": "BC Learn",
+    "offer": "BC Learn Monthly",
+    "listPriceMinor": 100,
+    "currency": "USD",
+    "billingMode": "subscription",
+    "marathon": false
+  },
+  "events": [
+    {
+      "id": "65cb96f8-61a2-44a1-bf00-6590ce76a7bf",
+      "providerEventId": "evt_1UNeanE47mNwFlz1JiVXbIBh",
+      "type": "customer.subscription.updated",
+      "receivedAt": "2026-10-06 20:04:07.094475+00",
+      "livemode": true,
+      "signatureVerified": true,
+      "status": "pending",
+      "attemptCount": 0,
+      "processingError": null,
+      "activeLease": false,
+      "objectId": "sub_1UCmHcE47mNwFlz1iWElnMWs",
+      "periods": [
+        {
+          "startsAt": "2026-10-06T20:03:20+00:00",
+          "endsAt": "2026-11-06T20:03:20+00:00"
+        }
+      ]
+    },
+    {
+      "id": "40acb473-d649-46ea-ab8d-511ce2304ee9",
+      "providerEventId": "evt_1UNfXNE47mNwFlz1h34lyaUa",
+      "type": "invoice.paid",
+      "receivedAt": "2026-10-06 21:04:38.41517+00",
+      "livemode": true,
+      "signatureVerified": true,
+      "status": "pending",
+      "attemptCount": 0,
+      "processingError": null,
+      "activeLease": false,
+      "objectId": "in_1UNeamE47mNwFlz1COSPG31L",
+      "invoiceTotals": {
+        "total": 0,
+        "total_excluding_tax": 0,
+        "amount_due": 0,
+        "amount_paid": 0,
+        "amount_remaining": 0
+      }
+    },
+    {
+      "id": "3013d73d-b485-498f-972c-c96476c61499",
+      "providerEventId": "evt_1UNtnUE47mNwFlz15LAwfpDb",
+      "type": "customer.subscription.updated",
+      "receivedAt": "2026-10-07 12:18:13.586809+00",
+      "livemode": true,
+      "signatureVerified": true,
+      "status": "pending",
+      "attemptCount": 0,
+      "processingError": null,
+      "activeLease": false,
+      "objectId": "sub_1UD1UpE47mNwFlz1wfTNhxFa",
+      "periods": [
+        {
+          "startsAt": "2026-10-07T12:17:59+00:00",
+          "endsAt": "2026-11-07T12:17:59+00:00"
+        }
+      ]
+    },
+    {
+      "id": "9a164e00-e194-43cb-9a87-3411d0927328",
+      "providerEventId": "evt_1UNukCE47mNwFlz1r0xhROji",
+      "type": "invoice.paid",
+      "receivedAt": "2026-10-07 13:18:53.421456+00",
+      "livemode": true,
+      "signatureVerified": true,
+      "status": "pending",
+      "attemptCount": 0,
+      "processingError": null,
+      "activeLease": false,
+      "objectId": "in_1UNtnTE47mNwFlz1qvPcmgdE",
+      "invoiceTotals": {
+        "total": 0,
+        "total_excluding_tax": 0,
+        "amount_due": 0,
+        "amount_paid": 0,
+        "amount_remaining": 0
+      }
+    }
+  ],
+  "queueSafety": {
+    "crons": [
+      {
+        "name": "kma-processing-chain",
+        "active": true,
+        "schedule": "* * * * *"
+      }
+    ],
+    "eventRows": 10,
+    "metricPending": 0,
+    "processedRows": 6,
+    "runningStages": 0,
+    "metricActiveLeases": 0,
+    "stripeActiveLeases": 0,
+    "commercialActiveLeases": 0,
+    "earliestNewQueueReceipt": "2026-10-06T20:04:07.094475+00:00",
+    "failedHTTPStillRetained": 0
+  },
+  "scheduler": {
+    "run_id": "5d81b1c5-a819-4ab1-b6cf-81673acf81ab",
+    "worker": "stripe-worker",
+    "enabled": false,
+    "singleton": true,
+    "request_id": 6307,
+    "last_tick_at": "2026-10-18T10:56:00.040642+00:00",
+    "dispatched_at": "2026-09-09T06:24:00.038882+00:00",
+    "last_cycle_at": "2026-09-09T06:24:00.038882+00:00",
+    "paused_reason": "worker_http_failure"
+  },
+  "failureDiagnostic": [
+    {
+      "code": "worker_http_failure",
+      "run_id": "5d81b1c5-a819-4ab1-b6cf-81673acf81ab",
+      "duration_ms": 40362,
+      "recorded_at": "2026-09-09T06:24:41.140848+00:00",
+      "upstream_http_status": 520
+    }
+  ],
+  "deployedSourceParity": [
+    {
+      "function": "stripe-worker",
+      "sourceMaps": [
+        {
+          "sha256": "af773018daa55b7c3c79a1d3d3a50c1b4503efd9b9f51b666244e803dda838bf",
+          "matchesCurrentSource": true,
+          "sourceLength": 29645
+        }
+      ]
+    },
+    {
+      "function": "processing-dispatch",
+      "sourceMaps": [
+        {
+          "sha256": "80b2d3388638145f627964abc1c5e05ad6edf60a511fd217a3c2be415b305de8",
+          "matchesCurrentSource": true,
+          "sourceLength": 7802
+        }
+      ]
+    }
+  ],
+  "normalizationDryRun": {
+    "at": "2026-10-18T11:01:56.590Z",
+    "results": [
+      {
+        "event": "evt_1UNeanE47mNwFlz1JiVXbIBh",
+        "kind": "subscription_changed",
+        "passed": true
+      },
+      {
+        "event": "evt_1UNfXNE47mNwFlz1h34lyaUa",
+        "kind": "invoice_no_payment_required",
+        "passed": true
+      },
+      {
+        "event": "evt_1UNtnUE47mNwFlz15LAwfpDb",
+        "kind": "subscription_changed",
+        "passed": true
+      },
+      {
+        "event": "evt_1UNukCE47mNwFlz1r0xhROji",
+        "kind": "invoice_no_payment_required",
+        "passed": true
+      }
+    ],
+    "providerReads": 0,
+    "hostedNormalizationRpcCalls": 0
+  },
+  "hostedReadOnlyProviderPreflight": {
+    "startedAt": "2026-10-18T11:00:56.854Z",
+    "completedAt": "2026-10-18T11:01:00.597Z",
+    "status": 200,
+    "queueAndFinancialStateUnchanged": true,
+    "financialGateDigestsUnchanged": true,
+    "financialGatesRemainFalse": true,
+    "result": {
+      "project": "mmyruzjemjecqyivhrgr",
+      "productId": "fdbabb87-9743-4521-bc8d-11804fe1185f",
+      "priceId": "price_1UCJHDE47mNwFlz1NEFOTxtB",
+      "promotionId": "promo_1UCzV4E47mNwFlz1P3dsXuUT",
+      "apiVersion": "2026-02-25.clover",
+      "liveKeyFormat": true,
+      "checks": {
+        "balanceTransactionRead": {
+          "httpStatus": 404,
+          "result": "missing_resource_not_permission_denied"
+        },
+        "paymentIntentRead": {
+          "httpStatus": 404,
+          "result": "missing_resource_not_permission_denied"
+        },
+        "coupon": {
+          "httpStatus": 200,
+          "result": "retrieved"
+        },
+        "invoicePaymentsRead": {
+          "httpStatus": 200,
+          "result": "empty_scoped_list"
+        },
+        "promotion": {
+          "httpStatus": 200,
+          "result": "retrieved"
+        },
+        "invoiceRead": {
+          "httpStatus": 404,
+          "result": "missing_resource_not_permission_denied"
+        },
+        "subscriptionRead": {
+          "httpStatus": 404,
+          "result": "missing_resource_not_permission_denied"
+        },
+        "chargeRead": {
+          "httpStatus": 404,
+          "result": "missing_resource_not_permission_denied"
+        },
+        "price": {
+          "httpStatus": 200,
+          "result": "retrieved"
+        }
+      },
+      "terms": {
+        "exactPriceAndProduct": true,
+        "exactCoupon": false,
+        "restrictedToBcLearn": true,
+        "oneUnusedRedemption": false,
+        "notExpired": true,
+        "noCustomerOrMinimumRestriction": true
+      },
+      "existingCheckoutValidatorPassed": false,
+      "discountReady": false,
+      "checkoutWritePermission": "not_exercised",
+      "readProbeLimit": "Missing-resource probes are not proof of processing a real object or of write permission.",
+      "stripeWrites": 0,
+      "checkoutEnabledChanged": false,
+      "request_id": "e0f53114-9927-4687-b00b-de82280fab05"
+    }
+  },
+  "accountEvidence": {
+    "historicalStripeAccountId": "acct_1SaSp9E47mNwFlz1",
+    "historicalBusiness": "Futura Funds Inc.",
+    "freshVerifiedScope": "The hosted live key retrieves the exact BC Learn Stripe Price and product identified by the durable attempts",
+    "currentAccountIdReturnedByPreflight": false
+  },
+  "expectedEffects": {
+    "subscriptionPeriodUpdates": 2,
+    "invoiceNoPaymentRequiredFacts": 2,
+    "canonicalEvents": 4,
+    "cashTransactions": 0,
+    "commissionEntries": 0,
+    "stripeWrites": 0,
+    "marathonCallbacks": 0,
+    "note": "Expected from verified stored envelopes, deployed normalizer and hosted SQL, not an executed hosted processing result. Metrics refresh may be enqueued by canonical facts."
+  },
+  "unverified": [
+    "Underlying historical HTTP 520 cause is not exposed by retained diagnostic",
+    "Current deployed live-key account ID was not directly returned",
+    "No hosted processing replay or recovery executed",
+    "Actual outcome after processing remains unverified"
+  ],
+  "recoveryPlan": [
+    "Prepare a new one-shot guarded recovery for the exact September 9 run, not the September 7 recovery script",
+    "Require unchanged four pending event IDs with zero attempts/errors, no live leases/stages, unchanged disabled checkout/payout gates and current queue snapshot",
+    "Preserve failed stage and event evidence; update only scheduler control plus audit after explicit recovery authorization",
+    "Observe Stripe, commercial and metrics stages; verify four events processed, no cash transactions or commissions, expected period/event updates and duplicate safety",
+    "Retain operational incident; allow the existing monitor to resolve it naturally after healthy full cycle/stability window rather than editing it directly",
+    "Stop and inspect if any new financial queue item appears or any stage errors; no automatic retries or broad replay"
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "mode": "stripe-test",
+  "counts": {
+    "reads": 23,
+    "accountCreates": 0,
+    "accountSessions": 1,
+    "deniedProviderCalls": 0,
+    "successfulSessions": 1,
+    "statusChecks": 4,
+    "providerHttpFailures": 0
+  },
+  "account": {
+    "status": "ready",
+    "verifiedAt": "2026-10-17T01:30:35.316+01:00",
+    "payoutsEnabled": true,
+    "requirementsDue": [],
+    "detailsSubmitted": true,
+    "transfersEnabled": true,
+    "connectedAccountId": "acct_1URL8yCwssLKlEpr"
+  },
+  "creationPrefill": null,
+  "settlementJobs": 0,
+  "databaseOnlyLocal": true,
+  "moneyMovementEnabled": false,
+  "runId": "e4edc4f30184fa6067ebfe61",
+  "resumed": true,
+  "expectedConnectedAccountId": "acct_1URL8yCwssLKlEpr",
+  "providerTimings": [
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:28:44.220Z",
+      "duration_ms": 971,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:28:45.196Z",
+      "duration_ms": 342,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:23.820Z",
+      "duration_ms": 467,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:24.288Z",
+      "duration_ms": 329,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:24.618Z",
+      "duration_ms": 442,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:26.154Z",
+      "duration_ms": 659,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:31.660Z",
+      "duration_ms": 389,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:32.050Z",
+      "duration_ms": 355,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:32.405Z",
+      "duration_ms": 468,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:33.150Z",
+      "duration_ms": 535,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:29:33.708Z",
+      "duration_ms": 570,
+      "status": 200
+    },
+    {
+      "kind": "account_session",
+      "method": "POST",
+      "started_at": "2026-10-17T00:29:34.280Z",
+      "duration_ms": 495,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:04.110Z",
+      "duration_ms": 422,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:04.532Z",
+      "duration_ms": 351,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:04.883Z",
+      "duration_ms": 453,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:05.431Z",
+      "duration_ms": 577,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:10.944Z",
+      "duration_ms": 396,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:11.340Z",
+      "duration_ms": 339,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:11.680Z",
+      "duration_ms": 374,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:12.135Z",
+      "duration_ms": 696,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:35.316Z",
+      "duration_ms": 395,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:35.712Z",
+      "duration_ms": 355,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:36.068Z",
+      "duration_ms": 473,
+      "status": 200
+    },
+    {
+      "kind": "provider_read",
+      "method": "GET",
+      "started_at": "2026-10-17T00:30:36.617Z",
+      "duration_ms": 547,
+      "status": 200
+    }
+  ],
+  "requestTimings": [
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:29:23.766Z",
+      "duration_ms": 3078,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "session",
+      "started_at": "2026-10-17T00:29:31.618Z",
+      "duration_ms": 3157,
+      "status": 200,
+      "session_expires_at": 1792197094
+    },
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:30:04.060Z",
+      "duration_ms": 1975,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:30:10.914Z",
+      "duration_ms": 1944,
+      "status": 200,
+      "session_expires_at": null
+    },
+    {
+      "action": "status",
+      "started_at": "2026-10-17T00:30:35.074Z",
+      "duration_ms": 2151,
+      "status": 200,
+      "session_expires_at": null
+    }
+  ],
+  "authentication": "synthetic fresh password AMR; real reauthentication and MFA not exercised"
+}

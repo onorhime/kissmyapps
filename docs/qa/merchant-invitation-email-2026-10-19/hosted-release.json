@@ -1,0 +1,211 @@
+{
+  "completedAt": "2026-10-19T14:43:37.341432+00:00",
+  "status": "deployed; authenticated admin UI and real invitation send/resend verified",
+  "scope": [
+    "One additive invitation-email migration",
+    "Merchant-connect function only",
+    "Three dedicated invitation email settings",
+    "Frozen KMA static dashboard"
+  ],
+  "backend": {
+    "at": "2026-10-19T14:36:22.459Z",
+    "function": "merchant-connect",
+    "versionBefore": 4,
+    "versionAfterEnvironment": 5,
+    "versionAfterCode": 6,
+    "verify_jwt": false,
+    "ezbr_sha256": "387ec0ecb7c6646f3f4e394e32586e6b8bf49e30e8a5e7d45bf538f01898ae24",
+    "bundleSha256": "6c5ed406449025da54659e0279a95e3df470eadbeafc9fa3a2cd4910340ef5e6",
+    "exactSourceModulesVerified": 9,
+    "unrelatedFunctionCodeAndSettingsPreserved": 28,
+    "newConfigNames": [
+      "MERCHANT_INVITATION_EMAIL_ENABLED",
+      "MERCHANT_INVITATION_TOKEN_KEY_ID",
+      "MERCHANT_INVITATION_TOKEN_KEYS_JSON"
+    ],
+    "existingProviderKeySenderOriginsAndCallbackPreserved": true,
+    "disabledFlags": [
+      "MANAGED_CHECKOUT_ENABLED",
+      "CREATOR_TRANSFERS_ENABLED",
+      "CREATOR_CONNECT_ENABLED",
+      "EXTERNAL_COMMERCE_WEBHOOK_ENABLED",
+      "MERCHANT_CONNECT_LIVE_ENABLED"
+    ],
+    "fourPausedJobsUnchanged": true,
+    "cronAndFinancialStateUnchanged": true,
+    "preflightProbes": [
+      {
+        "origin": "https://admin.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://admin.kissmyapps.dev"
+      },
+      {
+        "origin": "https://partners.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://partners.kissmyapps.dev"
+      },
+      {
+        "origin": "https://unconfigured.example",
+        "status": 403,
+        "allowOrigin": null
+      }
+    ],
+    "authenticatedEmailAcceptance": "Verified after frontend deployment through owner Safari and real Gmail"
+  },
+  "database": {
+    "at": "2026-10-19T14:35:14.037Z",
+    "migration": {
+      "file": "20261019090000_merchant_invitation_email.sql",
+      "version": "20261019090000",
+      "name": "merchant_invitation_email",
+      "sha256": "2d969c77faa5a20d70570ffaa55f227ce2e0bc82d8c6c2d565e6a1c97cd91d1a"
+    },
+    "migrations": 66,
+    "existingTablesPreserved": 110,
+    "newTables": [
+      "kma_internal.merchant_invitation_deliveries",
+      "kma_internal.merchant_invitation_delivery_requests",
+      "kma_internal.merchant_invitation_requests"
+    ],
+    "changedFunctions": [
+      "public.get_admin_merchant_connections()"
+    ],
+    "addedFunctions": [
+      "kma_internal.merchant_invitation_delivery_view(p_id uuid)",
+      "public.create_admin_merchant_invitation_v2(p_input jsonb)",
+      "public.finish_merchant_invitation_email(p_input jsonb)",
+      "public.get_admin_merchant_invitation_delivery(p_invitation_id uuid)",
+      "public.prepare_admin_merchant_invitation_email(p_input jsonb)"
+    ],
+    "unchangedFunctions": 325,
+    "fiveProtectedFlagsRemainFalse": true,
+    "pausedFourJobsUnchanged": true,
+    "cronAndFinancialStatePreserved": true
+  },
+  "frontend": {
+    "release": "20261019T143158Z-merchant-invitation-email-e64a622475c9",
+    "artifactSha256": "40e3a8c8383ba4065fe0df5e3f4114f84ee26a919ca6b0ca158fee1fe5a32669",
+    "manifestSha256": "e64a622475c95f5b0133ef8442e38c3f3e882512611075d12f6e7d9c2a76b6db",
+    "files": 34,
+    "httpChecks": 78,
+    "httpPassed": 78,
+    "dashboardHealth": "healthy",
+    "otherContainersPreserved": 15,
+    "vpsFreeBytes": 4087664640,
+    "cleanupPerformed": false
+  },
+  "localValidation": {
+    "frontendVitestPassed": 973,
+    "nodeRegressionPassed": 29,
+    "focusedFrontendPassed": 48,
+    "edgeTestsPassed": 333,
+    "sqlSuitesPassed": 53,
+    "sqlHistoricalFixtureSkips": 3,
+    "newSqlAssertions": 45,
+    "integratedHandlerSqlCasesPassed": 12,
+    "concurrentCreateCalls": 6,
+    "concurrentSendCallsPerWave": 6,
+    "duplicateLeasesPrevented": true,
+    "failedTests": 0,
+    "typecheckLintBuild": "passed"
+  },
+  "hostedEmailValidation": {
+    "checkedAt": "2026-10-19T14:42:41.113Z",
+    "scope": "User-approved human recipient; provider delivery and real Gmail observation verified",
+    "emails": [
+      {
+        "delivery": 1,
+        "storedStatus": "sent",
+        "attempts": 1,
+        "storedProviderReceiptPresent": true,
+        "providerReadStatus": 200,
+        "providerEvent": "delivered",
+        "recipientMatches": true,
+        "subjectMatches": true,
+        "directFragmentLink": true,
+        "trackingRedirectAbsent": true
+      },
+      {
+        "delivery": 2,
+        "storedStatus": "sent",
+        "attempts": 1,
+        "storedProviderReceiptPresent": true,
+        "providerReadStatus": 200,
+        "providerEvent": "delivered",
+        "recipientMatches": true,
+        "subjectMatches": true,
+        "directFragmentLink": true,
+        "trackingRedirectAbsent": true
+      }
+    ],
+    "sameInvitationForResend": true,
+    "distinctProviderMessagesForExplicitResend": true,
+    "testConnectionUnconnected": true,
+    "originalMerchantAndTwoInvitationsUnchanged": true,
+    "financialGatesAndFourPausedJobsUnchanged": true,
+    "manualInboxObservedByRoot": true
+  },
+  "authenticatedUiAcceptance": {
+    "performedBy": "root agent in owner Safari session",
+    "legacyInvitationRenewalExplained": true,
+    "createdSeparateTestMerchant": true,
+    "oneInitialSendAndOneExplicitResend": true,
+    "cooldownVisible": true,
+    "resendKeptSameLink": true,
+    "wrongSignedInEmailRejectedWithoutClaimingInvitation": true,
+    "copyToastPassed": true,
+    "reloadPreservedDeliveryStatus": true,
+    "reloadRecoveredSameExactLink": true,
+    "gmailFromSubjectRecipientBodyAndCtaVerified": true,
+    "gmailObservationNote": "Sender, subject, invited address, greeting and CTA verified in the native accessibility tree. Screenshot discarded because it captured a window transition instead of the tested email."
+  },
+  "providerAndPrivacy": {
+    "existingHostedResendKeyReused": true,
+    "existingSenderReused": true,
+    "senderDomainVerified": true,
+    "clickTrackingEnabled": false,
+    "openTrackingEnabled": false,
+    "providerDeliveredVersusHumanInbox": "Both provider receipts report delivered. Root also opened the real Gmail message and verified sender, subject, recipient, body and CTA.",
+    "rawInvitationTokensPersistedInBackendDatabaseOrThisReport": false
+  },
+  "preservation": {
+    "allFiveFinancialAndLiveFlagsRemainFalse": true,
+    "originalFourLegacyJobsRemainPaused": true,
+    "existingOriginalMerchantAndTwoInvitationsUnchanged": true,
+    "oldFrontendRollbackPreserved": true,
+    "existing28OtherEdgeFunctionCodeAndSettingsPreserved": true,
+    "existing110TableRowsPreservedDuringMigration": true,
+    "financialBaselineAdjustment": {
+      "at": "2026-10-19T14:33:59.618Z",
+      "reason": "Already-enabled scheduled TEST reconciliation advanced only its next poll time",
+      "observedChangedFields": [
+        "next_reconcile_at"
+      ],
+      "oldSnapshotPreserved": true,
+      "excludedFingerprintField": "managed_checkout_orders.next_reconcile_at",
+      "allOtherOrderFieldsProtected": true,
+      "refundedTestOrderRevisionUnchanged": 2,
+      "financialCountsUnchanged": true,
+      "transfers": 0,
+      "bankPayouts": 0
+    }
+  },
+  "retainedTestData": {
+    "label": "Invitation email QA - 19 Oct 2026",
+    "mode": "TEST",
+    "merchantConnectionsCreated": 1,
+    "invitationsCreated": 1,
+    "emailDeliveryOperations": 2,
+    "stripeAccountConnected": false,
+    "productAssigned": false,
+    "cleanup": "Retained, unrevoked, for recipient testing as instructed."
+  },
+  "outOfScope": [
+    "No Stripe OAuth or provider account connection",
+    "No checkout or creator payout enablement",
+    "No original product/funnel/commission changes",
+    "No legacy queue recovery",
+    "No VPS archive/image deletion"
+  ],
+  "rollback": "Previous static release and exact prior merchant-connect bundle are retained privately. Keep the new signing key material for any issued invitations; rollback must not delete invitation history."
+}

@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "authVersion": "v2.197.0",
+  "realAuth": true,
+  "realFrontendGateway": true,
+  "actualHandler": true,
+  "sqlAdapter": "native PostgreSQL RPC adapter instead of PostgREST",
+  "stripeTransport": "fake; no provider calls",
+  "clockTest": "authentication clock advances at most601 seconds; old and reauthenticated JWTs compared at same cutoff; provider/DB verification uses real wall time",
+  "migrations": 60,
+  "checks": [
+    "real password JWT opens own embedded session",
+    "real token refresh cannot satisfy stale password AMR (handler clock advanced 601 seconds)",
+    "actual gateway rejects wrong password; fresh password reauthentication passes while original JWT remains stale at the same handler time",
+    "real enrolled TOTP requires AAL2; wrong code blocked; actual gateway verifies and resumes same account",
+    "tampered bearer token fails real GoTrue verification before provider access",
+    "real other-user JWT cannot access the first creator funding scope",
+    "real client sign-out blocks new payout sessions"
+  ],
+  "evidence": {
+    "accountCreates": 1,
+    "accountSessions": 3,
+    "stored": {
+      "accounts": 1,
+      "connected": 1
+    }
+  },
+  "noHostedMutation": true,
+  "noDeployment": true,
+  "noMoneyMovement": true
+}

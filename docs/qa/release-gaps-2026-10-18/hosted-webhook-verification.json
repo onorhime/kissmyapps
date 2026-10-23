@@ -1,0 +1,315 @@
+{
+  "checkedAt": "2026-10-18T08:37:17.422Z",
+  "scope": "Retained real Stripe TEST events on hosted services; checkout and payouts disabled",
+  "noNewChargeRefundTransferOrPayout": true,
+  "providerDeliveries": [
+    {
+      "event_message": "POST | 200 | https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "id": "6955752e-28e6-48a7-8bf9-a5ab41c886d0",
+      "status": "200",
+      "timestamp": "2026-10-18T08:37:00.576000",
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "user_agent": "pg_net/0.20.4"
+    },
+    {
+      "event_message": "POST | 200 | https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "id": "47abcb01-ca09-4402-a6a2-065128e65e1e",
+      "status": "200",
+      "timestamp": "2026-10-18T08:36:02.203000",
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-worker",
+      "user_agent": "pg_net/0.20.4"
+    },
+    {
+      "event_message": "POST | 200 | https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook?binding_id=hosted-merchant-test-20261018",
+      "id": "7c40cf36-6570-41d8-a88a-3090b6c34366",
+      "status": "200",
+      "timestamp": "2026-10-18T08:35:39.706000",
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook?binding_id=hosted-merchant-test-20261018",
+      "user_agent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)"
+    },
+    {
+      "event_message": "POST | 200 | https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook?binding_id=hosted-test-20261018",
+      "id": "ca8af8cf-8ebf-4a0a-a3dc-2f7a72e7c6a4",
+      "status": "200",
+      "timestamp": "2026-10-18T08:34:48.884000",
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook?binding_id=hosted-test-20261018",
+      "user_agent": "Stripe/1.0 (+https://stripe.com/docs/webhooks)"
+    }
+  ],
+  "gateProbes": {
+    "time": "2026-10-18T08:26:38.416Z",
+    "results": [
+      {
+        "action": "quote",
+        "status": 503,
+        "body": {
+          "error": "checkout_not_enabled",
+          "message": "Checkout is disabled.",
+          "request_id": "e842f8d3-dd03-4559-9331-a37f09532dbf"
+        }
+      },
+      {
+        "action": "create",
+        "status": 503,
+        "body": {
+          "error": "checkout_not_enabled",
+          "message": "Checkout is disabled.",
+          "request_id": "73110f32-115d-4e48-b0c5-ddb142748bc3"
+        }
+      }
+    ],
+    "payout": {
+      "status": 401,
+      "body": {
+        "error": "unauthorized",
+        "message": "Worker authentication failed.",
+        "request_id": "c2643194-111f-4e65-bbb7-a375fc31f0e4"
+      },
+      "scope": "Unauthenticated boundary only; valid worker could process unrelated commissions, so not invoked"
+    },
+    "recordsUnchanged": true
+  },
+  "callbackAcceptance": {
+    "time": "2026-10-18T08:36:37.739Z",
+    "genuineOutboxEventId": "628b44c3-b26b-4ad1-a346-76b53f7d5b1e",
+    "actualWorkerDeliveredAt": "2026-10-18 08:36:01.90925+00",
+    "results": [
+      {
+        "name": "bad signature",
+        "status": 400,
+        "body": "Payment event could not be verified or applied"
+      },
+      {
+        "name": "expired signature",
+        "status": 400,
+        "body": "Payment event could not be verified or applied"
+      },
+      {
+        "name": "wrong account",
+        "status": 400,
+        "body": "Payment event could not be verified or applied"
+      },
+      {
+        "name": "browser Origin",
+        "status": 404,
+        "body": "Not found"
+      },
+      {
+        "name": "wrong host",
+        "status": 404,
+        "body": "Not found"
+      },
+      {
+        "name": "duplicate actual outbox event",
+        "status": 200,
+        "body": {
+          "accepted": true,
+          "event_id": "628b44c3-b26b-4ad1-a346-76b53f7d5b1e"
+        }
+      }
+    ],
+    "financialStateUnchanged": true,
+    "state": {
+      "order": {
+        "id": "359643a8-d8ee-4783-9fb0-1fbc376c08d3",
+        "status": "refunded",
+        "provider_payment_id": "pi_3URahsCYo7AEhAYn0Zz4i2CW",
+        "cumulative_refunded_amount_cents": 16900
+      },
+      "emails": 0,
+      "captures": [
+        {
+          "id": "6558a920-ef99-44f5-a0d7-c5eba11fbcad",
+          "status": "refunded",
+          "payment_id": "pi_3URahsCYo7AEhAYn0Zz4i2CW",
+          "amount_cents": 16900,
+          "duplicate_payment": false,
+          "cumulative_refunded_amount_cents": 16900
+        }
+      ],
+      "receipts": [
+        {
+          "event_id": "628b44c3-b26b-4ad1-a346-76b53f7d5b1e",
+          "payload_hash": "fcde957fe7012ef1605982711fc03795cc1ddbddf305e8998bc1c1fda7853704"
+        }
+      ]
+    }
+  },
+  "scheduledWorkerAudit": {
+    "time": "2026-10-18T08:37:17.422Z",
+    "allFinancialGatesOff": true,
+    "originalDestinationsUnchanged": true,
+    "dedicatedSecretCount": 3,
+    "data": [
+      {
+        "audit": {
+          "cron": [
+            {
+              "status": "succeeded",
+              "end_time": "2026-10-18T08:37:00.057614+00:00",
+              "start_time": "2026-10-18T08:37:00.043898+00:00",
+              "return_message": "1 row"
+            },
+            {
+              "status": "succeeded",
+              "end_time": "2026-10-18T08:36:00.062237+00:00",
+              "start_time": "2026-10-18T08:36:00.047209+00:00",
+              "return_message": "1 row"
+            }
+          ],
+          "http": [
+            {
+              "id": 62599,
+              "content": "{\"enabled\":true,\"reconciled\":0,\"delivered\":1,\"failed\":0,\"request_id\":\"57d6ba1c-be84-490b-8db7-85403a7c2bbc\"}",
+              "created": "2026-10-18T08:36:00.060533+00:00",
+              "error_msg": null,
+              "timed_out": false,
+              "status_code": 200
+            },
+            {
+              "id": 62601,
+              "content": "{\"enabled\":true,\"reconciled\":0,\"delivered\":0,\"failed\":0,\"request_id\":\"899f8418-bb4b-4a9c-ad91-55a6ac49fc69\"}",
+              "created": "2026-10-18T08:37:00.056066+00:00",
+              "error_msg": null,
+              "timed_out": false,
+              "status_code": 200
+            }
+          ],
+          "counts": {
+            "facts": 1,
+            "outbox": 1,
+            "managed_orders": 1,
+            "settlement_jobs": 0,
+            "active_test_offer": 0,
+            "transfer_receipts": 0
+          },
+          "health": {
+            "schedule": {
+              "run_id": null,
+              "enabled": true,
+              "singleton": true,
+              "last_tick_at": "2026-10-18T08:37:00.049569+00:00",
+              "paused_reason": null,
+              "binding_cursor": "hosted-test-20261018",
+              "last_success_at": "2026-10-18T08:37:00.556805+00:00"
+            },
+            "callbacks": {
+              "leased": 0,
+              "pending": 0,
+              "retrying": 0,
+              "expired_leases": 0,
+              "oldest_unfinished_at": null
+            },
+            "recent_runs": [
+              {
+                "id": "33ec5a17-2e1e-4484-b215-6381e3b76887",
+                "counts": {
+                  "failed": 0,
+                  "delivered": 0,
+                  "reconciled": 0
+                },
+                "source": "scheduled",
+                "outcome": "succeeded",
+                "issued_at": "2026-10-18T08:37:00.051614+00:00",
+                "error_code": null,
+                "started_at": "2026-10-18T08:37:00.336578+00:00",
+                "finished_at": "2026-10-18T08:37:00.556566+00:00",
+                "heartbeat_at": "2026-10-18T08:37:00.556566+00:00",
+                "lease_expires_at": "2026-10-18T08:39:00.051614+00:00"
+              },
+              {
+                "id": "17e8c551-ce9c-4577-af4f-0a647cd8a1ab",
+                "counts": {
+                  "failed": 0,
+                  "delivered": 1,
+                  "reconciled": 0
+                },
+                "source": "scheduled",
+                "outcome": "succeeded",
+                "issued_at": "2026-10-18T08:36:00.054618+00:00",
+                "error_code": null,
+                "started_at": "2026-10-18T08:36:00.641478+00:00",
+                "finished_at": "2026-10-18T08:36:02.194357+00:00",
+                "heartbeat_at": "2026-10-18T08:36:02.194357+00:00",
+                "lease_expires_at": "2026-10-18T08:38:00.054618+00:00"
+              }
+            ],
+            "reconciliation": {
+              "due": 0,
+              "retrying": 0
+            },
+            "attention_required": false,
+            "scheduler_can_create_checkouts": false,
+            "scheduler_can_transfer_creators": false
+          }
+        }
+      }
+    ]
+  },
+  "merchantMarkerRestoration": {
+    "restoredAt": "2026-10-18T08:35:02.339Z",
+    "metadataRestored": true,
+    "capabilitiesUnchanged": true,
+    "scope": "Existing authenticated owner Stripe Workbench TEST session; no credential extraction"
+  },
+  "anonymousBoundary": [
+    {
+      "route": "managed_checkout_scheduler_health",
+      "status": 401,
+      "error": "42501",
+      "message": "permission denied for schema public"
+    },
+    {
+      "route": "begin_managed_checkout_worker",
+      "status": 401,
+      "error": "42501",
+      "message": "permission denied for schema public"
+    },
+    {
+      "route": "get_admin_processing_health",
+      "status": 401,
+      "error": "42501",
+      "message": "permission denied for schema public"
+    },
+    {
+      "route": "kma_internal.managed_checkout_schedule",
+      "status": 406,
+      "error": "PGRST106"
+    }
+  ],
+  "limits": [
+    "Platform application fee: authentic delivery but HTTP404 for an unknown order; no positive commission reconciliation claimed.",
+    "Merchant status: fresh genuine provider event returned HTTP200; the unknown hosted connection was safely ignored. Capability persistence was not exercised.",
+    "Initial fixture omitted the historical refund request identity. That exact original request was restored with NULL provider result fields; genuine provider replay then succeeded.",
+    "The retained TEST guest is not a real learner; no learner emails were queued. Hosted authentication emails were verified separately."
+  ],
+  "destinationCleanup": {
+    "time": "2026-10-18T08:39:36.112Z",
+    "reason": "Pause only completed TEST destinations with intentional historical failure probes; retain config and secrets; stop future provider retries",
+    "paused": [
+      {
+        "id": "we_1URpIdE47mNwFlz18FKgLRta",
+        "status": "disabled",
+        "livemode": false,
+        "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook?binding_id=hosted-merchant-test-20261018",
+        "apiVersion": "2026-02-25.clover"
+      },
+      {
+        "id": "we_1URpIcE47mNwFlz1nYIKxtuz",
+        "status": "disabled",
+        "livemode": false,
+        "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook?binding_id=hosted-test-20261018",
+        "apiVersion": "2026-02-25.clover"
+      }
+    ],
+    "connectedTest": [
+      {
+        "id": "we_1URpIdE47mNwFlz1UVk3flRr",
+        "status": "enabled",
+        "livemode": false
+      }
+    ],
+    "allOtherDestinationsUnchanged": true,
+    "limits": "Historical event pending_webhooks counters can remain nonzero until Stripe attempts retry; disabled destination prevents future retries per Stripe docs."
+  }
+}

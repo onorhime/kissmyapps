@@ -1,0 +1,273 @@
+{
+  "migrations": 63,
+  "passed": 50,
+  "failed": 0,
+  "skipped": 3,
+  "results": [
+    {
+      "name": "00_schema_contract.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "01_security_and_history.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "02_money_and_reconciliation.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "03_partner_activation.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "04_admin_products.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "05_tracking_identity.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "06_admin_commercial_configuration.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "07_billing_worker_contract.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "08_stripe_normalization_worker.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "09_admin_billing_offers.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "10_commercial_metrics_reconciliation.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "11_stripe_price_verifier_contract.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "12_production_abuse_and_funnel_scope.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "13_stripe_webhook_payload_minimization.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "14_public_partner_registration.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "15_admin_affiliate_management.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "16_admin_product_configuration_redaction.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "17_admin_attribution_overview.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "18_admin_data_health.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "19_admin_platform_settings.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "20_tracking_only_demo_mode.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "21_agreement_signing.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "22_admin_agreement_enriched_response.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "23_admin_draft_deletion.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "24_agreement_audit_regression.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "25_funnel_checkout_context.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "26_zero_total_checkout.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "27_partner_document_download.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "28_partner_readiness_access.sql",
+      "status": "skipped",
+      "reason": "Requires existing named production BC Learn agreement and member"
+    },
+    {
+      "name": "29_stripe_webhook_ownership.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "30_processing_scheduler.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "31_partner_traffic_metric_availability.sql",
+      "status": "skipped",
+      "reason": "Requires named production BC Learn traffic/cache rows"
+    },
+    {
+      "name": "32_stripe_clover_compatibility.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "33_partner_billing_metric_availability.sql",
+      "status": "skipped",
+      "reason": "Requires named production BC Learn billing/cache rows"
+    },
+    {
+      "name": "34_processing_reliability_visibility.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "35_processing_alerts.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "36_admin_subscriptions.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "37_admin_payout_workflow.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "38_external_commerce.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "39_funnel_metrics.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "40_external_commission_settlement.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "42_creator_connect_receipts.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "43_canonical_external_policy.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "44_legacy_commission_refund_policy.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "45_external_merchant_adjustment_receipts.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "46_canonical_payout_periods.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "47_order_eligibility.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "48_metric_dimensions.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "49_managed_payment_offers.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "50_managed_checkout.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "51_creator_connect_prefill.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "52_merchant_connections.sql",
+      "status": "passed",
+      "failures": []
+    },
+    {
+      "name": "53_managed_checkout_schedule.sql",
+      "status": "passed",
+      "failures": []
+    }
+  ]
+}

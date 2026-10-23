@@ -1,0 +1,27 @@
+{
+  "mode": "stripe-test",
+  "counts": {
+    "reads": 19,
+    "accountCreates": 1,
+    "accountSessions": 2,
+    "deniedProviderCalls": 0,
+    "successfulSessions": 2,
+    "statusChecks": 2
+  },
+  "account": {
+    "status": "restricted",
+    "verifiedAt": "2026-10-16T22:29:01.379+01:00",
+    "payoutsEnabled": false,
+    "requirementsDue": [
+      "business_type",
+      "external_account",
+      "tos_acceptance.date",
+      "tos_acceptance.ip"
+    ],
+    "detailsSubmitted": false,
+    "transfersEnabled": false,
+    "connectedAccountId": "acct_1URIf1E2tb2tfp7B"
+  },
+  "databaseOnlyLocal": true,
+  "moneyMovementEnabled": false
+}

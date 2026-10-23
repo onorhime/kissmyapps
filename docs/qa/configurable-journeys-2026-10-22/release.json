@@ -1,0 +1,132 @@
+{
+  "recorded_at": "2026-10-22T17:15:07.272Z",
+  "scope": "KMA configurable journey definitions and reports",
+  "state": "deployed_financial_gates_disabled",
+  "frontend": {
+    "release": "20261022T170339Z-configurable-journeys-961e4a4a1384",
+    "previous_release": "20261022T150000Z-marathon-test-reporting-550d501eac2a",
+    "healthy": true,
+    "files": 34,
+    "hosted_checks": {
+      "passed": 78,
+      "total": 78,
+      "checked_at": "2026-10-22T17:07:28.273Z"
+    },
+    "unrelated_containers_preserved": 15,
+    "production_preview_enabled": false,
+    "production_environment_matches_previous_release": true,
+    "source_sha256": "961e4a4a1384ec2cba6f3dc4c86224485fdec61f64ad2afb23f5e982490af09b",
+    "archive_sha256": "4fafba39889141812b2562ec85ed7f615f60aef2b6237046e945fec101e3b497"
+  },
+  "database": {
+    "migration": "20261022120000",
+    "migration_count": 70,
+    "applied_at": "2026-10-22T17:06:27.456Z",
+    "rehearsal_passed": true,
+    "apply_passed": true,
+    "checks": {
+      "migration70": true,
+      "previousHistoryPreserved": true,
+      "definitionsMatch": true,
+      "backfillMatchesPreflight": true,
+      "cronPreserved": true,
+      "secretDigestsPreserved": true,
+      "edgeFunctionsPreserved": true
+    },
+    "original_tables_preserved": 117,
+    "original_functions_preserved": 338,
+    "new_definition_tables": 2,
+    "backfilled_funnel_count": 1,
+    "financial_rows_unchanged": true,
+    "provider_backup_count": 8,
+    "pitr_enabled": false,
+    "apply_sha256": "204b1409206a567b1955d10435201da1c847c452fce3f16b04db7515ba961b34"
+  },
+  "hosted_rpc": {
+    "checked_at": "2026-10-22T17:09:18.910Z",
+    "read_only": true,
+    "business_writes": 0,
+    "admin": {
+      "paths": 5,
+      "rates": 9,
+      "stages": 17,
+      "status": "passed",
+      "template": "webinar",
+      "environment": "test",
+      "custom_cards": 3,
+      "published_version": 1,
+      "verified_commerce_preserved": true
+    },
+    "creator": {
+      "status": "passed",
+      "report_own_scope": true,
+      "admin_definition_denied": true,
+      "affiliate_override_denied": true
+    },
+    "anonymous": {
+      "status": "passed",
+      "report_denied": true,
+      "definition_denied": true
+    },
+    "generic_funnel": {
+      "status": "passed",
+      "no_hidden_paths": true,
+      "no_hidden_rates": true,
+      "no_hidden_stages": true
+    },
+    "initial_probe": "Verifier-only permission error calling a deliberately private helper; corrected verifier passed without app or migration changes."
+  },
+  "gates": {
+    "managed_checkout_enabled": false,
+    "creator_transfers_enabled": false,
+    "creator_connect_enabled": false,
+    "external_commerce_webhook_enabled": false,
+    "merchant_connect_live_enabled": false,
+    "secret_digests_preserved": true,
+    "edge_function_inventory_preserved": true
+  },
+  "integration_boundary": {
+    "speaksix_test_event_delivery_enabled": false,
+    "actual_speaksix_signed_test_delivery_verified_this_release": false,
+    "hosted_live_journey_end_to_end_verified": false,
+    "product_event_integration_required": true,
+    "next_step": "Configure the approved SpeakSix TEST event binding and send controlled attributed test events while checkout and payouts remain disabled."
+  },
+  "local_baseline": {
+    "frontend_tests": 81,
+    "database_suites": 60,
+    "production_build": "passed",
+    "evidence": "README.md and database-results.json retained unchanged"
+  },
+  "remaining_acceptance": [
+    "Actual SpeakSix TEST event delivery and end-to-end journey verification remain a separate setup/test step."
+  ],
+  "hosted_browser": {
+    "browser": "Safari",
+    "authenticated_admin": true,
+    "read_only": true,
+    "journey_editor_visible": true,
+    "existing_custom_cards": 3,
+    "test_report_loaded": true,
+    "environment_label": "TEST data — no real earnings",
+    "journey_version": 1,
+    "stages": 17,
+    "rates": 9,
+    "paths": 5,
+    "classified_creator_clicks_in_selected_cohort": 0,
+    "stage_values": 0,
+    "rate_status": "No eligible audience",
+    "custom_cards_status": "Awaiting data",
+    "events_sent": 0,
+    "configuration_writes": 0,
+    "screenshot_evidence": "Not used: screenshot API returned an unusable warped window thumbnail. Evidence is observed accessible UI state.",
+    "evidence": "hosted-ui.json"
+  },
+  "vps": {
+    "dashboard_status": "running/healthy",
+    "dashboard_started_at": "2026-10-22T17:06:54.856326024Z",
+    "available_gib": 2.89,
+    "current_release": "20261022T170339Z-configurable-journeys-961e4a4a1384",
+    "cleanup_performed": false
+  }
+}

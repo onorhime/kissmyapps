@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-18T08:52:05.159Z",
+  "release": "d0ca6e4d9aa019ed36643a04ce22edfb0f14b17a",
+  "publicConfigStatus": 200,
+  "testFixtureAbsent": true,
+  "topLevelKeys": [
+    "mode",
+    "local",
+    "payments",
+    "webinars",
+    "intakes"
+  ],
+  "adminBrowserCheck": "Not performed: Mac locked; no unlock/login requested",
+  "publicPaymentsEnabled": false,
+  "publicIntakeCount": 0
+}

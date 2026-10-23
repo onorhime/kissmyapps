@@ -1,0 +1,123 @@
+{
+  "at": "2026-10-19T15:00:20.239247+00:00",
+  "state": "Reviewed and frozen locally; not deployed",
+  "blockingFindings": [],
+  "reviewedFiles": [
+    {
+      "path": "supabase/functions/merchant-connect/index.ts",
+      "sha256": "f6b60c4ec439d13216aa2ebc0e2677c8cab4c3f02fb4366ae2e1e642ce5bf7ac"
+    },
+    {
+      "path": "supabase/functions/merchant-connect/invitation-otp.ts",
+      "sha256": "b1adabdf6fb44b5030d805db811ba87b99f776052b880dd9b853c80f9211ef64"
+    },
+    {
+      "path": "supabase/functions/merchant-connect/invitation-otp_test.ts",
+      "sha256": "542231a81e69696b59568cf854599adcb659d5ca81cacbe01063fde03cd097be"
+    },
+    {
+      "path": "supabase/migrations/20261019100000_merchant_invitation_otp.sql",
+      "sha256": "b5a633c5fddb997b14a17d231247e82b8ef329ecf049e65c59d4bf161cf9876a"
+    },
+    {
+      "path": "supabase/tests/database/57_merchant_invitation_otp.sql",
+      "sha256": "66fc6d9728ae944137e56a631caf451121e05488fed350050ebc90a84cefc316"
+    }
+  ],
+  "securityChecks": [
+    "Only request_invitation_code bypasses session authentication; other actions remain verified-user gated.",
+    "Exact high-entropy token hash and recipient origin plus platform/account TEST/LIVE binding precede send.",
+    "No arbitrary recipient, redirect or metadata fields; only stored invited email receives normal Supabase Auth OTP.",
+    "Expiry, revocation, confirmation and claimed-user verified email are rechecked under the SQL lease.",
+    "No admin/creator membership assignment or privileged token creation.",
+    "Responses omit invitation tokens/hashes, provider credentials, lease IDs, sessions and OTP values.",
+    "Email-scoped advisory lock; 60-second cooldown and maximum five sends per recipient per hour.",
+    "Stable operation ID never sends twice, including timeout/unknown and expired-lease outcomes; explicit new request required."
+  ],
+  "fullEdgeTests": {
+    "passed": 342,
+    "failed": 0,
+    "command": "deno test --config supabase/functions/deno.json --allow-env --allow-read supabase/functions"
+  },
+  "concurrency": {
+    "at": "2026-10-19T14:57:58.533Z",
+    "migrationSha256": "b5a633c5fddb997b14a17d231247e82b8ef329ecf049e65c59d4bf161cf9876a",
+    "waves": [
+      {
+        "kind": "same_request",
+        "concurrentCalls": 6,
+        "leases": 1,
+        "replayCalls": 6,
+        "replayLeases": 0,
+        "counts": {
+          "requests": 1,
+          "invitations": 1,
+          "sendStarted": 1
+        }
+      },
+      {
+        "kind": "distinct_requests",
+        "concurrentCalls": 6,
+        "leases": 1,
+        "replayCalls": 6,
+        "replayLeases": 0,
+        "counts": {
+          "requests": 6,
+          "invitations": 1,
+          "sendStarted": 1
+        }
+      }
+    ],
+    "hostedWrites": false,
+    "providerCalls": 0,
+    "fixturePath": "/tmp/kma-managed-crossapp.5XOM4Y"
+  },
+  "releasePlan": {
+    "migration": "20261019100000_merchant_invitation_otp.sql",
+    "expectedMigrationCount": 67,
+    "newPrivateTables": 1,
+    "newServiceOnlyRpcs": 2,
+    "changedExistingSqlObjects": 0,
+    "function": "merchant-connect",
+    "modules": 10,
+    "secretChanges": 0,
+    "frontend": "separately frozen by frontend agent"
+  },
+  "productionBoundary": {
+    "at": "2026-10-19T14:54:04.561Z",
+    "migrationCount": 66,
+    "lastMigration": "20261019090000",
+    "function": {
+      "slug": "merchant-connect",
+      "version": 6,
+      "verify_jwt": false,
+      "ezbr_sha256": "387ec0ecb7c6646f3f4e394e32586e6b8bf49e30e8a5e7d45bf538f01898ae24",
+      "bundleSha256": "6c5ed406449025da54659e0279a95e3df470eadbeafc9fa3a2cd4910340ef5e6"
+    },
+    "secretCount": 40,
+    "fiveFinancialFlagsFalse": true,
+    "fourPausedJobsPreserved": true,
+    "merchantConnectionCount": 2,
+    "merchantInvitationCount": 3,
+    "financialFingerprintExcludesOnlyNextReconcileAt": true
+  },
+  "vps": {
+    "at": "2026-10-19T14:53:16.517822+00:00",
+    "current": "/srv/kissmyapps/releases/20261019T143158Z-merchant-invitation-email-e64a622475c9",
+    "freeBytes": 4087590912,
+    "container": {
+      "id": "960df89077c4fb7cb810449af8589ee93966be99df4f5a31116be1073d192697",
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "health": "healthy",
+      "startedAt": "2026-10-19T14:37:35.076813417Z",
+      "restarts": 0
+    },
+    "config": {
+      "compose.yaml": "c8c2d249200c76748eb224bf7cd592b412f5638ab6cdaf12034aea074cec7147",
+      "dashboard.Caddyfile": "0aaea8e8c08ab1e3958290c49d8485a8c20a5f3431eb506eb4d52b317ea48b4c"
+    }
+  },
+  "hostedMutationsThisReview": 0,
+  "providerEmailsThisReview": 0,
+  "stripeCallbackChange": "Pending explicit approval; hosted TEST callback absent from OAuth allowlist"
+}

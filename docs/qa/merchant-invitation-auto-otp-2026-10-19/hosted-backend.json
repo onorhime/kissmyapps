@@ -1,0 +1,130 @@
+{
+  "at": "2026-10-19T15:40:20.214Z",
+  "status": "Hosted backend deployed and verified",
+  "migration": {
+    "at": "2026-10-19T15:36:46.755Z",
+    "migration": {
+      "file": "20261019100000_merchant_invitation_otp.sql",
+      "version": "20261019100000",
+      "name": "merchant_invitation_otp",
+      "sha256": "b5a633c5fddb997b14a17d231247e82b8ef329ecf049e65c59d4bf161cf9876a"
+    },
+    "migrations": 67,
+    "existingTablesPreserved": 113,
+    "newTables": [
+      "kma_internal.merchant_invitation_code_requests"
+    ],
+    "changedFunctions": [],
+    "addedFunctions": [
+      "public.finish_merchant_invitation_code(p_request_id uuid, p_lease_id uuid, p_status text)",
+      "public.prepare_merchant_invitation_code(p_token_sha256 text, p_request_id uuid, p_recipient_origin text)"
+    ],
+    "unchangedFunctions": 331,
+    "fiveProtectedFlagsRemainFalse": true,
+    "pausedFourJobsUnchanged": true,
+    "cronAndFinancialStatePreserved": true
+  },
+  "backend": {
+    "at": "2026-10-19T15:37:21.407Z",
+    "function": "merchant-connect",
+    "versionBefore": 6,
+    "versionAfter": 7,
+    "verify_jwt": false,
+    "ezbr_sha256": "d876c72c0d0f545db6232780d66bb94c0d7303e0cffefe45e42961b7db0024c8",
+    "bundleSha256": "b4163cb7ecf460864297609e65ee8fa2900740d95c078d72de903fed030f7023",
+    "exactSourceModulesVerified": 10,
+    "unrelatedFunctionsPreserved": 28,
+    "newSecretNames": [],
+    "allExistingSecretDigestsPreserved": true,
+    "disabledFlags": [
+      "MANAGED_CHECKOUT_ENABLED",
+      "CREATOR_TRANSFERS_ENABLED",
+      "CREATOR_CONNECT_ENABLED",
+      "EXTERNAL_COMMERCE_WEBHOOK_ENABLED",
+      "MERCHANT_CONNECT_LIVE_ENABLED"
+    ],
+    "fourPausedJobsUnchanged": true,
+    "cronAndFinancialStateUnchanged": true,
+    "existingMerchantAndInvitationStateUnchanged": true,
+    "preflightProbes": [
+      {
+        "origin": "https://admin.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://admin.kissmyapps.dev"
+      },
+      {
+        "origin": "https://partners.kissmyapps.dev",
+        "status": 204,
+        "allowOrigin": "https://partners.kissmyapps.dev"
+      },
+      {
+        "origin": "https://unconfigured.example",
+        "status": 403,
+        "allowOrigin": null
+      }
+    ],
+    "hostedOtpAcceptance": "Invalid-token and auth/origin rejection passed; zero dispatch rows. No fresh valid-recipient OTP email sent in this release acceptance."
+  },
+  "noDeliverySmoke": {
+    "at": "2026-10-19T15:39:50.748Z",
+    "probes": [
+      {
+        "name": "unknown invitation on recipient portal",
+        "status": 403,
+        "errorCode": "invitation_unavailable",
+        "message": "This invitation is unavailable. Ask your KMA administrator for a new link.",
+        "recipientDisclosed": false
+      },
+      {
+        "name": "recipient action blocked on admin portal",
+        "status": 403,
+        "errorCode": "origin_rejected",
+        "message": "This action is not configured for this site.",
+        "recipientDisclosed": false
+      },
+      {
+        "name": "protected inspect requires authentication",
+        "status": 401,
+        "errorCode": "unauthorized",
+        "message": "Sign in to manage a merchant connection.",
+        "recipientDisclosed": false
+      }
+    ],
+    "syntheticTokenConfirmedAbsent": true,
+    "codeRequestRowsBefore": 0,
+    "codeRequestRowsAfter": 0,
+    "noDispatchLeasesCreated": true,
+    "providerEmailSendsBySmoke": 0,
+    "allFiveFinancialFlagsFalse": true,
+    "fourPausedJobsUnchanged": true,
+    "allSecretDigestsUnchanged": true,
+    "cronFinancialAndMerchantStateUnchanged": true,
+    "migrationCount": 67,
+    "merchantConnectVersion": 7
+  },
+  "finalBoundary": {
+    "at": "2026-10-19T15:40:20.214Z",
+    "source": "fresh read-only post-frontend and browser negative-test check",
+    "allFiveFinancialFlagsFalse": true,
+    "allSecretDigestsPreserved": true,
+    "fourLegacyJobsPausedAndUnchanged": true,
+    "cronFinancialAndExistingMerchantStateUnchanged": true,
+    "migrationCount": 67,
+    "merchantConnectVersion": 7,
+    "codeRequestRows": 0,
+    "noProviderSendLeaseCreated": true
+  },
+  "validation": {
+    "allEdgeTests": 342,
+    "concurrentSameIdRequests": 6,
+    "concurrentDistinctIdRequests": 6,
+    "oneSendLeasePerFreshWave": true,
+    "unknownReplayCreatesNoNewLease": true
+  },
+  "limits": [
+    "Actual valid-recipient hosted OTP send/verification was not exercised in this release; local real Auth/SMTP integration was tested by root.",
+    "Stripe TEST callback registration and fresh authorize-page rendering were verified separately by root; no merchant authorization was performed."
+  ],
+  "rollbackSource": "Private previous v6 bundle and extracted sources retained in current release cache.",
+  "localSnapshotNote": "A previous local cache helper was inadvertently refreshed during preparation; this was documented and root informed. Current release uses separate fresh baselines; no hosted mutation occurred in that incident."
+}

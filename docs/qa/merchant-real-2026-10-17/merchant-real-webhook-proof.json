@@ -1,0 +1,109 @@
+{
+  "checkedAt": "2026-10-17T16:55:10.430Z",
+  "passed": true,
+  "realHostedDestinationSecretsTested": false,
+  "boundary": "Real Stripe CLI raw signature verified first; unchanged payload forwarded under two separate local test scope secrets.",
+  "acceptedEvents": [
+    {
+      "id": "evt_1URagTCYo7AEhAYnzcTsyWzX",
+      "type": "checkout.session.completed",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_1URagYE47mNwFlz1OsiErC0M",
+      "type": "application_fee.created",
+      "account": null,
+      "received": true,
+      "ignored": false,
+      "scope": "platform",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_1URahtCYo7AEhAYnjaBS9rzE",
+      "type": "checkout.session.completed",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URagSCYo7AEhAYn1yRvDUIE",
+      "type": "charge.refunded",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URagSCYo7AEhAYn10xUCBs1",
+      "type": "refund.created",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URagSCYo7AEhAYn1HnfmqLw",
+      "type": "refund.updated",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_1URaivE47mNwFlz18TmT7sMi",
+      "type": "application_fee.refunded",
+      "account": null,
+      "received": true,
+      "ignored": false,
+      "scope": "platform",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URahsCYo7AEhAYn0R9TbRK4",
+      "type": "refund.created",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URahsCYo7AEhAYn0CEiKwuu",
+      "type": "charge.refunded",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    },
+    {
+      "id": "evt_3URahsCYo7AEhAYn00x7GFLq",
+      "type": "refund.updated",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "received": true,
+      "ignored": false,
+      "scope": "connected",
+      "cliSignatureVerified": true,
+      "forwardedStatus": 200
+    }
+  ],
+  "relayRejectedEvents": 0
+}

@@ -1,0 +1,107 @@
+{
+  "checkedAt": "2026-10-16T21:32:50.313Z",
+  "commissions": [
+    {
+      "status": "held",
+      "blocker": "validation_window",
+      "currency": "USD",
+      "order_id": "a671e05b-0156-428a-bdfe-83b5f21ce660",
+      "basis_minor": 16900,
+      "total_minor": 16900,
+      "basis_points": 2500,
+      "basis_policy": "post_discount_excluding_tax_shipping",
+      "reversed_minor": 0,
+      "commission_minor": 4225,
+      "commission_rule_id": "ac570000-0000-4000-8000-000000000022",
+      "refund_cutoff_days": 30,
+      "original_commission_minor": 4225
+    },
+    {
+      "status": "held",
+      "blocker": "validation_window",
+      "currency": "USD",
+      "order_id": "67dfe4fa-2163-4cea-adf2-5c9d7b91ab58",
+      "basis_minor": 16900,
+      "total_minor": 16900,
+      "basis_points": 2500,
+      "basis_policy": "post_discount_excluding_tax_shipping",
+      "reversed_minor": 0,
+      "commission_minor": 4225,
+      "commission_rule_id": "ac570000-0000-4000-8000-000000000022",
+      "refund_cutoff_days": 30,
+      "original_commission_minor": 4225
+    },
+    {
+      "status": "held",
+      "blocker": "validation_window",
+      "currency": "USD",
+      "order_id": "77e75028-4c15-436a-92e8-2b8c1a5ea9f4",
+      "basis_minor": 16900,
+      "total_minor": 16900,
+      "basis_points": 2500,
+      "basis_policy": "post_discount_excluding_tax_shipping",
+      "reversed_minor": 0,
+      "commission_minor": 4225,
+      "commission_rule_id": "ac570000-0000-4000-8000-000000000022",
+      "refund_cutoff_days": 30,
+      "original_commission_minor": 4225
+    },
+    {
+      "status": "held",
+      "blocker": "validation_window",
+      "currency": "USD",
+      "order_id": "705483de-211b-45ff-8df3-148e5a2120e6",
+      "basis_minor": 16900,
+      "total_minor": 16900,
+      "basis_points": 2500,
+      "basis_policy": "post_discount_excluding_tax_shipping",
+      "reversed_minor": 0,
+      "commission_minor": 4225,
+      "commission_rule_id": "ac570000-0000-4000-8000-000000000022",
+      "refund_cutoff_days": 30,
+      "original_commission_minor": 4225
+    }
+  ],
+  "sessions": [
+    {
+      "status": "paid",
+      "order_id": "a671e05b-0156-428a-bdfe-83b5f21ce660",
+      "attempt_id": "4d755888-f4a6-4195-bafa-ad4c1d55604a",
+      "learner_id": "fa520000-0000-4000-8000-000000000002",
+      "session_hash": "5a2673f38e0d2298703cb6110de6e5bd",
+      "create_operations": 1
+    },
+    {
+      "status": "paid",
+      "order_id": "67dfe4fa-2163-4cea-adf2-5c9d7b91ab58",
+      "attempt_id": "1aa9374a-ba9c-40e4-9ecf-7d2043551a55",
+      "learner_id": "fa520000-0000-4000-8000-000000000003",
+      "session_hash": "7697a605b42d0907be54626cf98ba957",
+      "create_operations": 1
+    },
+    {
+      "status": "paid",
+      "order_id": "77e75028-4c15-436a-92e8-2b8c1a5ea9f4",
+      "attempt_id": "9142a13b-5b8c-49d3-8454-c3c7d19d57f5",
+      "learner_id": "fa520000-0000-4000-8000-000000000004",
+      "session_hash": "5c9f605f186b290e695b046680d80061",
+      "create_operations": 1
+    },
+    {
+      "status": "paid",
+      "order_id": "705483de-211b-45ff-8df3-148e5a2120e6",
+      "attempt_id": "930e6431-8225-496e-a394-e387a2c59f6d",
+      "learner_id": "fa520000-0000-4000-8000-000000000005",
+      "session_hash": "bb88e914a408696fba8431c45cd49ecf",
+      "create_operations": 1
+    },
+    {
+      "status": "paid",
+      "order_id": "bbb06aaa-c473-4e91-93d9-a2cb22ce9190",
+      "attempt_id": "c93d74a9-8d3b-488a-bdd4-11ff2a2e6b87",
+      "learner_id": "fa520000-0000-4000-8000-000000000006",
+      "session_hash": "6a9e3d0331e8dcb5917f53e56ac544f4",
+      "create_operations": 1
+    }
+  ]
+}

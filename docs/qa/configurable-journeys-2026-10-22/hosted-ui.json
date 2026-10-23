@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-22T17:15:17.838997+00:00",
+  "host": "admin.kissmyapps.dev",
+  "surface": "Product configuration > SpeakSix Marathon Test > Marathon Funnel > Reporting metrics",
+  "authenticated": true,
+  "method": "Safari native accessibility observation",
+  "results": {
+    "editor_loaded": true,
+    "existing_custom_cards_preserved": 3,
+    "published_journey_version": 1,
+    "configured_stages": 17,
+    "configured_conversion_rates": 9,
+    "configured_paths": 5,
+    "test_report_loaded": true,
+    "test_label": "TEST data \u2014 no real earnings",
+    "no_classified_clicks_in_selected_cohort": true,
+    "custom_cards_awaiting_data": true
+  },
+  "business_writes": 0,
+  "events_sent": 0,
+  "limitation": "Native screenshot capture returned a warped window thumbnail; accessibility evidence was used. This check does not establish incoming SpeakSix event delivery."
+}

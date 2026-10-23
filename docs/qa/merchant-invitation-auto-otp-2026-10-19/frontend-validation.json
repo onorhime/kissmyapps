@@ -1,0 +1,64 @@
+{
+  "validated_at": "2026-10-19T15:05:58.501510+00:00",
+  "status": "ready locally; not deployed",
+  "source_frozen": true,
+  "focused_merchant_tests": 63,
+  "full_frontend_tests": {
+    "files": 69,
+    "passed": 988,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "node_script_tests": {
+    "passed": 29,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "typecheck": "passed",
+  "feature_lint": "passed",
+  "format_check": "passed",
+  "production_build": "passed",
+  "build_warnings": [
+    "Existing bundle chunk exceeds 500 kB."
+  ],
+  "browser_acceptance": {
+    "performed_by": "root",
+    "actual_component": true,
+    "synthetic_auth_and_gateway_only": true,
+    "desktop": "passed",
+    "mobile_width": 320,
+    "mobile_client_and_scroll_width": 320,
+    "automatic_code_entry": "passed",
+    "verified_code_to_stripe_choice": "passed"
+  },
+  "lifecycle_checks": [
+    "No editable email for invitation token; response binds the saved recipient.",
+    "One initial request under StrictMode; same operation ID after remount.",
+    "Visible page and resolved anonymous Auth required for automatic send.",
+    "Wrong signed-in account sends nothing until explicit Switch account.",
+    "Server cooldown and duplicate-click lock protect explicit resend.",
+    "Uncertain transport retries reuse the operation ID; terminal links request a new invitation.",
+    "Pending request storage uses token SHA-256 plus UUID/expiry, no new raw-token, email or OTP storage.",
+    "Signed-out callback without an invitation token keeps existing manual recovery."
+  ],
+  "temporary_preview": {
+    "port": 5197,
+    "stopped": true,
+    "files_preserved": true
+  },
+  "provider_calls": 0,
+  "hosted_changes": false,
+  "deployed": false,
+  "artifact": {
+    "release": "20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+    "artifact": "/Users/nobrainer/A1 Global/React/affiliate dashboard/.cache/merchant-invitation-auto-otp-20261019/frontend-release/20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf.tar.gz",
+    "artifact_sha256": "be4723d7d3601acacc795666c3e0690bf523ff941a4e90a2d613a8cdf1ff65bb",
+    "manifest_sha256": "5f7ad1a1bddf638b760c48ce20a2588a8cb9dee3bc22ed544932829b561f4881",
+    "files": 34,
+    "artifact_bytes": 674920,
+    "status": "ready_not_deployed",
+    "no_provider_actions": true,
+    "no_deployment": true,
+    "validated_at": "2026-10-19T15:05:58.501510+00:00"
+  }
+}

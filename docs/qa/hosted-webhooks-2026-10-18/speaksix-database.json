@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-18T00:22:34.903Z",
+  "project": "peqfxjechwnntsrnivje",
+  "data": [
+    {
+      "audit": {
+        "migration_count": 67,
+        "latest_migration": "202610160066",
+        "kma_receipt_count": 0,
+        "configured_intakes": 0,
+        "marathon_order_count": 0,
+        "pay_first_column_present": false,
+        "pay_first_migration_present": false
+      }
+    }
+  ]
+}

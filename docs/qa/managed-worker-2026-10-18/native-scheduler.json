@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "suites": [
+    {
+      "name": "50_managed_checkout.sql",
+      "passed": true
+    },
+    {
+      "name": "53_managed_checkout_schedule.sql",
+      "passed": true
+    }
+  ],
+  "concurrentOwnerInvocations": 6,
+  "owners": 1,
+  "competingTick": "locked",
+  "providersCalled": 0,
+  "hostedMutation": false,
+  "transport": "stubbed pg_net; real local PostgreSQL transactions",
+  "evidenceDirectory": "/tmp/kma-managed-schedule.uLvURn"
+}

@@ -1,0 +1,332 @@
+{
+  "checked_at": "2026-10-22T15:03:26.090208+00:00",
+  "scope": "local disposable PostgreSQL only",
+  "hosted_changes": false,
+  "provider_changes": false,
+  "financial_gate_changes": false,
+  "migration_sha256": "cd2f0fd9ff845f813ac258c4c74cc6ef917104a5abbab2c230f6145976227ccc",
+  "files": [
+    "supabase/migrations/20261022110000_funnel_metric_environment.sql",
+    "supabase/tests/database/59_metric_environment.sql"
+  ],
+  "candidate": {
+    "migrations": 69,
+    "passed": 59,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "name": "00_schema_contract.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "01_security_and_history.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "02_money_and_reconciliation.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "03_partner_activation.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "04_admin_products.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "05_tracking_identity.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "06_admin_commercial_configuration.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "07_billing_worker_contract.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "08_stripe_normalization_worker.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "09_admin_billing_offers.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "10_commercial_metrics_reconciliation.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "11_stripe_price_verifier_contract.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "12_production_abuse_and_funnel_scope.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "13_stripe_webhook_payload_minimization.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "14_public_partner_registration.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "15_admin_affiliate_management.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "16_admin_product_configuration_redaction.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "17_admin_attribution_overview.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "18_admin_data_health.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "19_admin_platform_settings.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "20_tracking_only_demo_mode.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "21_agreement_signing.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "22_admin_agreement_enriched_response.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "23_admin_draft_deletion.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "24_agreement_audit_regression.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "25_funnel_checkout_context.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "26_zero_total_checkout.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "27_partner_document_download.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "28_partner_readiness_access.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "29_stripe_webhook_ownership.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "30_processing_scheduler.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "31_partner_traffic_metric_availability.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "32_stripe_clover_compatibility.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "33_partner_billing_metric_availability.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "34_processing_reliability_visibility.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "35_processing_alerts.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "36_admin_subscriptions.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "37_admin_payout_workflow.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "38_external_commerce.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "39_funnel_metrics.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "40_external_commission_settlement.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "42_creator_connect_receipts.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "43_canonical_external_policy.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "44_legacy_commission_refund_policy.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "45_external_merchant_adjustment_receipts.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "46_canonical_payout_periods.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "47_order_eligibility.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "48_metric_dimensions.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "49_managed_payment_offers.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "50_managed_checkout.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "51_creator_connect_prefill.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "52_merchant_connections.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "53_managed_checkout_schedule.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "54_managed_link_readiness.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "55_readable_creator_links.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "56_merchant_invitation_email.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "57_merchant_invitation_otp.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "58_journey_reporting.sql",
+        "status": "passed",
+        "failures": []
+      },
+      {
+        "name": "59_metric_environment.sql",
+        "status": "passed",
+        "failures": []
+      }
+    ]
+  },
+  "baseline_regression": {
+    "migrations": 68,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "results": [
+      {
+        "name": "59_metric_environment.sql",
+        "status": "failed",
+        "failures": [
+          "ERROR:  FAIL: TEST distinct people resolve verified guest aliases\nCONTEXT:  PL/pgSQL function pg_temp_70.check_true(boolean,text) line 1 at RAISE"
+        ]
+      }
+    ]
+  },
+  "baseline_expected_failure": true,
+  "independent_review": "SpeakSix agent reviewed migration and regression; no blockers."
+}

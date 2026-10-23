@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-22T15:07:02.819Z",
+  "setup": {
+    "offer": {
+      "id": "750519dc-c5a4-4915-9a49-6c352d1d1a4f",
+      "status": "active",
+      "version": 1,
+      "currency": "USD",
+      "cancel_url": "https://marathon.speaksix.com/marathon/enrollment?checkout=cancelled",
+      "success_url": "https://marathon.speaksix.com/marathon/enrollment?checkout=complete&session_id={CHECKOUT_SESSION_ID}",
+      "amount_minor": 16900
+    },
+    "funnel": {
+      "id": "479c5674-7073-47a0-b973-20eed0e287ae",
+      "status": "live"
+    },
+    "journey": {
+      "environment": "test",
+      "conversion_window_days": 30
+    },
+    "product": {
+      "id": "5f10a99c-34ba-4818-bcc8-78a21b5be160",
+      "status": "active"
+    },
+    "reporting": {
+      "metrics": [
+        {
+          "key": "webinar_registrations",
+          "type": "unique_per_context",
+          "label": "Webinar registrations",
+          "visible": true,
+          "event_name": "webinar_registered"
+        },
+        {
+          "key": "webinar_attendees",
+          "type": "current_state",
+          "label": "Confirmed webinar attendees",
+          "visible": true,
+          "event_name": "webinar_attendance_updated",
+          "state_value": "attended"
+        },
+        {
+          "key": "assessment_completed",
+          "type": "unique_people",
+          "label": "Completed assessments",
+          "visible": true,
+          "event_name": "assessment_completed"
+        }
+      ],
+      "version": 1,
+      "published_at": "2026-10-22T15:05:40.730229+00:00"
+    },
+    "price_proofs": [
+      {
+        "livemode": false,
+        "price_id": "price_1USJVhCYo7AEhAYn4qaXLWL4",
+        "account_id": "acct_1UMD6aCYo7AEhAYn",
+        "offer_version": 1
+      }
+    ],
+    "creator_links": 0,
+    "recorded_metric_events": 0
+  },
+  "gates": {
+    "MANAGED_CHECKOUT_ENABLED": "disabled",
+    "CREATOR_TRANSFERS_ENABLED": "disabled",
+    "CREATOR_CONNECT_ENABLED": "disabled",
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": "disabled",
+    "MERCHANT_CONNECT_LIVE_ENABLED": "disabled"
+  }
+}

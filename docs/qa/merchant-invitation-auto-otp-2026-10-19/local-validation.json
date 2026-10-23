@@ -1,0 +1,46 @@
+{
+  "checked_at": "2026-10-19T15:05:46.827060+00:00",
+  "status": "implemented and tested locally; provider callback approval and hosted release pending",
+  "request": "Automatic invitation-bound email code entry and Stripe hosted callback mismatch",
+  "local_validation": {
+    "frontend_tests": 988,
+    "node_script_tests": 29,
+    "edge_tests": 342,
+    "database_suites_passed": 54,
+    "database_historical_fixture_skips": 3,
+    "new_sql_assertions": 29,
+    "handler_database_cases": 16,
+    "real_auth_checks": 4,
+    "real_auth_production_otp_transport": true,
+    "browser": {
+      "desktop": "automatic code entry and synthetic verification reached Connect with Stripe",
+      "mobile_width": 320,
+      "mobile_scroll_width": 320,
+      "screenshots": [
+        "code-entry-desktop.png",
+        "code-entry-mobile.png"
+      ]
+    },
+    "build": "passed",
+    "format_note": "Scoped merchant formatting passed; global Edge format check has a pre-existing unrelated README line-wrap mismatch."
+  },
+  "stripe": {
+    "account": "Futura Funds Inc.",
+    "mode": "TEST",
+    "existing_redirect": "http://127.0.0.1:5194/merchant/callback",
+    "missing_redirect": "https://partners.kissmyapps.dev/merchant/callback",
+    "custom_domain_change_required": false,
+    "approval": "pending",
+    "settings_changed": false
+  },
+  "hosted": {
+    "deployed_this_turn": false,
+    "migration_count": 66,
+    "merchant_connect_version": 6,
+    "checkout_disabled": true,
+    "payouts_disabled": true,
+    "live_merchant_connections_disabled": true,
+    "paused_jobs_unchanged": 4,
+    "external_email_sent": false
+  }
+}

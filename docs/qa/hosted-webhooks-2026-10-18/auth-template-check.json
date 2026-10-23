@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-10-18T00:20:48.717Z",
+  "confirmation": {
+    "configured": true,
+    "matchesLocal": false,
+    "merchantBranchPresent": false,
+    "otpTokenPresent": false
+  },
+  "magicLink": {
+    "configured": true,
+    "matchesLocal": false,
+    "merchantBranchPresent": false,
+    "otpTokenPresent": false
+  },
+  "otpLength": 8,
+  "smtpConfigured": true,
+  "signupsEnabled": true
+}

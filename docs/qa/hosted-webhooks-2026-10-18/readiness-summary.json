@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-18",
+  "timezone": "Africa/Lagos",
+  "assessment": "Pre-deployment hosted inventory completed. Positive hosted delivery remains blocked by missing release/configuration; do not claim the payment integration is activation-ready.",
+  "scope": "No deployment, hosted configuration change, event replay, real email, charge, refund, payout, scheduler invocation or cleanup was performed.",
+  "verified": [
+    "KMA management access works for the intended project. 61 migrations end at 20261017010000. The new merchant migration and handlers are absent.",
+    "KMA managed checkout, managed worker, creator transfers, creator connection and external commerce webhook gates remain disabled, verified against stored secret digests.",
+    "KMA has zero managed orders, callback outbox records, verified managed prices and enabled managed products.",
+    "Managed webhook returns 503 binding_unavailable; browser-origin request returns 403; unsigned worker request returns 401. These establish closed gates, not successful signature acceptance.",
+    "KMA TEST Stripe inventory has no new managed-payment/merchant destinations. FunnelFox TEST endpoint remains enabled; unrelated legacy endpoint remains disabled.",
+    "KMA live Stripe dashboard shows no destination rows. This is manual dashboard evidence, not a live-key API inventory.",
+    "SpeakSix web and Marathon worker are healthy on release 5f4439ab4464baa3858104664699ea6166d2b788 with matching Marathon runtime configuration.",
+    "SpeakSix payments and KMA dispatch remain disabled, callback signing-key map is absent, and configured checkout keys are absent.",
+    "SpeakSix has 67 applied migrations through 202610160066; pay-first migration 202610170067 and its columns are absent. No Marathon orders, intakes or KMA callback receipts exist.",
+    "SpeakSix callback returns 404 with checkout disabled; public configuration reports payments false.",
+    "Fresh focused local verification passed 23 KMA webhook/worker tests and three SpeakSix callback/config/pay-first context suites. Yesterday's real Stripe TEST checkout/refund results remain separate evidence."
+  ],
+  "local_gaps_before_complete_release": [
+    {
+      "issue": "Managed callback worker has no production schedule",
+      "impact": "The existing schedule only invokes the legacy stripe/commercial/metrics chain. Simply deploying the new worker does not deliver queued payment updates to SpeakSix.",
+      "followup": "Add a disabled-by-default authenticated and monitored schedule with durable overlap control and bounded work. Test retry/crash/timeout recovery. Review callback batch leases: ten serial deliveries with 15-second timeouts can exceed the current 60-second lease."
+    },
+    {
+      "issue": "Merchant email code input is incompatible with hosted Auth",
+      "impact": "Hosted Auth generates eight-digit codes, but the local merchant form accepts exactly six. Hosted confirmation and magic-link templates also lack the new merchant OTP content.",
+      "followup": "Preserve the hosted eight-digit security setting; align the local input/validation and tests, and prepare compatible email templates. Apply/rehearse hosted templates only in the approved release/acceptance stage."
+    }
+  ],
+  "gated_release_and_hosted_acceptance_remaining": [
+    "Apply KMA merchant migration and SpeakSix pay-first migration under release approval; install new merchant handlers and updated payment bundles.",
+    "Configure exact product/funnel/offer, merchant account, mode and independent HMAC bindings on both sides. The owner previously chose to create the production Marathon product/funnel personally; do not invent those IDs or commercial settings.",
+    "Create and verify platform-payment, connected-account-payment and merchant-status destinations with distinct signing secrets and the pinned API version; do not repurpose legacy destinations.",
+    "Align hosted merchant email templates and exercise fresh/returning recipient authentication.",
+    "Resolve the SpeakSix callback dependency on the public payments gate for controlled hosted acceptance and continued refund processing when sales are paused; do not enable public purchases merely to make a probe pass.",
+    "Observe real, exact-scope hosted TEST event deliveries and durable KMA/SpeakSix acknowledgements, including retry/duplicate/refund behavior, after deployment and configuration. No successful hosted signature/delivery is claimed now.",
+    "Recheck release capacity against the actual image/package size: the VPS currently has about 2.44 GiB free. No deletion is authorized or performed by this audit.",
+    "Creator payout activation and Zoom webinar acceptance remain separate from these webhook checks."
+  ],
+  "release_distinction": "A deliberately disabled staged deployment is possible after normal packaging checks, but it is not an operational payment launch. Complete the local gaps before calling the full integration ready, then perform positive hosted acceptance after the approved gated release.",
+  "evidence": [
+    "hosted-audit.json",
+    "auth-template-check.json",
+    "speaksix-runtime.json",
+    "speaksix-database.json",
+    "stripe-live-dashboard.json"
+  ],
+  "provider_references": [
+    "https://docs.stripe.com/connect/webhooks",
+    "https://docs.stripe.com/events/manage-webhook-endpoints"
+  ]
+}

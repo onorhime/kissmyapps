@@ -1,0 +1,96 @@
+{
+  "startedAt": "2026-10-16T21:26:36.079Z",
+  "realProvider": true,
+  "livemode": false,
+  "checkoutCreated": 4,
+  "accountId": "acct_1SaSp9E47mNwFlz1",
+  "priceId": "price_1URIc0E47mNwFlz15KgkKFdd",
+  "appData": "disposable local PostgreSQL",
+  "checkedAt": "2026-10-16T21:31:12.800Z",
+  "orders": [
+    {
+      "status": "paid",
+      "currency": "USD",
+      "livemode": false,
+      "order_id": "67dfe4fa-2163-4cea-adf2-5c9d7b91ab58",
+      "revision": 3,
+      "account_id": "acct_1SaSp9E47mNwFlz1",
+      "attempt_id": "1aa9374a-ba9c-40e4-9ecf-7d2043551a55",
+      "amount_minor": 16900,
+      "refund_status": null,
+      "payment_status": "paid"
+    },
+    {
+      "status": "paid",
+      "currency": "USD",
+      "livemode": false,
+      "order_id": "a671e05b-0156-428a-bdfe-83b5f21ce660",
+      "revision": 3,
+      "account_id": "acct_1SaSp9E47mNwFlz1",
+      "attempt_id": "4d755888-f4a6-4195-bafa-ad4c1d55604a",
+      "amount_minor": 16900,
+      "refund_status": null,
+      "payment_status": "paid"
+    },
+    {
+      "status": "open",
+      "currency": "USD",
+      "livemode": false,
+      "order_id": "705483de-211b-45ff-8df3-148e5a2120e6",
+      "revision": 2,
+      "account_id": "acct_1SaSp9E47mNwFlz1",
+      "attempt_id": "930e6431-8225-496e-a394-e387a2c59f6d",
+      "amount_minor": 16900,
+      "refund_status": null,
+      "payment_status": "unpaid"
+    },
+    {
+      "status": "paid",
+      "currency": "USD",
+      "livemode": false,
+      "order_id": "77e75028-4c15-436a-92e8-2b8c1a5ea9f4",
+      "revision": 3,
+      "account_id": "acct_1SaSp9E47mNwFlz1",
+      "attempt_id": "9142a13b-5b8c-49d3-8454-c3c7d19d57f5",
+      "amount_minor": 16900,
+      "refund_status": null,
+      "payment_status": "paid"
+    }
+  ],
+  "pending_callbacks": 0,
+  "refund_operations": 0,
+  "earned_commissions": 3,
+  "canonical_purchases": 3,
+  "delivered_callbacks": 3,
+  "commission_reversals": 0,
+  "provider_adjustment_receipts": 0,
+  "captures": 3,
+  "entitlements": 0,
+  "cohort_status": "proposed",
+  "capture_refunds": [
+    {
+      "status": "paid",
+      "refund_id": null,
+      "capture_id": "a0e82193-8bc1-42cb-b456-4e20e4a75034",
+      "refund_status": null
+    },
+    {
+      "status": "paid",
+      "refund_id": null,
+      "capture_id": "f8ee8a89-4729-4822-9ec2-bc0a12e99485",
+      "refund_status": null
+    },
+    {
+      "status": "paid",
+      "refund_id": null,
+      "capture_id": "c63bb2d5-ee18-4143-8821-7e7b3bfb7deb",
+      "refund_status": null
+    }
+  ],
+  "cancelled_entitlements": 0,
+  "webhookReady": true,
+  "webhookProcessed": 3,
+  "webhookRejected": 0,
+  "webhookAcks": 3,
+  "lastError": null
+}

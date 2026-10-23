@@ -1,0 +1,81 @@
+{
+  "startedAt": "2026-10-18T08:17:14.748Z",
+  "recipient": "Owner-controlled release test alias",
+  "scope": "Owner-controlled plus address; merchant_v1 only; no partner/admin membership, Stripe connection or financial action.",
+  "messages": [
+    {
+      "phase": "fresh-signup",
+      "id": "01a14e16-2cb1-78d9-90d2-f3b490105e3a",
+      "createdAt": "2026-10-18 08:17:18.658000+00",
+      "deliveryEvent": "delivered",
+      "templateMarker": "Verify your email for KissMyApps",
+      "otpLength": 8,
+      "verified": true,
+      "confirmationLinkAbsent": true,
+      "userId": "a7f6bc55-0b1b-48ef-8084-d46f8627ced7",
+      "permissions": {
+        "profile_exists": true,
+        "admin_memberships": 0,
+        "partner_memberships": 0,
+        "merchant_connections": 0
+      }
+    },
+    {
+      "phase": "returning-signin",
+      "id": "01a14e17-2596-7e01-bafb-da53a00ced89",
+      "createdAt": "2026-10-18 08:18:22.390000+00",
+      "deliveryEvent": "delivered",
+      "templateMarker": "Your KissMyApps sign-in code",
+      "otpLength": 8,
+      "verified": true,
+      "confirmationLinkAbsent": true,
+      "userId": "a7f6bc55-0b1b-48ef-8084-d46f8627ced7",
+      "permissions": {
+        "profile_exists": true,
+        "admin_memberships": 0,
+        "partner_memberships": 0,
+        "merchant_connections": 0
+      }
+    }
+  ],
+  "sessionsSignedOut": 2,
+  "completedAt": "2026-10-18T08:18:30.244Z",
+  "status": "passed",
+  "testIdentityRetained": true,
+  "finalIdentityState": {
+    "email_verified": true,
+    "active_sessions": 0,
+    "admin_memberships": 0,
+    "registration_flow": "merchant_v1",
+    "partner_memberships": 0
+  },
+  "templates": {
+    "at": "2026-10-18T08:18:18.849Z",
+    "changedFields": [
+      "mailer_templates_confirmation_content",
+      "mailer_templates_magic_link_content",
+      "mailer_templates_custom_contents"
+    ],
+    "derivedCustomTemplateMarkers": [
+      "MAILER_TEMPLATES_MAGIC_LINK_CONTENT"
+    ],
+    "otpLength": 8,
+    "otherSettingsPreserved": true,
+    "templates": {
+      "mailer_templates_confirmation_content": {
+        "sha256": "796bca74e421d019902772b895ec88ebb0d1603ee9357a5e46521f608e85589f",
+        "bytes": 15081
+      },
+      "mailer_templates_magic_link_content": {
+        "sha256": "e1cfb46bf41b25a1128eb1a321a383b02b7a7c5ca2ec401c6e0828a97691f3b8",
+        "bytes": 664
+      }
+    }
+  },
+  "proofLimits": [
+    "Delivery means Resend reported recipient mail-server acceptance; human inbox placement was not observed.",
+    "Auth verification used the real hosted OTP/verify endpoints and extracted codes only in memory from the two exact recipient/time-scoped messages.",
+    "No merchant invitation, Stripe connection, checkout, payout, admin membership or partner membership was created.",
+    "One clearly labeled email alias identity is retained, with both sessions signed out."
+  ]
+}

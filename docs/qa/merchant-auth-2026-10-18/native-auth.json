@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "authVersion": "v2.197.0",
+  "realAuth": true,
+  "realGoTemplates": true,
+  "emailOtpLength": 8,
+  "smtp": "in-memory sink bound to 127.0.0.1; synthetic .invalid recipients only",
+  "templates": {
+    "confirmation.html": "796bca74e421d019902772b895ec88ebb0d1603ee9357a5e46521f608e85589f",
+    "magic_link.html": "e1cfb46bf41b25a1128eb1a321a383b02b7a7c5ca2ec401c6e0828a97691f3b8"
+  },
+  "messagesCaptured": 6,
+  "checks": [
+    "Fresh merchant: real confirmation template renders eight-digit code; wrong/truncated codes rejected; full code creates confirmed Auth session.",
+    "Returning merchant: real magic-link dispatch renders code-only template; eight-digit code verifies and consumed tokens fail.",
+    "Real expiration rejection and resend recovery with the latest code.",
+    "Existing partner retains signup confirmation link and metadata; merchant sign-in request still receives an eight-digit code plus legacy link fallback."
+  ],
+  "confirmationRequiredInDisposableFixture": true,
+  "noHostedMutation": true,
+  "noExternalEmail": true,
+  "noDeployment": true,
+  "noStripeOrMoneyMovement": true
+}

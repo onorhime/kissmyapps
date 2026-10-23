@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-10-17T16:56:29.911Z",
+  "stage": "refunded",
+  "passed": true,
+  "ledger": {
+    "earned": 1,
+    "reversed": 1,
+    "earned_amount": 4225,
+    "reversed_amount": -4225
+  },
+  "provider": [
+    {
+      "id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "object": "application_fee",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "charge": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "amount": 4225,
+      "amount_refunded": 4225,
+      "currency": "usd",
+      "balance_transaction": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "livemode": false
+    },
+    {
+      "id": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "object": "balance_transaction",
+      "amount": 4225,
+      "currency": "usd",
+      "type": "application_fee",
+      "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "exchange_rate": null,
+      "net": 4225,
+      "fee": 0
+    },
+    {
+      "id": "txn_3URagSCYo7AEhAYn1tpflhBF",
+      "object": "balance_transaction",
+      "amount": 23904,
+      "currency": "cad",
+      "type": "charge",
+      "source": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "exchange_rate": 1.41443,
+      "net": 16536,
+      "fee": 7368
+    }
+  ]
+}

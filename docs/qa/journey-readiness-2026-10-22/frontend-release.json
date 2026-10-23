@@ -1,0 +1,759 @@
+{
+  "verified_at": "2026-10-22T11:25:31.903161+00:00",
+  "status": "frontend_deployed_and_hosted_checks_passed",
+  "release": "20261022T110032Z-journey-reporting-32527210e553",
+  "archive_sha256": "1ad74f128a85b316dbe4df8840bf298a81d8742bfbf81245239e767951b03431",
+  "archive_bytes": 680445,
+  "source_manifest_sha256": "795912adb892aade7cb7bb18ef52b8fa6a566a0c80162f553747333a5a79b448",
+  "asset_count": 34,
+  "hosted_checks": {
+    "at": "2026-10-22T11:24:20.498Z",
+    "release": "20261022T110032Z-journey-reporting-32527210e553",
+    "total": 78,
+    "passed": 78,
+    "results": [
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/statements/SAMPLE-release-probe.pdf",
+        "status": 404,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/healthz",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/merchant/callback",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/merchant/connect",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/apple-touch-icon.png",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/browser-Bg25_sDh.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/demoFunnel-C7-sfoKz.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/demoFunnel-i2Kr1m7l.css",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/dashboard-Dz2awUJt.css",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-400-normal-DMwTpYkH.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-400-normal-BGsTXAXT.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-600-normal-B7SfZ07L.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/TrendChart-DZNQvTuM.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-600-normal-BEfTtDA7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-700-normal-Cu9v6i1X.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-700-normal-D4itBLBr.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/dashboard-BWDCEacg.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-800-normal-BRHLSPcU.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-800-normal-CQna6-G7.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-400-normal-5tcqmc2S.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-600-normal-B85nYjL1.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-400-normal-DHm7mdGe.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-600-normal-CWJcPgd7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-700-normal-CI4iH74K.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-700-normal-fjS8-Gm7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-800-normal-DRv2ic_2.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-800-normal-DyhPHUt-.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/pure-DUuclADj.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/rolldown-runtime-hePW80VL.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/developers/funnels/funnel-api.md",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/demo-funnel.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/developers/funnels/index.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/developers/funnels/openapi.json",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/favicon-32.png",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/favicon.svg",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/kissmyapps-mark.svg",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/index.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/healthz",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/statements/SAMPLE-release-probe.pdf",
+        "status": 404,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/merchant/callback",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/merchant/connect",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/apple-touch-icon.png",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/browser-Bg25_sDh.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/demoFunnel-C7-sfoKz.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/demoFunnel-i2Kr1m7l.css",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/modulepreload-polyfill-P2Xu9kJm.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-400-normal-BGsTXAXT.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/dashboard-Dz2awUJt.css",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-400-normal-DMwTpYkH.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/TrendChart-DZNQvTuM.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-600-normal-BEfTtDA7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-600-normal-B7SfZ07L.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-700-normal-Cu9v6i1X.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-700-normal-D4itBLBr.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-800-normal-BRHLSPcU.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-800-normal-CQna6-G7.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/dashboard-BWDCEacg.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-400-normal-5tcqmc2S.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-400-normal-DHm7mdGe.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-600-normal-B85nYjL1.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-600-normal-CWJcPgd7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-700-normal-CI4iH74K.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-700-normal-fjS8-Gm7.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-800-normal-DyhPHUt-.woff",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/outfit-latin-ext-800-normal-DRv2ic_2.woff2",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/pure-DUuclADj.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/rolldown-runtime-hePW80VL.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/demo-funnel.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/developers/funnels/index.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/developers/funnels/funnel-api.md",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/developers/funnels/openapi.json",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/kissmyapps-mark.svg",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/favicon-32.png",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/favicon.svg",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/index.html",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      }
+    ]
+  },
+  "runtime": {
+    "checked_at": "2026-10-22T11:25:30.394917+00:00",
+    "current": "/srv/kissmyapps/releases/20261022T110032Z-journey-reporting-32527210e553",
+    "previous": "/srv/kissmyapps/releases/20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+    "before_containers": {
+      "/kissmyapps-dashboard": {
+        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+        "started": "2026-10-19T15:38:23.561461312Z"
+      },
+      "/bclearn-generation-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.096631107Z"
+      },
+      "/bclearn-zoom-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.124971791Z"
+      },
+      "/bclearn-email-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.111038639Z"
+      },
+      "/bclearn-marathon-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.07279159Z"
+      },
+      "/bclearn-automation-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.066316098Z"
+      },
+      "/bclearn-bclearn-web-1": {
+        "image": "sha256:dcaf2ea36648ebedb1ca3749f7cb8b828ace7b5b1c744cd5848ad152d69aba9e",
+        "started": "2026-10-18T08:49:57.741081416Z"
+      },
+      "/dramapal-caddy-1": {
+        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+        "started": "2026-10-18T11:38:07.026293059Z"
+      },
+      "/dramapal-web-1": {
+        "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+        "started": "2026-10-17T16:35:18.112364766Z"
+      },
+      "/dramapal-web-mobile-1": {
+        "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+        "started": "2026-10-17T16:35:18.096885882Z"
+      },
+      "/dramapal-core-1": {
+        "image": "sha256:97f7e153a7019252dc3567c4f3ec2788e266bd9fff2fc392b32658cc9cb0b62b",
+        "started": "2026-10-17T16:35:18.293218436Z"
+      },
+      "/dramapal-hosted-complete": {
+        "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+        "started": "2026-08-07T20:18:30.559938505Z"
+      },
+      "/dramapal-hosted-stage20": {
+        "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+        "started": "2026-08-07T20:07:18.813108868Z"
+      },
+      "/dramapal-sandbox-sandbox-web-1": {
+        "image": "sha256:53ef6f4febb5918781f107fb15f4e556ac6027e3296080346f12ba4289d33fa7",
+        "started": "2026-10-17T16:35:18.288818327Z"
+      },
+      "/dramapal-sandbox-sandbox-core-1": {
+        "image": "sha256:484a40e47c8dc9c09e774b7bd0b0853ed8ee0af19c8388d5ee26affdefd46937",
+        "started": "2026-10-17T16:35:18.286905187Z"
+      },
+      "/dramapal-sandbox-sandbox-database-1": {
+        "image": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+        "started": "2026-10-17T16:35:18.124740165Z"
+      }
+    },
+    "after_containers": {
+      "/kissmyapps-dashboard": {
+        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+        "started": "2026-10-22T11:23:58.150065856Z"
+      },
+      "/bclearn-generation-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.096631107Z"
+      },
+      "/bclearn-zoom-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.124971791Z"
+      },
+      "/bclearn-email-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.111038639Z"
+      },
+      "/bclearn-marathon-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.07279159Z"
+      },
+      "/bclearn-automation-1": {
+        "image": "sha256:5c406a169ad774d97f7504c1f42917cd0a62e10420d20a15c1ece139d0abc830",
+        "started": "2026-10-18T08:50:04.066316098Z"
+      },
+      "/bclearn-bclearn-web-1": {
+        "image": "sha256:dcaf2ea36648ebedb1ca3749f7cb8b828ace7b5b1c744cd5848ad152d69aba9e",
+        "started": "2026-10-18T08:49:57.741081416Z"
+      },
+      "/dramapal-caddy-1": {
+        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+        "started": "2026-10-18T11:38:07.026293059Z"
+      },
+      "/dramapal-web-1": {
+        "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+        "started": "2026-10-17T16:35:18.112364766Z"
+      },
+      "/dramapal-web-mobile-1": {
+        "image": "sha256:3fe62ea28232b98bff82a7b33a244757415c5202d5786b124bfbc61d2ab6d2dd",
+        "started": "2026-10-17T16:35:18.096885882Z"
+      },
+      "/dramapal-core-1": {
+        "image": "sha256:97f7e153a7019252dc3567c4f3ec2788e266bd9fff2fc392b32658cc9cb0b62b",
+        "started": "2026-10-17T16:35:18.293218436Z"
+      },
+      "/dramapal-hosted-complete": {
+        "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+        "started": "2026-08-07T20:18:30.559938505Z"
+      },
+      "/dramapal-hosted-stage20": {
+        "image": "sha256:6f43e109f6b817e917bc48424b090ce878e722cd11520ec8a1f7ee5b153592b7",
+        "started": "2026-08-07T20:07:18.813108868Z"
+      },
+      "/dramapal-sandbox-sandbox-web-1": {
+        "image": "sha256:53ef6f4febb5918781f107fb15f4e556ac6027e3296080346f12ba4289d33fa7",
+        "started": "2026-10-17T16:35:18.288818327Z"
+      },
+      "/dramapal-sandbox-sandbox-core-1": {
+        "image": "sha256:484a40e47c8dc9c09e774b7bd0b0853ed8ee0af19c8388d5ee26affdefd46937",
+        "started": "2026-10-17T16:35:18.286905187Z"
+      },
+      "/dramapal-sandbox-sandbox-database-1": {
+        "image": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+        "started": "2026-10-17T16:35:18.124740165Z"
+      }
+    },
+    "unrelated_containers_equal": true,
+    "dashboard": {
+      "status": "running",
+      "health": "healthy",
+      "restarts": 0,
+      "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "started": "2026-10-22T11:23:58.150065856Z",
+      "mounts": [
+        {
+          "source": "/srv/kissmyapps/current/dist",
+          "destination": "/srv",
+          "read_write": false
+        },
+        {
+          "source": "/srv/kissmyapps/deploy/dashboard.Caddyfile",
+          "destination": "/etc/caddy/Caddyfile",
+          "read_write": false
+        }
+      ]
+    },
+    "config_hashes": {
+      "compose.yaml": "c8c2d249200c76748eb224bf7cd592b412f5638ab6cdaf12034aea074cec7147",
+      "dashboard.Caddyfile": "0aaea8e8c08ab1e3958290c49d8485a8c20a5f3431eb506eb4d52b317ea48b4c"
+    },
+    "free_bytes": 4072611840,
+    "cutover": {
+      "release": "20261022T110032Z-journey-reporting-32527210e553",
+      "previous": "/srv/kissmyapps/releases/20261019T150414Z-merchant-invitation-auto-otp-5f7ad1a1bddf",
+      "healthy": true,
+      "unrelated_containers_preserved": 15,
+      "archive_sha256": "1ad74f128a85b316dbe4df8840bf298a81d8742bfbf81245239e767951b03431",
+      "files": 34
+    }
+  },
+  "index_headers": {
+    "admin.kissmyapps.dev": {
+      "status": 200,
+      "cache-control": "no-store, max-age=0",
+      "x-frame-options": "DENY",
+      "x-content-type-options": "nosniff",
+      "cross-origin-opener-policy": "unsafe-none"
+    },
+    "partners.kissmyapps.dev": {
+      "status": 200,
+      "cache-control": "no-store, max-age=0",
+      "x-frame-options": "DENY",
+      "x-content-type-options": "nosniff",
+      "cross-origin-opener-policy": "unsafe-none"
+    }
+  },
+  "scope": {
+    "frontend_only": true,
+    "changed_financial_flags": false,
+    "image_cleanup_performed": false,
+    "backend_receipt": "backend-release.json"
+  },
+  "limits": [
+    "Static routes/assets/headers and container health verified; authenticated journey data depends on existing account access and later attributed traffic.",
+    "Checkout and payout flag verification is recorded separately by the parent/backend release checks."
+  ]
+}

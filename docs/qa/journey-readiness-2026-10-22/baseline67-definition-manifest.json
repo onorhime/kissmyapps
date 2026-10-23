@@ -1,0 +1,200 @@
+[
+  {
+    "present": false,
+    "settings": null,
+    "signature": "kma_internal.funnel_journey_report(uuid,uuid,uuid,uuid,timestamptz,timestamptz,text,integer,text,jsonb)",
+    "source_md5": null,
+    "volatility": null,
+    "anon_execute": null,
+    "security_definer": null,
+    "authenticated_execute": null
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "kma_internal.partner_billing_report_is_ready(uuid,uuid,date,date)",
+    "source_md5": "25ec92c8af9cc7d505671ede684a8b68",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": false
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.agreement_is_launch_ready(uuid,timestamptz)",
+    "source_md5": "4c8b0d46745494597d03d7e40c306575",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": false,
+    "authenticated_execute": false
+  },
+  {
+    "present": false,
+    "settings": null,
+    "signature": "public.configure_admin_funnel_journey(jsonb)",
+    "source_md5": null,
+    "volatility": null,
+    "anon_execute": null,
+    "security_definer": null,
+    "authenticated_execute": null
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.funnel_metrics_report(jsonb,boolean)",
+    "source_md5": "4d504aa919499a12fd4c8d7495c18441",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": false
+  },
+  {
+    "present": false,
+    "settings": null,
+    "signature": "public.get_admin_funnel_journey_configuration(uuid)",
+    "source_md5": null,
+    "volatility": null,
+    "anon_execute": null,
+    "security_definer": null,
+    "authenticated_execute": null
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_admin_funnel_metrics_report(jsonb)",
+    "source_md5": "8db2ea798f0b8230dfe22ce14cda974e",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_partner_dashboard_summary(uuid,date,date,text,uuid,uuid,uuid,text,text)",
+    "source_md5": "b14646895b0d3ae26938ded629404598",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_partner_dashboard_summary_commercial(uuid,date,date,text,uuid,uuid,uuid,text,text)",
+    "source_md5": "c0c77b9ea209d282895ef1b1230edaa2",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": false
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_partner_dashboard_trends(uuid,date,date,text,uuid,uuid,uuid,text,text,text,text)",
+    "source_md5": "b30c9a54f58e0dad7d7f803d99b8ee23",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_partner_dashboard_trends_commercial(uuid,date,date,text,uuid,uuid,uuid,text,text,text,text)",
+    "source_md5": "0339e9599ebcf3790ff105e8ce42ae58",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": false
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.get_partner_funnel_metrics_report(jsonb)",
+    "source_md5": "8e8f6cc48f1f914f99ce05df2ebafe77",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.ingest_funnel_metric_event(uuid,uuid,jsonb)",
+    "source_md5": "4db1da094186e9b8c1d935ee6f224932",
+    "volatility": "v",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": false
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.partner_agreement_is_launch_ready(uuid)",
+    "source_md5": "be9b08aa15105c212280c205bb406acb",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.partner_tracking_only_product_is_ready(uuid)",
+    "source_md5": "c8f60f85911a989465e01cafe45d8001",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": true,
+    "authenticated_execute": true
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.tracking_only_product_is_ready(uuid)",
+    "source_md5": "710c5395779d238944c0f98667bbdd8a",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": false,
+    "authenticated_execute": false
+  },
+  {
+    "present": true,
+    "settings": [
+      "search_path=\"\""
+    ],
+    "signature": "public.validate_funnel_metric_event(jsonb,boolean)",
+    "source_md5": "7ed2834a8727ffc935e1557e38ccca92",
+    "volatility": "s",
+    "anon_execute": false,
+    "security_definer": false,
+    "authenticated_execute": false
+  }
+]

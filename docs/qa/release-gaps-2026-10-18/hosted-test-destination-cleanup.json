@@ -1,0 +1,29 @@
+{
+  "time": "2026-10-18T08:39:36.112Z",
+  "reason": "Pause only completed TEST destinations with intentional historical failure probes; retain config and secrets; stop future provider retries",
+  "paused": [
+    {
+      "id": "we_1URpIdE47mNwFlz18FKgLRta",
+      "status": "disabled",
+      "livemode": false,
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/merchant-connect-webhook?binding_id=hosted-merchant-test-20261018",
+      "apiVersion": "2026-02-25.clover"
+    },
+    {
+      "id": "we_1URpIcE47mNwFlz1nYIKxtuz",
+      "status": "disabled",
+      "livemode": false,
+      "url": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/managed-checkout-webhook?binding_id=hosted-test-20261018",
+      "apiVersion": "2026-02-25.clover"
+    }
+  ],
+  "connectedTest": [
+    {
+      "id": "we_1URpIdE47mNwFlz1UVk3flRr",
+      "status": "enabled",
+      "livemode": false
+    }
+  ],
+  "allOtherDestinationsUnchanged": true,
+  "limits": "Historical event pending_webhooks counters can remain nonzero until Stripe attempts retry; disabled destination prevents future retries per Stripe docs."
+}

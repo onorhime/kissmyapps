@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-22T13:55:54.603Z",
+  "completed_at": "2026-10-22T13:55:57.882Z",
+  "purpose": "Fresh read-only KMA readiness boundary before SpeakSix deployment after an elapsed release pause",
+  "read_only": true,
+  "backend": {
+    "migration_count": 68,
+    "latest_migration": "20261022100000",
+    "receiver": {
+      "slug": "funnel-metric-events",
+      "version": 5,
+      "verify_jwt": false,
+      "ezbr_sha256": "fef7b44b322373b722d09d8744286c65619af95414c3ec18851ad6b5b9336de9"
+    },
+    "checks": {
+      "exactMigrationHistoryPreserved": true,
+      "migrationCount68": true,
+      "receiverActive": true,
+      "receiverVersion5": true,
+      "receiverVerifyJwtFalse": true,
+      "receiverChecksumUnchanged": true,
+      "candidateDefinitionsAndGrantsUnchanged": true,
+      "functionInventoryUnchanged": true,
+      "allSecretDigestsUnchanged": true,
+      "financialGatesFalse": true
+    }
+  },
+  "financial_gates": {
+    "MANAGED_CHECKOUT_ENABLED": false,
+    "CREATOR_TRANSFERS_ENABLED": false,
+    "CREATOR_CONNECT_ENABLED": false,
+    "EXTERNAL_COMMERCE_WEBHOOK_ENABLED": false,
+    "MERCHANT_CONNECT_LIVE_ENABLED": false
+  },
+  "frontend": {
+    "release": "20261022T110032Z-journey-reporting-32527210e553",
+    "checks": [
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/healthz",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/merchant/callback",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "admin.kissmyapps.dev",
+        "path": "/assets/dashboard-BWDCEacg.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/healthz",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/merchant/callback",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "host": "partners.kissmyapps.dev",
+        "path": "/assets/dashboard-BWDCEacg.js",
+        "status": 200,
+        "passed": true,
+        "errors": []
+      }
+    ]
+  },
+  "passed": true,
+  "mutations_performed": false,
+  "job_replays": false,
+  "emails_sent": false,
+  "provider_actions": false,
+  "limits": [
+    "Frontend checks cover public health, routes, content hashes and headers; authenticated account acceptance is recorded separately.",
+    "No financial activation, historical export or telemetry event submission was performed."
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "checkedAt": "2026-10-17T16:52:50.681Z",
+  "passed": true,
+  "livemode": false,
+  "method": "actual ManagedCheckoutService reconciliation; provider GET-only transport",
+  "merchantAccountId": "acct_1UMD6aCYo7AEhAYn",
+  "attemptId": "9df56f5c-0ee2-44b4-9851-4e0846c67969",
+  "operationId": "193f46ee-73a2-4166-9db8-dc13effa7bbf",
+  "providerReads": 26,
+  "providerWrites": 0,
+  "completion": {
+    "refund_id": "fr_1URaiuCYo7AEhAYndilAgS96",
+    "application_fee_id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+    "amount_minor": 4225,
+    "refunded_amount": 4225,
+    "currency": "USD",
+    "livemode": false,
+    "platform_account_id": "acct_1SaSp9E47mNwFlz1",
+    "refund_amount": 5976,
+    "refund_currency": "CAD",
+    "platform_balance_transaction_id": "txn_1URaiuE47mNwFlz1cNvm1KxN"
+  },
+  "accounting": [
+    {
+      "id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "object": "application_fee",
+      "amount": 4225,
+      "amount_refunded": 4225,
+      "currency": "usd",
+      "balance_transaction": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "charge": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "livemode": false
+    },
+    {
+      "id": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "object": "balance_transaction",
+      "amount": 4225,
+      "currency": "usd",
+      "type": "application_fee",
+      "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "exchange_rate": null,
+      "net": 4225,
+      "fee": 0
+    },
+    {
+      "id": "txn_3URagSCYo7AEhAYn1tpflhBF",
+      "object": "balance_transaction",
+      "amount": 23904,
+      "currency": "cad",
+      "type": "charge",
+      "source": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "exchange_rate": 1.41443,
+      "net": 16536,
+      "fee": 7368
+    },
+    {
+      "id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "object": "application_fee",
+      "amount": 4225,
+      "amount_refunded": 4225,
+      "currency": "usd",
+      "balance_transaction": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "charge": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "livemode": false
+    },
+    {
+      "id": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "object": "balance_transaction",
+      "amount": 4225,
+      "currency": "usd",
+      "type": "application_fee",
+      "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "exchange_rate": null,
+      "net": 4225,
+      "fee": 0
+    },
+    {
+      "id": "txn_1URaiuE47mNwFlz1cNvm1KxN",
+      "object": "balance_transaction",
+      "amount": -4225,
+      "currency": "usd",
+      "type": "application_fee_refund",
+      "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "exchange_rate": 1.41443,
+      "net": -4225,
+      "fee": 0
+    },
+    {
+      "id": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "object": "application_fee",
+      "amount": 4225,
+      "amount_refunded": 4225,
+      "currency": "usd",
+      "balance_transaction": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "account": "acct_1UMD6aCYo7AEhAYn",
+      "charge": "ch_3URagSCYo7AEhAYn1k9TPzIy",
+      "livemode": false
+    },
+    {
+      "id": "txn_1URagYE47mNwFlz1FG2mSJMV",
+      "object": "balance_transaction",
+      "amount": 4225,
+      "currency": "usd",
+      "type": "application_fee",
+      "source": "fee_1URagVCYo7AEhAYnPpLPIc6d",
+      "exchange_rate": null,
+      "net": 4225,
+      "fee": 0
+    }
+  ],
+  "calls": [
+    "resolve_managed_merchant_scope",
+    "get_managed_checkout",
+    "managed_checkout_fee_refund_plan",
+    "record_managed_checkout_snapshot",
+    "ingest_external_merchant_adjustment",
+    "managed_checkout_record_commission",
+    "managed_checkout_fee_refund_plan",
+    "complete_managed_checkout_fee_refund"
+  ]
+}

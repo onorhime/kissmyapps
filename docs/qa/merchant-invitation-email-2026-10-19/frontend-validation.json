@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-19T14:32:51.092307+00:00",
+  "status": "frontend deployed and verified; hosted email acceptance is a separate parent-owned check",
+  "full_vitest": {
+    "files": 68,
+    "tests_passed": 973,
+    "failed": 0
+  },
+  "node_scripts": {
+    "tests_passed": 29,
+    "failed": 0,
+    "note": "Initial full run found one old test missing required request_id; repaired fixture and all 29 scripts rerun passed."
+  },
+  "latest_merchant_focused": {
+    "files": 2,
+    "tests_passed": 48,
+    "failed": 0,
+    "note": "Includes can_copy preservation when link response omits workspace-only flag."
+  },
+  "typescript": "passed",
+  "feature_lint": "passed",
+  "production_build": "passed",
+  "build_warning": "Existing dashboard chunk exceeds 500 kB; no new build error.",
+  "user_experience": [
+    "Automatic email attempt on create",
+    "Same-link resend and copy after refresh",
+    "Separate reviewed replacement for legacy/current invitations",
+    "Provider accepted vs failure/uncertainty/disabled states",
+    "Busy and server-controlled cooldown",
+    "Safe operation UUID reuse after transport uncertainty",
+    "Accessible result focus above new-merchant form"
+  ],
+  "manual_browser_qa": "Parent verified desktop and 320/390 px mobile, no horizontal overflow, copy, resend/cooldown, failure/uncertainty and legacy renewal.",
+  "artifact": {
+    "release": "20261019T143158Z-merchant-invitation-email-e64a622475c9",
+    "artifact": "/Users/nobrainer/A1 Global/React/affiliate dashboard/.cache/merchant-invitation-email-20261019/frontend-release/20261019T143158Z-merchant-invitation-email-e64a622475c9.tar.gz",
+    "artifact_sha256": "40e3a8c8383ba4065fe0df5e3f4114f84ee26a919ca6b0ca158fee1fe5a32669",
+    "manifest_sha256": "e64a622475c95f5b0133ef8442e38c3f3e882512611075d12f6e7d9c2a76b6db",
+    "files": 34,
+    "artifact_bytes": 673251,
+    "status": "deployed_verified",
+    "no_provider_actions": true,
+    "no_deployment": false,
+    "deployed_verified_at": "2026-10-19T14:38:53.995508+00:00",
+    "http_checks": 78
+  },
+  "no_real_email_or_provider_actions_by_frontend_agent": true,
+  "financial_gates": "No frontend changes to checkout, commission, payout or merchant assignment behavior.",
+  "deployment": {
+    "at": "2026-10-19T14:38:53.995508+00:00",
+    "http_checks_passed": 78,
+    "files_verified": 34,
+    "dashboard_health": "healthy",
+    "restarts": 0,
+    "unrelated_containers_preserved": 15,
+    "rollback_release": "20261018T112612Z-readable-creator-links-9fc450c7964a",
+    "free_bytes": 4087664640
+  }
+}
