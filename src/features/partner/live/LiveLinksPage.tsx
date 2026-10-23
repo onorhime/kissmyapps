@@ -1,6 +1,7 @@
 import { AlertCircle, Copy, Link2, Plus, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
+import { errorGuidance } from '../../../components/feedback'
 import type { PartnerLinkCreate, PartnerLinkOption, PartnerProduct } from '../api'
 import type { PartnerLiveResourceStatus, PartnerLiveWorkspaceValue } from './types'
 
@@ -173,10 +174,11 @@ export function LiveLinksPage({
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
       await navigator.clipboard.writeText(url)
-      setNotice({ kind: 'success', message: `${name} copied.` })
+      setNotice({ kind: 'success', title: 'Copied', message: `${name} copied.` })
     } catch {
       setNotice({
         kind: 'error',
+        title: 'Could not copy',
         message: 'Clipboard is unavailable. Select and copy the visible tracking URL.',
       })
     }
@@ -394,6 +396,7 @@ export function LiveLinksPage({
                   closeForm(true)
                   setNotice({
                     kind: 'success',
+                    title: 'Link created',
                     message: `${result.data.name} created. Its server-issued URL is ready to copy.`,
                   })
                 } else {
@@ -402,12 +405,14 @@ export function LiveLinksPage({
                     message:
                       result.error?.message ??
                       'The tracking link could not be created. Your draft is preserved.',
+                    ...errorGuidance(result.error),
                   })
                 }
               })
               .catch(() => {
                 setNotice({
                   kind: 'error',
+                  title: 'Not confirmed',
                   message:
                     'The tracking link could not be confirmed. Refresh links before trying again; your draft is preserved.',
                 })

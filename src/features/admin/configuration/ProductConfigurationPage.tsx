@@ -26,7 +26,8 @@ import { LaunchSection } from './LaunchSection'
 import { TrackingModeSection } from './TrackingModeSection'
 import type { ConfigurationActionRunner } from './actionTypes'
 import { useProductConfiguration } from './useProductConfiguration'
-import { ActionNotice } from '../../../components/ActionNotice'
+import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
+import { errorGuidance } from '../../../components/feedback'
 import { revealInvalidField } from '../../../components/formFeedback'
 import { discardScopeDrafts, markFormSaved } from '../../../components/useFormNavigationGuard'
 import { ConfigurationReview } from './ConfigurationReview'
@@ -249,9 +250,7 @@ function ProductConfigurationContent({
       mounted.current = false
     }
   }, [])
-  const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; message: string } | null>(
-    null,
-  )
+  const [feedback, setFeedback] = useState<ActionMessage | null>(null)
   const canManage = context.role === 'owner' || context.role === 'operations'
   const canManageTrackingMode = context.role === 'owner'
   const trackingOnlySelected = state.configuration?.product.trackingMode === 'tracking_only'
@@ -301,13 +300,14 @@ function ProductConfigurationContent({
       // same DOM form. Its original navigation baseline must remain unchanged.
       if (!key.startsWith('billing:update:')) markFormSaved(submittedForm)
       if (key === 'product:delete') discardScopeDrafts(pageRoot.current)
-      setFeedback({ kind: 'success', message: successMessage })
+      setFeedback({ kind: 'success', title: 'Saved', message: successMessage })
       if (key !== 'product:delete') reload()
       return true
     }
     setFeedback({
       kind: 'error',
       message: response.error?.message ?? 'The production configuration was not changed.',
+      ...errorGuidance(response.error),
     })
     if (
       response.error &&

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import './ProductStats.css'
-import { ActionNotice } from '../../../components/ActionNotice'
+import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
+import { errorGuidance } from '../../../components/feedback'
 import { markFormSaved } from '../../../components/useFormNavigationGuard'
 import {
   Box,
@@ -51,10 +52,7 @@ export function ProductsPage({
   const [errors, setErrors] = useState<ProductDraftErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const submitLock = useRef(false)
-  const [feedback, setFeedback] = useState<{
-    kind: 'success' | 'error'
-    message: string
-  } | null>(null)
+  const [feedback, setFeedback] = useState<ActionMessage | null>(null)
   const fields = useRef<Partial<Record<ProductDraftField, HTMLInputElement | null>>>({})
   const canCreate = context.role === 'owner' || context.role === 'operations'
 
@@ -115,13 +113,15 @@ export function ProductsPage({
       markFormSaved(submittedForm)
       setFeedback({
         kind: 'success',
-        message: `${creation.data.name} was created as a draft product.`,
+        title: 'Product created',
+        message: `${creation.data.name} was created as a draft. Open Setup to configure it.`,
       })
       return
     }
     setFeedback({
       kind: 'error',
       message: creation.error?.message ?? 'The draft product could not be created.',
+      ...errorGuidance(creation.error),
     })
   }
 
