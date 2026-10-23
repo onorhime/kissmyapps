@@ -1,4 +1,17 @@
-# Future funnel integration
+# Funnel integration
+
+The complete current contract is [API_CONTRACT.md](./API_CONTRACT.md), version
+1.3, including BC Learn setup, embedded checkout, email prefill, verified payment status,
+deployment gates and live acceptance steps. New funnels should use
+`createFunnelCheckoutProxy` from `checkout-proxy.ts`, not a raw passthrough route.
+The foundational reference below describes the legacy two-field HMAC checkout;
+the v1.3 adapter adds a server-owned quoted offer version, receipt cookies and
+an embedded presentation with automatic server-verified confirmation.
+
+Future product-app access is documented in
+[section 7.1](./API_CONTRACT.md#71-future-app-access--not-implemented).
+BC Learn has no product app/backend yet. App login, secure subscription linking
+and an authenticated access API are deferred, not included in the live v1.3 API.
 
 This package is the production integration contract between a future product
 funnel and the affiliate platform. It contains no environment credentials, seed
@@ -69,7 +82,8 @@ const checkout = await requestCheckout({
   offerKey: selectedOfferKey,
 })
 
-window.location.assign(checkout.checkout_url)
+if (checkout.checkout_url) window.location.assign(checkout.checkout_url)
+// For embedded receipts, mount Stripe using the v1.3 contract example instead.
 ```
 
 The backend owns the offer price, currency, billing mode, success URL, and

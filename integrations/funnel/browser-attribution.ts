@@ -116,18 +116,33 @@ export interface CheckoutOptions {
    */
   endpoint: string
   offerKey: string
+  /** Billing prefill only. Never send this in attribution/browser events. */
+  customerEmail?: string
+  /** Keep the same value when retrying one checkout attempt. */
+  idempotencyKey?: string
   clickId?: string | null
   storage?: StorageLike | null
   fetcher?: typeof fetch
   signal?: AbortSignal
 }
 
-export interface CheckoutReceipt {
+export interface HostedCheckoutReceipt {
   checkout_url: string
   attempt_id: string
   expires_at: string
   request_id: string
 }
+export interface EmbeddedCheckoutReceipt {
+  ui_mode: 'embedded'
+  checkout_url: null
+  client_secret: string
+  session_id: string
+  publishable_key: string
+  attempt_id: string
+  expires_at: string
+  request_id: string
+}
+export type CheckoutReceipt = HostedCheckoutReceipt | EmbeddedCheckoutReceipt
 
 interface StoredAttribution {
   version: 1
@@ -390,7 +405,16 @@ function requireHttpsEndpoint(endpoint: string): string {
   } catch {
     throw new FunnelIntegrationError('Endpoint URL is invalid.', 'invalid_endpoint')
   }
-  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) {
+  const localSameOrigin =
+    parsed.protocol === 'http:' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname) &&
+    parsed.origin === globalThis.location?.origin
+  if (
+    (!localSameOrigin && parsed.protocol !== 'https:') ||
+    parsed.username ||
+    parsed.password ||
+    parsed.hash
+  ) {
     throw new FunnelIntegrationError(
       'Endpoint must be a credential-free HTTPS URL without a fragment.',
       'invalid_endpoint',
@@ -571,22 +595,28 @@ export async function requestCheckout(options: CheckoutOptions): Promise<Checkou
   }
   const selectedStorage = options.storage === undefined ? browserStorage() : options.storage
   const clickId = resolvedClickId(options.clickId, selectedStorage)
+  const idempotencyKey = options.idempotencyKey ?? createEventId()
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
+    throw new FunnelIntegrationError('Checkout attempt key is invalid.', 'invalid_idempotency_key')
+  }
   const response = await (options.fetcher ?? fetch)(requireHttpsEndpoint(options.endpoint), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify({
       click_id: clickId,
       offer_key: options.offerKey,
+      ...(options.customerEmail !== undefined ? { customer_email: options.customerEmail } : {}),
     }),
     cache: 'no-store',
-    credentials: 'omit',
+    credentials: 'same-origin',
     referrerPolicy: 'no-referrer',
     signal: options.signal,
   })
   const receipt = await parseResponse(response)
-  let checkoutUrl: URL
+  const embedded = receipt.ui_mode === 'embedded'
+  let checkoutUrl: URL | null = null
   try {
-    checkoutUrl = new URL(String(receipt.checkout_url))
+    if (!embedded) checkoutUrl = new URL(String(receipt.checkout_url))
   } catch {
     throw new FunnelIntegrationError(
       'The checkout service returned an invalid receipt.',
@@ -595,10 +625,21 @@ export async function requestCheckout(options: CheckoutOptions): Promise<Checkou
     )
   }
   if (
-    typeof receipt.checkout_url !== 'string' ||
-    checkoutUrl.origin !== 'https://checkout.stripe.com' ||
-    checkoutUrl.username ||
-    checkoutUrl.password ||
+    (!embedded &&
+      (typeof receipt.checkout_url !== 'string' ||
+        !checkoutUrl ||
+        checkoutUrl.origin !== 'https://checkout.stripe.com' ||
+        checkoutUrl.username ||
+        checkoutUrl.password)) ||
+    (embedded &&
+      (receipt.checkout_url !== null ||
+        typeof receipt.session_id !== 'string' ||
+        !/^cs_live_[A-Za-z0-9_]{8,160}$/.test(receipt.session_id) ||
+        typeof receipt.client_secret !== 'string' ||
+        receipt.client_secret.length > 512 ||
+        !receipt.client_secret.startsWith(`${receipt.session_id}_secret_`) ||
+        typeof receipt.publishable_key !== 'string' ||
+        !/^pk_live_[A-Za-z0-9_]{16,256}$/.test(receipt.publishable_key))) ||
     typeof receipt.attempt_id !== 'string' ||
     !/^[A-Za-z0-9_-]{32,128}$/.test(receipt.attempt_id) ||
     typeof receipt.expires_at !== 'string' ||

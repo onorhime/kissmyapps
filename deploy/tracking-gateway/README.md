@@ -1,21 +1,37 @@
 # Production tracking gateway
 
-This directory is the standalone Vercel project for the public `go` host. It
-contains no preview/staging behavior and no credentials. Vercel forwards only
-`/r/*` requests to the linked production Supabase `tracking-redirect` function;
-the upstream function still validates the exact route, resolves the server-owned
-destination, records the click/acquisition, and returns the redirect.
+The current `go.kissmyapps.dev` host runs on the shared VPS Caddy proxy. Its source
+snippets are in `deploy/hostinger/`. This directory is the equivalent standalone
+Vercel gateway configuration; changing it does not change the active VPS.
 
-Do not deploy or attach a custom domain until the exact registered apex domain
-is confirmed. The current DNS check finds `kissmyapps.dev`, while the separately
-mentioned `kismahub.dev` has no DNS zone. After confirmation:
+Both gateways preserve the original `/r/<creator-slug>/<code>` addresses and
+forward readable `/<product>/<creator>` and `/<product>/<creator>/<variant>`
+addresses to the same production `tracking-redirect` function. Creator and
+product handles are immutable aliases for an existing link. They do not create a
+second attribution system or bypass link, agreement or payment-readiness checks.
 
-1. Deploy this directory as its own Vercel project using a production deployment.
-2. Attach the confirmed `go.<apex>` hostname to that project.
-3. Add the CNAME Vercel reports at the existing DNS provider; do not move the
-   apex nameservers or overwrite unrelated records.
-4. Confirm HTTPS, `Cache-Control: no-store`, the `kma_sid` first-party cookie,
-   one real click row, and the final funnel redirect before enabling tracking.
+Readable handles preserve supported non-Latin letters and numbers. Browsers may
+percent-encode them on the wire. Caddy matches the decoded Unicode path; Vercel
+forwards the two- or three-segment path. The Edge function decodes each segment
+once and checks lowercase NFC letters/numbers and hyphens, a maximum of 64
+characters per segment and 180 characters overall. It rejects encoded separators,
+percent signs, repeated/trailing slashes and reserved product prefixes. Gateway
+matching is a routing filter; the Edge function is the canonical validator.
 
-External rewrites are intentionally not cached. Never enable rewrite caching on
-affiliate redirects.
+The legacy `/r/*` matcher stays first. Caddy rejects non-GET tracking requests
+with 405, and the upstream function applies the same method restriction for the
+Vercel alternative. Other Caddy paths return 404. All redirect routes use
+`Cache-Control: no-store`; never enable caching on affiliate redirects.
+
+For an approved VPS route release, begin with the current complete live Caddyfile,
+change only the `go.kissmyapps.dev` block, validate with the installed Caddy version,
+and preserve the inode of its bind-mounted file. Retain the previous bytes and
+restart only the edge Caddy container. Never replace the shared file with the
+repository's dated full snapshot or restart the DramaPal Compose project.
+
+Before switching, deploy and test the alias migration and redirect handler.
+After switching, verify legacy and readable URLs, a percent-encoded non-Latin
+handle, the `kma_sid` first-party cookie, existing readiness rejections, and the
+final funnel destination. A synthetic unknown alias returning 404 establishes
+routing only; it does not prove a successful attributed click. Financial gates
+and worker queues are independent and must remain in their approved state.

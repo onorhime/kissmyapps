@@ -34,12 +34,13 @@ export async function reportLeadCreated(
  */
 export async function createCheckoutOnServer(
   configuration: ServerIntegrationConfiguration,
-  input: { clickId: string; offerKey: string },
+  input: { clickId: string; offerKey: string; offerVersion: number; idempotencyKey: string },
 ): Promise<Response> {
   const request = await createSignedRequest({
     endpoint: configuration.checkoutSessionEndpoint,
     signing: configuration.signing,
-    body: { click_id: input.clickId, offer_key: input.offerKey },
+    nonce: input.idempotencyKey,
+    body: { click_id: input.clickId, offer_key: input.offerKey, offer_version: input.offerVersion },
   })
   return fetch(request.endpoint, {
     method: 'POST',
@@ -47,5 +48,6 @@ export async function createCheckoutOnServer(
     body: request.body,
     cache: 'no-store',
     redirect: 'error',
+    signal: AbortSignal.timeout(20000),
   })
 }

@@ -1,0 +1,158 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>KissMyApps • Funnel API v1.3</title><style>:root{color-scheme:dark;font-family:system-ui,sans-serif;color:#f7f5f7;background:#171417}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:960px;margin:auto;padding:28px}header{border-bottom:1px solid #51454e;display:flex;gap:24px;flex-wrap:wrap;align-items:center}a{color:#ff8cc9;text-underline-offset:4px}a:focus-visible{outline:3px solid #fff06b;outline-offset:6px}nav{display:flex;gap:24px;flex-wrap:wrap}h1{font-size:clamp(28px,5vw,46px);line-height:1.15}h2{margin-top:56px;padding-top:20px;border-top:1px solid #51454e;color:#ff8cc9}h3{margin-top:32px;color:#fff06b}p{font-size:16px;line-height:1.75;overflow-wrap:anywhere;color:#e0d8de}pre{background:#262126;border:1px solid #51454e;border-radius:14px;padding:20px;overflow:auto;line-height:1.6}footer{color:#bfb1ba}strong{color:#fff06b}</style></head><body><header><strong>KissMyApps / Developers</strong><nav aria-label="Downloads"><a href="/developers/funnels/funnel-api.md">Markdown contract</a><a href="/developers/funnels/openapi.json">OpenAPI 3.1</a></nav></header><main><h1>KissMyApps funnel integration — v1.3</h1>
+<p>Status: implementation contract for the BC Learn test funnel. This document does<br>not certify deployment, live payment acceptance, app entitlement or payout release.<br>The context endpoint, zero-total processing and embedded-checkout migrations<br>must be deployed before using the v1.3 flow. US$1/month is approved; the<br>operator requires a 100% recurring discount, not a real charge, for this test.</p>
+<h2>1. The complete flow</h2>
+<p>Partner link → go.kissmyapps.dev records click → BC Learn captures kma_click →<br>original welcome + three questions → saved email → verified paywall → embedded Stripe Checkout.<br>Customer confirmation: receipt-bound server verification → confirmed funnel screen.<br>Reporting, independently: signed Stripe webhook → normalization worker → commercial ledger → partner metrics.</p>
+<p>The original /speak design is duplicated at /. Its welcome, three question pages<br>and email/plan screen are retained; the paywall is the sixth screen, immediately<br>after successful email saving. Answers personalize the summary, not the price or<br>commission. /speak itself still ends with waitlist confirmation and optional matching.<br>The earlier redesigned PartnerTestFunnel is no longer the active root component.<br>The unrelated 32-screen /plan entry redirects to /, and its standalone Stripe<br>API returns 410. There is no unaffiliated checkout fallback.</p>
+<p>Production funnel origin: https://bc-learn-partner-funnel.vercel.app<br>Partner dashboard: https://partners.kissmyapps.dev<br>Admin dashboard: https://admin.kissmyapps.dev<br>Tracking links: https://go.kissmyapps.dev<br>Backend base: https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1</p>
+<h2>2. What the admin configures</h2>
+<p>1. Create a COMMERCIAL product and one live default HTTPS funnel at the origin<br>   above. Tracking-only products can test clicks/events but cannot accept payment.<br>2. Configure the partner's actual commission rule and agreement. Upload the<br>   real versioned PDF, have the partner sign, countersign as an authorized admin,<br>   and activate it. A funnel buyer's checkbox is NOT this bilateral agreement.<br>3. Create the approved US$1/month live recurring Stripe Price. Configure a<br>   product-applicable 100%-off FOREVER coupon and active promotion code; do not<br>   use a once-only coupon that would charge on renewal. Configure and verify the matching billing offer: exact<br>   Price ID, currency, minor-unit amount, subscription mode and stable offer key.<br>4. Set the offer success URL to:<br>   https://bc-learn-partner-funnel.vercel.app/checkout/complete?session_id={CHECKOUT_SESSION_ID}<br>   Set its cancellation URL to:<br>   https://bc-learn-partner-funnel.vercel.app/?checkout=cancelled<br>5. Activate the product, then activate its verified offer. Issue the partner main link, and create distinct<br>   source links for TikTok, Instagram, etc. Select the correct funnel/source/<br>   campaign in the dashboard and enable the production tracking gateway.<br>6. Configure the backend and funnel secrets below; activate and verify the Stripe<br>   webhook and scheduled Stripe/commercial/metrics workers. Review final buyer<br>   terms, cancellation/refund instructions and support contact. Only then set<br>   KMA_CHECKOUT_ENABLED=true for the approved no-charge test. Do not remove the<br>   discount from the resulting subscription. Restrict redemption and access to<br>   this test funnel; an open promotion endpoint lets any eligible visitor use it.</p>
+<p>Price IDs do not belong in partner links. Link codes resolve to server-owned<br>partner/product/funnel/source/campaign dimensions. TikTok or Instagram may add<br>their own click parameters, but those are not a reliable substitute for creating<br>and distributing the right source-specific partner link. Referrers may be absent.<br>Changing a browser query must never reassign the owning partner or commission.</p>
+<h2>3. Browser attribution and events</h2>
+<p>Use the versioned browser-attribution.ts helper. Capture before initializing<br>optional third-party analytics:</p>
+<pre><code>
+const attribution = captureAttributionFromUrl()
+
+if (attribution.clickId) {
+
+  await sendBrowserEvent({
+
+    endpoint: BACKEND + '/browser-events',
+
+    clickId: attribution.clickId,
+
+    eventName: 'landing_viewed',
+
+    eventId: crypto.randomUUID(),
+
+    occurredAt: new Date(),
+
+    properties: { page_path: '/', page_name: 'welcome' },
+
+  })
+
+}
+
+</code></pre>
+<p>One opaque kma_click is held as pending and removed from the address bar.<br>A successful event or checkout promotes it to confirmed storage (default 30 days,<br>client maximum 90 days); server agreement windows remain authoritative.<br>An unknown token cannot replace the last confirmed token. Do not silently assign<br>an organic visit to an arbitrary partner. BC Learn blocks checkout without a<br>usable partner click; its questions still work.</p>
+<p>Allowed browser events: landing_viewed, funnel_started, payment_viewed,<br>app_store_clicked. BC Learn sends the first three; there is no app-store CTA yet.<br>No browser purchase, revenue, refund or commission event is accepted.<br>Event payload fields are exactly event_id (UUID), event_name, click_id,<br>occurred_at (ISO timestamp), and properties. Keep the same ID, timestamp and<br>properties for retries of one logical event. Successful response:<br>{accepted:true,event_id,duplicate:boolean,request_id}.</p>
+<p>Only allowlisted, non-identifying properties are permitted. BC Learn sends<br>page_path without queries and page_name only. Never send answers, emails,<br>passwords, card data, access tokens or full URLs to this endpoint.<br>The current funnel makes bounded best-effort behavioral sends; it does not<br>include a durable offline event queue. A browser-event outage does not fabricate<br>a conversion. Server checkout and verified payment remain authoritative.</p>
+<p>Amplitude is optional, consent-controlled UX analytics already in the funnel.<br>It is not the commission ledger. Declining it does not disable the flow.<br>The operator must approve applicable attribution notice/consent requirements<br>before public launch.</p>
+<h2>4. Same-origin browser API</h2>
+<h3>BC Learn email step (existing waitlist API)</h3>
+<p>POST /api/waitlist with {email,answers,context,session_id}. This existing BC Learn<br>lead-capture endpoint is separate from the partner financial API. It stores the<br>email and allowed questionnaire/context fields in the existing Firestore waitlist<br>and may send its configured Resend welcome email for a new record. It does not<br>create a partner account, grant entitlement, record a purchase or earn a commission.<br>The copied UI opens the paywall only after an HTTP-success response with {ok:true}.<br>An invalid email or failed save leaves the email screen visible for correction/retry.<br>The existing Firestore service-account configuration is required; do not bypass a<br>failed save or claim the email is stored when it is not. Never put these secrets<br>in browser code. Production deployment also needs review of the existing waitlist<br>endpoint's abuse controls and welcome-email behavior.</p>
+<p>Email and answers stay in component memory, not browser storage. Neither is sent<br>to browser-events. Checkout sends only the entered email as `customer_email` for<br>Stripe billing prefill; answers are never forwarded. Email is not proof of identity,<br>does not select an existing Customer, and is excluded from attribution metadata,<br>DB records and logs. Stripe's final billing identity remains authoritative.<br>Refreshing restarts the questionnaire;<br>resubmitting the same email updates its existing waitlist record rather than<br>creating a duplicate. This does not reset checkout idempotency keys.</p>
+<h3>Partner API protections</h3>
+<p>All routes below are POST, application/json, no-store and exact-origin protected.<br>Maximum request body: 4096 bytes. Include same-origin cookies; never call the<br>server-HMAC endpoint directly from a browser. Unknown fields are rejected.</p>
+<h3>POST /api/partner/offer</h3>
+<p>Body: {click_id}<br>Response: {offer,checkout_enabled}</p>
+<p>offer = {key,version,name,currency,unit_amount_minor,billing_mode:&quot;subscription&quot;,<br>interval:&quot;day&quot;|&quot;week&quot;|&quot;month&quot;|&quot;year&quot;,interval_count}.</p>
+<p>The backend reads an active, verified offer bound to the click's product and<br>checks the current live Stripe Price. Currency is uppercase; amount is an integer<br>in minor units. The UI must show today's charge, renewal amount/interval and no<br>free-trial claim. BC Learn displays the USD list price plus its mandatory 100%<br>recurring discount. Additional currencies, taxes, partial discounts, trials and<br>usage-based pricing remain outside this test contract.</p>
+<p>The adapter sets a signed HttpOnly kma_checkout_quote cookie, valid 15 minutes,<br>SameSite=Lax, Path=/api/partner, Secure in production. It binds click, offer and<br>displayed version. Price or version changes require a new review.</p>
+<h3>POST /api/partner/checkout</h3>
+<p>Body: {click_id,offer_key,customer_email}. Email is required by this embedded BC Learn adapter;<br>it remains optional for backwards-compatible hosted integrations.<br>Header: Idempotency-Key: &lt;16–128 character logical-attempt token&gt;</p>
+<pre><code>
+const receipt = await requestCheckout({
+
+  endpoint: '/api/partner/checkout',
+
+  clickId,
+
+  offerKey: offer.key,
+
+  customerEmail: email.trim(),
+
+  idempotencyKey: savedLogicalAttemptKey,
+
+})
+
+if (receipt.checkout_url === null) {
+
+  const stripe = await loadStripe(receipt.publishable_key)
+
+  const checkout = await stripe.createEmbeddedCheckoutPage({
+
+    clientSecret: receipt.client_secret,
+
+    onComplete: () =&gt; verifyReceiptAndContinue(receipt.session_id),
+
+  })
+
+  checkout.mount('#checkout')
+
+} else window.location.assign(receipt.checkout_url) // legacy hosted mode only
+
+</code></pre>
+<p>Review the offer first so its signed quote cookie exists. Reuse one key for every<br>retry of that click/offer/version. Do not generate a fresh key on a timeout.<br>BC Learn keeps it in session storage with an in-memory fallback. Storage loss,<br>another device or clearing data is not a cross-device duplicate-purchase guard.</p>
+<p>Embedded response: {ui_mode:&quot;embedded&quot;,checkout_url:null,client_secret,session_id,<br>publishable_key,attempt_id,expires_at,request_id}. Client secrets stay only in<br>component memory: never URLs, browser storage, analytics, logs or database records.<br>Legacy hosted response: {checkout_url,attempt_id,expires_at,request_id}; only an<br>https://checkout.stripe.com URL is accepted. The adapter sets a signed HttpOnly<br>kma_checkout_receipt cookie (same path; two-day maximum age), binding the embedded<br>session as well as its click and attempt. Payment fields are owned by Stripe's iframe.<br>KMA_CHECKOUT_ENABLED=false causes 503 checkout_not_enabled before checkout creation.</p>
+<p>The adapter adds offer_version from the signed quote and forwards the same<br>idempotency token as the HMAC nonce. The database locks the displayed active<br>version while snapshotting the checkout. Stripe receives its own stable<br>kma-checkout-&lt;internal attempt UUID&gt; idempotency key and server-owned metadata.<br>An immutable keyed fingerprint also binds UI mode, email and the no-charge guard<br>to the attempt. Changed retry input fails closed. Open-session retries retrieve<br>that exact session instead of creating another one. The adapter alone chooses<br>`uiMode:&quot;embedded&quot;`, with `KMA_STRIPE_PUBLISHABLE_KEY=pk_live_...` for the SAME Stripe<br>account. It must never contain an rk_live/sk_live key. Stripe receives ui_mode=embedded,<br>return_url (the approved success URL), and redirect_on_completion=if_required;<br>success_url/cancel_url are omitted in embedded mode. Ordinary completion stays<br>inline; bank authentication can still require a redirect.</p>
+<p>Apple Pay / Google Pay depend on Stripe account settings, eligible browser/device,<br>and payment-method domain registration for the exact deployed funnel hostname.<br>A zero-total subscription may not show wallets at all. This $0 test cannot prove<br>positive-value card, wallet or refund behavior. Never promise every wallet on every device.</p>
+<h3>POST /api/partner/status</h3>
+<p>Body: {session_id} — a live Checkout Session ID returned by Stripe.<br>Requires the signed receipt cookie from checkout creation.<br>Response: {status:&quot;pending&quot;|&quot;paid&quot;|&quot;no_payment_required&quot;|&quot;expired&quot;|&quot;failed&quot;,request_id}.</p>
+<p>&quot;no_payment_required&quot; means Stripe's completed checkout is verified as zero-total;<br>normalization can finish independently. No paid conversion or commission is due. This does not prove<br>the positive-payment, refund or payout path. A query string cannot set this status.</p>
+<p>A session URL alone is not proof or permission to read payment state.<br>The backend matches session + public attempt + click + product + funnel.<br>No email, customer identifier, card data or internal ledger record is returned.<br>&quot;paid&quot; means the backend verified a completed live paid Checkout Session (or an<br>already-normalized payment), not simply that the browser reached the return URL.<br>The backend reads the exact session after DB ownership checks and validates all<br>attribution metadata, currency, mode and amount. Complete-but-unpaid remains pending.<br>BC Learn checks automatically up to 20 times, three seconds apart; a safe retry<br>appears only after the bounded wait. Worker lag alone does not keep buyers pending.<br>This status endpoint does not create ledger entries, commissions or app entitlements.<br>No valid cookie (another browser, expired cookie, blocked cookies) means the<br>receipt cannot be verified here; consult Stripe receipt/the operator, do not<br>automatically pay again. A cancelled return does not cancel an existing subscription.</p>
+<p>Important safe errors: 400 invalid_request/invalid_offer; 403 origin_not_allowed/<br>receipt_unavailable; 409 offer_review_required/free_discount_unavailable/no_charge_required;<br>404 not_found; 429 rate_limited;<br>503 configuration_pending/checkout_not_enabled/checkout_unavailable.<br>On price-review errors reload the offer and require new acceptance. On transient<br>failure reuse the attempt. Never expose raw provider error bodies or secrets.</p>
+<h2>5. Funnel server setup</h2>
+<p>Canonical shared files (copy all four without local divergence):<br>browser-attribution.ts, server-events.ts, checkout-contract.ts, checkout-proxy.ts.<br>BC Learn vendors them in lib/kma. The parity check verifies SHA-256 digests.</p>
+<pre><code>
+const proxy = createFunnelCheckoutProxy({
+
+  origin: configuredExactOrigin,
+
+  backendBaseUrl: 'https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1',
+
+  signing: { keyId: serverKeyId, secret: serverHmacSecret },
+
+  offerKey: configuredOfferKey,
+
+  checkoutEnabled: approvedEnabledFlag,
+
+  uiMode: 'embedded',
+
+  stripePublishableKey: configuredStripePublishableKey, // pk_live_, same Stripe account
+
+  requireNoPayment: true, // BC Learn test: server-owned, never accepted from browser
+
+})
+
+// Wire proxy.offer / proxy.checkout / proxy.status to the three POST routes.
+
+</code></pre>
+<p>BC Learn server environment:<br>KMA_FUNNEL_ORIGIN=https://bc-learn-partner-funnel.vercel.app<br>KMA_FUNNEL_KEY_ID=&lt;unique per-funnel key ID&gt;<br>KMA_FUNNEL_HMAC_SECRET=&lt;random 32+ character server secret&gt;<br>KMA_OFFER_KEY=&lt;approved stable billing-offer key&gt;<br>KMA_CHECKOUT_ENABLED=false<br>KMA_STRIPE_PUBLISHABLE_KEY=&lt;pk_live key for the backend Stripe account; public, not secret&gt;</p>
+<p>Do not use NEXT_PUBLIC_ or VITE_ for these secrets. No Supabase service role,<br>Stripe private key, or partner credentials belong in the funnel browser or code.<br>Keep the existing .env.local intact. Only the production Vercel environment<br>should receive approved production credentials; arbitrary preview hosts are<br>not trusted. HTTP localhost is permitted by the adapter solely for local UI/<br>mock tests, not by production backend origin allowlists.</p>
+<h2>6. Server-to-server HMAC API</h2>
+<p>Headers: x-kma-key-id, x-kma-timestamp (Unix seconds), x-kma-nonce<br>(16–128 letters/digits/underscore/hyphen), x-kma-signature (lowercase SHA-256 hex).<br>Sign UTF-8 bytes of:<br>&lt;unix_timestamp&gt;.&lt;nonce&gt;.&lt;exact_raw_request_body&gt;<br>using HMAC-SHA256. Send serialized bytes unchanged. Clock tolerance is 300 seconds.<br>The key resolves to one product UUID and one funnel UUID in FUNNEL_HMAC_BINDINGS.<br>A key cannot read or charge a different funnel's clicks. These endpoints reject<br>browser Origin headers; authentication is HMAC, not an anonymous Supabase JWT.</p>
+<p>POST /funnel-checkout-context:</p>
+<p>- Offer body: {action:&quot;offer&quot;,click_id,offer_key}; reply {offer,request_id}.<br>- Status body: {action:&quot;status&quot;,click_id,attempt_id,session_id};<br>  reply {status,request_id}.<br>- Requires migrations 20260905110000_funnel_checkout_context and<br>  20260907093000_embedded_checkout_presentation for receipt verification.<br>- Durable limits per click/minute: 10 offers, 30 status reads.</p>
+<p>POST /checkout-session:</p>
+<p>- New adapter body: {click_id,offer_key,offer_version,require_no_payment?:true,ui_mode?:&quot;embedded&quot;|&quot;hosted&quot;,customer_email?:string}.<br>- BC Learn always sets require_no_payment=true and ui_mode=embedded server-side.<br>  Browser bodies contain {click_id,offer_key,customer_email}; clients cannot select a coupon or disable this guard.<br>- Legacy signed two-field bodies remain supported for compatibility, but new<br>  integrations MUST use the reviewed-quote adapter.<br>- Response 201: legacy hosted receipt or {ui_mode:&quot;embedded&quot;,checkout_url:null,<br>  client_secret,session_id,attempt_id,expires_at,request_id}. The same-origin adapter<br>  supplies the public key; the Edge never exposes a private key.<br>- Durable limit: 6 checkout requests per click/minute, including retries.<br>- Price, currency, mode, redirects, affiliate and attribution are database-owned.</p>
+<p>POST /funnel-events (optional; not needed for these three quiz questions):</p>
+<p>- {event_id,event_name,click_id,occurred_at,properties}<br>- Only configured FUNNEL_EVENT_ALLOWED_NAMES / PROPERTIES are accepted.<br>- Use sendServerEvent; preserve the logical event ID and payload on retries.<br>- Do not send payment truth here; Stripe webhook owns it.</p>
+<p>Backend secrets (Supabase only):<br>BROWSER_EVENT_ALLOWED_ORIGINS must include the exact production funnel origin.<br>CHECKOUT_ALLOWED_REDIRECT_ORIGINS must include that same origin.<br>FUNNEL_HMAC_BINDINGS maps the unique key ID to {secret,product_id,funnel_id}.<br>STRIPE_SECRET_KEY must be a live server key; STRIPE_WEBHOOK_SECRET verifies Stripe.<br>FREE_CHECKOUT_PROMOTION_BINDINGS is a JSON object mapping internal product UUIDs<br>to approved live Stripe promo_ IDs. Keep it on Supabase only, not in browser URLs.<br>Only an active, valid, price-applicable 100%-off FOREVER coupon is accepted.<br>The server pre-applies it with discounts[0][promotion_code] and uses<br>payment_method_collection=if_required. It checks Stripe's resulting total is 0<br>and the discount equals the full stored price before returning any Checkout URL.<br>Missing configuration, an expired code, a restricted/inapplicable coupon or any<br>nonzero total fails closed; the code never silently retries without the discount.<br>Do not enable arbitrary promotion-code entry: partial-discount accounting has<br>not been implemented. Configure limits/customer restrictions in Stripe and<br>cancel the test subscription after verification; never remove its discount.<br>INTERNAL_WORKER_SECRET authenticates scheduled workers; never send it to a funnel.<br>Preserve other funnels' bindings/origins and existing notification configuration.</p>
+<h2>7. Payment processing and dashboard attribution</h2>
+<p>Stripe webhook URL:<br>https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/stripe-webhook</p>
+<p>Pin webhook API version to the backend's source-pinned 2026-02-25.clover.<br>Subscribe only to the supported events:<br>checkout.session.completed, checkout.session.async_payment_succeeded,<br>customer.subscription.created, customer.subscription.updated,<br>customer.subscription.deleted, invoice.paid, refund.created, refund.updated,<br>charge.dispute.created, charge.dispute.updated, charge.dispute.closed.</p>
+<p>The webhook verifies raw Stripe signatures/live mode and queues minimized<br>evidence. stripe-worker normalizes it; commercial-worker calculates deterministic<br>integer-minor-unit commissions under the effective signed agreement;<br>metrics-worker refreshes dashboard totals. Scheduling those workers is a separate<br>production operation, not implied by uploading a function.</p>
+<p>The funnel need not share a database or install the dashboard. It talks only to<br>the documented event/checkout interfaces. Attribution metadata is added by the<br>backend to Checkout and the subscription/payment intent. Renewals, refunds and<br>disputes attach through verified provider identities and canonical acquisitions.</p>
+<p>A paid test does not yet grant BC Learn app access. App entitlement integration<br>is separate. Ledger calculation is not an external bank transfer: payout<br>approval/reconciliation/release remains a separate controlled operation.<br>No platform worker silently pays affiliates.</p>
+<p>Zero-total callbacks use normalize_stripe_zero_total_event (migration<br>20260905120000_zero_total_checkout). Verified fully discounted checkout resolves<br>the same canonical click/acquisition/customer and subscription, but emits<br>checkout.no_payment_required with commercial_eligible=false. Zero-total invoice.paid<br>emits invoice.no_payment_required without looking for a nonexistent PaymentIntent.<br>Both paths require a valid worker lease and signed live provider evidence;<br>foreign ownership, incomplete discount evidence and positive unpaid amounts fail.<br>Original positive-payment normalization remains separate and unchanged.</p>
+<section aria-labelledby="future-app-access">
+<h3 id="future-app-access">7.1 Future app access — not implemented</h3>
+<p>As confirmed on September 7, 2026, BC Learn has no product app/backend yet. App access is deferred until that app is built. The current test ends at verified checkout confirmation and partner reporting; it does not create an app login or unlock premium features. An entitlement table is not a working entitlement API.</p>
+<p>The future developer must implement this separate flow:</p>
+<ol>
+<li><p><strong>Authenticate the buyer in the product app.</strong> Use its real sign-in system and validate the stable user ID server-side. A partner dashboard login is not a buyer account, and the funnel waitlist email is not proof of account ownership.</p></li>
+<li><p><strong>Securely link that user to the verified subscription.</strong> Bind identity before checkout, or implement an authenticated, short-lived, single-use purchase-claim flow afterward. Verify both the purchase and the app account. Never grant access from a billing email match, URL parameter, click ID or Checkout Session ID alone. Preserve the original partner attribution and immutable billing facts.</p></li>
+<li><p><strong>Check access after app login.</strong> Build a product-scoped authenticated access API returning only the user's access state and expiry/recheck information. Enforce the result in the app/backend's protected features, not just the UI. Keep secrets and entitlement writes server-only; funnel credentials must not gain authority to grant access.</p></li>
+<li><p><strong>Keep access current.</strong> Define and implement the policy for renewals, cancellation at period end, failed payments, trials, refunds, disputes and multiple subscriptions. Handle retries/out-of-order events idempotently and define safe behavior when evidence is missing, stale or temporarily unavailable.</p></li>
+<li><p><strong>Verify the real app integration before release.</strong> Test legitimate access, foreign-user/product denial, expired/replayed claims and lifecycle changes. Select the actual app/deep-link destinations only when the app exists.</p></li>
+</ol>
+<p>Payment confirmation, app access and affiliate earnings are separate outcomes. A permitted discounted subscription can grant access without generating paid revenue, but these BC Learn no-charge test subscriptions remain non-unlocking unless explicitly approved otherwise. No existing test account is automatically backfilled or granted access.</p>
+<p>There is no callable app-access or purchase-claim endpoint in v1.3. Endpoint paths, authentication, request/response schemas and any app credential setup will be added to the versioned documentation when the integration is implemented and deployed. Do not invent an endpoint or treat /api/partner/status as an access API.</p>
+</section>
+<h2>8. Deployment and acceptance checklist</h2>
+<p>Before deployment:</p>
+<p>- Run frontend/shared SDK tests, Edge checks, both Vinext and Next production<br>  builds, and the bounded hosted rollback SQL regression. No local Supabase.<br>- Verify SDK/document parity and no server secrets in generated client bundles.<br>- Review migration, endpoint deployment order, price, buyer terms and cancellation.<br>- Existing Sites project is a separate publication; do not deploy there when<br>  the approved target is bc-learn-partner-funnel.vercel.app.</p>
+<p>Deployment order after approval:</p>
+<p>1. Apply migrations 20260905110000, 20260905120000, 20260907090000<br>   (Clover compatibility) and 20260907093000 (embedded presentation), in order;<br>   deploy funnel-checkout-context, checkout-session, stripe-webhook and stripe-worker.<br>2. Preserve/extend exact allowlists and per-funnel secret bindings.<br>3. Verify live Price, webhook pin/events and worker schedules.<br>4. For an initial rollout, publish to bc-learn-partner-funnel with checkout OFF.<br>   For approved upgrades, preserve the existing switch and mandatory $0 guard;<br>   never deploy over the separate bc-learn-funnel project.<br>5. Check mobile/desktop/browser flow, then explicitly enable any new test scope.<br>   An exhausted single-redemption code requires a separately approved replacement;<br>   do not widen redemption limits or remove the discount to make a retry work.</p>
+<p>Live acceptance (not performed by source/unit checks):</p>
+<p>- Make distinct TikTok and Instagram source links and inspect their redirects.<br>- Confirm the click and allowed events appear under the correct partner/product/<br>  source, with no fabricated cross-source or organic reassignment.<br>- Complete one $0 discounted checkout; wait for the verified webhook, normalized<br>  subscription and no_payment_required receipt. Expect zero cash transactions,<br>  zero paid conversions and zero commissions. Do not confirm a nonzero amount.<br>- A real positive payment, commission, refund and payout test remains a separate<br>  future approval gate; a free checkout cannot certify it.<br>- Refresh/retry without a duplicate checkout or commission. Exercise invalid<br>  token, expired quote, changed offer, cancellation, delayed webhook and denied<br>  cookies. Cross-funnel/foreign receipts must fail.<br>- Confirm renewal/refund/dispute behavior and schedule cleanup/cancellation of the<br>  recurring test subscription with the operator. Do not erase financial evidence.<br>- Check keyboard navigation, focus after advancing, small-screen layout and<br>  screen-reader announcements before public launch.</p></main><footer>KissMyApps · Funnel integration contract v1.3</footer></body></html>

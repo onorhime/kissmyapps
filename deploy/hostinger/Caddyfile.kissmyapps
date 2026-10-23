@@ -42,6 +42,27 @@ go.kissmyapps.dev {
 			}
 		}
 
+		# Readable immutable aliases use decoded Unicode letters/numbers.
+		# The Edge handler enforces NFC, lowercase, segment/total length and scope.
+		@prettyWrongMethod {
+			path_regexp pretty_method ^/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*(/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*)?$
+			not path /r/* /tracking-redirect/*
+			not method GET
+		}
+		respond @prettyWrongMethod "Method not allowed" 405
+
+		@prettyTracking {
+			method GET
+			path_regexp pretty_get ^/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*(/[\p{L}\p{N}]+(-[\p{L}\p{N}]+)*)?$
+			not path /r/* /tracking-redirect/*
+		}
+		handle @prettyTracking {
+			rewrite * /functions/v1/tracking-redirect{uri}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				header_up Host {upstream_hostport}
+			}
+		}
+
 		respond "Not found" 404
 	}
 }

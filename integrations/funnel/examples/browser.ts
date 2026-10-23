@@ -27,14 +27,17 @@ export async function initializeFunnelPage(
   })
 }
 
-/** Use the returned Stripe URL for a top-level browser navigation. */
+/** Hosted-only example; embedded integrations mount the returned client secret. */
 export async function beginCheckout(
   configuration: BrowserIntegrationConfiguration,
   offerKey: string,
+  idempotencyKey: string,
 ): Promise<string> {
   const checkout = await requestCheckout({
     endpoint: configuration.checkoutProxyEndpoint,
     offerKey,
+    idempotencyKey,
   })
+  if (!checkout.checkout_url) throw new Error('Mount embedded checkout instead of navigating')
   return checkout.checkout_url
 }

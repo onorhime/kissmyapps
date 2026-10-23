@@ -4,11 +4,53 @@
     {
       "source": "/r/:path*",
       "destination": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/tracking-redirect/r/:path*"
+    },
+    {
+      "source": "/:product/:creator/:variant",
+      "destination": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/tracking-redirect/:product/:creator/:variant"
+    },
+    {
+      "source": "/:product/:creator",
+      "destination": "https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/tracking-redirect/:product/:creator"
     }
   ],
   "headers": [
     {
       "source": "/r/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/:product/:creator/:variant",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/:product/:creator",
       "headers": [
         {
           "key": "Cache-Control",

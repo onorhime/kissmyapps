@@ -8,7 +8,8 @@ http://:8080 {
 
 	header {
 		-Server
-		Cross-Origin-Opener-Policy "same-origin"
+		# Stripe embedded Express onboarding needs its secure authentication popup.
+		Cross-Origin-Opener-Policy "unsafe-none"
 		Permissions-Policy "camera=(), geolocation=(), microphone=()"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Content-Type-Options "nosniff"
@@ -28,6 +29,8 @@ http://:8080 {
 		header @applicationShell Cache-Control "no-store, max-age=0"
 
 		root * /srv
+		@funnelDocs path /developers/funnels /developers/funnels/
+		rewrite @funnelDocs /developers/funnels/index.html
 		try_files {path} /index.html
 		file_server
 	}
