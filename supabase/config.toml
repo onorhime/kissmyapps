@@ -228,8 +228,8 @@ enable_confirmations = false
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
-# Number of characters used in the email OTP.
-otp_length = 6
+# Match hosted email Auth without lowering its eight-digit policy.
+otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
@@ -242,6 +242,15 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# Merchant verification uses OTP codes; partner signup retains its existing branch.
+[auth.email.template.confirmation]
+subject = "Confirm your KissMyApps email"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your KissMyApps sign-in code"
+content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
@@ -386,6 +395,10 @@ verify_jwt = false
 [functions.checkout-session]
 verify_jwt = false
 
+# Authenticated using a product/funnel-scoped HMAC, never a browser JWT.
+[functions.funnel-checkout-context]
+verify_jwt = false
+
 [functions.stripe-price-verifier]
 verify_jwt = false
 
@@ -399,6 +412,15 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.metrics-worker]
+verify_jwt = false
+
+[functions.processing-dispatch]
+verify_jwt = false
+
+[functions.processing-alerts]
+verify_jwt = false
+
+[functions.checkout-preflight]
 verify_jwt = false
 
 [functions.reconciliation-worker]
@@ -445,3 +467,49 @@ enabled = true
 # declarative_schema_path = "./schemas"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Signed server-only external merchant ingress; no JWT/browser access.
+[functions.external-commerce]
+verify_jwt = false
+
+# Product/funnel-bound HMAC authentication; browser requests are rejected.
+[functions.funnel-metric-events]
+verify_jwt = false
+
+# Connect handlers verify their own JWT, worker secret or raw Stripe signature.
+# Provider reads and writes additionally require explicit disabled-by-default env bindings.
+[functions.creator-connect]
+verify_jwt = false
+[functions.creator-payout-worker]
+verify_jwt = false
+[functions.creator-connect-webhook]
+verify_jwt = false
+
+# Receiving-merchant charge/refund/dispute feed. Handler verifies Stripe HMAC;
+# disabled unless EXTERNAL_COMMERCE_WEBHOOK_ENABLED=true and binding is explicit.
+[functions.external-commerce-webhook]
+verify_jwt = false
+
+[functions.funnel-order-eligibility]
+verify_jwt = false
+
+# KMA-managed one-time payments have their own server HMAC/provider signatures.
+# Checkout/worker gates remain disabled unless explicitly configured.
+[functions.managed-checkout]
+verify_jwt = false
+[functions.managed-checkout-worker]
+verify_jwt = false
+[functions.managed-checkout-webhook]
+verify_jwt = false
+# This endpoint verifies the administrator JWT/password through its own RPC.
+[functions.managed-price-verifier]
+verify_jwt = false
+
+# Merchant invites/OAuth verify JWTs in-handler. Only request_invitation_code
+# accepts a valid invitation token before sign-in, with recipient-origin/rate guards.
+# Stripe provider access remains separately gated.
+[functions.merchant-connect]
+verify_jwt = false
+# Signed Connect account status/revocation events, separate from payments.
+[functions.merchant-connect-webhook]
+verify_jwt = false

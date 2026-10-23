@@ -15,6 +15,7 @@ import {
 } from "../_shared/http.ts";
 import { authenticatedClient, serviceClient } from "../_shared/supabase.ts";
 import { isPlainObject } from "../_shared/validation.ts";
+import { requireLiveStripeKey } from "../_shared/stripe-auth.ts";
 import {
   STRIPE_API_VERSION,
   stripeRequestSignal,
@@ -133,10 +134,7 @@ function parseCandidate(value: unknown): OfferCandidate {
 }
 
 function liveStripeSecret(value: string): string {
-  if (!/^sk_live_[A-Za-z0-9_]{16,}$/.test(value)) {
-    throw new ConfigurationError();
-  }
-  return value;
+  return requireLiveStripeKey(value);
 }
 
 async function fetchVerifiedPrice(

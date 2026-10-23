@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { bytesToHex, hmacSha256 } from "../_shared/crypto.ts";
 import { ConfigurationError, RequestError } from "../_shared/errors.ts";
 import { STRIPE_API_VERSION } from "../_shared/stripe-api.ts";
@@ -37,6 +37,118 @@ const prepared: PreparedCheckout = {
     "https://product.kissmyapps.dev/checkout/success?session_id={CHECKOUT_SESSION_ID}",
   cancelUrl: "https://product.kissmyapps.dev/checkout/cancelled",
 };
+
+Deno.test("embedded Checkout prefills email and keeps return authentication without offsite success URLs", async () => {
+  const result = await createLiveStripeCheckoutSession(
+    stripeSecret,
+    prepared,
+    async (_url, init) => {
+      await Promise.resolve();
+      const form = new URLSearchParams(String(init?.body));
+      assertEquals(form.get("ui_mode"), "embedded");
+      assertEquals(form.get("customer_email"), "buyer@example.test");
+      assertEquals(form.get("redirect_on_completion"), "if_required");
+      assertEquals(form.get("return_url"), prepared.successUrl);
+      assertEquals(form.has("success_url"), false);
+      assertEquals(form.has("cancel_url"), false);
+      assertEquals(form.get("metadata[customer_email]"), null);
+      return Response.json({
+        id: "cs_live_EmbeddedFixture123",
+        livemode: true,
+        ui_mode: "embedded",
+        url: null,
+        client_secret: "cs_live_EmbeddedFixture123_secret_fixture123",
+        expires_at: 1900000000,
+      });
+    },
+    undefined,
+    { mode: "embedded", email: "buyer@example.test" },
+  );
+  assertEquals(result.url, null);
+  assertEquals(
+    result.clientSecret,
+    "cs_live_EmbeddedFixture123_secret_fixture123",
+  );
+});
+
+Deno.test("free checkout preapplies verified recurring discount and refuses nonzero Stripe total", async () => {
+  let posts = 0;
+  const provider =
+    (total: number) =>
+    async (url: string | URL | Request, init?: RequestInit) => {
+      await Promise.resolve(); // Simulate the asynchronous fetch boundary.
+      if (String(url).includes("promotion_codes/")) {
+        return Response.json({
+          id: "promo_Fixture123456",
+          active: true,
+          livemode: true,
+          promotion: {
+            type: "coupon",
+            coupon: {
+              object: "coupon",
+              valid: true,
+              percent_off: 100,
+              duration: "forever",
+              amount_off: null,
+              applies_to: null,
+            },
+          },
+        });
+      }
+      if (String(url).includes("prices/")) {
+        return Response.json({
+          id: prepared.stripePriceId,
+          active: true,
+          livemode: true,
+          type: "recurring",
+          currency: "usd",
+          unit_amount: prepared.unitAmountMinor,
+          product: "prod_Fixture123456",
+        });
+      }
+      posts++;
+      const form = new URLSearchParams(String(init?.body));
+      assertEquals(
+        form.get("discounts[0][promotion_code]"),
+        "promo_Fixture123456",
+      );
+      assertEquals(form.get("payment_method_collection"), "if_required");
+      assertEquals(form.has("allow_promotion_codes"), false);
+      return Response.json({
+        id: "cs_live_Fixture123456",
+        livemode: true,
+        url: "https://checkout.stripe.com/c/pay/fixture",
+        expires_at: 1900000000,
+        amount_total: total,
+        currency: "usd",
+        mode: "subscription",
+        total_details: { amount_discount: prepared.unitAmountMinor },
+      });
+    };
+  for (const key of [stripeSecret, `rk_live_${"r".repeat(40)}`]) {
+    assertEquals(
+      (await createLiveStripeCheckoutSession(
+        key,
+        prepared,
+        provider(0),
+        "promo_Fixture123456",
+      )).id,
+      "cs_live_Fixture123456",
+    );
+    await assertRejects(
+      () =>
+        createLiveStripeCheckoutSession(
+          key,
+          prepared,
+          provider(1),
+          "promo_Fixture123456",
+        ),
+      RequestError,
+      "zero total",
+    );
+  }
+  assertEquals(posts, 4);
+});
 
 async function signedRequest(
   body: string,

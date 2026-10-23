@@ -6,7 +6,10 @@ import {
   requireMethod,
   securityHeaders,
 } from "../_shared/http.ts";
-import { registerTrackingClick } from "../_shared/rpc.ts";
+import {
+  registerShortTrackingClick,
+  registerTrackingClick,
+} from "../_shared/rpc.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import {
   clientIpFromHeaders,
@@ -55,18 +58,22 @@ export async function handleTrackingRedirect(
       privateSignalHash(hashSecret, "ip", ipAddress),
     ]);
 
-    const registration = await registerTrackingClick(
-      serviceClient(),
-      route.affiliateSlug,
-      route.publicCode,
-      {
-        country_code: countryCodeFromHeaders(request.headers),
-        session_id_hash: sessionIdHash,
-        user_agent_hash: userAgentHash,
-        ip_hash: ipHash,
-        is_bot: isBot,
-      },
-    );
+    const context = {
+      country_code: countryCodeFromHeaders(request.headers),
+      session_id_hash: sessionIdHash,
+      user_agent_hash: userAgentHash,
+      ip_hash: ipHash,
+      is_bot: isBot,
+    };
+    const client = serviceClient();
+    const registration = "shortPath" in route
+      ? await registerShortTrackingClick(client, route.shortPath, context)
+      : await registerTrackingClick(
+        client,
+        route.affiliateSlug,
+        route.publicCode,
+        context,
+      );
     const location = validatedRedirectUrl(
       registration.destinationUrl,
       registration.clickId,

@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { ConfigurationError } from "./errors.ts";
 import {
   funnelKeyBindings,
+  funnelMetricKeyBindings,
   funnelSigningSecrets,
   requiredSecret,
 } from "./env.ts";
@@ -64,5 +65,46 @@ Deno.test("funnel bindings require and expose an exact product and funnel scope"
   } finally {
     if (previous === undefined) Deno.env.delete("FUNNEL_HMAC_BINDINGS");
     else Deno.env.set("FUNNEL_HMAC_BINDINGS", previous);
+  }
+});
+
+Deno.test("dedicated telemetry bindings preserve shared keys and reject collisions or malformed scope", () => {
+  const names = ["FUNNEL_HMAC_BINDINGS", "FUNNEL_METRIC_HMAC_BINDINGS"];
+  const previous = names.map((name) => Deno.env.get(name));
+  const shared = {
+    secret: "shared-funnel-secret-for-isolated-test-only",
+    product_id: "11111111-1111-4111-8111-111111111111",
+    funnel_id: "22222222-2222-4222-8222-222222222222",
+  };
+  const metric = {
+    ...shared,
+    secret: "dedicated-telemetry-key-for-isolated-tests",
+  };
+  try {
+    Deno.env.set(names[0], JSON.stringify({ legacy: shared }));
+    Deno.env.set(names[1], JSON.stringify({ telemetry: metric }));
+    assertEquals([...funnelMetricKeyBindings().keys()], [
+      "legacy",
+      "telemetry",
+    ]);
+    assertEquals([...funnelKeyBindings().keys()], ["legacy"]);
+    Deno.env.set(names[1], JSON.stringify({ legacy: metric }));
+    assertThrows(() => funnelMetricKeyBindings(), ConfigurationError);
+    Deno.env.set(
+      names[1],
+      JSON.stringify({ telemetry: { ...metric, environment: "test" } }),
+    );
+    assertThrows(() => funnelMetricKeyBindings(), ConfigurationError);
+    Deno.env.delete(names[0]);
+    Deno.env.set(names[1], JSON.stringify({ telemetry: metric }));
+    assertEquals([...funnelMetricKeyBindings().keys()], ["telemetry"]);
+    Deno.env.delete(names[1]);
+    assertThrows(() => funnelMetricKeyBindings(), ConfigurationError);
+  } finally {
+    names.forEach((name, i) =>
+      previous[i] === undefined
+        ? Deno.env.delete(name)
+        : Deno.env.set(name, previous[i]!)
+    );
   }
 });

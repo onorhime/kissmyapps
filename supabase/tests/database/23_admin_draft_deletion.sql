@@ -25,4 +25,5 @@ select ok(
   'anonymous callers cannot reach the deletion entrypoints'
 );
 
-commit;
+select * from finish();
+rollback;

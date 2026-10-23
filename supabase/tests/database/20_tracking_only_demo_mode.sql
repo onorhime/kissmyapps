@@ -92,11 +92,11 @@ values (
   'Tracking Demo Partner', 'tracking-demo-partner', 'UTC', 'USD', 'active'
 );
 
-insert into public.affiliate_users (affiliate_id, user_id, role, active)
+insert into public.affiliate_users (affiliate_id, user_id, role, active, activation_pending, activated_at)
 values (
   '30000000-0000-0000-0000-000000000201',
   '10000000-0000-0000-0000-000000000203',
-  'owner', true
+  'owner', true, false, now()
 );
 
 insert into public.products (id, slug, name, status)
@@ -156,7 +156,7 @@ select throws_ok(
     'product_id', '20000000-0000-0000-0000-000000000201',
     'mode', 'tracking_only',
     'expected_updated_at', (
-      select updated_at from public.products
+      select updated_at from public.get_admin_products()
       where id = '20000000-0000-0000-0000-000000000201'
     )
   ))$$,
@@ -175,7 +175,7 @@ select set_config(
 
 select set_config(
   'test.tracking_demo_stale_updated_at',
-  (select updated_at::text from public.products
+  (select updated_at::text from public.get_admin_products()
    where id = '20000000-0000-0000-0000-000000000201'),
   true
 );
@@ -185,7 +185,7 @@ select is(
     'product_id', '20000000-0000-0000-0000-000000000201',
     'mode', 'tracking_only',
     'expected_updated_at', (
-      select updated_at from public.products
+      select updated_at from public.get_admin_products()
       where id = '20000000-0000-0000-0000-000000000201'
     )
   )) ->> 'tracking_mode',
@@ -365,6 +365,8 @@ select is(
   'derived source link inherits the current main link noncommercial scope server-side'
 );
 
+-- Resolve fixture-only internal routing data outside the partner's allowlisted surface.
+reset role;
 select set_config(
   'test.tracking_demo_code',
   (select public_code from public.affiliate_links where name = 'TikTok bio'),
@@ -384,6 +386,13 @@ select set_config(
   true
 );
 
+-- Service requests use the RPC; internal fixture assertions run as the database owner.
+select throws_ok(
+  $$select * from public.clicks$$,
+  '42501', 'permission denied for table clicks',
+  'service role cannot bypass tracking RPCs with a raw click query'
+);
+reset role;
 select is(
   (select commercial_eligible from public.clicks
     where public_click_id = current_setting('test.tracking_demo_click')),
@@ -402,16 +411,51 @@ select throws_ok(
   $$update public.clicks
     set commercial_eligible = true
     where public_click_id = current_setting('test.tracking_demo_click')$$,
-  'P0001', 'click attribution, routing, and commercial scope are immutable',
+  'P0001', 'tracking history is append-only outside an approved non-commercial product deletion',
   'a direct table write cannot promote an issued demo click into commercial scope'
 );
 
+-- Click history is append-only. Build historical fixture evidence at insertion
+-- time instead of rewriting the click that the service RPC just recorded.
+-- That current click remains outside the historical reporting window below.
+select throws_ok(
+  $$update public.clicks set occurred_at = now() - interval '2 days'
+    where public_click_id = current_setting('test.tracking_demo_click')$$,
+  'P0001', 'tracking history is append-only outside an approved non-commercial product deletion',
+  'recorded click time cannot be rewritten to manufacture a reporting window'
+);
+insert into public.clicks (
+  public_click_id, affiliate_link_id, affiliate_id, product_id, source_id,
+  campaign_id, funnel_id, sub1, sub2, sub3, destination_url_snapshot,
+  session_id_hash, commercial_eligible, occurred_at
+)
+select fixture.public_click_id, click.affiliate_link_id, click.affiliate_id,
+  click.product_id, click.source_id, click.campaign_id, click.funnel_id,
+  click.sub1, click.sub2, click.sub3, click.destination_url_snapshot,
+  fixture.session_hash, click.commercial_eligible, now() - interval '2 days'
+from public.clicks as click
+cross join (values
+  (repeat('b', 48), repeat('b', 64)),
+  (repeat('c', 48), repeat('c', 64))
+) as fixture(public_click_id, session_hash)
+where click.public_click_id = current_setting('test.tracking_demo_click');
+insert into public.acquisitions (
+  product_id, affiliate_id, click_record_id, source_id, campaign_id, funnel_id,
+  attribution_method, status, commercial_eligible
+)
+select product_id, affiliate_id, id, source_id, campaign_id, funnel_id,
+  'deterministic_web', 'open', commercial_eligible
+from public.clicks where public_click_id in (repeat('b', 48), repeat('c', 48));
+select set_config('test.tracking_demo_click', repeat('b', 48), true);
+select set_config('test.tracking_demo_prior_day_click', repeat('c', 48), true);
+
+set local role service_role;
 select lives_ok(
   $$select * from public.ingest_browser_event(jsonb_build_object(
     'event_id', '90000000-0000-0000-0000-000000000201',
     'event_name', 'funnel_started',
     'click_id', current_setting('test.tracking_demo_click'),
-    'occurred_at', now(),
+    'occurred_at', now() - interval '1 day',
     'properties', '{}'::jsonb
   ))$$,
   'tracking-only browser event is accepted as noncommercial evidence'
@@ -421,47 +465,31 @@ select lives_ok(
     'event_id', '90000000-0000-0000-0000-000000000202',
     'event_name', 'demo.server_seen',
     'click_id', current_setting('test.tracking_demo_click'),
-    'occurred_at', now(),
+    'occurred_at', now() - interval '1 day',
     'properties', '{}'::jsonb
   ))$$,
   'tracking-only funnel event is forced into noncommercial scope'
 );
-
-select set_config(
-  'test.tracking_demo_prior_day_click',
-  (
-    select click_id from public.register_tracking_click(
-      'tracking-demo-partner', current_setting('test.tracking_demo_code'),
-      jsonb_build_object('session_id_hash', repeat('b', 64))
-    )
-  ),
-  true
-);
-update public.clicks
-set occurred_at = now() - interval '1 day'
-where public_click_id = current_setting('test.tracking_demo_prior_day_click');
 select lives_ok(
   $$select * from public.ingest_funnel_event(jsonb_build_object(
     'event_id', '90000000-0000-0000-0000-000000000203',
     'event_name', 'app_store_clicked',
     'click_id', current_setting('test.tracking_demo_prior_day_click'),
-    'occurred_at', now(),
+    'occurred_at', now() - interval '1 day',
     'properties', '{}'::jsonb
   ))$$,
   'an in-range event remains attributable when its canonical click is from a prior day'
 );
 
--- Leave only in-range events in today's window. The summary and source rows
--- must report known traffic zeroes consistently instead of mixing NULL and 0.
-update public.clicks
-set occurred_at = now() - interval '1 day'
-where public_click_id = current_setting('test.tracking_demo_click');
-
+reset role;
+-- Yesterday contains events but no clicks. The summary and source rows must
+-- report known traffic zeroes consistently instead of mixing NULL and 0.
 select set_config(
   'test.tracking_demo_account_count_before',
   (select count(*)::text from public.accounts),
   true
 );
+set local role service_role;
 select throws_ok(
   $$select * from public.prepare_checkout_attempt(jsonb_build_object(
     'click_id', current_setting('test.tracking_demo_click'),
@@ -471,6 +499,7 @@ select throws_ok(
   'P0002', 'billing offer is unavailable',
   'checkout preparation rejects demo attribution before any Stripe session can be created'
 );
+reset role;
 select throws_ok(
   $$insert into public.checkout_attempts (
     idempotency_key, billing_offer_id, product_id, acquisition_id,
@@ -587,7 +616,7 @@ select set_config(
 );
 select is(
   (select clicks from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   0::bigint,
@@ -595,7 +624,7 @@ select is(
 );
 select is(
   (select visitors from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   0::bigint,
@@ -603,7 +632,7 @@ select is(
 );
 select is(
   (select funnel_starts from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   1::bigint,
@@ -611,7 +640,7 @@ select is(
 );
 select is(
   (select app_store_clicks from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   1::bigint,
@@ -619,7 +648,7 @@ select is(
 );
 select is(
   (select earnings_minor from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   null::bigint,
@@ -627,7 +656,7 @@ select is(
 );
 select is(
   (select dimension_label from public.get_partner_dashboard_trends(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null, 'day', 'source'
   ) where dimension_key = 'tiktok-demo' limit 1),
   'TikTok Demo',
@@ -635,7 +664,7 @@ select is(
 );
 select is(
   (select clicks from public.get_partner_dashboard_trends(
-    '20000000-0000-0000-0000-000000000201', current_date, current_date,
+    '20000000-0000-0000-0000-000000000201', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null, 'day', 'source'
   ) where dimension_key = 'tiktok-demo' limit 1),
   0::bigint,
@@ -643,7 +672,7 @@ select is(
 );
 select is(
   (select has_data from public.get_partner_dashboard_summary(
-    '20000000-0000-0000-0000-000000000202', current_date, current_date,
+    '20000000-0000-0000-0000-000000000202', current_date - 1, current_date - 1,
     'UTC', null, null, null, null, null
   )),
   false,
@@ -663,7 +692,7 @@ select throws_ok(
     'product_id', '20000000-0000-0000-0000-000000000201',
     'mode', 'commercial',
     'expected_updated_at', (
-      select updated_at from public.products
+      select updated_at from public.get_admin_products()
       where id = '20000000-0000-0000-0000-000000000201'
     )
   ))$$,
@@ -710,7 +739,7 @@ select is(
     'product_id', '20000000-0000-0000-0000-000000000201',
     'mode', 'tracking_only',
     'expected_updated_at', (
-      select updated_at from public.products
+      select updated_at from public.get_admin_products()
       where id = '20000000-0000-0000-0000-000000000201'
     )
   )) ->> 'tracking_only_destination_url_snapshot',

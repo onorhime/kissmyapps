@@ -115,11 +115,17 @@ function projectCheckoutObject(
     "status",
     "payment_status",
     "amount_total",
+    "amount_subtotal",
     "currency",
     "client_reference_id",
   ]);
   projectExpandableField(projected, source, "customer");
   projectExpandableField(projected, source, "subscription");
+  projectNestedScalars(projected, source, "total_details", [
+    "amount_discount",
+    "amount_tax",
+    "amount_shipping",
+  ]);
   projectNestedScalars(
     projected,
     source,
@@ -144,6 +150,24 @@ function projectSubscriptionObject(
   ]);
   projectExpandableField(projected, source, "customer");
   projectNestedScalars(projected, source, "metadata", ["kma_attempt_id"]);
+  // Basil and later moved billing periods onto items. Retain only the
+  // evidence needed by normalization, never prices, addresses or descriptions.
+  if (hasOwn(source, "items")) {
+    const items = isPlainObject(source.items) ? source.items : {};
+    projected.items = {
+      ...projectScalarFields(items, ["has_more"]),
+      data: Array.isArray(items.data)
+        ? items.data.map((item) =>
+          isPlainObject(item)
+            ? projectScalarFields(item, [
+              "current_period_start",
+              "current_period_end",
+            ])
+            : null
+        )
+        : null,
+    };
+  }
   return projected;
 }
 
@@ -156,6 +180,8 @@ function projectInvoiceObject(
     "status",
     "paid",
     "amount_paid",
+    "amount_due",
+    "amount_remaining",
     "total",
     "total_excluding_tax",
     "currency",
@@ -230,7 +256,7 @@ function projectDisputeObject(
   return projected;
 }
 
-function projectStripeObject(
+export function projectStripeObject(
   eventType: string,
   source: Record<string, unknown>,
 ): Record<string, unknown> {

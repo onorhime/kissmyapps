@@ -4,6 +4,13 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, pg_catalog;
 select no_plan();
 
+-- Standard channels are migration-owned reference data, even before any traffic exists.
+create temporary table attribution_source_expectations (catalog jsonb not null) on commit drop;
+insert into attribution_source_expectations
+select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name)
+  order by active desc, name, id), '[]'::jsonb) from public.sources;
+grant select on attribution_source_expectations to authenticated;
+
 select has_function(
   'public', 'get_admin_attribution_overview', array['jsonb'],
   'the protected admin attribution RPC exists'
@@ -132,8 +139,19 @@ select ok(
   ) #> '{event_types}' = '[]'::jsonb
   and public.get_admin_attribution_overview(
     '{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb
-  ) #> '{sources}' = '[]'::jsonb,
-  'all empty collections are emitted as JSON arrays'
+  ) -> 'sources' is not null
+  and jsonb_typeof(public.get_admin_attribution_overview(
+    '{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb
+  ) -> 'sources') = 'array',
+  'empty traffic collections remain arrays and the source catalog remains an array'
+);
+
+select is(
+  public.get_admin_attribution_overview(
+    '{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb
+  ) -> 'sources',
+  (select catalog from attribution_source_expectations),
+  'the empty-traffic source catalog includes only the installed id and name allowlist'
 );
 
 reset role;
@@ -212,6 +230,10 @@ values
     repeat('b', 64), true, '2026-08-25 11:00:00+00'
   );
 
+update attribution_source_expectations
+set catalog = (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name)
+  order by active desc, name, id), '[]'::jsonb) from public.sources);
+
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000171', true);
@@ -236,11 +258,11 @@ select is(
   'breakdown click totals exclude bot traffic'
 );
 select is(
-  jsonb_array_length(public.get_admin_attribution_overview(
+  public.get_admin_attribution_overview(
     '{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb
-  ) -> 'sources'),
-  1,
-  'the response includes the bounded source filter catalog'
+  ) -> 'sources',
+  (select catalog from attribution_source_expectations),
+  'the source filter catalog includes the new source alongside migration-owned channels'
 );
 select ok(
   position(
@@ -283,24 +305,40 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000172', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000172","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000172'::uuid,
+  'the effective JWT identity is the operations fixture');
 select lives_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   'operations can read aggregate attribution'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000173', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000173","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000173'::uuid,
+  'the effective JWT identity is the finance fixture');
 select lives_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   'finance can read aggregate attribution'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000174', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000174","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000174'::uuid,
+  'the effective JWT identity is the analyst fixture');
 select lives_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   'analyst can read aggregate attribution'
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000175', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000175","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000175'::uuid,
+  'the effective JWT identity is the support fixture');
 select throws_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   '42501', 'admin role cannot view attribution',
@@ -308,6 +346,10 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000176', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000176","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000176'::uuid,
+  'the effective JWT identity is the ordinary member fixture');
 select throws_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   '42501', 'admin role cannot view attribution',
@@ -315,10 +357,28 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000177', true);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000177","role":"authenticated","amr":[{"method":"password"}]}', true);
+select is(auth.uid(), '10000000-0000-4000-8000-000000000177'::uuid,
+  'the effective JWT identity is the inactive owner fixture');
 select throws_ok(
   $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
   '42501', 'admin role cannot view attribution',
   'an inactive admin assignment is denied aggregate attribution access'
+);
+
+select throws_ok(
+  $$select public.get_admin_attribution_overview('{"raw":true}'::jsonb)$$,
+  '42501', 'admin role cannot view attribution',
+  'authorization is checked before invalid input can expose validation details'
+);
+select set_config('request.jwt.claim.sub', '', true);
+select set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+select is(auth.uid(), null::uuid, 'the missing-subject fixture has no effective identity');
+select throws_ok(
+  $$select public.get_admin_attribution_overview('{"starts_at":"2026-08-25T00:00:00Z","ends_at":"2026-08-26T00:00:00Z"}'::jsonb)$$,
+  '28000', 'authentication is required',
+  'an authenticated database role without a JWT subject cannot read attribution'
 );
 
 select * from finish();

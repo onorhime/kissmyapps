@@ -161,16 +161,18 @@ select throws_ok(
   '23514', 'subscription acquisition must match its account and product',
   'a rejected acquisition cannot gain a subscription while resolution writes race'
 );
+-- Synthetic trusted-server evidence is explicitly eligible. Browser events
+-- remain noncommercial and cannot exercise the downstream money invariants.
 insert into public.events (
   id, source, source_event_id, schema_version, event_name, product_id,
-  affiliate_id, acquisition_id, account_id, occurred_at
+  affiliate_id, acquisition_id, account_id, occurred_at, trust, commercial_eligible
 )
 values (
   '44000000-0000-0000-0000-000000000011', 'first_party', 'purchase:11', 1,
   'purchase', '20000000-0000-0000-0000-000000000011',
   '30000000-0000-0000-0000-000000000011',
   '43000000-0000-0000-0000-000000000011',
-  '42000000-0000-0000-0000-000000000011', '2026-05-10 00:00:00+00'
+  '42000000-0000-0000-0000-000000000011', '2026-05-10 00:00:00+00', 'funnel_server', true
 );
 
 insert into public.provider_events (
@@ -214,7 +216,7 @@ values (
 );
 select throws_ok(
   $$insert into public.transactions (subscription_id, acquisition_id, provider_event_id, stripe_invoice_id, kind, gross_minor, fee_minor, tax_minor, eligible_net_minor, currency, settled_currency, occurred_at) values ('47000000-0000-0000-0000-000000000011', null, '46000000-0000-0000-0000-000000000011', 'in_mismatched_acquisition', 'first_purchase', 10000, 500, 0, 9500, 'USD', 'USD', '2026-05-10 00:00:00+00')$$,
-  '23514', 'transaction must match its subscription acquisition and billing currency',
+  '23514', 'noncommercial tracking cannot create transactions',
   'canonical transactions cannot detach from the subscription acquisition'
 );
 select throws_ok(
@@ -270,6 +272,21 @@ select
 from public.events as event
 where event.id = '44000000-0000-0000-0000-000000000011';
 
+insert into public.events (
+  id, source, source_event_id, event_name, product_id, affiliate_id,
+  acquisition_id, account_id, occurred_at, trust, commercial_eligible
+) values (
+  '44000000-0000-0000-0000-000000000097', 'first_party', 'browser-purchase:11',
+  'purchase', '20000000-0000-0000-0000-000000000011',
+  '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000011',
+  '42000000-0000-0000-0000-000000000011', '2026-05-10 00:00:00+00', 'browser', false
+);
+select throws_ok(
+  $$insert into public.conversions (acquisition_id, affiliate_id, product_id, agreement_id, commission_rule_id, event_id, event_name, account_id, transaction_id, qualified, occurred_at) select '43000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000011', '41000000-0000-0000-0000-000000000011', event.id, event.event_name, event.account_id, '48000000-0000-0000-0000-000000000011', true, event.occurred_at from public.events as event where event.id = '44000000-0000-0000-0000-000000000097'$$,
+  '23514', 'conversions require commercially eligible attribution and events',
+  'browser evidence cannot qualify a conversion even beside a real canonical transaction'
+);
+
 select throws_ok(
   $$update public.subscriptions set acquisition_id = null where id = '47000000-0000-0000-0000-000000000011'$$,
   'P0001', 'subscription identity and billing currency are immutable',
@@ -303,14 +320,14 @@ select throws_ok(
 
 insert into public.events (
   id, source, source_event_id, schema_version, event_name, product_id,
-  affiliate_id, acquisition_id, account_id, occurred_at
+  affiliate_id, acquisition_id, account_id, occurred_at, trust, commercial_eligible
 )
 values (
   '44000000-0000-0000-0000-000000000012', 'first_party', 'signup:11', 1,
   'signup', '20000000-0000-0000-0000-000000000011',
   '30000000-0000-0000-0000-000000000011',
   '43000000-0000-0000-0000-000000000011',
-  '42000000-0000-0000-0000-000000000011', '2026-05-10 00:01:00+00'
+  '42000000-0000-0000-0000-000000000011', '2026-05-10 00:01:00+00', 'funnel_server', true
 );
 select throws_ok(
   $$insert into public.conversions (acquisition_id, affiliate_id, product_id, agreement_id, commission_rule_id, event_id, event_name, account_id, transaction_id, qualified, occurred_at) select '43000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000011', '41000000-0000-0000-0000-000000000011', event.id, event.event_name, event.account_id, '48000000-0000-0000-0000-000000000011', true, event.occurred_at from public.events as event where event.id = '44000000-0000-0000-0000-000000000012'$$,
@@ -332,12 +349,12 @@ values
   ('43000000-0000-0000-0000-000000000014', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '42000000-0000-0000-0000-000000000014', 'manual', 'resolved', '2026-05-05 00:01:00+00', '2026-05-05 00:00:00+00');
 insert into public.events (
   id, source, source_event_id, schema_version, event_name, product_id,
-  affiliate_id, acquisition_id, account_id, occurred_at
+  affiliate_id, acquisition_id, account_id, occurred_at, trust, commercial_eligible
 )
 values
-  ('44000000-0000-0000-0000-000000000022', 'first_party', 'purchase:12', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000012', '42000000-0000-0000-0000-000000000012', '2026-05-10 00:00:00+00'),
-  ('44000000-0000-0000-0000-000000000013', 'first_party', 'purchase:13', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', '2026-05-10 00:00:00+00'),
-  ('44000000-0000-0000-0000-000000000014', 'first_party', 'purchase:14', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', '2026-05-10 00:00:00+00');
+  ('44000000-0000-0000-0000-000000000022', 'first_party', 'purchase:12', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000012', '42000000-0000-0000-0000-000000000012', '2026-05-10 00:00:00+00', 'funnel_server', true),
+  ('44000000-0000-0000-0000-000000000013', 'first_party', 'purchase:13', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', '2026-05-10 00:00:00+00', 'funnel_server', true),
+  ('44000000-0000-0000-0000-000000000014', 'first_party', 'purchase:14', 1, 'purchase', '20000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000011', '43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', '2026-05-10 00:00:00+00', 'funnel_server', true);
 insert into public.subscriptions (
   id, account_id, product_id, acquisition_id, stripe_customer_id,
   stripe_subscription_id, status, currency
@@ -398,7 +415,7 @@ select throws_ok(
 );
 select throws_ok(
   $$update public.events set properties = '{"tampered":true}' where id = '44000000-0000-0000-0000-000000000011'$$,
-  'P0001', 'events is append-only',
+  'P0001', 'tracking history is append-only outside an approved non-commercial product deletion',
   'canonical events are append-only'
 );
 select throws_ok(
@@ -532,7 +549,7 @@ select throws_ok(
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claims', '{"email":"money-partner@example.test"}', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000011","role":"authenticated","email":"money-partner@example.test"}', true);
 select is(
   (select status from public.get_partner_payout_detail('52000000-0000-0000-0000-000000000011')),
   'open'::public.payout_status,
@@ -808,7 +825,7 @@ select throws_ok(
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claims', '{"email":"money-partner@example.test"}', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000011","role":"authenticated","email":"money-partner@example.test"}', true);
 select is(
   (select final_payout_minor from public.get_partner_payout_detail('52000000-0000-0000-0000-000000000011')),
   2500::bigint,
@@ -969,7 +986,7 @@ group by agreement.id;
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claims', '{"email":"money-partner@example.test"}', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000011","role":"authenticated","email":"money-partner@example.test"}', true);
 select is(
   (select carried_forward_minor from public.partner_payout_summary where product_id = '20000000-0000-0000-0000-000000000011'),
   -500::bigint,
@@ -1087,7 +1104,7 @@ group by agreement.id;
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000011', true);
-select set_config('request.jwt.claims', '{"email":"money-partner@example.test"}', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000011","role":"authenticated","email":"money-partner@example.test"}', true);
 select is(
   (select count(*) from public.partner_payout_summary where product_id = '20000000-0000-0000-0000-000000000011'),
   1::bigint,

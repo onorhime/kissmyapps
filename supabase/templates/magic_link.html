@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Your KissMyApps sign-in code</title></head>
+<body style="font-family:Arial,sans-serif;background:#f6f7f2;color:#1f251b;padding:32px">
+<h1>Your KissMyApps sign-in code</h1>
+<p>Enter this code on the KissMyApps page where you requested it:</p>
+<p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+{{ if ne .Data.registration_flow "merchant_v1" }}
+<p>If you requested a sign-in link instead, <a href="{{ .ConfirmationURL }}">sign in to KissMyApps</a>.</p>
+{{ end }}
+<p>If you did not request this code, ignore this email. Never share the code with anyone.</p>
+</body></html>

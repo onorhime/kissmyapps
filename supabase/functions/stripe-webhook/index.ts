@@ -10,18 +10,48 @@ import {
 } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import {
+  isKissMyAppsStripeEvent,
+  ownsStripeReference,
+} from "../_shared/stripe-ownership.ts";
+import type { StripeEventEnvelope } from "../_shared/stripe.ts";
+import {
   parseStripeEvent,
   persistStripeEvent,
   stripeSignedBodySha256,
   verifyStripeSignature,
 } from "../_shared/stripe.ts";
 
-export async function handleStripeWebhook(request: Request): Promise<Response> {
+export interface StripeWebhookDependencies {
+  webhookSecret: () => string;
+  owns: (event: StripeEventEnvelope) => Promise<boolean>;
+  persist: (
+    event: StripeEventEnvelope,
+    digest: string,
+  ) => Promise<{ duplicate: boolean }>;
+}
+
+const defaults: StripeWebhookDependencies = {
+  webhookSecret: () => requiredSecret("STRIPE_WEBHOOK_SECRET"),
+  owns: (event) =>
+    isKissMyAppsStripeEvent(event, {
+      owns: (kind, reference, metadata) =>
+        ownsStripeReference(serviceClient(), kind, reference, metadata),
+      stripeSecret: () => requiredSecret("STRIPE_SECRET_KEY"),
+      fetcher: fetch,
+    }),
+  persist: (event, digest) =>
+    persistStripeEvent(serviceClient(), event, digest),
+};
+
+export async function handleStripeWebhook(
+  request: Request,
+  deps = defaults,
+): Promise<Response> {
   const id = requestId(request);
   try {
     requireMethod(request, ["POST"]);
     requireJsonContentType(request);
-    const webhookSecret = requiredSecret("STRIPE_WEBHOOK_SECRET");
+    const webhookSecret = deps.webhookSecret();
     const bytes = await readRequestBytes(request, 1024 * 1024);
     await verifyStripeSignature(
       bytes,
@@ -45,11 +75,14 @@ export async function handleStripeWebhook(request: Request): Promise<Response> {
         request_id: id,
       }));
     }
-    const persisted = await persistStripeEvent(
-      serviceClient(),
-      event,
-      signedBodySha256,
-    );
+    if (!await deps.owns(event)) {
+      return jsonResponse(200, {
+        received: true,
+        ignored: true,
+        request_id: id,
+      }, { "X-Request-ID": id });
+    }
+    const persisted = await deps.persist(event, signedBodySha256);
     return jsonResponse(
       200,
       { received: true, duplicate: persisted.duplicate, request_id: id },
@@ -60,4 +93,4 @@ export async function handleStripeWebhook(request: Request): Promise<Response> {
   }
 }
 
-if (import.meta.main) Deno.serve(handleStripeWebhook);
+if (import.meta.main) Deno.serve((request) => handleStripeWebhook(request));

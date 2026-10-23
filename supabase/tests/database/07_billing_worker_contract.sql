@@ -127,13 +127,23 @@ select throws_ok(
 
 select throws_ok(
   $$insert into public.billing_offers (product_id, key, name, billing_mode, stripe_price_id, currency, unit_amount_minor, success_url_template, cancel_url, status) values ('20000000-0000-4000-8000-000000000071', 'one-time', 'One-time purchase', 'payment', 'price_OneTimeDormant071', 'USD', 4999, 'https://product.example.test/success?session_id={CHECKOUT_SESSION_ID}', 'https://product.example.test/cancel', 'active')$$,
-  '23514', null,
-  'one-time offers cannot activate before canonical one-time transactions exist'
+  'P0001', 'enable the managed checkout integration before activating a one-time offer',
+  'one-time offers cannot activate without an explicitly enabled managed checkout integration'
 );
 
 select lives_ok(
   $$insert into public.billing_offers (product_id, key, name, billing_mode, stripe_price_id, currency, unit_amount_minor, success_url_template, cancel_url, status) values ('20000000-0000-4000-8000-000000000071', 'one-time', 'One-time purchase', 'payment', 'price_OneTimeDormant071', 'USD', 4999, 'https://product.example.test/success?session_id={CHECKOUT_SESSION_ID}', 'https://product.example.test/cancel', 'draft')$$,
   'a real one-time Stripe price can be configured safely while the offer remains dormant'
+);
+
+insert into public.managed_payment_products(product_id, enabled)
+values('20000000-0000-4000-8000-000000000071', true);
+update public.billing_offers set status='active'
+where product_id='20000000-0000-4000-8000-000000000071' and key='one-time';
+select throws_ok(
+  $$select * from public.prepare_checkout_attempt('{"click_id":"clickclickclick071","offer_key":"one-time","idempotency_key":"managedlegacyblocked071"}'::jsonb)$$,
+  'P0002', 'billing offer is unavailable',
+  'an enabled managed one-time offer cannot bypass its signed order API through legacy checkout'
 );
 
 insert into public.billing_offers (

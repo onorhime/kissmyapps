@@ -72,3 +72,48 @@ Deno.test("funnel scope passes only the configured key, click, product, and funn
     p_funnel_id: "22222222-2222-4222-8222-222222222222",
   }]]);
 });
+
+Deno.test("short click RPC passes only the stored alias path and ordinary tracking context", async () => {
+  const calls: unknown[][] = [];
+  const client = {
+    rpc: (name: string, input: unknown) => {
+      calls.push([name, input]);
+      return Promise.resolve({
+        data: [{
+          click_id: "c".repeat(48),
+          destination_url: "https://marathon.speaksix.com/",
+          is_bot: false,
+        }],
+        error: null,
+      });
+    },
+  } as unknown as SupabaseClient;
+  const { registerShortTrackingClick } = await import("./rpc.ts");
+  const context = {
+    country_code: null,
+    session_id_hash: null,
+    user_agent_hash: null,
+    ip_hash: null,
+    is_bot: false,
+  };
+  const result = await registerShortTrackingClick(
+    client,
+    "/speaksix/王小明",
+    context,
+  );
+  assertEquals(calls, [["register_short_tracking_click", {
+    p_path: "/speaksix/王小明",
+    p_context: context,
+  }]]);
+  assertEquals(result.clickId, "c".repeat(48));
+  const error = await assertRejects(
+    () =>
+      registerShortTrackingClick(
+        rejectingClient("KMA29"),
+        "/speaksix/victory",
+        context,
+      ),
+    RequestError,
+  );
+  assertEquals(error.status, 429);
+});

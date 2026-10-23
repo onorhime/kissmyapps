@@ -357,7 +357,7 @@ select set_config(
 select throws_ok(
   $$ select public.configure_admin_tracking('{"base_url":"https://go.kissmyapps.dev","enabled":true,"expected_updated_at":null}'::jsonb) $$,
   'P0001',
-  'tracking activation requires the canonical origin, an active product with a live default HTTPS funnel, launch-ready agreement, active live-verified subscription offer, and canonical non-archived main links',
+  'tracking activation requires the canonical origin and a ready commercial or Owner-approved tracking-only product; commercial products need a live default HTTPS funnel, signed agreement, and active live-verified subscription or managed one-time offer',
   'server guard rejects enabling an empty catalog'
 );
 
@@ -505,7 +505,7 @@ select throws_ok(
     )
   $$,
   'P0001',
-  'tracking activation requires the canonical origin, an active product with a live default HTTPS funnel, launch-ready agreement, active live-verified subscription offer, and canonical non-archived main links',
+  'tracking activation requires the canonical origin and a ready commercial or Owner-approved tracking-only product; commercial products need a live default HTTPS funnel, signed agreement, and active live-verified subscription or managed one-time offer',
   'server guard still requires commercial readiness'
 );
 
@@ -644,7 +644,7 @@ select throws_ok(
     )
   $$,
   'P0001',
-  'tracking activation requires the canonical origin, an active product with a live default HTTPS funnel, launch-ready agreement, active live-verified subscription offer, and canonical non-archived main links',
+  'tracking activation requires the canonical origin and a ready commercial or Owner-approved tracking-only product; commercial products need a live default HTTPS funnel, signed agreement, and active live-verified subscription or managed one-time offer',
   'server guard rejects a noncanonical existing main-link prefix'
 );
 

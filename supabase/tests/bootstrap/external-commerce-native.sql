@@ -1,0 +1,12 @@
+create role anon;create role authenticated;create role service_role bypassrls;
+create schema auth;create schema extensions;create schema storage;create schema kma_internal;create schema net;create schema vault;
+create table auth.users(id uuid primary key,instance_id uuid,aud text,role text,email text,email_confirmed_at timestamptz,invited_at timestamptz,encrypted_password text,raw_app_meta_data jsonb default '{}',raw_user_meta_data jsonb default '{}');
+create function auth.uid() returns uuid language sql stable as $$select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid$$;
+create function auth.jwt() returns jsonb language sql stable as $$select nullif(current_setting('request.jwt.claims',true),'')::jsonb$$;
+create function auth.role() returns text language sql stable as $$select auth.jwt()->>'role'$$;
+create table storage.buckets(id text primary key,name text,public boolean);
+create table storage.objects(id uuid primary key,bucket_id text,name text,metadata jsonb,version text,created_at timestamptz default now(),updated_at timestamptz default now());
+create table net._http_response(id bigint,status_code integer,content_type text,headers jsonb,content text,timed_out boolean,error_msg text,created timestamptz);
+create table vault.decrypted_secrets(name text,decrypted_secret text);
+create function net.http_post(url text,body jsonb default '{}',params jsonb default '{}',headers jsonb default '{}',timeout_milliseconds integer default 5000) returns bigint language plpgsql as $$begin raise exception 'HTTP disabled in local isolated SQL fixture';end $$;
+grant usage on schema auth to anon,authenticated,service_role;

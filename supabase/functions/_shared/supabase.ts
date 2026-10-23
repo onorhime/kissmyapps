@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requiredEnv, serviceRoleKey } from "./env.ts";
 
-export function serviceClient(): SupabaseClient {
+export function serviceClient(requestTimeoutMs?: number): SupabaseClient {
   return createClient(requiredEnv("SUPABASE_URL"), serviceRoleKey(), {
     auth: {
       autoRefreshToken: false,
@@ -10,6 +10,19 @@ export function serviceClient(): SupabaseClient {
     },
     global: {
       headers: { "X-Client-Info": "kissmyapps-edge-functions/1.0" },
+      ...(requestTimeoutMs
+        ? {
+          fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+            const timeout = AbortSignal.timeout(requestTimeoutMs);
+            return fetch(input, {
+              ...init,
+              signal: init?.signal
+                ? AbortSignal.any([init.signal, timeout])
+                : timeout,
+            });
+          },
+        }
+        : {}),
     },
   });
 }

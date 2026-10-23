@@ -348,7 +348,7 @@ select is(
 );
 select throws_ok(
   $$select public.set_admin_billing_offer_status(jsonb_build_object('billing_offer_id',(select id from pg_temp.billing_offer_test_ids where label = 'lifetime-v1'),'status','active'))$$,
-  'P0001', 'payment-mode offers are draft-only until canonical one-time transactions are enabled',
+  'P0001', 'enable the managed checkout integration before activating a one-time offer',
   'the server blocks payment-mode activation'
 );
 

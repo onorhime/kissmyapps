@@ -18,4 +18,5 @@ select ok(
   'agreement mutations remain available to authenticated admins'
 );
 
-commit;
+select * from finish();
+rollback;

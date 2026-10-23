@@ -49,7 +49,8 @@ select columns_are(
   'public', 'partner_product_directory',
   array[
     'id', 'slug', 'name', 'status', 'agreement_status', 'commercial_model',
-    'payout_currency', 'has_live_funnel', 'main_tracking_url'
+    'payout_currency', 'has_live_funnel', 'main_tracking_url', 'main_link_id',
+    'tracking_mode', 'tracking_only_ready', 'main_link_commercial_eligible', 'main_short_url', 'test_main_link_id', 'test_main_tracking_url', 'test_main_short_url'
   ],
   'product view has only the browser contract columns'
 );
@@ -64,7 +65,8 @@ select columns_are(
     'id', 'name', 'product_id', 'product_name', 'product_slug', 'funnel_id',
     'funnel_name', 'source_id', 'source_name', 'campaign_id', 'campaign_name',
     'sub1', 'sub2', 'sub3', 'status', 'tracking_url', 'parent_link_id', 'clicks',
-    'leads', 'installs', 'purchases', 'earnings_minor', 'currency', 'created_at'
+    'leads', 'installs', 'purchases', 'earnings_minor', 'currency', 'created_at',
+    'tracking_mode', 'commercial_eligible', 'short_url', 'environment'
   ],
   'link view has only the browser contract columns'
 );
@@ -393,19 +395,25 @@ select is(
   array[
     'activate_admin_agreement(jsonb)',
     'activate_admin_product(jsonb)',
-    'advance_admin_payout_period(jsonb)',
+    'admin_countersign_agreement_document(jsonb)',
     'archive_admin_source(uuid)',
+    'assign_admin_product_merchant(jsonb)',
     'complete_partner_activation()',
+    'configure_admin_external_commission_terms(jsonb)',
+    'configure_admin_funnel_journey(jsonb)',
     'configure_admin_tracking(jsonb)',
     'create_admin_agreement(jsonb)',
+    'create_admin_agreement_document(jsonb)',
     'create_admin_billing_offer(jsonb)',
     'create_admin_campaign(jsonb)',
     'create_admin_commission_rule(jsonb)',
     'create_admin_funnel(jsonb)',
-    'create_admin_payout_period(jsonb)',
+    'create_admin_merchant_invitation(jsonb)',
+    'create_admin_merchant_invitation_v2(jsonb)',
     'create_admin_product(jsonb)',
     'create_admin_source(jsonb)',
     'create_partner_link(jsonb)',
+    'creator_connect_context(text,boolean)',
     'current_partner_activation_status()',
     'current_user_can_download_storage_object(text,text)',
     'current_user_can_view_product(uuid)',
@@ -413,28 +421,64 @@ select is(
     'current_user_has_affiliate_role(uuid,text[],boolean)',
     'current_user_is_admin()',
     'current_user_is_admin(text[])',
+    'delete_admin_draft_agreement(jsonb)',
+    'delete_admin_draft_commission_rule(jsonb)',
+    'delete_admin_product(jsonb)',
     'get_admin_affiliate_detail(uuid)',
     'get_admin_affiliate_directory(jsonb)',
     'get_admin_affiliate_summary()',
     'get_admin_affiliates()',
+    'get_admin_agreement_email_health()',
     'get_admin_attribution_overview(jsonb)',
     'get_admin_billing_offer_verification_candidate(uuid)',
     'get_admin_context()',
     'get_admin_data_health()',
+    'get_admin_external_settlement_workspace(jsonb)',
+    'get_admin_funnel_journey_configuration(uuid)',
+    'get_admin_funnel_journey_definition(uuid)',
+    'get_admin_funnel_metrics_config(uuid)',
+    'get_admin_funnel_metrics_report(jsonb)',
+    'get_admin_managed_price_verification_candidate(uuid)',
+    'get_admin_merchant_connections()',
+    'get_admin_merchant_invitation_delivery(uuid)',
+    'get_admin_payout_statement(uuid)',
+    'get_admin_payout_workspace(uuid,text,text,integer,integer)',
     'get_admin_platform_settings()',
+    'get_admin_processing_health()',
     'get_admin_product_configuration(uuid)',
     'get_admin_products()',
     'get_admin_sources()',
+    'get_admin_subscriptions(text,text,uuid,integer,integer,text)',
+    'get_partner_agreement_signature_queue()',
+    'get_partner_creator_bank_payouts()',
     'get_partner_dashboard_summary(uuid,date,date,text,uuid,uuid,uuid,text,text)',
     'get_partner_dashboard_trends(uuid,date,date,text,uuid,uuid,uuid,text,text,text,text)',
+    'get_partner_document_download(uuid)',
+    'get_partner_external_settlement_workspace(jsonb)',
+    'get_partner_funnel_metrics_report(jsonb)',
     'get_partner_payout_detail(uuid)',
     'issue_admin_main_link(jsonb)',
-    'prepare_admin_payout_statements(jsonb)',
+    'partner_agreement_is_launch_ready(uuid)',
+    'partner_link_short_url(uuid)',
+    'partner_sign_agreement_document(jsonb)',
+    'partner_tracking_only_product_is_ready(uuid)',
+    'perform_admin_external_settlement_action(jsonb)',
+    'perform_admin_payout_action(jsonb)',
+    'prepare_admin_merchant_invitation_email(jsonb)',
+    'preview_admin_funnel_metrics(jsonb)',
+    'publish_admin_funnel_journey_definition(jsonb)',
+    'publish_admin_funnel_metrics(uuid,integer)',
+    'request_admin_document_cleanup(text)',
+    'revoke_admin_agreement_document(jsonb)',
+    'revoke_admin_merchant_connection(jsonb)',
+    'save_admin_funnel_journey_definition(jsonb)',
+    'save_admin_funnel_metrics_draft(jsonb)',
     'set_admin_affiliate_status(jsonb)',
     'set_admin_billing_offer_status(jsonb)',
     'set_admin_campaign_status(jsonb)',
     'set_admin_commission_rule_status(jsonb)',
     'set_admin_funnel_status(jsonb)',
+    'set_admin_product_tracking_mode(jsonb)',
     'set_partner_link_status(uuid,link_status)',
     'storage_path_affiliate_id(text)',
     'terminate_admin_affiliate(jsonb)',
@@ -442,9 +486,22 @@ select is(
     'update_admin_funnel(jsonb)',
     'update_partner_link(uuid,jsonb)',
     'update_partner_profile(jsonb)',
-    'update_partner_settings(jsonb)'
+    'update_partner_settings(jsonb)',
+    'validate_admin_funnel_metric_event(jsonb)'
   ]::text[],
   'authenticated EXECUTE is exactly the approved policy helpers and browser RPCs'
+);
+-- New features extend this explicit allowlist; never derive it from the grants
+-- being tested. The reviewed payout action replaces three old browser writers.
+select ok(
+  not has_function_privilege('authenticated', 'public.advance_admin_payout_period(jsonb)', 'EXECUTE')
+  and not has_function_privilege('authenticated', 'public.create_admin_payout_period(jsonb)', 'EXECUTE')
+  and not has_function_privilege('authenticated', 'public.prepare_admin_payout_statements(jsonb)', 'EXECUTE'),
+  'retired payout writers remain inaccessible to browsers'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.ingest_funnel_metric_event(uuid,uuid,jsonb)', 'EXECUTE'),
+  'custom metric ingestion remains a service-only boundary'
 );
 select is(
   (

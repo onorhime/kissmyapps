@@ -111,8 +111,9 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function funnelKeyBindings(): ReadonlyMap<string, FunnelKeyBinding> {
-  const encoded = requiredEnv("FUNNEL_HMAC_BINDINGS");
+function parseFunnelKeyBindings(
+  encoded: string,
+): ReadonlyMap<string, FunnelKeyBinding> {
   try {
     const parsed: unknown = JSON.parse(encoded);
     if (!isPlainRecord(parsed)) throw new ConfigurationError();
@@ -155,6 +156,29 @@ export function funnelKeyBindings(): ReadonlyMap<string, FunnelKeyBinding> {
     if (error instanceof ConfigurationError) throw error;
     throw new ConfigurationError();
   }
+}
+
+export function funnelKeyBindings(): ReadonlyMap<string, FunnelKeyBinding> {
+  return parseFunnelKeyBindings(requiredEnv("FUNNEL_HMAC_BINDINGS"));
+}
+
+// Dedicated telemetry credentials never overwrite checkout or shared funnel keys.
+export function funnelMetricKeyBindings(): ReadonlyMap<
+  string,
+  FunnelKeyBinding
+> {
+  const shared = Deno.env.get("FUNNEL_HMAC_BINDINGS")?.trim();
+  const dedicated = Deno.env.get("FUNNEL_METRIC_HMAC_BINDINGS")?.trim();
+  if (!shared && !dedicated) throw new ConfigurationError();
+  const merged = new Map<string, FunnelKeyBinding>();
+  for (const encoded of [shared, dedicated]) {
+    if (!encoded) continue;
+    for (const [key, binding] of parseFunnelKeyBindings(encoded)) {
+      if (merged.has(key)) throw new ConfigurationError();
+      merged.set(key, binding);
+    }
+  }
+  return merged;
 }
 
 export function funnelSigningSecrets(

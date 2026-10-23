@@ -141,3 +141,46 @@ Deno.test("funnel event contract is explicit and production configured", () => {
     RequestError,
   );
 });
+
+Deno.test("readable tracking routes preserve unique handles and decode Unicode once", () => {
+  for (
+    const path of [
+      "/speaksix/victory",
+      "/speaksix/victory/instagram-bio-2",
+      "/speaksix/victory/2",
+      "/speaksix/josé-núñez",
+      "/speaksix/анна-иванова",
+      "/speaksix/王小明",
+      "/speaksix/محمد",
+      `/speaksix/${"𠮷".repeat(48)}`,
+    ]
+  ) {
+    assertEquals(parseTrackingRoute(path), { shortPath: path });
+    assertEquals(parseTrackingRoute(`/tracking-redirect${encodeURI(path)}`), {
+      shortPath: path,
+    });
+  }
+});
+
+Deno.test("readable routes reject path confusion, mixed case, noncanonical Unicode and unsafe escapes", () => {
+  for (
+    const path of [
+      "/speaksix//victory",
+      "/speaksix/victory/",
+      "/speaksix/victory/a/b",
+      "/speaksix/Victory",
+      "/speaksix/JOSE",
+      "/speaksix/jose\u0301",
+      "/speaksix/victory%2fbio",
+      "/speaksix/victory%252fbio",
+      "/speaksix/%00",
+      "/speaksix/%FF",
+      "/speaksix/%",
+      "/tracking-redirect/tracking-redirect/creator",
+      `/speaksix/${"a".repeat(65)}`,
+      `/speaksix/${"𠮷".repeat(65)}`,
+      "/speaksix/../victory",
+      "/speaksix/👍",
+    ]
+  ) assertThrows(() => parseTrackingRoute(path), RequestError, undefined, path);
+});

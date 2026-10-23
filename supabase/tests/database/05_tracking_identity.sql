@@ -16,7 +16,7 @@ values (
 );
 
 insert into public.platform_settings (tracking_base_url)
-values ('https://go.example.test');
+values ('https://go.kissmyapps.dev');
 
 insert into public.products (id, slug, name, status)
 values (
@@ -129,7 +129,7 @@ values
   );
 
 insert into public.sources (id, key, name)
-values ('51000000-0000-0000-0000-000000000051', 'tiktok', 'TikTok');
+values ('51000000-0000-0000-0000-000000000051', 'tracking-fixture-tiktok', 'TikTok');
 
 insert into public.campaigns (id, product_id, key, name, status)
 values (
@@ -148,7 +148,7 @@ values (
   '20000000-0000-0000-0000-000000000051',
   '50000000-0000-0000-0000-000000000051',
   'Main link', 'mainmainmainmain',
-  'https://go.example.test/r/tracking-partner/mainmainmainmain',
+  'https://go.kissmyapps.dev/r/tracking-partner/mainmainmainmain',
   true, 'active', '10000000-0000-0000-0000-000000000051'
 );
 
@@ -164,7 +164,7 @@ values (
   '52000000-0000-0000-0000-000000000051',
   '50000000-0000-0000-0000-000000000051',
   'TikTok bio', 'subsubsubsubsub1',
-  'https://go.example.test/r/tracking-partner/subsubsubsubsub1',
+  'https://go.kissmyapps.dev/r/tracking-partner/subsubsubsubsub1',
   '60000000-0000-0000-0000-000000000051',
   'bio', 'profile', 'creative-a', 'active',
   '10000000-0000-0000-0000-000000000051'
@@ -183,26 +183,26 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, is_main, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000052', 'Wrong Funnel Main', 'wrongmainwrongmain', 'https://go.example.test/r/tracking-partner/wrongmainwrongmain', true, 'active')$$,
+  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, is_main, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000052', 'Wrong Funnel Main', 'wrongmainwrongmain', 'https://go.kissmyapps.dev/r/tracking-partner/wrongmainwrongmain', true, 'active')$$,
   '23514', 'a main link must route through the product default funnel',
   'a main link cannot route through a non-default funnel'
 );
 
 select throws_ok(
-  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, is_main, sub1, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000051', 'Tagged Main', 'taggedmaintagged1', 'https://go.example.test/r/tracking-partner/taggedmaintagged1', true, 'tagged', 'active')$$,
+  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, is_main, sub1, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000051', 'Tagged Main', 'taggedmaintagged1', 'https://go.kissmyapps.dev/r/tracking-partner/taggedmaintagged1', true, 'tagged', 'active')$$,
   '23514', 'main links cannot contain parent, source, campaign, or Sub ID dimensions',
   'a main link cannot carry source or Sub ID attribution'
 );
 
 select throws_ok(
-  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, parent_link_id, sub1, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000051', 'Nested Variant', 'nestednestednest1', 'https://go.example.test/r/tracking-partner/nestednestednest1', '60000000-0000-0000-0000-000000000052', 'nested', 'active')$$,
-  '23514', 'parent link must be the current main link in the same partner product',
+  $$insert into public.affiliate_links (affiliate_id, product_id, funnel_id, name, public_code, tracking_url, parent_link_id, sub1, status) values ('30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000051', 'Nested Variant', 'nestednestednest1', 'https://go.kissmyapps.dev/r/tracking-partner/nestednestednest1', '60000000-0000-0000-0000-000000000052', 'nested', 'active')$$,
+  '23514', 'parent link must be the current active main link with the same scope',
   'a sub-link cannot be parented to another sub-link'
 );
 
 select throws_ok(
   $$update public.affiliate_links set sub1 = 'rewritten' where id = '60000000-0000-0000-0000-000000000052'$$,
-  'P0001', 'issued link attribution identity and routing are immutable',
+  'P0001', 'issued link attribution, commercial scope, and routing are immutable',
   'issued Sub IDs cannot be rewritten after link creation'
 );
 
@@ -236,7 +236,7 @@ select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-0000000
 
 select is(
   (select main_tracking_url from public.partner_product_directory),
-  'https://go.example.test/r/tracking-partner/mainmainmainmain',
+  'https://go.kissmyapps.dev/r/tracking-partner/mainmainmainmain',
   'the product directory returns the actual issued coded main link'
 );
 
@@ -279,7 +279,7 @@ select is(
 
 select throws_ok(
   $$insert into public.clicks (public_click_id, affiliate_link_id, affiliate_id, product_id, source_id, campaign_id, funnel_id, sub1, sub2, sub3, destination_url_snapshot) values ('mismatchmismatch12', '60000000-0000-0000-0000-000000000052', '30000000-0000-0000-0000-000000000051', '20000000-0000-0000-0000-000000000051', '51000000-0000-0000-0000-000000000051', '52000000-0000-0000-0000-000000000051', '50000000-0000-0000-0000-000000000051', 'wrong', 'profile', 'creative-a', 'https://funnel.example.test/start')$$,
-  '23514', 'click dimensions and destination must match the issued affiliate link',
+  '23514', 'click dimensions, commercial scope, and destination must match the issued link',
   'raw click inserts cannot forge a different Sub ID snapshot'
 );
 
@@ -358,7 +358,7 @@ select throws_ok(
 
 select throws_ok(
   $$insert into public.conversions (acquisition_id, affiliate_id, product_id, agreement_id, commission_rule_id, event_id, event_name, account_id, qualified, occurred_at) select event.acquisition_id, event.affiliate_id, event.product_id, '40000000-0000-0000-0000-000000000051', '41000000-0000-0000-0000-000000000051', event.id, event.event_name, event.account_id, true, event.occurred_at from public.events as event where event.source_event_id = 'browser:80000000-0000-0000-0000-000000000051'$$,
-  '23514', 'non-transaction conversions require trusted commercial event evidence',
+  '23514', 'conversions require commercially eligible attribution and events',
   'a browser event cannot qualify a CPL conversion'
 );
 

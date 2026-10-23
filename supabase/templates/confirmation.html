@@ -1,3 +1,13 @@
+{{ if eq .Data.registration_flow "merchant_v1" }}
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Verify your merchant email</title></head>
+<body style="font-family:Arial,sans-serif;background:#f6f7f2;color:#1f251b;padding:32px">
+<h1>Verify your email for KissMyApps</h1>
+<p>Enter this code on your merchant connection page:</p>
+<p style="font-size:32px;font-weight:bold;letter-spacing:6px">{{ .Token }}</p>
+<p>This code verifies your email only. It does not connect a Stripe account, grant admin access, or enable payments.</p>
+<p>If you did not request this code, ignore this email. Never share the code with anyone.</p>
+</body></html>
+{{ else }}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" dir="ltr">
   <head>
@@ -421,3 +431,5 @@
     </table>
   </body>
 </html>
+
+{{ end }}

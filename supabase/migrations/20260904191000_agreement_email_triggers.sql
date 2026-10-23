@@ -20,9 +20,8 @@ create table if not exists kma_internal.function_secrets (
 revoke all on kma_internal.function_secrets
   from public, anon, authenticated, service_role;
 
-insert into kma_internal.function_secrets (name, value)
-values ('agreement_notify', '6ef800722811eaf3d80b2990a46425f63dd11e439c53b88f86fb97f3dcc58c77')
-on conflict (name) do update set value = excluded.value;
+-- Provision the notification credential through the deployment secret store.
+-- Never put a live credential in migration source or its history.
 
 create or replace function public.notify_agreement_document_event()
 returns trigger

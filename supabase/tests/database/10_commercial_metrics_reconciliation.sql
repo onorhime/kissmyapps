@@ -12,7 +12,26 @@ select has_table('public', 'commercial_reconciliation_evidence', 'independent re
 select has_function('public', 'process_commercial_fact', array['uuid','uuid'], 'atomic commercial calculation RPC exists');
 select has_function('public', 'process_commercial_metric_refresh', array['uuid','uuid'], 'idempotent metrics refresh RPC exists');
 select has_function('public', 'process_commercial_reconciliation', array['uuid','uuid'], 'evidence-backed reconciliation RPC exists');
-select has_function('public', 'prepare_admin_payout_statements', array['jsonb'], 'manual statement preparation RPC exists');
+select has_function('public', 'perform_admin_payout_action', array['jsonb'], 'versioned and idempotent payout workflow RPC exists');
+select ok(
+  not has_function_privilege('authenticated', 'public.advance_admin_payout_period(jsonb)', 'EXECUTE')
+  and not has_function_privilege('authenticated', 'public.prepare_admin_payout_statements(jsonb)', 'EXECUTE'),
+  'legacy payout writers remain unavailable to browser operators'
+);
+
+-- Use the same public version token and action boundary as the current Admin UI.
+-- These temporary helpers are invoker functions, with no table/grant bypass.
+create function pg_temp.commercial_period(target uuid) returns jsonb language sql as $$
+  select period from jsonb_array_elements(public.get_admin_payout_workspace(target)->'periods') period
+  where period->>'id'=target::text;
+$$;
+create function pg_temp.commercial_payout_action(action text,target uuid) returns jsonb language sql as $$
+  select public.perform_admin_payout_action(jsonb_build_object(
+    'request_id',gen_random_uuid(),'action',action,'reason','Rollback-only commercial reconciliation test',
+    'id',target,'expected_updated_at',pg_temp.commercial_period(target)->'updated_at'
+  ));
+$$;
+grant execute on function pg_temp.commercial_period(uuid),pg_temp.commercial_payout_action(text,uuid) to authenticated;
 
 select ok(
   has_function_privilege('service_role', 'public.claim_commercial_facts(text,integer,integer)', 'EXECUTE')
@@ -478,17 +497,37 @@ select is(
   'a delayed adjustment also posts append-only to the current open period'
 );
 
+-- Provider workers are isolated in this rollback test. Assert the production
+-- health gate first, then make only this predicate healthy while exercising
+-- the real ledger, reconciliation and versioned workflow below.
+create or replace function kma_internal.payout_processing_ready() returns boolean
+language sql stable security definer set search_path='' as $$select false$$;
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000101',true);
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000101","role":"authenticated","amr":[{"method":"password","timestamp":1787952000}]}',true);
-select is(
-  public.advance_admin_payout_period('{"payout_period_id":"80000000-0000-4000-8000-000000000101","status":"review"}'::jsonb) ->> 'status',
-  'review',
-  'a fully processed ended period can enter review'
+select throws_ok(
+  $$select public.advance_admin_payout_period('{"payout_period_id":"80000000-0000-4000-8000-000000000101","status":"review"}'::jsonb)$$,
+  '42501', 'permission denied for function advance_admin_payout_period',
+  'the old period writer cannot bypass the current workflow'
 );
 select throws_ok(
-  $$select public.advance_admin_payout_period('{"payout_period_id":"80000000-0000-4000-8000-000000000101","status":"closed"}'::jsonb)$$,
+  $$select pg_temp.commercial_payout_action('review_period','80000000-0000-4000-8000-000000000101')$$,
+  'P0001', 'Resolve processing health first',
+  'unhealthy processing blocks the current period review workflow'
+);
+reset role;
+create or replace function kma_internal.payout_processing_ready() returns boolean
+language sql stable security definer set search_path='' as $$select true$$;
+set local role authenticated;
+select is(
+  pg_temp.commercial_payout_action('review_period','80000000-0000-4000-8000-000000000101')->>'action',
+  'review_period',
+  'a fully processed ended period can enter review'
+);
+select is(pg_temp.commercial_period('80000000-0000-4000-8000-000000000101')->>'status','review','the public workspace confirms the period is in review');
+select throws_ok(
+  $$select pg_temp.commercial_payout_action('close_period','80000000-0000-4000-8000-000000000101')$$,
   'P0001', 'payout period requires passed exact-window reconciliation for every currency',
   'the period cannot close before exact provider reconciliation passes'
 );
@@ -532,12 +571,13 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000101',true);
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000101","role":"authenticated","amr":[{"method":"password","timestamp":1787952001}]}',true);
 select is(
-  public.advance_admin_payout_period('{"payout_period_id":"80000000-0000-4000-8000-000000000101","status":"closed"}'::jsonb) ->> 'status',
-  'closed',
+  pg_temp.commercial_payout_action('close_period','80000000-0000-4000-8000-000000000101')->>'action',
+  'close_period',
   'the reconciled review period can close'
 );
+select is(pg_temp.commercial_period('80000000-0000-4000-8000-000000000101')->>'status','closed','the public workspace confirms the period is closed');
 select is(
-  public.prepare_admin_payout_statements('{"payout_period_id":"80000000-0000-4000-8000-000000000101"}'::jsonb) ->> 'external_transfer',
+  pg_temp.commercial_payout_action('prepare_statements','80000000-0000-4000-8000-000000000101')->>'external_transfer',
   'false',
   'statement preparation explicitly performs no external transfer'
 );

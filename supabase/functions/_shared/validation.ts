@@ -54,10 +54,12 @@ export interface CanonicalEventInput {
   properties: Record<string, EventPropertyValue>;
 }
 
-export interface TrackingRoute {
+export interface LegacyTrackingRoute {
   affiliateSlug: string;
   publicCode: string;
 }
+
+export type TrackingRoute = LegacyTrackingRoute | { shortPath: string };
 
 export function isPlainObject(
   value: unknown,
@@ -293,8 +295,40 @@ export function validateFunnelEvent(
 }
 
 export function parseTrackingRoute(pathname: string): TrackingRoute {
-  const segments = pathname.split("/").filter(Boolean);
-  const functionIndex = segments[0] === "tracking-redirect" ? 1 : 0;
+  const path = pathname.startsWith("/tracking-redirect/")
+    ? pathname.slice("/tracking-redirect".length)
+    : pathname;
+  if (!path.startsWith("/r/")) {
+    let segments: string[] = [];
+    try {
+      segments = path.slice(1).split("/").map((segment) =>
+        decodeURIComponent(segment)
+      );
+    } catch {
+      // Invalid UTF-8 and malformed escapes are unavailable routes.
+    }
+    const canonicalPath = `/${segments.join("/")}`;
+    if (
+      Array.from(canonicalPath).length <= 180 && path.startsWith("/") &&
+      (segments.length === 2 || segments.length === 3) &&
+      !["r", "tracking-redirect"].includes(segments[0]) &&
+      segments.every((segment) =>
+        Array.from(segment).length <= 64 &&
+        segment === segment.normalize("NFC").toLowerCase() &&
+        /^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u.test(segment)
+      )
+    ) {
+      return { shortPath: canonicalPath };
+    }
+    throw new RequestError(
+      404,
+      "not_found",
+      "The requested resource is unavailable.",
+    );
+  }
+  // Preserve the legacy route contract for already distributed URLs.
+  const segments = path.split("/").filter(Boolean);
+  const functionIndex = 0;
   if (
     segments[functionIndex] !== "r" ||
     segments.length !== functionIndex + 3

@@ -115,6 +115,63 @@ select throws_ok(
   'main-link issuance rejects non-string identity values'
 );
 
+-- These RPCs must reject malformed identities before business lookups or inserts.
+select throws_ok(
+  $$select public.create_admin_agreement('{"affiliate_id":null,"product_id":"20000000-0000-0000-0000-000000000061","model":"cpa","payout_currency":"USD"}'::jsonb)$$,
+  '22023', 'agreement input types are invalid',
+  'agreement identity cannot be JSON null'
+);
+select throws_ok(
+  $$select public.create_admin_agreement('{"affiliate_id":"   ","product_id":"20000000-0000-0000-0000-000000000061","model":"cpa","payout_currency":"USD"}'::jsonb)$$,
+  '22023', 'affiliate_id and product_id are required',
+  'blank agreement identities are invalid input rather than a missing partner'
+);
+select throws_ok(
+  $$select public.create_admin_agreement('{"affiliate_id":"30000000-0000-0000-0000-000000000061","product_id":"not-a-uuid","model":"cpa","payout_currency":"USD"}'::jsonb)$$,
+  '22023', 'agreement identifiers must be UUIDs',
+  'malformed agreement UUID strings do not leak an internal cast error'
+);
+select throws_ok(
+  $$select public.create_admin_agreement('{"affiliate_id":"30000000-0000-0000-0000-000000000061","product_id":"20000000-0000-0000-0000-000000000061","model":"invalid-model","payout_currency":"USD"}'::jsonb)$$,
+  '22023', 'agreement model or payout currency is invalid',
+  'unsupported agreement models are rejected before an enum cast'
+);
+select throws_ok(
+  $$select public.create_admin_agreement('{"affiliate_id":"30000000-0000-0000-0000-000000000061","product_id":"20000000-0000-0000-0000-000000000061","model":"cpa","payout_currency":"US"}'::jsonb)$$,
+  '22023', 'agreement model or payout currency is invalid',
+  'invalid payout currency is rejected before a table constraint'
+);
+select throws_ok(
+  $$select public.issue_admin_main_link('[]'::jsonb)$$,
+  '22023', 'main-link input must contain exactly affiliate_id and product_id',
+  'main-link issuance rejects an array before inspecting object keys'
+);
+select throws_ok(
+  $$select public.issue_admin_main_link('{"affiliate_id":null,"product_id":"20000000-0000-0000-0000-000000000061"}'::jsonb)$$,
+  '22023', 'affiliate_id and product_id must be UUIDs',
+  'main-link identity cannot be JSON null'
+);
+select throws_ok(
+  $$select public.issue_admin_main_link('{"affiliate_id":" ","product_id":"20000000-0000-0000-0000-000000000061"}'::jsonb)$$,
+  '22023', 'affiliate_id and product_id are required',
+  'main-link identity cannot be blank'
+);
+select throws_ok(
+  $$select public.issue_admin_main_link('{"affiliate_id":"not-a-uuid","product_id":"20000000-0000-0000-0000-000000000061"}'::jsonb)$$,
+  '22023', 'affiliate_id and product_id must be UUIDs',
+  'malformed main-link UUID strings do not leak an internal cast error'
+);
+select is(
+  jsonb_array_length(public.get_admin_product_configuration('20000000-0000-0000-0000-000000000061') -> 'agreements'),
+  0,
+  'rejected agreement payloads leave the saved configuration unchanged'
+);
+select is(
+  jsonb_array_length(public.get_admin_product_configuration('20000000-0000-0000-0000-000000000061') -> 'main_links'),
+  0,
+  'rejected identity payloads do not issue main links'
+);
+
 select throws_ok(
   $$select public.configure_admin_tracking('{"base_url":"http://127.0.0.1:5173","enabled":true,"expected_updated_at":null}'::jsonb)$$,
   '22023', 'tracking base URL must equal https://go.kissmyapps.dev',

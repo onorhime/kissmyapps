@@ -56,11 +56,30 @@ export async function registerTrackingClick(
   publicCode: string,
   context: TrackingContext,
 ): Promise<TrackingRegistration> {
-  const { data, error } = await client.rpc("register_tracking_click", {
+  return await registerClick(client, "register_tracking_click", {
     p_affiliate_slug: affiliateSlug,
     p_public_code: publicCode,
     p_context: context,
   });
+}
+
+export async function registerShortTrackingClick(
+  client: SupabaseClient,
+  shortPath: string,
+  context: TrackingContext,
+): Promise<TrackingRegistration> {
+  return await registerClick(client, "register_short_tracking_click", {
+    p_path: shortPath,
+    p_context: context,
+  });
+}
+
+async function registerClick(
+  client: SupabaseClient,
+  functionName: "register_tracking_click" | "register_short_tracking_click",
+  input: Record<string, unknown>,
+): Promise<TrackingRegistration> {
+  const { data, error } = await client.rpc(functionName, input);
   if (error) {
     if (error.code === "KMA29") throw rateLimitError();
     if (isUnavailableCode(error.code)) throw new NotFoundError();

@@ -156,6 +156,158 @@ Deno.test("admin verifier rejects client-supplied commercial fields before Strip
   assertEquals(setup.recorded, []);
 });
 
+Deno.test("admin verifier attests a one-time offer using its saved Price facts", async () => {
+  Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
+  const setup = dependencies({
+    userClient: () =>
+      fakeClient(() =>
+        Promise.resolve({
+          data: {
+            billing_offer_id: offerId,
+            stripe_price_id: priceId,
+            currency: "USD",
+            unit_amount_minor: 16900,
+            billing_mode: "payment",
+          },
+          error: null,
+        })
+      ),
+    fetcher: () =>
+      Promise.resolve(
+        Response.json({
+          id: priceId,
+          object: "price",
+          active: true,
+          livemode: true,
+          billing_scheme: "per_unit",
+          type: "one_time",
+          currency: "usd",
+          unit_amount: 16900,
+          unit_amount_decimal: "16900",
+          custom_unit_amount: null,
+          tiers_mode: null,
+          transform_quantity: null,
+          recurring: null,
+        }),
+      ),
+  });
+  const response = await handleStripePriceVerifier(
+    request({ billing_offer_id: offerId }),
+    setup.value,
+  );
+  assertEquals(response.status, 200);
+  assertEquals(setup.recorded, [{
+    name: "record_billing_offer_stripe_verification",
+    args: {
+      p_input: {
+        billing_offer_id: offerId,
+        stripe_price_id: priceId,
+        livemode: true,
+        active: true,
+        currency: "USD",
+        unit_amount_minor: 16900,
+        billing_mode: "payment",
+      },
+    },
+  }]);
+});
+
+Deno.test("one-time offer verification rejects a recurring Price without attestation", async () => {
+  Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
+  const setup = dependencies({
+    userClient: () =>
+      fakeClient(() =>
+        Promise.resolve({
+          data: {
+            billing_offer_id: offerId,
+            stripe_price_id: priceId,
+            currency: "USD",
+            unit_amount_minor: 1999,
+            billing_mode: "payment",
+          },
+          error: null,
+        })
+      ),
+  });
+  const response = await handleStripePriceVerifier(
+    request({ billing_offer_id: offerId }),
+    setup.value,
+  );
+  assertEquals(response.status, 400);
+  assertEquals((await response.json()).error, "stripe_price_mismatch");
+  assertEquals(setup.recorded, []);
+});
+
+Deno.test("admin verifier accepts restricted live keys without exposing them", async () => {
+  Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
+  const key = `rk_live_${"r".repeat(40)}`;
+  const setup = dependencies({ stripeSecret: () => key });
+  const provider = setup.value.fetcher;
+  setup.value.fetcher = (input, init) => {
+    assertEquals(
+      new Headers(init?.headers).get("authorization"),
+      `Bearer ${key}`,
+    );
+    return provider(input, init);
+  };
+  const response = await handleStripePriceVerifier(
+    request({ billing_offer_id: offerId }),
+    setup.value,
+  );
+  assertEquals(response.status, 200);
+  assertEquals(setup.recorded.length, 1);
+  assertEquals((await response.text()).includes(key), false);
+  assertEquals(JSON.stringify(setup.recorded).includes(key), false);
+});
+
+Deno.test("admin verifier rejects test and publishable keys before any Stripe request", async () => {
+  Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
+  for (const prefix of ["rk_test_", "sk_test_", "pk_live_"]) {
+    let calls = 0;
+    const key = `${prefix}${"x".repeat(40)}`;
+    const setup = dependencies({
+      stripeSecret: () => key,
+      fetcher: () => {
+        calls++;
+        return Promise.resolve(Response.json({}));
+      },
+    });
+    const response = await handleStripePriceVerifier(
+      request({ billing_offer_id: offerId }),
+      setup.value,
+    );
+    assertEquals(response.status, 503);
+    assertEquals((await response.text()).includes(key), false);
+    assertEquals(calls, 0);
+    assertEquals(setup.recorded, []);
+  }
+});
+
+Deno.test("restricted key denied by Stripe never records verification or leaks provider details", async () => {
+  Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
+  for (const status of [401, 403]) {
+    const key = `rk_live_${"r".repeat(40)}`;
+    const setup = dependencies({
+      stripeSecret: () => key,
+      fetcher: () =>
+        Promise.resolve(
+          Response.json({
+            error: { message: `private provider detail ${key}` },
+          }, { status }),
+        ),
+    });
+    const response = await handleStripePriceVerifier(
+      request({ billing_offer_id: offerId }),
+      setup.value,
+    );
+    assertEquals(response.status, 503);
+    const body = await response.text();
+    assertEquals(body.includes(key), false);
+    assertEquals(body.includes("private provider detail"), false);
+    assertEquals(setup.recorded, []);
+  }
+});
+
 Deno.test("admin verifier rejects mismatched or test-mode Stripe Prices", async () => {
   Deno.env.set("ADMIN_ALLOWED_ORIGINS", origin);
   const setup = dependencies({

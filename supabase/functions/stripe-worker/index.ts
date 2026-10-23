@@ -14,6 +14,8 @@ import {
 } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { isPlainObject } from "../_shared/validation.ts";
+import { requireLiveStripeKey } from "../_shared/stripe-auth.ts";
+import { projectStripeObject } from "../_shared/stripe.ts";
 import {
   STRIPE_API_VERSION,
   stripeRequestSignal,
@@ -56,6 +58,8 @@ export interface ClaimedStripeEvent {
 export type StripeNormalizationInput = Record<string, unknown> & {
   kind:
     | "checkout_subscription_paid"
+    | "checkout_subscription_free"
+    | "invoice_no_payment_required"
     | "subscription_changed"
     | "invoice_paid"
     | "refund_succeeded"
@@ -131,10 +135,7 @@ function idValue(value: unknown, pattern: RegExp, code: string): string {
 }
 
 function liveSecret(value: string): string {
-  if (!/^sk_live_[A-Za-z0-9_]{16,}$/.test(value)) {
-    throw new ConfigurationError();
-  }
-  return value;
+  return requireLiveStripeKey(value);
 }
 
 function signedObject(event: ClaimedStripeEvent): Record<string, unknown> {
@@ -200,6 +201,9 @@ interface SubscriptionEvidence {
 }
 
 function periods(value: Record<string, unknown>): [number, number] {
+  if (isPlainObject(value.items) && value.items.has_more === true) {
+    throw new StripeEventError("unsupported_subscription_periods", true);
+  }
   if (
     Number.isSafeInteger(value.current_period_start) &&
     Number.isSafeInteger(value.current_period_end)
@@ -337,12 +341,31 @@ async function checkoutInput(
   }
   if (
     session.mode !== "subscription" || session.status !== "complete" ||
-    session.payment_status !== "paid"
+    !["paid", "no_payment_required"].includes(String(session.payment_status))
   ) {
     throw new StripeEventError("checkout_not_paid", true);
   }
   const attempt = validateCheckoutMetadata(session.metadata);
-  intValue(session.amount_total, 1, "invalid_checkout_amount");
+  const free = session.amount_total === 0;
+  if (free) {
+    const details = record(session.total_details, "invalid_free_checkout");
+    const subtotal = intValue(
+      session.amount_subtotal,
+      1,
+      "invalid_free_checkout",
+    );
+    if (
+      details.amount_discount !== subtotal || details.amount_tax !== 0 ||
+      details.amount_shipping !== 0
+    ) {
+      throw new StripeEventError("invalid_free_checkout", true);
+    }
+  } else {
+    intValue(session.amount_total, 1, "invalid_checkout_amount");
+    if (session.payment_status !== "paid") {
+      throw new StripeEventError("checkout_not_paid", true);
+    }
+  }
   textValue(session.currency, CURRENCY, "invalid_checkout_currency");
   const customer = idValue(
     session.customer,
@@ -368,7 +391,7 @@ async function checkoutInput(
     throw new StripeEventError("stripe_object_mismatch", true);
   }
   return {
-    kind: "checkout_subscription_paid",
+    kind: free ? "checkout_subscription_free" : "checkout_subscription_paid",
     object_id: id,
     subscription_id: sub.id,
     subscription_customer_id: sub.customer,
@@ -516,12 +539,22 @@ async function invoiceInput(
   const id = textValue(invoice.id, IDS.invoice);
   if (
     invoice.object !== "invoice" || invoice.status !== "paid" ||
-    invoice.paid !== true
+    (Object.hasOwn(invoice, "paid") && invoice.paid !== true)
   ) {
     throw new StripeEventError("invoice_not_paid", true);
   }
-  intValue(invoice.amount_paid, 1, "invalid_invoice_amount");
-  intValue(invoice.total, 1, "invalid_invoice_amount");
+  const free = invoice.amount_paid === 0;
+  if (free) {
+    if (
+      invoice.total !== 0 || invoice.total_excluding_tax !== 0 ||
+      invoice.amount_due !== 0 || invoice.amount_remaining !== 0
+    ) {
+      throw new StripeEventError("invalid_free_invoice", true);
+    }
+  } else {
+    intValue(invoice.amount_paid, 1, "invalid_invoice_amount");
+    intValue(invoice.total, 1, "invalid_invoice_amount");
+  }
   intValue(invoice.total_excluding_tax, 0, "incomplete_invoice_tax");
   textValue(invoice.currency, CURRENCY, "invalid_invoice_currency");
   const customer = idValue(
@@ -538,6 +571,14 @@ async function invoiceInput(
     IDS.subscription,
     "invalid_invoice_subscription",
   );
+  if (free) {
+    return {
+      kind: "invoice_no_payment_required",
+      object_id: id,
+      subscription_id: subscription,
+      customer_id: customer,
+    };
+  }
   return {
     kind: "invoice_paid",
     object_id: id,
@@ -602,12 +643,65 @@ export async function buildStripeNormalization(
       return await checkoutInput(object, secret, fetcher, executionSignal);
     case "customer.subscription.created":
     case "customer.subscription.updated":
-    case "customer.subscription.deleted":
-      subscriptionEvidence(object);
+    case "customer.subscription.deleted": {
+      let recovered: Record<string, unknown> | undefined;
+      // Old minimized receipts dropped item periods. Retrieve the original
+      // immutable Event, never today's subscription as historical evidence.
+      if (
+        !Object.hasOwn(object, "items") &&
+        !Number.isSafeInteger(object.current_period_start)
+      ) {
+        const original = await stripeGet(
+          secret,
+          `/v1/events/${
+            encodeURIComponent(textValue(event.externalEventId, IDS.event))
+          }`,
+          fetcher,
+          undefined,
+          executionSignal,
+        );
+        // Event retrieval retains the Event's original rendering version, not
+        // the webhook destination's version. Project only our known fields,
+        // then require exact equality with the signed receipt except items.
+        // This does NOT relax the webhook's pinned-version check.
+        recovered = {
+          id: original.id,
+          type: original.type,
+          livemode: original.livemode,
+          ...(Object.hasOwn(original, "created")
+            ? { created: original.created }
+            : {}),
+          data: {
+            object: projectStripeObject(
+              event.eventType,
+              record(record(original.data).object),
+            ),
+          },
+        };
+        const recoveredObject = record(record(recovered.data).object);
+        const { items: _items, ...oldShape } = recoveredObject;
+        const equal = (a: unknown, b: unknown): boolean => {
+          if (isPlainObject(a) && isPlainObject(b)) {
+            return Object.keys(a).length === Object.keys(b).length &&
+              Object.keys(a).every((key) =>
+                Object.hasOwn(b, key) && equal(a[key], b[key])
+              );
+          }
+          return a === b;
+        };
+        if (
+          !equal({ ...recovered, data: { object: oldShape } }, event.payload)
+        ) {
+          throw new StripeEventError("stripe_object_mismatch", true);
+        }
+        subscriptionEvidence(recoveredObject);
+      } else subscriptionEvidence(object);
       return {
         kind: "subscription_changed",
         object_id: textValue(object.id, IDS.subscription),
+        ...(recovered ? { recovered_event: recovered } : {}),
       };
+    }
     case "invoice.paid":
       return await invoiceInput(object, secret, fetcher, executionSignal);
     case "refund.created":
@@ -670,12 +764,28 @@ function defaultDependencies(client: SupabaseClient): StripeWorkerDependencies {
       }
     },
     normalize: async (event, input) => {
+      const { recovered_event, ...normalization } = input;
+      if (recovered_event) {
+        const { error } = await client.rpc(
+          "supplement_stripe_subscription_event",
+          {
+            p_provider_event_id: event.providerEventId,
+            p_claim_token: event.claimToken,
+            p_payload: recovered_event,
+          },
+        );
+        if (error) throw new RpcError(error.code);
+      }
       const { data, error } = await client.rpc(
-        "normalize_stripe_provider_event",
+        ["checkout_subscription_free", "invoice_no_payment_required"].includes(
+            input.kind,
+          )
+          ? "normalize_stripe_zero_total_event"
+          : "normalize_stripe_provider_event",
         {
           p_provider_event_id: event.providerEventId,
           p_claim_token: event.claimToken,
-          p_input: input,
+          p_input: normalization,
         },
       );
       if (error) throw new RpcError(error.code);

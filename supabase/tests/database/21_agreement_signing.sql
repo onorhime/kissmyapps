@@ -55,10 +55,18 @@ select ok(
 );
 
 select ok(
-  has_table_privilege('authenticated', 'storage.objects', 'INSERT') is not null,
-  'storage insert policy check runs'
+  has_table_privilege('authenticated', 'storage.objects', 'INSERT'),
+  'authenticated uploads have the insert grant required by the storage policy'
 );
-select has_policy('storage', 'objects', 'affiliate_private_documents_admin_write');
+-- pgTAP installations differ in policy helpers; inspect the PostgreSQL catalog directly.
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and policyname = 'affiliate_private_documents_admin_write'
+  ),
+  'admin document upload policy exists'
+);
 select is(
   (
     select count(*)::integer
@@ -79,10 +87,11 @@ select is(
     where constraint_record.conrelid = 'public.documents'::regclass
       and constraint_record.conname like '%documents%'
       and constraint_record.contype = 'c'
-      and constraint_record.pg_get_constraintdef() like '%partner_signer_name%'
+      and pg_get_constraintdef(constraint_record.oid) like '%partner_signer_name%'
   ),
   1,
   'partner signer name carries a length constraint'
 );
 
-commit;
+select * from finish();
+rollback;

@@ -18,7 +18,7 @@ values
   ('10000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner@example.test', '', now(), '{}', '{"full_name":"Platform Owner"}', now(), now());
 
 insert into public.platform_settings (tracking_base_url, tracking_enabled)
-values ('https://go.example.test', true);
+values ('https://go.kissmyapps.dev', true);
 
 select throws_ok(
   $$insert into public.affiliates (public_name, slug, reporting_timezone, status) values ('Invalid Timezone', 'invalid-timezone', 'Mars/Olympus_Mons', 'draft')$$,
@@ -123,7 +123,7 @@ values (
   'contract-funnel', 'Contract Funnel', 'https://destination.example.test/start', 'live'
 );
 insert into public.sources (id, key, name)
-values ('51000000-0000-0000-0000-000000000001', 'newsletter', 'Newsletter');
+values ('51000000-0000-0000-0000-000000000001', 'security-fixture-newsletter', 'Newsletter');
 insert into public.campaigns (id, product_id, key, name, status)
 values
   ('52000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'launch', 'Launch', 'active'),
@@ -134,10 +134,10 @@ insert into public.affiliate_links (
   public_code, tracking_url, sub1, status, created_by
 )
 values
-  ('60000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Partner A Link', 'aaaaaaaaaaaaaaaa', 'https://go.example.test/r/partner-a/aaaaaaaaaaaaaaaa', 'weekly', 'active', '10000000-0000-0000-0000-000000000001'),
-  ('60000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Partner B Link', 'bbbbbbbbbbbbbbbb', 'https://go.example.test/r/partner-b/bbbbbbbbbbbbbbbb', 'weekly', 'paused', '10000000-0000-0000-0000-000000000002'),
-  ('60000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', null, null, '50000000-0000-0000-0000-000000000001', 'Paused Link', 'cccccccccccccccc', 'https://go.example.test/r/paused-partner/cccccccccccccccc', 'archive', 'paused', '10000000-0000-0000-0000-000000000003'),
-  ('60000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', null, null, '50000000-0000-0000-0000-000000000001', 'Former Link', 'dddddddddddddddd', 'https://go.example.test/r/former-partner/dddddddddddddddd', 'archive', 'paused', '10000000-0000-0000-0000-000000000004');
+  ('60000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Partner A Link', 'aaaaaaaaaaaaaaaa', 'https://go.kissmyapps.dev/r/partner-a/aaaaaaaaaaaaaaaa', 'weekly', 'active', '10000000-0000-0000-0000-000000000001'),
+  ('60000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', 'Partner B Link', 'bbbbbbbbbbbbbbbb', 'https://go.kissmyapps.dev/r/partner-b/bbbbbbbbbbbbbbbb', 'weekly', 'paused', '10000000-0000-0000-0000-000000000002'),
+  ('60000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001', null, null, '50000000-0000-0000-0000-000000000001', 'Paused Link', 'cccccccccccccccc', 'https://go.kissmyapps.dev/r/paused-partner/cccccccccccccccc', 'archive', 'paused', '10000000-0000-0000-0000-000000000003'),
+  ('60000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001', null, null, '50000000-0000-0000-0000-000000000001', 'Former Link', 'dddddddddddddddd', 'https://go.kissmyapps.dev/r/former-partner/dddddddddddddddd', 'archive', 'paused', '10000000-0000-0000-0000-000000000004');
 
 insert into public.affiliate_daily_metrics (
   id, affiliate_id, product_id, affiliate_link_id, metric_date, source_id,
@@ -164,10 +164,10 @@ select throws_ok(
   'subscription snapshots cannot duplicate additive reporting metrics'
 );
 
-insert into storage.objects (bucket_id, name)
+insert into storage.objects (id, bucket_id, name)
 values
-  ('affiliate-private-documents', '30000000-0000-0000-0000-000000000001/agreements/signed.pdf'),
-  ('affiliate-private-documents', '30000000-0000-0000-0000-000000000001/internal/unreferenced-draft.pdf');
+  ('75000000-0000-0000-0000-000000000001', 'affiliate-private-documents', '30000000-0000-0000-0000-000000000001/agreements/signed.pdf'),
+  ('75000000-0000-0000-0000-000000000002', 'affiliate-private-documents', '30000000-0000-0000-0000-000000000001/internal/unreferenced-draft.pdf');
 
 insert into public.payout_periods (
   id, starts_at, ends_at, review_starts_at, payout_due_at
@@ -223,7 +223,7 @@ group by agreement.id;
 set local role authenticated;
 select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
-select set_config('request.jwt.claims', '{"email":"partner-a@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"partner-a@example.test","sub":"10000000-0000-0000-0000-000000000001","role":"authenticated","amr":[{"method":"password"}]}', true);
 
 select throws_ok(
   $$select * from public.affiliates$$,
@@ -241,7 +241,7 @@ select is((select count(*) from public.partner_product_directory), 1::bigint, 'p
 select is((select count(*) from public.partner_link_directory), 1::bigint, 'partner sees only its link');
 select is(
   (select tracking_url from public.partner_link_directory),
-  'https://go.example.test/r/partner-a/aaaaaaaaaaaaaaaa',
+  'https://go.kissmyapps.dev/r/partner-a/aaaaaaaaaaaaaaaa',
   'partner sees the issued tracking URL'
 );
 select ok(
@@ -293,7 +293,7 @@ select is(
 
 select throws_ok(
   $$select * from public.create_partner_link('{"name":"Injected","product_id":"20000000-0000-0000-0000-000000000001","funnel_id":"50000000-0000-0000-0000-000000000001","sub1":"test","admin":true}'::jsonb)$$,
-  '22023', 'link input contains unsupported fields',
+  '22023', 'link input must be a JSON object with supported fields',
   'create-link RPC rejects over-posted fields'
 );
 select lives_ok(
@@ -301,7 +301,7 @@ select lives_ok(
   'owner can create a server-issued link'
 );
 select ok(
-  (select tracking_url from public.partner_link_directory where name = 'RPC Link') like 'https://go.example.test/r/partner-a/%',
+  (select tracking_url from public.partner_link_directory where name = 'RPC Link') like 'https://go.kissmyapps.dev/r/partner-a/%',
   'created link is issued only on the configured tracking domain'
 );
 select throws_ok(
@@ -375,7 +375,7 @@ values (
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
-select set_config('request.jwt.claims', '{"email":"partner-a@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"partner-a@example.test","sub":"10000000-0000-0000-0000-000000000001","role":"authenticated","amr":[{"method":"password"}]}', true);
 select is(
   (select clicks from public.get_partner_dashboard_summary(
     '20000000-0000-0000-0000-000000000001', '2026-08-20', '2026-08-20',
@@ -410,7 +410,7 @@ select is(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
-select set_config('request.jwt.claims', '{"email":"partner-b@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"partner-b@example.test","sub":"10000000-0000-0000-0000-000000000002","role":"authenticated","amr":[{"method":"password"}]}', true);
 select is((select count(*) from public.partner_link_directory), 1::bigint, 'second partner sees only its link');
 select is((select name from public.partner_link_directory), 'Partner B Link', 'second partner cannot read first partner link');
 select throws_ok(
@@ -443,16 +443,16 @@ select is(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000003', true);
-select set_config('request.jwt.claims', '{"email":"paused@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"paused@example.test","sub":"10000000-0000-0000-0000-000000000003","role":"authenticated","amr":[{"method":"password"}]}', true);
 select is((select count(*) from public.partner_link_directory), 1::bigint, 'paused workspace retains historical read access');
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000004', true);
-select set_config('request.jwt.claims', '{"email":"terminated@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"terminated@example.test","sub":"10000000-0000-0000-0000-000000000004","role":"authenticated","amr":[{"method":"password"}]}', true);
 select is((select count(*) from public.partner_profile), 0::bigint, 'terminated workspace has no partner profile access');
 select is((select count(*) from public.partner_link_directory), 0::bigint, 'terminated workspace has no historical browser access');
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000005', true);
-select set_config('request.jwt.claims', '{"email":"analyst@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"analyst@example.test","sub":"10000000-0000-0000-0000-000000000005","role":"authenticated","amr":[{"method":"password"}]}', true);
 select throws_ok(
   $$select * from public.create_partner_link('{"name":"Nope","product_id":"20000000-0000-0000-0000-000000000001","funnel_id":"50000000-0000-0000-0000-000000000001","sub1":"nope"}'::jsonb)$$,
   '42501', 'partner role cannot create links',
@@ -460,17 +460,19 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000006', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000006","role":"authenticated","amr":[{"method":"password"}]}', true);
 select ok(not public.current_user_is_admin(array['finance']::text[]), 'support admin does not inherit finance role');
 select ok(public.current_user_is_admin(array['support']::text[]), 'support admin matches only its role');
 
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000007', true);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000007","role":"authenticated","amr":[{"method":"password"}]}', true);
 select ok(public.current_user_is_admin(array['owner']::text[]), 'platform owner passes owner role check');
 
 reset role;
 update public.products set status = 'paused' where id = '20000000-0000-0000-0000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
-select set_config('request.jwt.claims', '{"email":"partner-a@example.test"}', true);
+select set_config('request.jwt.claims', '{"email":"partner-a@example.test","sub":"10000000-0000-0000-0000-000000000001","role":"authenticated","amr":[{"method":"password"}]}', true);
 select is((select count(*) from public.partner_link_directory), 2::bigint, 'paused product does not erase authorized link history');
 select is((select count(*) from public.partner_product_directory), 1::bigint, 'paused product remains in partner history');
 

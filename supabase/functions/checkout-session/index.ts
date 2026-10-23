@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  bytesToHex,
+  hmacSha256,
   parseFunnelSignatureHeaders,
   verifyFunnelSignature,
 } from "../_shared/crypto.ts";
@@ -11,7 +13,6 @@ import {
   requiredSecret,
 } from "../_shared/env.ts";
 import {
-  ConfigurationError,
   DatabaseBoundaryError,
   NotFoundError,
   RequestError,
@@ -26,7 +27,12 @@ import {
   requireMethod,
 } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
+import {
+  freePromotionForProduct,
+  verifyFreePromotion,
+} from "../_shared/free-checkout.ts";
 import { isPlainObject } from "../_shared/validation.ts";
+import { requireLiveStripeKey } from "../_shared/stripe-auth.ts";
 import {
   STRIPE_API_VERSION,
   stripeRequestSignal,
@@ -43,6 +49,16 @@ const CHECKOUT_KEYS = new Set(["click_id", "offer_key"]);
 export interface CheckoutRequestInput {
   click_id: string;
   offer_key: string;
+  offer_version?: number;
+  require_no_payment?: true;
+  ui_mode?: "hosted" | "embedded";
+  customer_email?: string;
+}
+
+interface Presentation {
+  mode: "hosted" | "embedded";
+  email?: string;
+  existingSession?: string;
 }
 
 export interface PreparedCheckout {
@@ -63,7 +79,8 @@ export interface PreparedCheckout {
 
 export interface StripeCheckoutSession {
   id: string;
-  url: string;
+  url: string | null;
+  clientSecret?: string;
   expiresAt: string;
 }
 
@@ -71,7 +88,7 @@ export interface CheckoutFinalization {
   attempt_id: string;
   status: "open" | "failed";
   stripe_session_id?: string;
-  checkout_url?: string;
+  checkout_url?: string | null;
   expires_at?: string;
   failure_code?: string;
 }
@@ -96,9 +113,16 @@ export interface CheckoutDependencies {
     idempotencyKey: string,
   ) => Promise<PreparedCheckout>;
   finalize: (input: CheckoutFinalization) => Promise<void>;
+  bindPresentation: (
+    attemptId: string,
+    mode: string,
+    fingerprint: string,
+  ) => Promise<string | undefined>;
   createStripeSession: (
     secret: string,
     prepared: PreparedCheckout,
+    requireNoPayment?: boolean,
+    presentation?: Presentation,
   ) => Promise<StripeCheckoutSession>;
 }
 
@@ -158,8 +182,17 @@ function parseCheckoutInput(value: unknown): CheckoutRequestInput {
   }
   const keys = Object.keys(value);
   if (
-    keys.length !== CHECKOUT_KEYS.size ||
-    keys.some((key) => !CHECKOUT_KEYS.has(key)) ||
+    keys.length < CHECKOUT_KEYS.size || keys.length > CHECKOUT_KEYS.size + 4 ||
+    keys.some((key) =>
+      !CHECKOUT_KEYS.has(key) && key !== "offer_version" &&
+      key !== "require_no_payment" && key !== "ui_mode" &&
+      key !== "customer_email"
+    ) ||
+    ("require_no_payment" in value && value.require_no_payment !== true) ||
+    ("offer_version" in value &&
+      (!Number.isSafeInteger(value.offer_version) ||
+        Number(value.offer_version) < 1 ||
+        Number(value.offer_version) > 999999999)) ||
     typeof value.click_id !== "string" ||
     typeof value.offer_key !== "string"
   ) {
@@ -167,6 +200,19 @@ function parseCheckoutInput(value: unknown): CheckoutRequestInput {
       400,
       "invalid_checkout",
       "Checkout input contains unsupported or missing fields.",
+    );
+  }
+  if (
+    ("ui_mode" in value &&
+      !["hosted", "embedded"].includes(String(value.ui_mode))) ||
+    ("customer_email" in value && (typeof value.customer_email !== "string" ||
+      value.customer_email.length > 254 ||
+      !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value.customer_email)))
+  ) {
+    throw new RequestError(
+      400,
+      "invalid_checkout",
+      "Invalid checkout presentation.",
     );
   }
   const clickId = value.click_id.trim();
@@ -178,7 +224,22 @@ function parseCheckoutInput(value: unknown): CheckoutRequestInput {
       "Checkout identifiers are invalid.",
     );
   }
-  return { click_id: clickId, offer_key: offerKey };
+  return {
+    click_id: clickId,
+    offer_key: offerKey,
+    ...(value.ui_mode
+      ? { ui_mode: value.ui_mode as "hosted" | "embedded" }
+      : {}),
+    ...(typeof value.customer_email === "string"
+      ? { customer_email: value.customer_email }
+      : {}),
+    ...("require_no_payment" in value
+      ? { require_no_payment: true as const }
+      : {}),
+    ...("offer_version" in value
+      ? { offer_version: Number(value.offer_version) }
+      : {}),
+  };
 }
 
 function decodeCheckoutBody(bytes: Uint8Array): CheckoutRequestInput {
@@ -204,11 +265,7 @@ function decodeCheckoutBody(bytes: Uint8Array): CheckoutRequestInput {
 }
 
 function liveStripeSecret(): string {
-  const secret = requiredSecret("STRIPE_SECRET_KEY");
-  if (!/^sk_live_[A-Za-z0-9_]{16,}$/.test(secret)) {
-    throw new ConfigurationError();
-  }
-  return secret;
+  return requireLiveStripeKey(requiredSecret("STRIPE_SECRET_KEY"));
 }
 
 function validateRedirectOrigins(
@@ -254,10 +311,10 @@ export async function createLiveStripeCheckoutSession(
   secret: string,
   prepared: PreparedCheckout,
   fetcher: Fetcher = fetch,
+  freePromotionId?: string,
+  presentation?: Presentation,
 ): Promise<StripeCheckoutSession> {
-  if (!/^sk_live_[A-Za-z0-9_]{16,}$/.test(secret)) {
-    throw new ConfigurationError();
-  }
+  requireLiveStripeKey(secret);
   if (
     !UUID_PATTERN.test(prepared.attemptId) ||
     !UUID_PATTERN.test(prepared.billingOfferId) ||
@@ -284,7 +341,28 @@ export async function createLiveStripeCheckoutSession(
     "line_items[0][price]": prepared.stripePriceId,
     "line_items[0][quantity]": "1",
   });
+  const embedded = presentation?.mode === "embedded";
+  if (embedded) {
+    form.delete("success_url");
+    form.delete("cancel_url");
+    form.set("ui_mode", "embedded");
+    form.set("return_url", successUrl);
+    form.set("redirect_on_completion", "if_required");
+  }
+  if (presentation?.email) form.set("customer_email", presentation.email);
   const values = metadata(prepared);
+  if (freePromotionId && !presentation?.existingSession) {
+    await verifyFreePromotion(
+      secret,
+      freePromotionId,
+      prepared.stripePriceId,
+      prepared.currency,
+      prepared.unitAmountMinor,
+      fetcher,
+    );
+    form.set("discounts[0][promotion_code]", freePromotionId);
+    form.set("payment_method_collection", "if_required");
+  }
   addMetadata(form, "metadata", values);
   addMetadata(
     form,
@@ -296,17 +374,25 @@ export async function createLiveStripeCheckoutSession(
 
   let response: Response;
   try {
-    response = await fetcher("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Idempotency-Key": `kma-checkout-${prepared.attemptId}`,
-        "Stripe-Version": STRIPE_API_VERSION,
+    response = await fetcher(
+      `https://api.stripe.com/v1/checkout/sessions${
+        presentation?.existingSession
+          ? `/${encodeURIComponent(presentation.existingSession)}`
+          : ""
+      }`,
+      {
+        method: presentation?.existingSession ? "GET" : "POST",
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Idempotency-Key": `kma-checkout-${prepared.attemptId}`,
+          "Stripe-Version": STRIPE_API_VERSION,
+        },
+        body: presentation?.existingSession ? undefined : form.toString(),
+        redirect: "error",
+        signal: stripeRequestSignal(),
       },
-      body: form.toString(),
-      signal: stripeRequestSignal(),
-    });
+    );
   } catch {
     throw new RequestError(
       502,
@@ -345,7 +431,11 @@ export async function createLiveStripeCheckoutSession(
     payload.livemode !== true ||
     typeof payload.id !== "string" ||
     !LIVE_SESSION_PATTERN.test(payload.id) ||
-    typeof payload.url !== "string" ||
+    (embedded
+      ? (payload.url !== null || payload.ui_mode !== "embedded" ||
+        typeof payload.client_secret !== "string" ||
+        !payload.client_secret.startsWith(`${payload.id}_secret_`))
+      : typeof payload.url !== "string") ||
     typeof payload.expires_at !== "number" ||
     !Number.isSafeInteger(payload.expires_at)
   ) {
@@ -355,11 +445,40 @@ export async function createLiveStripeCheckoutSession(
       "Checkout could not be created.",
     );
   }
-  const checkoutUrl = new URL(payload.url);
+  const checkoutUrl = typeof payload.url === "string"
+    ? new URL(payload.url)
+    : null;
   if (
-    checkoutUrl.origin !== "https://checkout.stripe.com" ||
-    checkoutUrl.username ||
-    checkoutUrl.password
+    presentation?.existingSession &&
+    (payload.id !== presentation.existingSession ||
+      payload.status !== "open" || !isPlainObject(payload.metadata) ||
+      Object.entries(values).some(([key, value]) =>
+        (payload.metadata as Record<string, unknown>)[key] !== value
+      ))
+  ) {
+    throw new RequestError(
+      409,
+      "checkout_rejected",
+      "Checkout is no longer open.",
+    );
+  }
+  if (
+    freePromotionId && (payload.amount_total !== 0 ||
+      payload.currency !== prepared.currency.toLowerCase() ||
+      payload.mode !== "subscription" ||
+      !isPlainObject(payload.total_details) ||
+      payload.total_details.amount_discount !== prepared.unitAmountMinor)
+  ) {
+    throw new RequestError(
+      409,
+      "no_charge_required",
+      "The test checkout must have a zero total.",
+    );
+  }
+  if (
+    !embedded &&
+    (!checkoutUrl || checkoutUrl.origin !== "https://checkout.stripe.com" ||
+      checkoutUrl.username || checkoutUrl.password)
   ) {
     throw new RequestError(
       502,
@@ -377,7 +496,8 @@ export async function createLiveStripeCheckoutSession(
   }
   return {
     id: payload.id,
-    url: payload.url,
+    url: embedded ? null : payload.url as string,
+    ...(embedded ? { clientSecret: payload.client_secret as string } : {}),
     expiresAt: expiresAt.toISOString(),
   };
 }
@@ -391,9 +511,19 @@ async function prepareCheckoutRpc(
   input: CheckoutRequestInput,
   idempotencyKey: string,
 ): Promise<PreparedCheckout> {
-  const { data, error } = await client.rpc("prepare_checkout_attempt", {
-    p_input: { ...input, idempotency_key: idempotencyKey },
-  });
+  const { data, error } = await client.rpc(
+    input.offer_version
+      ? "prepare_quoted_checkout_attempt"
+      : "prepare_checkout_attempt",
+    {
+      p_input: {
+        click_id: input.click_id,
+        offer_key: input.offer_key,
+        ...(input.offer_version ? { offer_version: input.offer_version } : {}),
+        idempotency_key: idempotencyKey,
+      },
+    },
+  );
   if (error) {
     if (error.code === "P0002") throw new NotFoundError();
     if (["22023", "23505", "23514", "P0001"].includes(error.code ?? "")) {
@@ -465,19 +595,55 @@ function defaultDependencies(): CheckoutDependencies {
     redirectOrigins: () =>
       productionOrigins("CHECKOUT_ALLOWED_REDIRECT_ORIGINS"),
     stripeSecret: liveStripeSecret,
-    authorizeScope: (keyId, clickId, productId, funnelId) =>
-      assertFunnelRequestScope(
+    authorizeScope: async (keyId, clickId, productId, funnelId) => {
+      await assertFunnelRequestScope(
         serviceClient(),
         keyId,
         clickId,
         productId,
         funnelId,
-      ),
+      );
+      const { error } = await serviceClient(8000).rpc(
+        "consume_funnel_request",
+        { p_click_id: clickId, p_action: "checkout" },
+      );
+      if (error?.code === "KMA29") {
+        throw new RequestError(429, "rate_limited", "Try again later.");
+      }
+      if (error) throw new DatabaseBoundaryError(error.code);
+    },
     prepare: (input, idempotencyKey) =>
       prepareCheckoutRpc(serviceClient(), input, idempotencyKey),
     finalize: (input) => finalizeCheckoutRpc(serviceClient(), input),
-    createStripeSession: (secret, prepared) =>
-      createLiveStripeCheckoutSession(secret, prepared),
+    bindPresentation: async (attemptId, mode, fingerprint) => {
+      const { data, error } = await serviceClient().rpc(
+        "bind_checkout_presentation",
+        {
+          p_attempt_id: attemptId,
+          p_ui_mode: mode,
+          p_fingerprint: fingerprint,
+        },
+      );
+      if (error || !isPlainObject(data)) {
+        throw new RequestError(
+          409,
+          "checkout_rejected",
+          "Checkout retry input changed.",
+        );
+      }
+      if (data.session_id === null) return undefined;
+      return requiredString(data, "session_id", LIVE_SESSION_PATTERN);
+    },
+    createStripeSession: (secret, prepared, requireNoPayment, presentation) =>
+      createLiveStripeCheckoutSession(
+        secret,
+        prepared,
+        fetch,
+        requireNoPayment
+          ? freePromotionForProduct(prepared.productId)
+          : undefined,
+        presentation,
+      ),
   };
 }
 
@@ -524,12 +690,39 @@ export function createCheckoutSessionHandler(
       );
       const prepared = await dependencies.prepare(input, signature.nonce);
       validateRedirectOrigins(prepared, redirectOrigins);
+      let presentation: Presentation | undefined;
+      if (input.ui_mode || input.customer_email) {
+        const mode = input.ui_mode ?? "hosted";
+        const fingerprint = bytesToHex(
+          await hmacSha256(
+            binding.secret,
+            `kma-presentation-v1:${
+              JSON.stringify([
+                mode,
+                input.customer_email ?? null,
+                input.require_no_payment === true,
+              ])
+            }`,
+          ),
+        );
+        presentation = {
+          mode,
+          email: input.customer_email,
+          existingSession: await dependencies.bindPresentation(
+            prepared.attemptId,
+            mode,
+            fingerprint,
+          ),
+        };
+      }
 
       let stripeSession: StripeCheckoutSession;
       try {
         stripeSession = await dependencies.createStripeSession(
           stripeSecret,
           prepared,
+          input.require_no_payment === true,
+          presentation,
         );
       } catch (error) {
         if (!isRetryableStripeFailure(error)) {
@@ -561,6 +754,13 @@ export function createCheckoutSessionHandler(
         201,
         {
           checkout_url: stripeSession.url,
+          ...(stripeSession.clientSecret
+            ? {
+              ui_mode: "embedded",
+              client_secret: stripeSession.clientSecret,
+              session_id: stripeSession.id,
+            }
+            : {}),
           attempt_id: prepared.publicAttemptId,
           expires_at: stripeSession.expiresAt,
           request_id: id,

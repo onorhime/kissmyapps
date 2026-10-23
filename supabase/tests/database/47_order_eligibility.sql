@@ -1,0 +1,54 @@
+begin;
+select set_config('qa.policy.eligibility','true',true);
+select set_config('qa.policy.cutoff','1',true);
+\i supabase/tests/fixtures/external-canonical.sql
+select pg_temp.check_true((select first_purchase_only and fulfilment_required and policy_version=3 from public.external_commission_terms),'signed options copied from canonical rule');
+select pg_temp.check_true((select terms_snapshot#>>'{rules,0,validation_hold_origin}'='verified_fulfilment' from public.documents),'signed document discloses hold origin');
+create function pg_temp.elig(n integer,seq integer,st text,at_value timestamptz,subject text default 'opaque_customer_fixture_123456') returns jsonb language sql as $$select jsonb_build_object('event_id',gen_random_uuid(),'click_id','opaque_fixture_click_123456','external_order_id',core#>>'{input,order_id}','stripe_account_id','acct_fixture','livemode',false,'subject_id',subject,'purchase_sequence',seq,'context_id','group_123','status',st,'occurred_at',to_char(at_value at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'channel','creator','entry_variant','book','webinar_id','event_1','intake_id','intake_1') from test_external_orders where test_external_orders.n=$1;$$;
+create function pg_temp.ing(e jsonb) returns jsonb language sql as $$select public.ingest_external_order_eligibility('ac570000-0000-4000-8000-000000000001','ac570000-0000-4000-8000-000000000002',e);$$;
+select pg_temp.make_order(1);select public.process_external_commissions();
+select pg_temp.check_true((select blocker='verified_order_identity_required' and status='held' from public.external_commission_awards),'no identity never payable');
+select set_config('qa.event',pg_temp.elig(1,1,'pending',clock_timestamp()-interval '23 hours')::text,true);
+select pg_temp.check_true(pg_temp.ing(current_setting('qa.event')::jsonb)->>'duplicate'='false','pending accepted');
+select pg_temp.check_true(pg_temp.ing(current_setting('qa.event')::jsonb)->>'duplicate'='true','same packet exact retry');
+select pg_temp.reject('select pg_temp.ing(current_setting(''qa.event'')::jsonb||''{"status":"fulfilled"}'')','same ID evidence conflict');
+select pg_temp.check_true((select blocker='awaiting_verified_fulfilment' from public.external_commission_awards),'group still pending');
+select pg_temp.reject('select pg_temp.ing(pg_temp.elig(1,2,''fulfilled'',clock_timestamp()))','sequence cannot change');
+select pg_temp.reject('select pg_temp.ing(pg_temp.elig(1,1,''fulfilled'',clock_timestamp(),''other_customer_123456''))','subject cannot change');
+select pg_temp.reject('select pg_temp.ing(pg_temp.elig(1,1,''fulfilled'',clock_timestamp())||''{"livemode":true}'')','test live isolation');
+select pg_temp.reject('select pg_temp.ing(pg_temp.elig(1,1,''fulfilled'',clock_timestamp()-interval ''3 days''))','fulfilment cannot predate purchase');
+select pg_temp.ing(pg_temp.elig(1,1,'fulfilled',clock_timestamp()-interval '30 minutes'));
+select pg_temp.check_true((select status='held' and blocker='validation_window' and eligible_at>clock_timestamp() from public.external_commission_awards),'existing one hour window starts at fulfilment');
+-- Authoritative late confirmation evidence is allowed; earliest fulfilment is stable.
+select pg_temp.ing(pg_temp.elig(1,1,'fulfilled',clock_timestamp()-interval '2 hours'));
+select pg_temp.check_true((select status='eligible' and commission_minor=2000 from public.external_commission_awards),'same canonical 25 percent eligible after hold');
+select pg_temp.ing(pg_temp.elig(1,1,'pending',clock_timestamp()-interval '3 hours'));
+select pg_temp.check_true((select status='eligible' from public.external_commission_awards),'delayed pending cannot undo confirmed service');
+-- An ordinary financial refund after the signed purchase-based cutoff must not
+-- become a service-cancellation hold or restart the existing refund window.
+select public.record_external_commission_adjustment(jsonb_build_object('order_id',(select order_id from test_external_orders where n=1),'provider_event_id','evt_lateordinaryeligibility','kind','refund','refund_id','re_lateordinaryeligibility','amount_minor',1000,'occurred_at',clock_timestamp()));
+select pg_temp.check_true((select commission_minor=2000 and status='eligible' and blocker is null from public.external_commission_awards where order_id=(select order_id from test_external_orders where n=1)),'late ordinary refund preserves fulfilled earnings under canonical cutoff');
+select pg_temp.make_order(2);select pg_temp.ing(pg_temp.elig(2,2,'fulfilled',clock_timestamp()-interval '2 hours'));select public.process_external_commissions();
+select pg_temp.check_true((select status='held' and blocker='first_purchase_only' from public.external_commission_awards where order_id=(select order_id from test_external_orders where n=2)),'second verified purchase cannot qualify');
+select pg_temp.make_order(3);
+select pg_temp.reject('select pg_temp.ing(pg_temp.elig(3,1,''fulfilled'',clock_timestamp()))','same customer cannot claim another first purchase');
+select pg_temp.ready_account();select set_config('qa.batch',pg_temp.prepare_approved()::text,true);
+select pg_temp.check_true((select count(*)=1 from public.external_settlement_items),'only eligible first order enters manually approved batch');
+select pg_temp.ing(pg_temp.elig(1,1,'cancelled',clock_timestamp()));
+select pg_temp.check_true((select blocker='fulfilment_cancelled' and status='held' from public.external_commission_awards where order_id=(select order_id from test_external_orders where n=1)),'cancelled service holds earnings');
+select pg_temp.check_true((select status='held' from public.external_settlement_batches),'cancellation invalidates previously approved untransferred batch');
+select pg_temp.check_true((select count(*)=0 from public.claim_creator_transfer_jobs('acct_fixture',false)),'no transfer after cancellation');
+select pg_temp.ing(pg_temp.elig(1,1,'fulfilled',clock_timestamp()));
+select pg_temp.check_true((select blocker='fulfilment_cancelled' from public.external_commission_awards where order_id=(select order_id from test_external_orders where n=1)),'cancelled cannot silently resurrect');
+set local role authenticated;
+select pg_temp.reject('select public.ingest_external_order_eligibility(null,null,''{}'')','browser cannot attest fulfilment');
+select pg_temp.reject('select * from public.external_order_eligibility_events','evidence private');
+select set_config('request.jwt.claims','{"sub":"ac570000-0000-4000-8000-000000000012","role":"authenticated"}',true);
+select pg_temp.check_true((select rules#>>'{0,first_purchase_only}'='true' and rules#>>'{0,fulfilment_required}'='true' and rules#>>'{0,external_refund_calculation}'='proportional_commission' from public.partner_agreement_directory where version=1),'creator agreement displays exact signed eligibility and existing refund policy');
+select pg_temp.admin();
+select set_config('qa.nextagreement',public.create_admin_agreement(jsonb_build_object('product_id','ac570000-0000-4000-8000-000000000001','affiliate_id','ac570000-0000-4000-8000-000000000003','model','revenue_share','payout_currency','USD'))::text,true);
+select set_config('qa.rule',public.create_admin_commission_rule(jsonb_build_object('agreement_id',current_setting('qa.nextagreement')::jsonb->>'id','name','Next optional policy','trigger_event','purchase.completed','rate_basis_points',2500,'first_purchase_only',true,'fulfilment_required',true))::text,true);
+select pg_temp.check_true(current_setting('qa.rule')::jsonb->>'policy_version'='3','existing rule editor creates new signed-policy version');
+reset role;
+select pg_temp.check_true((select count(*)=0 from public.external_settlement_jobs where first_attempt_at is not null),'no provider money mutation');
+rollback;

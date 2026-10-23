@@ -44,6 +44,115 @@ const metadata = {
   kma_expected_currency: "USD",
 };
 
+Deno.test("100-percent discounted checkout records a free subscription, not a paid purchase", async () => {
+  const object = {
+    id: "cs_live_FreeFixture123",
+    object: "checkout.session",
+    mode: "subscription",
+    status: "complete",
+    payment_status: "no_payment_required",
+    amount_total: 0,
+    amount_subtotal: 1999,
+    currency: "usd",
+    total_details: { amount_discount: 1999, amount_tax: 0, amount_shipping: 0 },
+    customer: "cus_FreeFixture123",
+    subscription: "sub_FreeFixture123",
+    metadata,
+  };
+  const fetcher = () =>
+    Promise.resolve(
+      Response.json({
+        id: object.subscription,
+        customer: object.customer,
+        livemode: true,
+        metadata: { kma_attempt_id: attemptId },
+        status: "active",
+        currency: "usd",
+        current_period_start: 1787904000,
+        current_period_end: 1790582400,
+        canceled_at: null,
+      }),
+    );
+  assertEquals(
+    (await buildStripeNormalization(
+      claim("checkout.session.completed", object),
+      secret,
+      fetcher,
+    )).kind,
+    "checkout_subscription_free",
+  );
+  for (
+    const change of [
+      {
+        total_details: {
+          amount_discount: 0,
+          amount_tax: 0,
+          amount_shipping: 0,
+        },
+      },
+      { amount_subtotal: undefined },
+      {
+        total_details: {
+          amount_discount: 1999,
+          amount_tax: 1,
+          amount_shipping: 0,
+        },
+      },
+    ]
+  ) {
+    await assertRejects(
+      () =>
+        buildStripeNormalization(
+          claim("checkout.session.completed", { ...object, ...change }),
+          secret,
+          fetcher,
+        ),
+      StripeEventError,
+    );
+  }
+});
+Deno.test("zero-total invoices need no PaymentIntent and never enter paid normalization", async () => {
+  const invoice = {
+    id: "in_FreeFixture123",
+    object: "invoice",
+    status: "paid",
+    paid: true,
+    amount_paid: 0,
+    total: 0,
+    total_excluding_tax: 0,
+    amount_due: 0,
+    amount_remaining: 0,
+    currency: "usd",
+    customer: "cus_FreeFixture123",
+    subscription: "sub_FreeFixture123",
+  };
+  const noFetch = () =>
+    Promise.reject(new Error("must not retrieve a nonexistent PaymentIntent"));
+  assertEquals(
+    (await buildStripeNormalization(
+      claim("invoice.paid", invoice),
+      secret,
+      noFetch,
+    )).kind,
+    "invoice_no_payment_required",
+  );
+  for (
+    const change of [{ total: 100 }, { amount_remaining: 100 }, {
+      amount_due: undefined,
+    }]
+  ) {
+    await assertRejects(
+      () =>
+        buildStripeNormalization(
+          claim("invoice.paid", { ...invoice, ...change }),
+          secret,
+          noFetch,
+        ),
+      StripeEventError,
+    );
+  }
+});
+
 Deno.test("paid subscription Checkout retrieves exact live subscription state", async () => {
   const event = claim("checkout.session.completed", {
     id: "cs_live_abcdefgh123",
@@ -345,4 +454,35 @@ Deno.test("worker rejects unauthenticated scheduler calls before claiming", asyn
   );
   assertEquals(response.status, 401);
   assertEquals(claims, 0);
+});
+
+Deno.test("worker accepts restricted live keys but rejects test keys before claiming", async () => {
+  Deno.env.set("INTERNAL_WORKER_SECRET", workerSecret);
+  for (
+    const prefix of ["rk_live_", "sk_live_", "rk_test_", "sk_test_", "pk_live_"]
+  ) {
+    const key = `${prefix}${"r".repeat(40)}`;
+    let claims = 0;
+    const handler = createStripeWorkerHandler({
+      stripeSecret: () => key,
+      fetcher: () =>
+        Promise.reject(new Error("empty batch must not call Stripe")),
+      claim: () => {
+        claims++;
+        return Promise.resolve([]);
+      },
+      normalize: () => Promise.reject(new Error("must not normalize")),
+      fail: () => Promise.reject(new Error("must not persist failure")),
+    });
+    const response = await handler(
+      new Request("https://edge.example/stripe-worker", {
+        method: "POST",
+        headers: { "x-kma-worker-secret": workerSecret },
+      }),
+    );
+    const valid = prefix === "rk_live_" || prefix === "sk_live_";
+    assertEquals(response.status, valid ? 200 : 503);
+    assertEquals(claims, valid ? 1 : 0);
+    assertEquals((await response.text()).includes(key), false);
+  }
 });
