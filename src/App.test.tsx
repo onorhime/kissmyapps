@@ -633,6 +633,22 @@ describe('live partner session shell', () => {
     expect(document.title).toBe('Product setup · KissMyApps Admin')
   })
 
+  it('preserves the product stats deep route through admin authentication', async () => {
+    vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
+    const service = authService({
+      getPartnerActivationStatus: vi.fn().mockResolvedValue('none'),
+    })
+    window.history.replaceState(null, '', '/#admin/products/product%2Fone/stats')
+
+    render(<App previewMode={false} authService={service} adminGateway={emptyAdminGateway()} />)
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Product stats' }),
+    ).toBeInTheDocument()
+    expect(window.location.hash).toBe('#admin/products/product%2Fone/stats')
+    expect(document.title).toBe('Product stats · KissMyApps Admin')
+  })
+
   it('preserves an Affiliate detail deep route and returns to the directory when it closes', async () => {
     const user = userEvent.setup()
     vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)
