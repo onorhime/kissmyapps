@@ -384,6 +384,12 @@ export function FunnelMetricsReport({ workspace, gateway: suppliedGateway }: Pro
   }, [canRead, requestKey])
 
   const change = (patch: Partial<typeof selected>) => setSelection({ ...selected, ...patch })
+  const hasAdvancedFilters =
+    selected.environment !== 'live' ||
+    Boolean(selected.conversionWindowDays || selected.currency || selected.journeyVersion) ||
+    (['channel', 'entryVariant', 'webinarId', 'intakeId', 'contextId'] as const).some((key) =>
+      selected[key].trim(),
+    )
   return (
     <section className="panel funnel-metrics-report" aria-labelledby={`${id}-title`}>
       <div className="funnel-metrics-heading">
@@ -392,7 +398,8 @@ export function FunnelMetricsReport({ workspace, gateway: suppliedGateway }: Pro
           <h2 id={`${id}-title`}>Configured funnel metrics</h2>
           <p>
             Results attributed to your creator links for {product?.name || 'the selected product'}.
-            Select one funnel to see its published metrics. These filters apply to this section.
+            Pick a funnel to see each step of its journey. Use More filters for test data, a
+            channel, or a specific campaign context.
           </p>
         </div>
         <button
@@ -437,27 +444,6 @@ export function FunnelMetricsReport({ workspace, gateway: suppliedGateway }: Pro
               ))}
             </select>
           </label>
-          <JourneyReportFilters value={selected} onChange={change} prefix="Metrics" />
-          {(
-            [
-              ['channel', 'Channel'],
-              ['entryVariant', 'Entry option'],
-              ['webinarId', 'Webinar ID'],
-              ['intakeId', 'Intake ID'],
-              ['contextId', 'Context ID'],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                aria-label={`Metrics ${label.toLowerCase()}`}
-                value={selected[key]}
-                placeholder="All"
-                maxLength={128}
-                onChange={(event) => change({ [key]: event.target.value })}
-              />
-            </label>
-          ))}
           <label>
             From
             <input
@@ -476,6 +462,32 @@ export function FunnelMetricsReport({ workspace, gateway: suppliedGateway }: Pro
               onChange={(event) => change({ to: event.target.value })}
             />
           </label>
+          <details className="funnel-metrics-more" open={hasAdvancedFilters || undefined}>
+            <summary>More filters</summary>
+            <div className="funnel-metrics-more-grid">
+              <JourneyReportFilters value={selected} onChange={change} prefix="Metrics" />
+              {(
+                [
+                  ['channel', 'Channel'],
+                  ['entryVariant', 'Entry option'],
+                  ['webinarId', 'Webinar ID'],
+                  ['intakeId', 'Intake ID'],
+                  ['contextId', 'Context ID'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    aria-label={`Metrics ${label.toLowerCase()}`}
+                    value={selected[key]}
+                    placeholder="All"
+                    maxLength={128}
+                    onChange={(event) => change({ [key]: event.target.value })}
+                  />
+                </label>
+              ))}
+            </div>
+          </details>
         </div>
       )}
       {!sessionUserId ? (

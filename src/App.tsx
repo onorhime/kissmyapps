@@ -60,6 +60,7 @@ import './features/partner/Reporting.css'
 import './features/partner/Payouts.css'
 import './features/partner/PartnerManagement.css'
 import './brand.css'
+import type { ReportingPeriod } from './features/partner/live/performanceData'
 import { MerchantConnectionPage } from './features/merchant-connections/MerchantConnectionPage'
 import { isMerchantRoute } from './features/merchant-connections/routing'
 
@@ -255,10 +256,11 @@ function App({
     : session.status === 'authenticated' && activationState.userId === session.user?.id
       ? activationState.status
       : 'loading'
+  const [reportingDays, setReportingDays] = useState<ReportingPeriod>(30)
   const liveReporting = useMemo(() => {
     const end = new Date()
     const start = new Date(end)
-    start.setUTCDate(start.getUTCDate() - 29)
+    start.setUTCDate(start.getUTCDate() - (reportingDays - 1))
     return {
       startsOn: start.toISOString().slice(0, 10),
       endsOn: end.toISOString().slice(0, 10),
@@ -268,7 +270,7 @@ function App({
       // legacy preview keeps its independent date-series reporting controls.
       breakdown: 'source' as const,
     }
-  }, [])
+  }, [reportingDays])
   const forcedPasswordScreen =
     !previewMode && session.status === 'authenticated' && session.recoveryMode && !recoveryComplete
       ? 'reset'
@@ -873,7 +875,11 @@ function App({
               client={import.meta.env.MODE === 'test' && !partnerGateway ? null : undefined}
             >
               <NavigationGuardContext.Provider value={formGuard.request}>
-                <LivePartnerPortal page={page} />
+                <LivePartnerPortal
+                  page={page}
+                  reportingDays={reportingDays}
+                  onReportingDaysChange={setReportingDays}
+                />
               </NavigationGuardContext.Provider>
             </PartnerLiveWorkspaceProvider>
           ) : (
