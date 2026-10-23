@@ -12,13 +12,15 @@ import {
   RefreshCw,
   WalletCards,
 } from 'lucide-react'
-import type { PartnerMetricValues, PartnerTrendPoint } from '../api'
 import type { PortalPage } from '../data'
 import { toPartnerLiveWorkspaceContext } from './adapters'
 import { AgreementSignBanner } from './AgreementSignBanner'
 import { LiveLinksPage } from './LiveLinksPage'
 import { LiveDocumentsPage } from './LiveDocumentsPage'
 import { FunnelMetricsReport } from './FunnelMetricsReport'
+import { providerMoney } from '../../../lib/providerMoney'
+import { LivePerformance, PeriodPicker } from './LivePerformance'
+import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 
 const pageCopy = {
@@ -53,66 +55,21 @@ function label(value: string | null) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
-function metric(value: number | null) {
-  return value === null ? '—' : new Intl.NumberFormat('en-US').format(value)
-}
-
 function money(value: number | null, currency: string | null) {
   if (value === null || !currency) return '—'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(value / 100)
-}
-
-type TrafficMetrics = Readonly<
-  Pick<PartnerMetricValues, 'clicks' | 'funnelStarts' | 'paymentViews' | 'appStoreClicks'>
->
-
-type TrafficSourceRow = Readonly<{
-  key: string
-  label: string
-  metrics: TrafficMetrics
-}>
-
-function addKnown(left: number | null, right: number | null) {
-  return left === null || right === null ? null : left + right
-}
-
-/**
- * Source reporting remains date-grained in the RPC so the UI combines each
- * source's buckets. A null bucket keeps the aggregate unknown instead of being
- * silently treated as zero.
- */
-function sourceBreakdown(points: readonly PartnerTrendPoint[]): readonly TrafficSourceRow[] {
-  const rows = new Map<string, TrafficSourceRow>()
-
-  for (const point of points) {
-    const current = rows.get(point.dimensionKey)
-    const nextMetrics: TrafficMetrics = current
-      ? {
-          clicks: addKnown(current.metrics.clicks, point.metrics.clicks),
-          funnelStarts: addKnown(current.metrics.funnelStarts, point.metrics.funnelStarts),
-          paymentViews: addKnown(current.metrics.paymentViews, point.metrics.paymentViews),
-          appStoreClicks: addKnown(current.metrics.appStoreClicks, point.metrics.appStoreClicks),
-        }
-      : {
-          clicks: point.metrics.clicks,
-          funnelStarts: point.metrics.funnelStarts,
-          paymentViews: point.metrics.paymentViews,
-          appStoreClicks: point.metrics.appStoreClicks,
-        }
-    rows.set(point.dimensionKey, {
-      key: point.dimensionKey,
-      label: point.dimensionLabel,
-      metrics: nextMetrics,
-    })
+  try {
+    return providerMoney(value, currency)
+  } catch {
+    return '—'
   }
+}
 
-  return [...rows.values()].sort((left, right) => {
-    const clickDifference = (right.metrics.clicks ?? -1) - (left.metrics.clicks ?? -1)
-    return clickDifference || left.label.localeCompare(right.label)
-  })
+function payoutDate(value: string | null) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? null
+    : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
 }
 
 function stateMessage(
@@ -147,7 +104,15 @@ function stateMessage(
   }
 }
 
-export function LivePartnerPortal({ page }: { page: PortalPage }) {
+export function LivePartnerPortal({
+  page,
+  reportingDays,
+  onReportingDaysChange,
+}: {
+  page: PortalPage
+  reportingDays?: ReportingPeriod
+  onReportingDaysChange?: (days: ReportingPeriod) => void
+}) {
   const navigateSafely = useContext(NavigationGuardContext)
   const workspace = usePartnerLiveWorkspace()
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
@@ -165,7 +130,6 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
   const failed = ['unavailable', 'unconfigured', 'error'].includes(snapshot.status)
   const trackingOnly = selectedProduct?.trackingMode === 'tracking_only'
   const trends = snapshot.resources.dashboardTrends
-  const trafficSources = trends.status === 'ready' ? sourceBreakdown(trends.data) : []
   const canRenderOperationalPage =
     snapshot.availability.emptyReason === 'no_activity' &&
     (page === 'links' || page === 'performance' || (trackingOnly && page === 'payouts'))
@@ -262,20 +226,13 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
               : copy.description}
           </p>
         </div>
+        {page === 'performance' && reportingDays && onReportingDaysChange && (
+          <PeriodPicker value={reportingDays} onChange={onReportingDaysChange} />
+        )}
       </div>
 
       {!loading && !failed && (
         <AgreementSignBanner gateway={workspace.gateway} onCompleted={actions.refresh} />
-      )}
-
-      {page === 'performance' && !loading && !failed && !productsUnavailable && (
-        <p className="inline-note live-partial-note">
-          Traffic refreshes automatically while this page is open. New activity can take a few
-          minutes to process. A dash (—) means unavailable, not zero.
-          {!trackingOnly &&
-            summary.reconciliationStage === 'preliminary' &&
-            ' Verified traffic can appear before financial totals are complete.'}
-        </p>
       )}
 
       {page === 'profile' ? (
@@ -333,139 +290,13 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
             </div>
           )}
           {page === 'performance' && (
-            <>
-              {trackingOnly ? (
-                <div className="live-summary-grid live-demo-summary-grid">
-                  <article className="panel">
-                    <span>Clicks</span>
-                    <strong>{metric(summary.metrics.clicks)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>Funnel starts</span>
-                    <strong>{metric(summary.metrics.funnelStarts)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>Payment views</span>
-                    <strong>{metric(summary.metrics.paymentViews)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>App-store clicks</span>
-                    <strong>{metric(summary.metrics.appStoreClicks)}</strong>
-                  </article>
-                </div>
-              ) : (
-                <div className="live-summary-grid live-demo-summary-grid">
-                  <article className="panel">
-                    <span>Verified clicks</span>
-                    <strong>{metric(summary.metrics.clicks)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>Recorded paid purchases</span>
-                    <strong>{metric(summary.metrics.purchases)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>Recorded earnings</span>
-                    <strong>{money(summary.metrics.earningsMinor, summary.currency)}</strong>
-                  </article>
-                  <article className="panel">
-                    <span>Active / trial subscriptions</span>
-                    <strong>{metric(summary.metrics.activeSubscriptions)}</strong>
-                  </article>
-                </div>
-              )}
-
-              {!trackingOnly && (
-                <div className="inline-note live-partial-note" role="status">
-                  <strong>
-                    {summary.metrics.purchases === null || summary.metrics.earningsMinor === null
-                      ? 'Financial totals are not available yet.'
-                      : summary.reconciliationStage === 'preliminary'
-                        ? 'Recorded totals · preliminary.'
-                        : 'Recorded totals.'}
-                  </strong>{' '}
-                  These totals reflect processed billing records, not money available for payout.
-                  Pending processing or missing evidence stays as —. Active / trial subscriptions
-                  include trials and $0 subscriptions; a free checkout is not a paid purchase and
-                  does not generate revenue-share earnings.
-                </div>
-              )}
-
-              <section
-                className="panel live-source-breakdown"
-                aria-labelledby="source-results-title"
-              >
-                <div className="live-source-breakdown-heading">
-                  <div>
-                    <span className="context-label">SOURCE ATTRIBUTION</span>
-                    <h2 id="source-results-title">Traffic source results</h2>
-                  </div>
-                  <p>
-                    Bot-filtered clicks and funnel activity in the reporting window. Counts are
-                    events, not unique people. Links & Sources shows all-time raw clicks, including
-                    visits classified as bots, so its total can be higher.
-                  </p>
-                </div>
-
-                {trends.status === 'ready' && trafficSources.length > 0 ? (
-                  <div className="table-scroll live-source-breakdown-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th scope="col">Source</th>
-                          <th scope="col">Verified clicks</th>
-                          <th scope="col">Funnel starts</th>
-                          <th scope="col">Payment views</th>
-                          <th scope="col">App-store clicks</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trafficSources.map((source) => (
-                          <tr key={source.key}>
-                            <th scope="row">{source.label}</th>
-                            <td>{metric(source.metrics.clicks)}</td>
-                            <td>{metric(source.metrics.funnelStarts)}</td>
-                            <td>{metric(source.metrics.paymentViews)}</td>
-                            <td>{metric(source.metrics.appStoreClicks)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : trends.status === 'empty' || trends.status === 'ready' ? (
-                  <div className="live-source-unavailable" role="status">
-                    <Link2 size={24} aria-hidden="true" />
-                    <div>
-                      <strong>No attributed source activity yet</strong>
-                      <span>Results will appear after the first verified tracking click.</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="live-source-unavailable" role="alert">
-                    <AlertCircle size={24} aria-hidden="true" />
-                    <div>
-                      <strong>Source results are temporarily unavailable</strong>
-                      <span>
-                        {trends.error?.message ??
-                          'The source attribution read could not be verified safely.'}
-                      </span>
-                    </div>
-                    <button
-                      className="button button-white"
-                      type="button"
-                      onClick={actions.refresh}
-                      disabled={isRefreshing}
-                    >
-                      <RefreshCw
-                        className={isRefreshing ? 'spin' : ''}
-                        size={15}
-                        aria-hidden="true"
-                      />
-                      {isRefreshing ? 'Refreshing sources…' : 'Retry source results'}
-                    </button>
-                  </div>
-                )}
-              </section>
-            </>
+            <LivePerformance
+              summary={summary}
+              trends={trends}
+              trackingOnly={trackingOnly}
+              isRefreshing={isRefreshing}
+              onRefresh={actions.refresh}
+            />
           )}
           {page === 'payouts' &&
             (trackingOnly ? (
@@ -479,20 +310,33 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
                 </p>
               </section>
             ) : (
-              <div className="live-summary-grid">
-                <article className="panel">
-                  <span>Open</span>
-                  <strong>{money(payout.openMinor, payout.currency)}</strong>
-                </article>
-                <article className="panel">
-                  <span>Approved</span>
-                  <strong>{money(payout.approvedMinor, payout.currency)}</strong>
-                </article>
-                <article className="panel">
-                  <span>Paid</span>
-                  <strong>{money(payout.paidMinor, payout.currency)}</strong>
-                </article>
-              </div>
+              <>
+                <div className="live-summary-grid">
+                  <article className="panel">
+                    <span>Open</span>
+                    <strong>{money(payout.openMinor, payout.currency)}</strong>
+                    <small>Earned and still inside the review window.</small>
+                  </article>
+                  <article className="panel">
+                    <span>Approved</span>
+                    <strong>{money(payout.approvedMinor, payout.currency)}</strong>
+                    <small>Cleared review and waiting for the next payout run.</small>
+                  </article>
+                  <article className="panel">
+                    <span>Paid</span>
+                    <strong>{money(payout.paidMinor, payout.currency)}</strong>
+                    <small>Already sent to your payout account.</small>
+                  </article>
+                </div>
+                {payoutDate(payout.nextExpectedPaymentAt) && (
+                  <p className="performance-status" role="status">
+                    <span className="performance-status-pill">
+                      Next payout expected {payoutDate(payout.nextExpectedPaymentAt)}
+                    </span>
+                    <span>The date can move if a review or bank check is still open.</span>
+                  </p>
+                )}
+              </>
             ))}
           {page === 'links' && selectedProduct && (
             <LiveLinksPage
