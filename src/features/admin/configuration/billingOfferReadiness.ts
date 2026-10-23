@@ -1,14 +1,28 @@
 import type { AdminBillingOffer } from '../api'
 import { validateProductionHttpsUrl } from './configurationValidation'
 
+export function managedPriceVerifications(offer: AdminBillingOffer) {
+  return (offer.managedPriceVerifications ?? []).filter(
+    (proof) =>
+      proof.offerVersion === offer.version &&
+      proof.configuredPriceId === offer.stripePriceId &&
+      proof.currency === offer.currency &&
+      proof.unitAmountMinor === offer.unitAmountMinor &&
+      /^acct_[A-Za-z0-9]+$/.test(proof.accountId) &&
+      /^price_[A-Za-z0-9_]{8,128}$/.test(proof.stripePriceId) &&
+      Number.isFinite(Date.parse(proof.verifiedAt)),
+  )
+}
+
 export function billingOfferActivationBlockers(
   offer: AdminBillingOffer,
   productActive: boolean,
+  managedPaymentCheckoutEnabled = false,
 ): string[] {
   const blockers: string[] = []
-  if (offer.billingMode === 'payment') {
+  if (offer.billingMode === 'payment' && !managedPaymentCheckoutEnabled) {
     blockers.push(
-      'One-time payment mode is draft-only until its canonical transaction ledger ships.',
+      'Configure and enable the managed checkout integration before activating this one-time offer.',
     )
   }
   if (!productActive) blockers.push('Activate the product first.')
@@ -29,7 +43,10 @@ export function billingOfferActivationBlockers(
       blockers.push('Use a valid production HTTPS cancel URL.')
     }
   }
-  if (!offer.stripePriceVerified) {
+  if (offer.billingMode === 'payment') {
+    if (!managedPriceVerifications(offer).length)
+      blockers.push('Verify a Price for the managed checkout account and mode.')
+  } else if (!offer.stripePriceVerified) {
     blockers.push('Verify the active Price against Stripe live mode.')
   }
   return blockers
@@ -38,8 +55,7 @@ export function billingOfferActivationBlockers(
 export function canVerifyBillingOfferPrice(offer: AdminBillingOffer): boolean {
   return (
     offer.status === 'draft' &&
-    offer.billingMode === 'subscription' &&
-    !offer.stripePriceVerified &&
+    (offer.billingMode === 'payment' || !offer.stripePriceVerified) &&
     Boolean(offer.stripePriceId) &&
     Boolean(offer.currency) &&
     offer.unitAmountMinor !== null &&

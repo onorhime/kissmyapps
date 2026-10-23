@@ -4,6 +4,7 @@ import {
   mapPartnerAgreement,
   mapPartnerDashboardSummary,
   mapPartnerDocument,
+  mapPartnerDocumentDownload,
   mapPartnerLink,
   mapPartnerLinkOption,
   mapPartnerPayout,
@@ -11,6 +12,7 @@ import {
   mapPartnerPayoutSummary,
   mapPartnerProduct,
   mapPartnerProfile,
+  mapPartnerSignatureReceipt,
   mapPartnerSignatureQueue,
   mapPartnerTrendPoint,
   mapRows,
@@ -35,6 +37,7 @@ import type {
   PartnerProfile,
   PartnerProfileUpdate,
   PartnerSettingsUpdate,
+  PartnerSignatureReceipt,
   PartnerSignatureRequest,
   PartnerTrendPoint,
   PartnerTrendQuery,
@@ -61,8 +64,28 @@ export interface PartnerQueryBuilder extends PromiseLike<BackendResponse> {
 
 /** A deliberately tiny subset of Supabase used by this browser gateway. */
 export interface PartnerSupabaseClient {
+  functions?: {
+    invoke(
+      name: string,
+      options: { body: Record<string, unknown> },
+    ): PromiseLike<{
+      data: unknown
+      error: { message?: string } | null
+    }>
+  }
   from(relation: string): PartnerQueryBuilder
   rpc(functionName: string, args?: Record<string, unknown>): PromiseLike<BackendResponse>
+  storage?: {
+    from(bucket: string): {
+      createSignedUrl(
+        path: string,
+        expiresIn: number,
+      ): Promise<{
+        data: { signedUrl: string } | null
+        error: { message: string } | null
+      }>
+    }
+  }
 }
 
 export interface PartnerDataGateway {
@@ -87,6 +110,7 @@ export interface PartnerDataGateway {
   getPayoutHistory(productId?: string | null): Promise<PartnerDataResult<PartnerPayout[]>>
   getPayoutDetail(payoutId: string): Promise<PartnerDataResult<PartnerPayoutDetail | null>>
   getDocuments(productId?: string | null): Promise<PartnerDataResult<PartnerDocument[]>>
+  getDocumentUrl?: (documentId: string) => Promise<PartnerDataResult<string | null>>
   getAgreements(productId?: string | null): Promise<PartnerDataResult<PartnerAgreement[]>>
   updatePartnerProfile(
     profile: PartnerProfileUpdate,
@@ -99,7 +123,8 @@ export interface PartnerDataGateway {
   signAgreement?: (input: {
     documentId: string
     legalName: string
-  }) => Promise<PartnerDataResult<PartnerDocument | null>>
+    acknowledged: true
+  }) => Promise<PartnerDataResult<PartnerSignatureReceipt | null>>
   getAgreementDocumentUrl?: (input: {
     filePath: string
   }) => Promise<PartnerDataResult<string | null>>
@@ -537,6 +562,46 @@ export function createPartnerDataGateway(
       )
     },
 
+    async getDocumentUrl(documentId) {
+      if (!client?.storage) return unconfigured(() => null)
+      try {
+        const response = await client.rpc(PARTNER_RPCS.documentDownload, {
+          p_document_id: documentId,
+        })
+        if (response.error) return backendFailure(response.error, response.status, () => null)
+        let download
+        try {
+          download = mapSingleRow(response.data, mapPartnerDocumentDownload)
+          if (!download || download.documentId !== documentId) throw new Error('Document mismatch')
+        } catch {
+          return invalidResponse(() => null)
+        }
+        // The resolver and Storage each check the current account. No public
+        // bucket or client-supplied object path is used for document downloads.
+        const signed = await client.storage
+          .from(download.bucket)
+          .createSignedUrl(download.filePath, 300)
+        if (signed.error || !signed.data?.signedUrl) return thrownFailure(() => null)
+        try {
+          const url = new URL(signed.data.signedUrl)
+          if (
+            url.protocol !== 'https:' ||
+            url.username ||
+            url.password ||
+            decodeURIComponent(url.pathname) !==
+              `/storage/v1/object/sign/${download.bucket}/${download.filePath}` ||
+            !url.searchParams.get('token')
+          )
+            throw new Error('Invalid private URL')
+        } catch {
+          return invalidResponse(() => null)
+        }
+        return dataResult(signed.data.signedUrl, 'ready')
+      } catch {
+        return thrownFailure(() => null)
+      }
+    },
+
     async getAgreements(productId) {
       if (!client) return noClientRows<PartnerAgreement>()
       return readRows(
@@ -589,12 +654,13 @@ export function createPartnerDataGateway(
     },
 
     async signAgreement(input) {
-      if (!client) return noClientSingle<PartnerDocument>()
+      if (!client) return noClientSingle<PartnerSignatureReceipt>()
       try {
         const response = await client.rpc(PARTNER_RPCS.signAgreement, {
           p_input: {
             document_id: input.documentId,
             legal_name: input.legalName.trim(),
+            acknowledged: input.acknowledged,
           },
         })
         if (response.error) {
@@ -602,7 +668,8 @@ export function createPartnerDataGateway(
           if (code === 'P0001' || code === '55000') {
             return dataResult(null, 'error', {
               code: 'conflict',
-              message: 'This agreement document cannot be signed right now. Refresh and try again.',
+              message:
+                'This agreement has changed. Check its current signature status before trying again.',
               retryable: false,
             })
           }
@@ -616,7 +683,16 @@ export function createPartnerDataGateway(
           return backendFailure(response.error, response.status, () => null)
         }
         try {
-          return dataResult(mapSingleRow(response.data, mapPartnerDocument), 'ready')
+          // The RPC returns the committed documents row. The directory mapper
+          // requires view-only aliases/download flags and cannot parse this row.
+          const receipt = mapSingleRow(response.data, mapPartnerSignatureReceipt)
+          if (
+            !receipt ||
+            receipt.documentId !== input.documentId ||
+            receipt.signerName !== input.legalName.trim()
+          )
+            throw new Error('signature receipt does not match the request')
+          return dataResult(receipt, 'ready')
         } catch {
           return invalidResponse(() => null)
         }

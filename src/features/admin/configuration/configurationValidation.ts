@@ -1,3 +1,4 @@
+import { parseProviderMoney } from '../../../lib/providerMoney'
 import type { AdminBillingMode, AdminCommissionModel } from '../api'
 
 export type ConfigurationFieldErrors = Readonly<Record<string, string>>
@@ -134,11 +135,12 @@ export function positiveInteger(value: string, minimum = 1, maximum = 100000): n
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null
 }
 
-export function moneyToMinor(value: string): number | null {
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(value.trim())) return null
-  const parsed = Number(value)
-  const minor = Math.round(parsed * 100)
-  return Number.isSafeInteger(minor) && minor >= 0 ? minor : null
+export function moneyToMinor(value: string, currency = 'USD'): number | null {
+  try {
+    return parseProviderMoney(value, currency.trim().toUpperCase(), true)
+  } catch {
+    return null
+  }
 }
 
 export function percentageToBasisPoints(value: string): number | null {
@@ -166,7 +168,7 @@ export function validateCommissionValues({
     errors.triggerEvent = 'Use a lowercase event key such as purchase.completed.'
   }
   if (model === 'cpl' || model === 'cpa' || model === 'hybrid') {
-    if (moneyToMinor(fixedAmount) === null || moneyToMinor(fixedAmount) === 0) {
+    if (moneyToMinor(fixedAmount, currency) === null || moneyToMinor(fixedAmount, currency) === 0) {
       errors.fixedAmount = 'Enter a fixed amount greater than zero.'
     }
     if (!/^[A-Z]{3}$/.test(currency.trim().toUpperCase())) {

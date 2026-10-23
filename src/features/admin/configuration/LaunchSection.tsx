@@ -9,16 +9,23 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react'
-import type { AdminAffiliate, AdminConfigurationGateway, AdminProductConfiguration } from '../api'
+import type {
+  AdminAffiliate,
+  AdminConfigurationGateway,
+  AdminProductConfiguration,
+  AdminLinkEnvironment,
+} from '../api'
 import {
   hasLaunchReadyActiveAgreement,
-  hasLiveVerifiedActiveSubscriptionOffer,
+  hasLaunchReadyActiveBillingOffer,
+  hasTestReadyActiveBillingOffer,
   mainLinkReadiness,
   productActivationReadiness,
   readinessCopy,
 } from './readiness'
 import { Select } from '../../../components/Select'
 import type { ConfigurationActionRunner } from './actionTypes'
+import { ConfigurationReview } from './ConfigurationReview'
 
 function ChecklistItem({ passed, children }: { passed: boolean; children: React.ReactNode }) {
   return (
@@ -49,8 +56,9 @@ export function LaunchSection({
   const [confirmActivation, setConfirmActivation] = useState(false)
   const [affiliateId, setAffiliateId] = useState('')
   const [confirmIssuance, setConfirmIssuance] = useState(false)
+  const [environment, setEnvironment] = useState<AdminLinkEnvironment>('live')
   const activation = productActivationReadiness(configuration)
-  const issuance = mainLinkReadiness(configuration, affiliates)
+  const issuance = mainLinkReadiness(configuration, affiliates, environment)
   const eligibleAffiliates = useMemo(
     () => affiliates.filter((affiliate) => issuance.eligibleAffiliateIds.includes(affiliate.id)),
     [affiliates, issuance.eligibleAffiliateIds],
@@ -58,9 +66,30 @@ export function LaunchSection({
   const selectedAffiliate = eligibleAffiliates.find((affiliate) => affiliate.id === affiliateId)
   const productActive = configuration.product.status === 'active'
   const trackingOnly = configuration.product.trackingMode === 'tracking_only'
-  const hasVerifiedSubscription = hasLiveVerifiedActiveSubscriptionOffer(configuration)
+  const testEnvironment = environment === 'test'
+  const hasVerifiedOffer = testEnvironment
+    ? hasTestReadyActiveBillingOffer(configuration)
+    : hasLaunchReadyActiveBillingOffer(configuration)
+  const environmentLinks = configuration.mainLinks.filter(
+    (link) => (link.environment ?? 'live') === environment,
+  )
   const hasLaunchReadyAgreement = hasLaunchReadyActiveAgreement(configuration)
-  const busy = pendingKey?.startsWith('launch:') ?? false
+  const launchReadyAffiliateIds = mainLinkReadiness(
+    { ...configuration, mainLinks: [] },
+    affiliates,
+    environment,
+  ).eligibleAffiliateIds
+  const allEligibleLinksIssued =
+    launchReadyAffiliateIds.length > 0 &&
+    launchReadyAffiliateIds.every((id) =>
+      environmentLinks.some((link) => link.affiliateId === id && link.status === 'active'),
+    )
+  // Eligibility excludes partners with an existing link to prevent duplicates.
+  // That is not a failed launch step once their active link has been issued.
+  const visibleIssuanceBlockers = issuance.blockers.filter(
+    (blocker) => !(allEligibleLinksIssued && blocker === 'eligible_partner_missing'),
+  )
+  const busy = Boolean(pendingKey)
 
   async function activateProduct() {
     const activated = await runAction(
@@ -72,15 +101,16 @@ export function LaunchSection({
   }
 
   async function issueMainLink() {
-    if (!selectedAffiliate) return
+    if (!canManage || !issuance.allowed || !selectedAffiliate || busy) return
     const issued = await runAction(
       'launch:main-link:issue',
       () =>
         gateway.issueMainLink({
           productId: configuration.product.id,
           affiliateId: selectedAffiliate.id,
+          environment,
         }),
-      `Canonical main link issued for ${selectedAffiliate.publicName}.`,
+      `${environment.toUpperCase()} main link issued for ${selectedAffiliate.publicName}.`,
     )
     if (issued) {
       setAffiliateId('')
@@ -98,8 +128,8 @@ export function LaunchSection({
           <p className="admin-eyebrow">LAUNCH</p>
           <h2 id="admin-launch-title">Launch and partner links</h2>
           <p>
-            Two server-validated steps: activate the product, then issue one canonical link per
-            partner. Saving configuration never launches the product automatically.
+            Two server-validated steps: activate the product, then issue a main link per partner and
+            environment. Saving configuration never launches the product automatically.
           </p>
         </div>
       </div>
@@ -130,8 +160,12 @@ export function LaunchSection({
             <ChecklistItem passed={configuration.readiness.hasLiveDefaultFunnel}>
               One default HTTPS funnel is live
             </ChecklistItem>
-            <ChecklistItem passed={['draft', 'paused'].includes(configuration.product.status)}>
-              Product is in an activatable lifecycle state
+            <ChecklistItem
+              passed={productActive || ['draft', 'paused'].includes(configuration.product.status)}
+            >
+              {productActive
+                ? 'Product activation is complete'
+                : 'Product is in an activatable lifecycle state'}
             </ChecklistItem>
           </ul>
           {activation.blockers.length > 0 && !productActive && (
@@ -144,11 +178,22 @@ export function LaunchSection({
             <p className="admin-success-banner">
               <Check size={17} aria-hidden="true" /> Product is active
             </p>
-          ) : confirmActivation ? (
-            <div
-              className="admin-confirm-action"
-              role="group"
-              aria-label="Confirm product activation"
+          ) : (
+            <button
+              className="admin-primary-button"
+              type="button"
+              disabled={!canManage || !activation.allowed || busy}
+              onClick={() => setConfirmActivation(true)}
+            >
+              Activate product
+            </button>
+          )}
+          {confirmActivation && (
+            <ConfigurationReview
+              title="Confirm product activation"
+              description={`Review activation of ${configuration.product.name}. This does not issue partner links.`}
+              busy={busy}
+              onCancel={() => setConfirmActivation(false)}
             >
               <p>
                 Activate <strong>{configuration.product.name}</strong>
@@ -176,16 +221,7 @@ export function LaunchSection({
                   Cancel
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              className="admin-primary-button"
-              type="button"
-              disabled={!canManage || !activation.allowed || busy}
-              onClick={() => setConfirmActivation(true)}
-            >
-              Activate product
-            </button>
+            </ConfigurationReview>
           )}
         </article>
 
@@ -198,16 +234,39 @@ export function LaunchSection({
               <h3>Issue a partner main link</h3>
               <p>
                 {trackingOnly
-                  ? 'One non-commercial coded URL per partner after the approved demo chain is ready.'
-                  : 'One canonical coded URL per partner. Partners create their own tracked variants — sources, campaigns, and sub-IDs — in the partner dashboard.'}
+                  ? 'One readable product and creator link after the approved demo chain is ready.'
+                  : 'One readable product and creator link per partner. Partners can create separate campaign links in their dashboard; shared links keep their attribution.'}
               </p>
             </div>
-            {configuration.mainLinks.length > 0 && (
+            {environmentLinks.length > 0 && (
               <span className="admin-launch-step-state">
-                {configuration.mainLinks.length} issued
+                {environmentLinks.length} {environment.toUpperCase()} issued
               </span>
             )}
           </div>
+          {!trackingOnly && (
+            <Select
+              label="Link environment"
+              options={[
+                { value: 'live', label: 'LIVE — public creator link' },
+                { value: 'test', label: 'TEST — test journey and attribution' },
+              ]}
+              value={environment}
+              onChange={(next) => {
+                setEnvironment(next as AdminLinkEnvironment)
+                setAffiliateId('')
+                setConfirmIssuance(false)
+              }}
+              disabled={!canManage || busy}
+            />
+          )}
+          {testEnvironment && (
+            <p className="admin-inline-note" role="note">
+              TEST links keep test activity separate in reports. They use this product’s existing
+              agreements and verified TEST offer. Issuing a link does not enable checkout or
+              payouts.
+            </p>
+          )}
           <ul className="admin-readiness-list">
             <ChecklistItem passed={productActive}>Product is active</ChecklistItem>
             {trackingOnly ? (
@@ -226,16 +285,26 @@ export function LaunchSection({
               <>
                 <ChecklistItem
                   passed={
-                    configuration.readiness.trackingReady &&
+                    (testEnvironment
+                      ? configuration.tracking.enabled && Boolean(configuration.tracking.baseUrl)
+                      : configuration.readiness.trackingReady) &&
                     configuration.readiness.hasLiveDefaultFunnel
                   }
                 >
-                  Production routing is ready
+                  {testEnvironment
+                    ? 'Tracking collection and funnel routing are ready'
+                    : 'Production routing is ready'}
                 </ChecklistItem>
                 <ChecklistItem
-                  passed={configuration.readiness.hasActiveBillingOffer && hasVerifiedSubscription}
+                  passed={
+                    (testEnvironment
+                      ? configuration.readiness.hasActiveTestBillingOffer === true
+                      : configuration.readiness.hasActiveBillingOffer) && hasVerifiedOffer
+                  }
                 >
-                  An active live-verified subscription offer exists
+                  {testEnvironment
+                    ? 'An active offer is verified for the assigned TEST merchant'
+                    : 'An active live-verified subscription or managed one-time offer exists'}
                 </ChecklistItem>
                 <ChecklistItem
                   passed={configuration.readiness.hasActiveAgreement && hasLaunchReadyAgreement}
@@ -244,17 +313,27 @@ export function LaunchSection({
                 </ChecklistItem>
               </>
             )}
-            <ChecklistItem passed={issuance.eligibleAffiliateIds.length > 0}>
-              {trackingOnly
-                ? 'An active partner without an existing main link is eligible'
-                : 'An active partner with a launch-ready agreement is eligible'}
+            <ChecklistItem
+              passed={issuance.eligibleAffiliateIds.length > 0 || allEligibleLinksIssued}
+            >
+              {allEligibleLinksIssued
+                ? 'All eligible partners already have an active main link'
+                : trackingOnly
+                  ? 'An active partner without an existing main link is eligible'
+                  : 'An active partner with a launch-ready agreement is eligible'}
             </ChecklistItem>
           </ul>
-          {issuance.blockers.length > 0 && (
+          {visibleIssuanceBlockers.length > 0 && (
             <div className="admin-gate-summary">
               <CircleAlert size={17} aria-hidden="true" />
-              <p>{issuance.blockers.map((blocker) => readinessCopy[blocker]).join(' ')}</p>
+              <p>{visibleIssuanceBlockers.map((blocker) => readinessCopy[blocker]).join(' ')}</p>
             </div>
+          )}
+          {allEligibleLinksIssued && visibleIssuanceBlockers.length === 0 && (
+            <p className="admin-success-banner">
+              <Check size={17} aria-hidden="true" /> Main-link issuance is complete for the current
+              eligible partners. Existing links are listed below.
+            </p>
           )}
           <Select
             label="Eligible partner"
@@ -272,22 +351,24 @@ export function LaunchSection({
             }}
             disabled={!canManage || !issuance.allowed || busy}
           />
-          {confirmIssuance && selectedAffiliate ? (
-            <div
-              className="admin-confirm-action"
-              role="group"
-              aria-label="Confirm main link issuance"
+          {confirmIssuance && selectedAffiliate && (
+            <ConfigurationReview
+              title="Confirm main link issuance"
+              description={`Issue a ${environment.toUpperCase()} main link for ${selectedAffiliate.publicName}. All server eligibility gates still apply.`}
+              busy={busy}
+              onCancel={() => setConfirmIssuance(false)}
             >
               <p>
-                Issue the server-owned main link for <strong>{selectedAffiliate.publicName}</strong>
-                ? No destination, source, campaign, or Sub ID is accepted here.
+                Issue the <strong>{environment.toUpperCase()}</strong> main link for{' '}
+                <strong>{selectedAffiliate.publicName}</strong>? No destination, source, campaign,
+                or Sub ID is accepted here.
                 {trackingOnly && ' This link cannot create commercial facts.'}
               </p>
               <div className="admin-record-actions">
                 <button
                   className="admin-primary-button"
                   type="button"
-                  disabled={busy}
+                  disabled={!canManage || !issuance.allowed || busy}
                   onClick={() => void issueMainLink()}
                 >
                   {pendingKey === 'launch:main-link:issue' && (
@@ -304,17 +385,16 @@ export function LaunchSection({
                   Cancel
                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              className="admin-secondary-button"
-              type="button"
-              disabled={!selectedAffiliate || busy}
-              onClick={() => setConfirmIssuance(true)}
-            >
-              Issue main link
-            </button>
+            </ConfigurationReview>
           )}
+          <button
+            className="admin-secondary-button"
+            type="button"
+            disabled={!canManage || !issuance.allowed || !selectedAffiliate || busy}
+            onClick={() => setConfirmIssuance(true)}
+          >
+            Issue main link
+          </button>
         </article>
       </div>
 
@@ -337,14 +417,16 @@ export function LaunchSection({
                 <li key={link.id}>
                   <span>
                     <strong>{affiliate?.publicName ?? 'Partner'}</strong>
-                    <small>{link.status}</small>
+                    <small>
+                      {(link.environment ?? 'live').toUpperCase()} · {link.status}
+                    </small>
                   </span>
                   <code>{link.trackingUrl}</code>
                   <a
                     href={link.trackingUrl}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Open main link for ${affiliate?.publicName ?? 'partner'}`}
+                    aria-label={`Open ${(link.environment ?? 'live').toUpperCase()} main link for ${affiliate?.publicName ?? 'partner'}`}
                   >
                     <ExternalLink size={16} aria-hidden="true" />
                   </a>

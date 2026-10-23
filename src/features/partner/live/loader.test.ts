@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   emptyPartnerDashboardSummary,
   emptyPartnerPayoutSummary,
@@ -99,6 +99,14 @@ function gateway(overrides: Partial<PartnerDataGateway> = {}): PartnerDataGatewa
 }
 
 describe('live partner workspace loader', () => {
+  it('loads account-wide documents even while reports are scoped to another product', async () => {
+    const getDocuments = vi.fn(async () => result([], 'empty'))
+    await loadPartnerLiveWorkspace(gateway({ getDocuments }), {
+      productId: 'active-other-product',
+      reporting,
+    })
+    expect(getDocuments).toHaveBeenCalledWith()
+  })
   it('represents a configured partner with no product as a known ready-empty workspace', async () => {
     const snapshot = await loadPartnerLiveWorkspace(gateway(), {
       productId: null,

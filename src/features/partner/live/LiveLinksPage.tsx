@@ -1,5 +1,6 @@
 import { AlertCircle, Copy, Link2, Plus, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
 import type { PartnerLinkCreate, PartnerLinkOption, PartnerProduct } from '../api'
 import type { PartnerLiveResourceStatus, PartnerLiveWorkspaceValue } from './types'
 
@@ -74,7 +75,7 @@ function validateDraft(
     if ((field === 'sub1' || value) && !subIdPattern.test(value)) {
       errors[field] =
         field === 'sub1'
-          ? 'Enter a Sub 1 value using 1–64 letters, numbers, hyphens, or underscores.'
+          ? 'Enter a link placement, such as profile_bio, using 1–64 letters, numbers, hyphens, or underscores.'
           : 'Use 1–64 letters, numbers, hyphens, or underscores.'
     }
   }
@@ -91,9 +92,9 @@ function dimensionSummary(
   return [
     source ?? 'No source',
     campaign ?? 'No campaign',
-    `Sub 1: ${sub1}`,
-    sub2 ? `Sub 2: ${sub2}` : null,
-    sub3 ? `Sub 3: ${sub3}` : null,
+    `Placement: ${sub1}`,
+    sub2 ? `Position: ${sub2}` : null,
+    sub3 ? `Content version: ${sub3}` : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -127,10 +128,25 @@ export function LiveLinksPage({
     () => directory.campaigns.filter((option) => availableForProduct(option, product.id)),
     [directory.campaigns, product.id],
   )
+  const [preferredLinkEnvironment, setLinkEnvironment] = useState<'live' | 'test'>(
+    product.mainLinkId ? 'live' : product.testMainLinkId ? 'test' : 'live',
+  )
+  const linkEnvironment =
+    !product.mainLinkId && product.testMainLinkId ? 'test' : preferredLinkEnvironment
+  const selectedMainProduct =
+    linkEnvironment === 'test'
+      ? {
+          ...product,
+          mainLinkId: product.testMainLinkId ?? null,
+          mainTrackingUrl: product.testMainTrackingUrl ?? null,
+        }
+      : product
   const [draft, setDraft] = useState<LinkDraft>(() => initialDraft(funnels, sources))
   const [errors, setErrors] = useState<LinkDraftErrors>({})
   const [showForm, setShowForm] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<ActionMessage | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const submissionLock = useRef(false)
   const createButton = useRef<HTMLButtonElement | null>(null)
   const restoreCreateFocus = useRef(false)
   const inputs = useRef<
@@ -139,7 +155,7 @@ export function LiveLinksPage({
 
   useEffect(() => {
     if (showForm) {
-      inputs.current.name?.focus({ preventScroll: true })
+      inputs.current.name?.focus()
       return
     }
     if (restoreCreateFocus.current) {
@@ -157,16 +173,20 @@ export function LiveLinksPage({
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
       await navigator.clipboard.writeText(url)
-      setNotice(`${name} copied.`)
+      setNotice({ kind: 'success', message: `${name} copied.` })
     } catch {
-      setNotice('Clipboard is unavailable. Select and copy the visible tracking URL.')
+      setNotice({
+        kind: 'error',
+        message: 'Clipboard is unavailable. Select and copy the visible tracking URL.',
+      })
     }
   }
 
-  const pending = mutation.status === 'pending' && mutation.operation === 'create-link'
+  const pending =
+    submitting || (mutation.status === 'pending' && mutation.operation === 'create-link')
   const canStart =
     resourcesKnown &&
-    Boolean(product.mainLinkId && product.mainTrackingUrl) &&
+    Boolean(selectedMainProduct.mainLinkId && selectedMainProduct.mainTrackingUrl) &&
     funnels.length > 0 &&
     sources.length > 0
 
@@ -190,11 +210,11 @@ export function LiveLinksPage({
 
       <section className="panel live-main-link" aria-labelledby="live-main-link-title">
         <div>
-          <span className="context-label">SERVER-ISSUED MAIN LINK</span>
+          <span className="context-label">YOUR PERSONAL LINK · LIVE</span>
           <h2 id="live-main-link-title">Your main link</h2>
           <p>
-            Every source and campaign link below is derived from this current product link. The
-            server owns its destination and attribution identity.
+            Share your product and creator link anywhere. Use separate campaign links below when you
+            want to track each placement. Links you have already shared keep working.
           </p>
         </div>
         {product.mainTrackingUrl ? (
@@ -218,6 +238,53 @@ export function LiveLinksPage({
           <p className="inline-note">The administrator has not issued a current main link yet.</p>
         )}
       </section>
+
+      {product.testMainTrackingUrl && (
+        <section className="panel live-main-link" aria-labelledby="test-main-link-title">
+          <div>
+            <span className="context-label">TEST ENVIRONMENT</span>
+            <h2 id="test-main-link-title">Your test main link</h2>
+            <p>
+              Use this link to test the journey. Its activity appears under Test in funnel
+              reporting, separately from your live audience. This does not enable checkout or
+              payouts.
+            </p>
+          </div>
+          <div className="live-link-copy-row">
+            <input
+              aria-label="Test main tracking URL"
+              value={product.testMainTrackingUrl}
+              readOnly
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <button
+              className="button button-green"
+              type="button"
+              onClick={() => void copyUrl(product.testMainTrackingUrl!, 'Test main link')}
+            >
+              <Copy size={15} aria-hidden="true" /> Copy test main link
+            </button>
+          </div>
+        </section>
+      )}
+
+      {product.testMainLinkId && (
+        <div className="form-field">
+          <label htmlFor="link-environment">Campaign link environment</label>
+          <select
+            id="link-environment"
+            value={linkEnvironment}
+            onChange={(event) => {
+              setLinkEnvironment(event.target.value as 'live' | 'test')
+              setErrors({})
+            }}
+            disabled={pending}
+          >
+            {product.mainLinkId && <option value="live">LIVE — public campaign link</option>}
+            <option value="test">TEST — test campaign link</option>
+          </select>
+        </div>
+      )}
 
       <div className="live-links-actions">
         <div>
@@ -287,7 +354,14 @@ export function LiveLinksPage({
           noValidate
           onSubmit={(event) => {
             event.preventDefault()
-            const nextErrors = validateDraft(draft, product, funnels, sources, campaigns)
+            if (pending || submissionLock.current) return
+            const nextErrors = validateDraft(
+              draft,
+              selectedMainProduct,
+              funnels,
+              sources,
+              campaigns,
+            )
             setErrors(nextErrors)
             const firstField = Object.keys(nextErrors).find(
               (field): field is LinkDraftField => field !== 'parent',
@@ -296,7 +370,7 @@ export function LiveLinksPage({
               inputs.current[firstField]?.focus()
               return
             }
-            if (Object.keys(nextErrors).length || !product.mainLinkId) return
+            if (Object.keys(nextErrors).length || !selectedMainProduct.mainLinkId) return
 
             const input: PartnerLinkCreate = {
               name: draft.name.trim(),
@@ -307,180 +381,242 @@ export function LiveLinksPage({
               sub1: draft.sub1.trim(),
               sub2: draft.sub2.trim(),
               sub3: draft.sub3.trim(),
-              parentLinkId: product.mainLinkId,
+              parentLinkId: selectedMainProduct.mainLinkId,
             }
-            void actions.createLink(input).then((result) => {
-              if (result.status === 'ready' && result.data) {
-                setDraft(initialDraft(funnels, sources))
-                closeForm(true)
-                setNotice(`${result.data.name} created. Its server-issued URL is ready to copy.`)
-              }
-            })
+            submissionLock.current = true
+            setSubmitting(true)
+            setNotice(null)
+            void actions
+              .createLink(input)
+              .then((result) => {
+                if (result.status === 'ready' && result.data) {
+                  setDraft(initialDraft(funnels, sources))
+                  closeForm(true)
+                  setNotice({
+                    kind: 'success',
+                    message: `${result.data.name} created. Its server-issued URL is ready to copy.`,
+                  })
+                } else {
+                  setNotice({
+                    kind: 'error',
+                    message:
+                      result.error?.message ??
+                      'The tracking link could not be created. Your draft is preserved.',
+                  })
+                }
+              })
+              .catch(() => {
+                setNotice({
+                  kind: 'error',
+                  message:
+                    'The tracking link could not be confirmed. Refresh links before trying again; your draft is preserved.',
+                })
+              })
+              .finally(() => {
+                submissionLock.current = false
+                setSubmitting(false)
+              })
           }}
         >
-          <div className="live-link-form-heading">
-            <div>
-              <span className="context-label">DERIVED FROM CURRENT MAIN LINK</span>
-              <h2>Create a source link</h2>
-            </div>
-            <button className="button button-white" type="button" onClick={() => closeForm(true)}>
-              Cancel
-            </button>
-          </div>
-          {errors.parent && (
-            <p className="form-error" role="alert">
-              {errors.parent}
-            </p>
-          )}
-          <div className="form-grid link-form-fields">
-            <div className="form-field full-width">
-              <label htmlFor="live-link-name">Link name</label>
-              <input
-                id="live-link-name"
-                ref={(element) => {
-                  inputs.current.name = element
-                }}
-                value={draft.name}
-                onChange={(event) => update('name', event.target.value)}
-                maxLength={120}
-                autoComplete="off"
-                required
-                aria-invalid={Boolean(errors.name)}
-                aria-describedby={errors.name ? 'live-link-name-error' : undefined}
-                placeholder="e.g. TikTok profile bio"
-              />
-              {errors.name && (
-                <span className="form-error" id="live-link-name-error" role="alert">
-                  {errors.name}
+          <fieldset disabled={pending} className="live-link-fields" aria-busy={pending}>
+            <div className="live-link-form-heading">
+              <div>
+                <span className="context-label">
+                  DERIVED FROM {linkEnvironment.toUpperCase()} MAIN LINK
                 </span>
-              )}
+                <h2>Create a source link</h2>
+              </div>
+              <button className="button button-white" type="button" onClick={() => closeForm(true)}>
+                Cancel
+              </button>
             </div>
-
-            {(
-              [
-                ['funnelId', 'Funnel', funnels],
-                ['sourceId', 'Traffic source', sources],
-              ] as const
-            ).map(([field, fieldLabel, options]) => (
-              <div className="form-field" key={field}>
-                <label htmlFor={`live-link-${field}`}>{fieldLabel}</label>
-                <select
-                  id={`live-link-${field}`}
+            {errors.parent && (
+              <p className="form-error" role="alert">
+                {errors.parent}
+              </p>
+            )}
+            <div className="form-grid link-form-fields">
+              <div className="form-field full-width">
+                <label htmlFor="live-link-name">Link name</label>
+                <input
+                  id="live-link-name"
                   ref={(element) => {
-                    inputs.current[field] = element
+                    inputs.current.name = element
                   }}
-                  value={draft[field]}
-                  onChange={(event) => update(field, event.target.value)}
+                  value={draft.name}
+                  onChange={(event) => update('name', event.target.value)}
+                  maxLength={120}
+                  autoComplete="off"
                   required
-                  aria-invalid={Boolean(errors[field])}
-                  aria-describedby={errors[field] ? `live-link-${field}-error` : undefined}
-                >
-                  {options.length === 0 && (
-                    <option value="">No available {fieldLabel.toLowerCase()}</option>
+                  aria-invalid={Boolean(errors.name)}
+                  aria-describedby={errors.name ? 'live-link-name-error' : undefined}
+                  placeholder="e.g. TikTok profile bio"
+                />
+                {errors.name && (
+                  <span className="form-error" id="live-link-name-error" role="alert">
+                    {errors.name}
+                  </span>
+                )}
+              </div>
+
+              {(
+                [
+                  ['funnelId', 'Funnel', funnels],
+                  ['sourceId', 'Traffic source', sources],
+                ] as const
+              ).map(([field, fieldLabel, options]) => (
+                <div className="form-field" key={field}>
+                  <label htmlFor={`live-link-${field}`}>{fieldLabel}</label>
+                  <select
+                    id={`live-link-${field}`}
+                    ref={(element) => {
+                      inputs.current[field] = element
+                    }}
+                    value={draft[field]}
+                    onChange={(event) => update(field, event.target.value)}
+                    required
+                    aria-invalid={Boolean(errors[field])}
+                    aria-describedby={errors[field] ? `live-link-${field}-error` : undefined}
+                  >
+                    {options.length === 0 && (
+                      <option value="">No available {fieldLabel.toLowerCase()}</option>
+                    )}
+                    {options.map((option) => (
+                      <option value={option.id} key={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors[field] && (
+                    <span className="form-error" id={`live-link-${field}-error`} role="alert">
+                      {errors[field]}
+                    </span>
                   )}
-                  {options.map((option) => (
+                </div>
+              ))}
+
+              <div className="form-field full-width">
+                <label htmlFor="live-link-campaignId">Campaign</label>
+                <select
+                  id="live-link-campaignId"
+                  ref={(element) => {
+                    inputs.current.campaignId = element
+                  }}
+                  value={draft.campaignId}
+                  onChange={(event) => update('campaignId', event.target.value)}
+                  aria-invalid={Boolean(errors.campaignId)}
+                  aria-describedby={errors.campaignId ? 'live-link-campaignId-error' : undefined}
+                >
+                  <option value="">No campaign</option>
+                  {campaigns.map((option) => (
                     <option value={option.id} key={option.id}>
                       {option.name}
                     </option>
                   ))}
                 </select>
-                {errors[field] && (
-                  <span className="form-error" id={`live-link-${field}-error`} role="alert">
-                    {errors[field]}
+                {errors.campaignId && (
+                  <span className="form-error" id="live-link-campaignId-error" role="alert">
+                    {errors.campaignId}
                   </span>
                 )}
               </div>
-            ))}
 
-            <div className="form-field full-width">
-              <label htmlFor="live-link-campaignId">Campaign</label>
-              <select
-                id="live-link-campaignId"
-                ref={(element) => {
-                  inputs.current.campaignId = element
-                }}
-                value={draft.campaignId}
-                onChange={(event) => update('campaignId', event.target.value)}
-                aria-invalid={Boolean(errors.campaignId)}
-                aria-describedby={errors.campaignId ? 'live-link-campaignId-error' : undefined}
-              >
-                <option value="">No campaign</option>
-                {campaigns.map((option) => (
-                  <option value={option.id} key={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-              {errors.campaignId && (
-                <span className="form-error" id="live-link-campaignId-error" role="alert">
-                  {errors.campaignId}
-                </span>
-              )}
+              <div className="full-width inline-note">
+                <p>
+                  Choose your own tracking labels to tell placements and content apart in reporting.
+                  These are not IDs you need from TikTok or Instagram. Use a separate link for each
+                  placement: sharing the same link keeps the same labels.
+                </p>
+                <p>
+                  <strong>Just testing?</strong> Enter <code>profile_bio</code> for Link placement
+                  and leave Position and Content version blank.
+                </p>
+              </div>
+
+              {(
+                [
+                  [
+                    'sub1',
+                    'Link placement (Sub 1 · required)',
+                    'Where will you share this link? Name the placement, such as profile_bio, story, or paid_ad.',
+                    'e.g. profile_bio',
+                  ],
+                  [
+                    'sub2',
+                    'Position (Sub 2 · optional)',
+                    'For a specific spot within that placement, such as link_1 or story_slide_2. Otherwise, leave blank.',
+                    'e.g. link_1',
+                  ],
+                  [
+                    'sub3',
+                    'Content version (Sub 3 · optional)',
+                    'Which video, ad, or variation is this link for? Use a label such as video_01 or creative_a, or leave blank.',
+                    'e.g. video_01',
+                  ],
+                ] as const
+              ).map(([field, fieldLabel, hint, placeholder]) => (
+                <div className={`form-field ${field === 'sub1' ? 'full-width' : ''}`} key={field}>
+                  <label htmlFor={`live-link-${field}`}>{fieldLabel}</label>
+                  <input
+                    id={`live-link-${field}`}
+                    ref={(element) => {
+                      inputs.current[field] = element
+                    }}
+                    value={draft[field]}
+                    onChange={(event) => update(field, event.target.value)}
+                    required={field === 'sub1'}
+                    maxLength={64}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder={placeholder}
+                    aria-invalid={Boolean(errors[field])}
+                    aria-describedby={`live-link-${field}-hint live-link-label-format${errors[field] ? ` live-link-${field}-error` : ''}`}
+                  />
+                  <span className="field-hint" id={`live-link-${field}-hint`}>
+                    {hint}
+                  </span>
+                  {errors[field] && (
+                    <span className="form-error" id={`live-link-${field}-error`} role="alert">
+                      {errors[field]}
+                    </span>
+                  )}
+                </div>
+              ))}
+              <p className="full-width field-hint" id="live-link-label-format">
+                Use 1–64 letters, numbers, hyphens or underscores per label. No spaces or personal
+                data.
+              </p>
             </div>
-
-            {(
-              [
-                ['sub1', 'Sub 1', 'Required placement identifier'],
-                ['sub2', 'Sub 2', 'Optional position identifier'],
-                ['sub3', 'Sub 3', 'Optional creative identifier'],
-              ] as const
-            ).map(([field, fieldLabel, hint]) => (
-              <div className={`form-field ${field === 'sub1' ? 'full-width' : ''}`} key={field}>
-                <label htmlFor={`live-link-${field}`}>{fieldLabel}</label>
-                <input
-                  id={`live-link-${field}`}
-                  ref={(element) => {
-                    inputs.current[field] = element
-                  }}
-                  value={draft[field]}
-                  onChange={(event) => update(field, event.target.value)}
-                  required={field === 'sub1'}
-                  maxLength={64}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-invalid={Boolean(errors[field])}
-                  aria-describedby={`live-link-${field}-hint${errors[field] ? ` live-link-${field}-error` : ''}`}
-                />
-                <span className="field-hint" id={`live-link-${field}-hint`}>
-                  {hint}. Use letters, numbers, hyphens or underscores; do not enter personal data.
-                </span>
-                {errors[field] && (
-                  <span className="form-error" id={`live-link-${field}-error`} role="alert">
-                    {errors[field]}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-          {mutation.status === 'failed' && mutation.operation === 'create-link' && (
-            <p className="form-error" role="alert">
-              {mutation.error?.message ?? 'The tracking link could not be created.'}
-            </p>
-          )}
-          <div className="dialog-actions">
-            <span className="field-hint">
-              The destination and partner identity remain server-owned.
-            </span>
-            <button className="button button-green" type="submit" disabled={pending}>
-              <Link2 size={15} aria-hidden="true" />
-              {pending ? 'Creating…' : 'Create live link'}
-            </button>
-          </div>
+            {mutation.status === 'failed' && mutation.operation === 'create-link' && (
+              <p className="form-error" role="alert">
+                {mutation.error?.message ?? 'The tracking link could not be created.'}
+              </p>
+            )}
+            <div className="dialog-actions">
+              <span className="field-hint">
+                The destination and partner identity remain server-owned.
+              </span>
+              <button className="button button-green" type="submit" disabled={pending}>
+                <Link2 size={15} aria-hidden="true" />
+                {pending
+                  ? 'Creating…'
+                  : linkEnvironment === 'test'
+                    ? 'Create test link'
+                    : 'Create live link'}
+              </button>
+            </div>
+          </fieldset>
         </form>
       )}
 
-      {notice && (
-        <p className="detail-notice live-links-notice" role="status">
-          {notice}
-        </p>
-      )}
+      <ActionNotice notice={notice} onDismiss={() => setNotice(null)} />
 
       {!resourcesKnown ? null : links.length === 0 ? (
         <section className="panel live-data-state live-links-empty">
           <Link2 size={28} aria-hidden="true" />
           <h2>No source links yet</h2>
           <p>
-            Create the first server-issued variant after choosing its funnel, source and Sub IDs.
+            Create your first source link by choosing its funnel, traffic source and link placement.
           </p>
         </section>
       ) : (
@@ -488,15 +624,21 @@ export function LiveLinksPage({
           <h2 id="live-links-list-title" className="sr-only">
             Source and campaign link history
           </h2>
+          <p className="inline-note live-partial-note" id="raw-link-clicks-note">
+            Raw clicks count all recorded visits to each link since it was created, including visits
+            classified as bots. Performance shows bot-filtered clicks within its reporting window.
+            These counts are visits, not unique people, and may differ while reports are processing.
+          </p>
           <div className="table-scroll links-history-scroll">
-            <table>
+            <table aria-describedby="raw-link-clicks-note">
               <thead>
                 <tr>
                   <th scope="col">Link</th>
                   <th scope="col">Attribution dimensions</th>
                   <th scope="col">Funnel</th>
                   <th scope="col">Status</th>
-                  <th scope="col">Clicks</th>
+                  <th scope="col">Environment</th>
+                  <th scope="col">Raw clicks · all time</th>
                   <th scope="col">Commercial scope</th>
                   <th scope="col">Tracking URL</th>
                 </tr>
@@ -519,8 +661,15 @@ export function LiveLinksPage({
                     </td>
                     <td>{link.funnelName}</td>
                     <td>{link.status.replace(/^./, (value) => value.toUpperCase())}</td>
+                    <td>{(link.environment ?? 'live').toUpperCase()}</td>
                     <td>{new Intl.NumberFormat('en-US').format(link.clicks)}</td>
-                    <td>{link.commercialEligible ? 'Commercial' : 'Demo · non-commercial'}</td>
+                    <td>
+                      {link.environment === 'test'
+                        ? 'Test · separate reporting'
+                        : link.commercialEligible
+                          ? 'Commercial'
+                          : 'Demo · non-commercial'}
+                    </td>
                     <td>
                       <div className="live-link-table-url">
                         <input

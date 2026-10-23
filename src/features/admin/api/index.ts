@@ -91,6 +91,7 @@ export type {
   AdminGateway,
   AdminEdgeFunctionResponse,
   AdminEdgeFunctionsClient,
+  AdminLinkEnvironment,
   AdminMainLink,
   AdminMainLinkIssue,
   AdminMainLinkReadiness,

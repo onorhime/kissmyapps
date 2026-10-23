@@ -21,6 +21,8 @@ import {
   queueLabel,
 } from './observabilityPresentation'
 import { useDataHealth } from './useObservability'
+import { AgreementOperationsHealth } from './AgreementOperationsHealth'
+import { ProcessingHealth } from './ProcessingHealth'
 
 export type DataHealthPageProps = Readonly<{
   gateway: AdminGateway
@@ -93,6 +95,9 @@ export function DataHealthPage({ gateway, onOpenFunnelsLinks }: DataHealthPagePr
           {state.refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </header>
+
+      <ProcessingHealth gateway={gateway} refreshKey={state.data?.generatedAt} />
+      <AgreementOperationsHealth gateway={gateway} refreshKey={state.data?.generatedAt} />
 
       {state.status === 'loading' ? (
         <DataHealthState

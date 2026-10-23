@@ -1,4 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
+import { ConfigurationReview } from './ConfigurationReview'
+import { revealInvalidField } from '../../../components/formFeedback'
+import { observeForm } from '../../../components/useFormNavigationGuard'
 import {
   Archive,
   BadgeDollarSign,
@@ -22,7 +25,12 @@ import {
   validateBillingOfferTerms,
 } from './configurationValidation'
 import type { ConfigurationActionRunner } from './actionTypes'
-import { billingOfferActivationBlockers, canVerifyBillingOfferPrice } from './billingOfferReadiness'
+import { ManagedPriceVerificationForm } from './ManagedPriceVerificationForm'
+import {
+  billingOfferActivationBlockers,
+  canVerifyBillingOfferPrice,
+  managedPriceVerifications,
+} from './billingOfferReadiness'
 import { Select } from '../../../components/Select'
 
 type OfferForm = {
@@ -91,16 +99,20 @@ export function BillingOffersSection({
   const [editing, setEditing] = useState<AdminBillingOffer | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [confirmation, setConfirmation] = useState<PendingStatus | null>(null)
-  const busy = pendingKey?.startsWith('billing:') ?? false
+  const busy = Boolean(pendingKey)
+  const nameInput = useRef<HTMLInputElement>(null)
+  const createDraft = useRef<OfferForm>(emptyForm)
+  const editOpener = useRef<HTMLButtonElement | null>(null)
 
   function updateForm<Key extends keyof OfferForm>(key: Key, value: OfferForm[Key]) {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
   function resetForm() {
-    setForm(emptyForm)
+    setForm(editing ? createDraft.current : emptyForm)
     setEditing(null)
     setErrors({})
+    if (editing) queueMicrotask(() => editOpener.current?.focus({ preventScroll: true }))
   }
 
   async function saveOffer(event: FormEvent<HTMLFormElement>) {
@@ -128,7 +140,7 @@ export function BillingOffersSection({
       ? await runAction(
           `billing:update:${editing.id}`,
           () => gateway.updateBillingOffer({ billingOfferId: editing.id, ...configurationTerms }),
-          'Draft billing-offer terms updated. Live Stripe verification must be run again.',
+          'Draft billing-offer terms updated. Verify the Stripe Price for the updated terms.',
         )
       : await runAction(
           'billing:create',
@@ -169,7 +181,7 @@ export function BillingOffersSection({
           <BadgeDollarSign size={20} aria-hidden="true" />
         </span>
         <div>
-          <p className="admin-eyebrow">PRODUCTION BILLING</p>
+          <p className="admin-eyebrow">BILLING CATALOG</p>
           <h2 id="admin-billing-offers-title">Stripe billing offers</h2>
           <p>
             Configure versioned Price references and redirects. The browser never receives or sends
@@ -179,7 +191,12 @@ export function BillingOffersSection({
       </div>
 
       <div className="admin-config-split">
-        <form className="admin-config-form" onSubmit={saveOffer} noValidate>
+        <form
+          className="admin-config-form"
+          onSubmit={saveOffer}
+          onSubmitCapture={revealInvalidField}
+          noValidate
+        >
           <fieldset disabled={!canManage || busy}>
             <legend>
               {editing ? `Edit draft · ${editing.key} v${editing.version}` : 'Add a draft offer'}
@@ -188,6 +205,7 @@ export function BillingOffersSection({
               <label className="admin-field">
                 <span>Offer name</span>
                 <input
+                  ref={nameInput}
                   value={form.name}
                   onChange={(event) => updateForm('name', event.target.value)}
                   aria-invalid={Boolean(errors.name)}
@@ -210,7 +228,7 @@ export function BillingOffersSection({
                 <Select
                   options={[
                     { value: 'subscription', label: 'Subscription' },
-                    { value: 'payment', label: 'One-time payment · draft only' },
+                    { value: 'payment', label: 'One-time payment · managed checkout' },
                   ]}
                   value={form.billingMode}
                   onChange={(next) => updateForm('billingMode', next as AdminBillingMode)}
@@ -229,7 +247,9 @@ export function BillingOffersSection({
                   <small className="admin-field-error">{errors.stripePriceId}</small>
                 ) : (
                   <small className="admin-field-hint">
-                    Price IDs are references, not secret keys.
+                    {form.billingMode === 'payment'
+                      ? 'Save the reference Price here. Below, verify Test and Live Prices with matching terms against their configured integrations.'
+                      : 'Price IDs are references, not secret keys.'}
                   </small>
                 )}
               </label>
@@ -291,8 +311,9 @@ export function BillingOffersSection({
               <div className="admin-gate-summary" role="note">
                 <CircleAlert size={17} aria-hidden="true" />
                 <p>
-                  One-time payment offers can be saved as drafts, but the server will not activate
-                  them until canonical one-time transaction handling exists.
+                  One-time offers use the managed checkout integration. Save and verify the Price,
+                  then activate the offer after that integration is enabled. Existing commission
+                  agreements apply. Saving an offer does not enable checkout.
                 </p>
               </div>
             )}
@@ -327,9 +348,11 @@ export function BillingOffersSection({
               const blockers = billingOfferActivationBlockers(
                 offer,
                 configuration.product.status === 'active',
+                configuration.readiness.managedPaymentCheckoutEnabled === true,
               )
               const canActivate = blockers.length === 0
               const canVerifyPrice = canVerifyBillingOfferPrice(offer)
+              const managedPrices = managedPriceVerifications(offer)
               return (
                 <article className="admin-config-record" key={offer.id}>
                   <div className="admin-config-record-heading">
@@ -347,19 +370,52 @@ export function BillingOffersSection({
                     <span>
                       {offer.billingMode === 'subscription'
                         ? 'Subscription'
-                        : 'Payment · draft only'}
+                        : 'One-time payment · managed checkout'}
                     </span>
                     <span>{formatMinor(offer.unitAmountMinor, offer.currency)}</span>
-                    <span>
-                      {offer.stripePriceVerified ? (
-                        <CheckCircle2 size={14} aria-hidden="true" />
-                      ) : (
-                        <CircleAlert size={14} aria-hidden="true" />
-                      )}
-                      {offer.stripePriceVerified ? 'Live Price verified' : 'Price not verified'}
-                    </span>
+                    {offer.billingMode === 'subscription' && (
+                      <span>
+                        {offer.stripePriceVerified ? (
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                        ) : (
+                          <CircleAlert size={14} aria-hidden="true" />
+                        )}
+                        {offer.stripePriceVerified ? 'Live Price verified' : 'Price not verified'}
+                      </span>
+                    )}
                   </div>
                   {offer.stripePriceId && <code>{offer.stripePriceId}</code>}
+                  {offer.billingMode === 'payment' &&
+                    (managedPrices.length ? (
+                      <ul aria-label={`${offer.name} verified managed prices`}>
+                        {managedPrices.map((proof) => (
+                          <li key={`${proof.accountId}:${proof.livemode}`}>
+                            <strong>{proof.livemode ? 'Live' : 'Test'} Price verified</strong> ·{' '}
+                            {proof.accountId} · <code>{proof.stripePriceId}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="admin-field-hint">No managed account and mode verified.</p>
+                    ))}
+                  {canManage && canVerifyPrice && offer.billingMode === 'payment' && (
+                    <ManagedPriceVerificationForm
+                      offer={offer}
+                      gateway={gateway}
+                      busy={busy}
+                      runAction={runAction}
+                    />
+                  )}
+                  {offer.billingMode === 'payment' && (
+                    <p className="admin-field-hint">
+                      {configuration.readiness.managedPaymentCheckoutEnabled
+                        ? 'Managed checkout is configured for this product. The runtime checkout switch is checked separately.'
+                        : 'Managed checkout is disabled for this product.'}{' '}
+                      An active offer with current live Price verification can qualify for partner
+                      links. Test verification alone does not qualify. Subscription checkout stays
+                      separate.
+                    </p>
+                  )}
                   {['draft', 'paused'].includes(offer.status) && blockers.length > 0 && (
                     <ul
                       className="admin-billing-blockers"
@@ -377,16 +433,20 @@ export function BillingOffersSection({
                           className="admin-secondary-button"
                           type="button"
                           disabled={busy}
-                          onClick={() => {
+                          onClick={(event) => {
+                            observeForm(nameInput.current?.closest('form') ?? null)
+                            if (!editing) createDraft.current = form
+                            editOpener.current = event.currentTarget
                             setEditing(offer)
                             setForm(formFromOffer(offer))
                             setErrors({})
+                            queueMicrotask(() => nameInput.current?.focus())
                           }}
                         >
                           <Pencil size={15} aria-hidden="true" /> Edit draft
                         </button>
                       )}
-                      {canVerifyPrice && (
+                      {canVerifyPrice && offer.billingMode === 'subscription' && (
                         <button
                           className="admin-primary-button"
                           type="button"
@@ -396,17 +456,16 @@ export function BillingOffersSection({
                           <ShieldCheck size={15} aria-hidden="true" /> Verify live Price
                         </button>
                       )}
-                      {(offer.status === 'draft' || offer.status === 'paused') &&
-                        offer.billingMode === 'subscription' && (
-                          <button
-                            className="admin-primary-button"
-                            type="button"
-                            disabled={busy || !canActivate}
-                            onClick={() => setConfirmation({ offer, status: 'active' })}
-                          >
-                            Review activation
-                          </button>
-                        )}
+                      {(offer.status === 'draft' || offer.status === 'paused') && (
+                        <button
+                          className="admin-primary-button"
+                          type="button"
+                          disabled={busy || !canActivate}
+                          onClick={() => setConfirmation({ offer, status: 'active' })}
+                        >
+                          Review activation
+                        </button>
+                      )}
                       {offer.status === 'active' && (
                         <button
                           className="admin-secondary-button"
@@ -444,16 +503,23 @@ export function BillingOffersSection({
       </div>
 
       {confirmation && (
-        <div
-          className="admin-confirm-action admin-billing-confirmation"
-          role="group"
-          aria-labelledby="admin-billing-confirmation-title"
+        <ConfigurationReview
+          title={`Review ${confirmation.status === 'active' ? 'activation' : confirmation.status === 'paused' ? 'pause' : 'archive'} · ${confirmation.offer.name}`}
+          description={`Version ${confirmation.offer.version}. Billing lifecycle changes are audited. Archival cannot be reversed.`}
+          busy={busy}
+          onCancel={() => setConfirmation(null)}
         >
           <p id="admin-billing-confirmation-title">
             Confirm {confirmation.status} for {confirmation.offer.name} v
-            {confirmation.offer.version}. Billing lifecycle changes are audited and archival cannot
-            be reversed.
+            {confirmation.offer.version}.
           </p>
+          {confirmation.offer.billingMode === 'payment' && confirmation.status === 'active' && (
+            <p>
+              This offer is for managed checkout. It does not enable the subscription checkout
+              integration or product-owner payouts. Checkout also requires the server integration to
+              be enabled.
+            </p>
+          )}
           <div className="admin-record-actions">
             <button
               className={
@@ -476,7 +542,7 @@ export function BillingOffersSection({
               Cancel
             </button>
           </div>
-        </div>
+        </ConfigurationReview>
       )}
     </section>
   )

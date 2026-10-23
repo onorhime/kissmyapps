@@ -118,6 +118,75 @@ body,
   font-size: 17px;
 }
 
+/* Agreement review uses the same dark palette as its dialog surface. */
+.agreement-sign-banner {
+  background: var(--brand-card);
+  border-color: var(--brand-pink);
+}
+
+.agreement-sign-banner h2,
+.agreement-sign-icon {
+  color: var(--brand-pink);
+}
+
+.agreement-sign-terms dd,
+.agreement-sign-dialog .form-field {
+  color: var(--brand-text);
+}
+
+.agreement-sign-download,
+.agreement-sign-retry {
+  color: var(--brand-light-blue);
+}
+
+.agreement-sign-dialog .button {
+  background: var(--brand-control);
+  border-color: var(--control-border);
+  color: var(--brand-text);
+}
+
+.agreement-sign-dialog .button-primary,
+.agreement-sign-button {
+  background: var(--brand-pink);
+  border-color: var(--brand-pink);
+  color: var(--brand-bg-deep);
+}
+
+.agreement-sign-dialog .button-primary:hover:not(:disabled),
+.agreement-sign-button:hover:not(:disabled) {
+  background: var(--brand-yellow);
+  border-color: var(--brand-yellow);
+  color: var(--brand-bg-deep);
+}
+
+.agreement-sign-dialog .form-field input {
+  background: var(--brand-bg-deep);
+  color: var(--brand-text);
+  border-color: var(--control-border);
+}
+
+.agreement-sign-terms dt,
+.agreement-sign-dialog .field-hint,
+.agreement-sign-error,
+.agreement-sign-download-pending {
+  font-size: 0.875rem;
+}
+
+.agreement-sign-acknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.agreement-sign-acknowledgement input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  accent-color: var(--brand-pink);
+}
+
 /* Shell and navigation */
 .sidebar {
   background: var(--brand-bg-deep);

@@ -48,6 +48,8 @@ const agreement: AdminAgreement = {
       rateBasisPoints: null,
       currency: 'USD',
       validationWindowHours: 72,
+      refundCutoffDays: null,
+      commissionBasisPolicy: 'net_after_fees',
       createdAt,
       updatedAt: createdAt,
     },
@@ -257,5 +259,76 @@ describe('Admin agreement document signing', () => {
     expect(screen.getByText(/KissMyApps countersigned/i)).toBeVisible()
     expect(screen.queryByRole('button', { name: /Revoke/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Countersign/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('Canonical commission policy settings', () => {
+  it('creates one rule with explicit cutoff/basis and the selected agreement currency', async () => {
+    const user = userEvent.setup()
+    const createCommissionRule = vi.fn(async () => ({
+      data: agreement.commissionRules[0],
+      status: 'ready',
+      error: null,
+    }))
+    render(
+      <AgreementSection
+        configuration={configuration({ ...agreement, status: 'draft', payoutCurrency: 'JPY' })}
+        affiliates={[affiliate]}
+        gateway={{ createCommissionRule } as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async (_key, operation) => Boolean((await operation()).data)}
+      />,
+    )
+    await user.selectOptions(screen.getByLabelText('Agreement'), 'agreement-1')
+    await user.type(screen.getByLabelText('Rule name'), 'Creator purchase')
+    await user.type(screen.getByLabelText('Fixed amount (JPY)'), '250')
+    await user.type(screen.getByLabelText(/Ordinary refund cutoff/), '30')
+    await user.selectOptions(screen.getByLabelText('Commission basis'), 'subtotal_ex_tax_shipping')
+    await user.click(screen.getByRole('button', { name: 'Create draft rule' }))
+    expect(createCommissionRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agreementId: 'agreement-1',
+        fixedAmountMinor: 250,
+        currency: 'JPY',
+        refundCutoffDays: 30,
+        commissionBasisPolicy: 'subtotal_ex_tax_shipping',
+        validationWindowHours: 72,
+      }),
+    )
+  })
+  it('keeps blank refund cutoff unlimited and rejects malformed cutoffs before saving', async () => {
+    const user = userEvent.setup()
+    const createCommissionRule = vi.fn(async () => ({
+      data: agreement.commissionRules[0],
+      status: 'ready',
+      error: null,
+    }))
+    render(
+      <AgreementSection
+        configuration={configuration({ ...agreement, status: 'draft', model: 'revenue_share' })}
+        affiliates={[affiliate]}
+        gateway={{ createCommissionRule } as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async (_key, operation) => Boolean((await operation()).data)}
+      />,
+    )
+    await user.selectOptions(screen.getByLabelText('Agreement'), 'agreement-1')
+    await user.type(screen.getByLabelText('Rule name'), 'Creator purchase')
+    await user.type(screen.getByLabelText('Revenue share (%)'), '15')
+    await user.type(screen.getByLabelText(/Ordinary refund cutoff/), '-1')
+    await user.click(screen.getByRole('button', { name: 'Create draft rule' }))
+    expect(createCommissionRule).not.toHaveBeenCalled()
+    await user.clear(screen.getByLabelText(/Ordinary refund cutoff/))
+    await user.click(screen.getByRole('button', { name: 'Create draft rule' }))
+    expect(createCommissionRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rateBasisPoints: 1500,
+        refundCutoffDays: null,
+        commissionBasisPolicy: 'net_after_fees',
+        validationWindowHours: 72,
+      }),
+    )
   })
 })

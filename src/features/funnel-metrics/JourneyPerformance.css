@@ -1,0 +1,99 @@
+.journey-performance {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  border-top: 1px solid var(--brand-line, #ddd);
+  padding-top: 20px;
+}
+.journey-performance h3,
+.journey-performance h4,
+.journey-performance h5 {
+  margin: 0 0 8px;
+  color: var(--brand-text, inherit);
+}
+.journey-performance h5 {
+  font-size: 15px;
+}
+.journey-performance p {
+  margin: 0;
+  color: var(--brand-muted, inherit);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.journey-performance-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+}
+.journey-performance-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+.journey-performance-counts > div {
+  padding: 14px;
+  border: 1px solid var(--brand-line, #ddd);
+  border-radius: 10px;
+  min-width: 0;
+}
+.journey-performance-counts dt {
+  color: var(--brand-muted, inherit);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.journey-performance-counts dd {
+  margin: 8px 0 0;
+  font-size: 23px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.journey-performance-notice {
+  background: var(--brand-control, #f4f4f4);
+  padding: 14px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.journey-performance ul {
+  padding-left: 34px;
+  margin: 0;
+}
+.journey-performance details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.journey-performance-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.journey-performance table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 480px;
+  font-size: 13px;
+  text-align: left;
+}
+.journey-performance caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 12px;
+}
+.journey-performance th,
+.journey-performance td {
+  padding: 12px;
+  border-bottom: 1px solid var(--brand-line, #ddd);
+}
+.journey-performance-inline-note {
+  display: block;
+  color: var(--brand-muted, inherit);
+  font-size: 12px;
+}
+.journey-performance-money {
+  padding: 16px;
+  margin-top: 16px;
+  border: 1px solid var(--brand-line, #ddd);
+  border-radius: 12px;
+}

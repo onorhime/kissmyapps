@@ -311,6 +311,10 @@ export type AdminCommissionRule = Readonly<{
   rateBasisPoints: number | null
   currency: string | null
   validationWindowHours: number
+  refundCutoffDays: number | null
+  firstPurchaseOnly?: boolean
+  fulfilmentRequired?: boolean
+  commissionBasisPolicy: 'net_after_fees' | 'subtotal_ex_tax_shipping'
   createdAt: string
   updatedAt: string
 }>
@@ -345,6 +349,7 @@ export type AdminAgreementDocumentRecord = Readonly<{
   agreementId: string
   name: string
   filePath: string
+  contentSha256: string
 }>
 
 export type AdminAgreementDocumentRevocation = Readonly<{
@@ -396,6 +401,10 @@ export type AdminCommissionRuleCreate = Readonly<{
   rateBasisPoints: number | null
   currency: string | null
   validationWindowHours: number
+  refundCutoffDays: number | null
+  firstPurchaseOnly?: boolean
+  fulfilmentRequired?: boolean
+  commissionBasisPolicy: 'net_after_fees' | 'subtotal_ex_tax_shipping'
 }>
 
 export type AdminCommissionRuleStatusUpdate = Readonly<{
@@ -440,6 +449,8 @@ export type AdminProductTrackingModeUpdate = Readonly<{
   expectedUpdatedAt: string
 }>
 
+export type AdminLinkEnvironment = 'test' | 'live'
+
 export type AdminMainLink = Readonly<{
   id: string
   affiliateId: string
@@ -449,6 +460,7 @@ export type AdminMainLink = Readonly<{
   name: string | null
   publicCode: string | null
   trackingUrl: string
+  environment?: AdminLinkEnvironment
   status: 'active' | 'paused' | 'archived'
   createdAt: string
 }>
@@ -457,6 +469,7 @@ export type AdminMainLink = Readonly<{
 export type AdminMainLinkIssue = Readonly<{
   affiliateId: string
   productId: string
+  environment?: AdminLinkEnvironment
 }>
 
 export const ADMIN_BILLING_MODES = ['payment', 'subscription'] as const
@@ -466,6 +479,17 @@ export type AdminBillingMode = (typeof ADMIN_BILLING_MODES)[number]
 export const ADMIN_BILLING_OFFER_STATUSES = ['draft', 'active', 'paused', 'archived'] as const
 
 export type AdminBillingOfferStatus = (typeof ADMIN_BILLING_OFFER_STATUSES)[number]
+
+export type AdminManagedPriceVerification = Readonly<{
+  configuredPriceId: string
+  accountId: string
+  livemode: boolean
+  stripePriceId: string
+  currency: string
+  unitAmountMinor: number
+  offerVersion: number
+  verifiedAt: string
+}>
 
 export type AdminBillingOffer = Readonly<{
   id: string
@@ -482,6 +506,11 @@ export type AdminBillingOffer = Readonly<{
   status: AdminBillingOfferStatus
   stripePriceVerified: boolean
   stripeLivemodeVerifiedAt: string | null
+  managedPriceVerifications?: readonly AdminManagedPriceVerification[]
+  /** Server checks the current offer, managed opt-in and assigned live merchant. */
+  mainLinkReady?: boolean
+  /** Exact TEST price, assigned merchant and offer checks; no live checkout switch. */
+  mainLinkTestReady?: boolean
   createdAt: string
   updatedAt: string
 }>
@@ -517,12 +546,19 @@ export type AdminBillingOfferStatusUpdate = Readonly<{
 
 export type AdminBillingOfferVerificationRequest = Readonly<{
   billingOfferId: string
+  managed?: Readonly<{ bindingId: string; stripePriceId: string }>
 }>
 
 export type AdminBillingOfferVerification = Readonly<{
   verified: true
   billingOfferId: string
   requestId: string
+  managed?: Readonly<{
+    bindingId: string
+    accountId: string
+    livemode: boolean
+    stripePriceId: string
+  }>
 }>
 
 export const ADMIN_READINESS_BLOCKERS = [
@@ -536,6 +572,8 @@ export const ADMIN_READINESS_BLOCKERS = [
   'active_agreement_missing',
   'active_commission_rule_missing',
   'active_billing_offer_missing',
+  'active_test_billing_offer_missing',
+  'test_links_require_commercial_product',
   'launch_ready_agreement_missing',
   'tracking_only_approval_required',
   'tracking_only_link_gate_not_ready',
@@ -564,7 +602,11 @@ export type AdminProductConfiguration = Readonly<{
     hasLiveDefaultFunnel: boolean
     hasActiveAgreement: boolean
     hasActiveBillingOffer: boolean
+    hasActiveTestBillingOffer?: boolean
+    /** Managed one-time integration opt-in; checkout still has a separate runtime switch. */
+    managedPaymentCheckoutEnabled?: boolean
     trackingReady: boolean
+    testTrackingReady?: boolean
     trackingOnlyReady: boolean
     trackingOnlyCanIssueLinks: boolean
   }>
@@ -757,7 +799,37 @@ export type AdminTrackingConfigurationUpdate = Readonly<{
   expectedUpdatedAt: string | null
 }>
 
+export type AdminAgreementOperationsHealth = Readonly<{
+  pending: number
+  processing: number
+  failed: number
+  sent: number
+  oldestPendingAt: string | null
+  cleanupPending: number
+  cleanupProcessing: number
+  cleanupFailed: number
+  cleanupDone: number
+}>
+
 export interface AdminGateway {
+  getPayoutWorkspace?: (
+    input: import('./payouts').PayoutFilters,
+  ) => Promise<AdminDataResult<import('./payouts').PayoutWorkspace | null>>
+  getPayoutStatement?: (
+    id: string,
+  ) => Promise<AdminDataResult<import('./payouts').PayoutStatement | null>>
+  performPayoutAction?: (
+    input: import('./payouts').PayoutActionInput,
+  ) => Promise<AdminDataResult<import('./payouts').PayoutActionResult | null>>
+  getSubscriptions?: (
+    input: import('./subscriptions').SubscriptionFilters,
+  ) => Promise<AdminDataResult<import('./subscriptions').AdminSubscriptionPage | null>>
+  getProcessingHealth?: () => Promise<
+    AdminDataResult<import('./processingHealth').AdminProcessingHealth | null>
+  >
+  getAgreementOperationsHealth?: () => Promise<
+    AdminDataResult<AdminAgreementOperationsHealth | null>
+  >
   getAdminContext(): Promise<AdminDataResult<AdminContext | null>>
   getProducts(): Promise<AdminDataResult<AdminProduct[]>>
   createProduct(input: AdminProductCreate): Promise<AdminDataResult<AdminProduct | null>>

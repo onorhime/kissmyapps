@@ -1,3 +1,4 @@
+import { useFormNavigationGuard } from '../../components/useFormNavigationGuard'
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity,
@@ -28,6 +29,8 @@ import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
+import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
+import { PayoutsPage } from './payouts/PayoutsPage'
 import { useAdminWorkspace, type AdminWorkspaceStatus } from './useAdminWorkspace'
 import './AdminPortal.css'
 
@@ -37,6 +40,8 @@ export type AdminPrimaryRoute =
   | 'affiliates'
   | 'funnels-links'
   | 'attribution'
+  | 'subscriptions'
+  | 'payouts'
   | 'data-health'
   | 'settings'
 export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
@@ -60,7 +65,7 @@ export type AdminPortalAppProps = Readonly<{
   onSwitchToPartner: () => void | Promise<void>
 }>
 
-type UpcomingRoute = 'subscriptions' | 'payouts' | 'documents'
+type UpcomingRoute = 'documents'
 
 const navigation: readonly (
   | { id: AdminPrimaryRoute; label: string; icon: typeof Gauge; enabled: true }
@@ -71,8 +76,8 @@ const navigation: readonly (
   { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: true },
   { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: true },
   { id: 'attribution', label: 'Attribution', icon: Activity, enabled: true },
-  { id: 'subscriptions', label: 'Subscriptions', icon: Boxes, enabled: false },
-  { id: 'payouts', label: 'Payouts', icon: BadgeDollarSign, enabled: false },
+  { id: 'subscriptions', label: 'Subscriptions', icon: Boxes, enabled: true },
+  { id: 'payouts', label: 'Payouts', icon: BadgeDollarSign, enabled: true },
   { id: 'documents', label: 'Documents', icon: FileText, enabled: false },
   { id: 'data-health', label: 'Data Health', icon: DatabaseZap, enabled: true },
   { id: 'settings', label: 'Settings', icon: Settings, enabled: true },
@@ -84,6 +89,8 @@ const routeLabels: Record<AdminRoute, string> = {
   affiliates: 'Affiliates',
   'funnels-links': 'Funnels & Links',
   attribution: 'Attribution',
+  subscriptions: 'Subscriptions',
+  payouts: 'Payouts',
   'data-health': 'Data Health',
   settings: 'Settings',
   'product-configuration': 'Product configuration',
@@ -182,6 +189,7 @@ export function AdminPortalApp({
   const [signOutPending, setSignOutPending] = useState(false)
   const previousRoute = useRef(route)
   const mainRef = useRef<HTMLElement>(null)
+  const guard = useFormNavigationGuard(true, sessionUserId ?? '')
   const context = state.context
   const displayName = context?.fullName ?? identity?.name?.trim() ?? 'Admin account'
   const displayEmail = context?.email ?? identity?.email?.trim() ?? 'Protected access'
@@ -196,14 +204,20 @@ export function AdminPortalApp({
     return (
       (routeId === 'funnels-links' && funnelsLinksRestricted) ||
       ((routeId === 'attribution' || routeId === 'data-health') && observabilityRestricted) ||
-      (routeId === 'settings' && settingsRestricted)
+      (routeId === 'settings' && settingsRestricted) ||
+      ((routeId === 'subscriptions' || routeId === 'payouts') && context?.role === 'support')
     )
   }
 
   useEffect(() => {
     if (previousRoute.current !== route) {
-      mainRef.current?.focus({ preventScroll: true })
-      window.scrollTo({ top: 0, behavior: 'auto' })
+      const affiliateOverlay = [previousRoute.current, route].every(
+        (value) => value === 'affiliates' || value === 'affiliate-detail',
+      )
+      if (!affiliateOverlay) {
+        mainRef.current?.focus({ preventScroll: true })
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      }
       previousRoute.current = route
     }
   }, [route])
@@ -233,11 +247,15 @@ export function AdminPortalApp({
   function navigate(nextRoute: AdminRoute) {
     setMobileNavRoute(null)
     if (nextRoute === route) return
-    onNavigate(nextRoute)
+    guard.request(() => onNavigate(nextRoute))
   }
 
   return (
-    <div className="admin-portal">
+    <div
+      className="admin-portal"
+      onFocusCapture={guard.capture}
+      onPointerDownCapture={guard.capture}
+    >
       <a
         className="admin-skip-link"
         href="#admin-main-content"
@@ -300,7 +318,7 @@ export function AdminPortalApp({
             <button
               className="admin-switch-button"
               type="button"
-              onClick={() => void safelySwitchToPartner()}
+              onClick={() => guard.request(() => void safelySwitchToPartner())}
             >
               <ArrowRightLeft size={17} aria-hidden="true" />
               Switch to Partner
@@ -342,7 +360,7 @@ export function AdminPortalApp({
                 type="button"
                 disabled={signOutPending || !sessionUserId}
                 aria-label={signOutPending ? 'Signing out…' : 'Sign out'}
-                onClick={() => void safelySignOut()}
+                onClick={() => guard.request(() => void safelySignOut())}
               >
                 {signOutPending ? (
                   <LoaderCircle className="admin-spin" size={17} aria-hidden="true" />
@@ -382,7 +400,7 @@ export function AdminPortalApp({
               <button
                 className="admin-mobile-switch-button"
                 type="button"
-                onClick={() => void safelySwitchToPartner()}
+                onClick={() => guard.request(() => void safelySwitchToPartner())}
               >
                 <ArrowRightLeft size={16} aria-hidden="true" />
                 Switch to Partner
@@ -436,7 +454,7 @@ export function AdminPortalApp({
                   context={context}
                   products={state.products}
                   onCreate={createProduct}
-                  onConfigure={onOpenProductConfiguration}
+                  onConfigure={(id) => guard.request(() => onOpenProductConfiguration(id))}
                 />
               ) : route === 'funnels-links' ? (
                 funnelsLinksRestricted ? (
@@ -511,6 +529,15 @@ export function AdminPortalApp({
                     onOpenFunnelsLinks={() => navigate('funnels-links')}
                   />
                 )
+              ) : route === 'subscriptions' ? (
+                <SubscriptionsPage
+                  key={context.userId}
+                  role={context.role}
+                  products={state.products}
+                  gateway={effectiveGateway}
+                />
+              ) : route === 'payouts' ? (
+                <PayoutsPage key={context.userId} role={context.role} gateway={effectiveGateway} />
               ) : route === 'affiliates' || route === 'affiliate-detail' ? (
                 <AffiliatesPage
                   key={context.userId}
@@ -571,6 +598,7 @@ export function AdminPortalApp({
           </footer>
         </div>
       </div>
+      {guard.dialog}
     </div>
   )
 }

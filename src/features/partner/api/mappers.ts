@@ -23,6 +23,7 @@ import type {
   PartnerProfile,
   PartnerReconciliationStage,
   PartnerRole,
+  PartnerSignatureReceipt,
   PartnerSignatureRequest,
   PartnerStatus,
   PartnerTrendPoint,
@@ -195,7 +196,13 @@ export function mapPartnerProduct(value: unknown): PartnerProduct {
     payoutCurrency: nullableString(row.payout_currency, 'payout_currency'),
     hasLiveFunnel: boolean(row.has_live_funnel, 'has_live_funnel'),
     mainLinkId: nullableString(row.main_link_id, 'main_link_id'),
-    mainTrackingUrl: nullableString(row.main_tracking_url, 'main_tracking_url'),
+    testMainLinkId: nullableString(row.test_main_link_id, 'test_main_link_id'),
+    testMainTrackingUrl:
+      nullableString(row.test_main_short_url, 'test_main_short_url') ??
+      nullableString(row.test_main_tracking_url, 'test_main_tracking_url'),
+    mainTrackingUrl:
+      nullableString(row.main_short_url, 'main_short_url') ??
+      nullableString(row.main_tracking_url, 'main_tracking_url'),
   }
 }
 
@@ -229,7 +236,9 @@ export function mapPartnerLink(value: unknown): PartnerLink {
     sub2: possiblyEmptyString(row.sub2, 'sub2'),
     sub3: possiblyEmptyString(row.sub3, 'sub3'),
     status: enumValue(row.status, linkStatuses, 'status'),
-    trackingUrl: string(row.tracking_url, 'tracking_url'),
+    trackingUrl:
+      nullableString(row.short_url, 'short_url') ?? string(row.tracking_url, 'tracking_url'),
+    environment: enumValue(row.environment ?? 'live', ['test', 'live'] as const, 'environment'),
     parentLinkId: nullableString(row.parent_link_id, 'parent_link_id'),
     commercialEligible: boolean(row.commercial_eligible, 'commercial_eligible'),
     clicks: integer(row.clicks, 'clicks'),
@@ -370,7 +379,44 @@ export function mapPartnerPayoutDetail(value: unknown): PartnerPayoutDetail {
 
 function mapCommissionRule(value: unknown): PartnerCommissionRule {
   const row = record(value, 'commission rule')
+  const policyVersion =
+    row.policy_version === undefined
+      ? undefined
+      : integer(row.policy_version, 'rule.policy_version')
+  const policy =
+    policyVersion !== undefined && policyVersion >= 2
+      ? {
+          policyVersion,
+          ...(policyVersion >= 3
+            ? {
+                firstPurchaseOnly: boolean(row.first_purchase_only, 'rule.first_purchase_only'),
+                fulfilmentRequired: boolean(row.fulfilment_required, 'rule.fulfilment_required'),
+              }
+            : {}),
+          validationWindowHours: integer(
+            row.validation_window_hours,
+            'rule.validation_window_hours',
+          ),
+          refundCutoffDays:
+            row.refund_cutoff_days === null
+              ? null
+              : integer(row.refund_cutoff_days, 'rule.refund_cutoff_days'),
+          commissionBasisPolicy: enumValue(
+            row.commission_basis_policy,
+            ['net_after_fees', 'subtotal_ex_tax_shipping'] as const,
+            'rule.commission_basis_policy',
+          ),
+          externalRefundCalculation: enumValue(
+            row.external_refund_calculation,
+            ['proportional_commission'] as const,
+            'rule.external_refund_calculation',
+          ),
+        }
+      : {}
   return {
+    ...policy,
+    ...(row.version === undefined ? {} : { version: integer(row.version, 'rule.version') }),
+    ...(row.status === undefined ? {} : { status: string(row.status, 'rule.status') }),
     name: string(row.name, 'rule.name'),
     model: enumValue(row.model, commissionModels, 'rule.model'),
     triggerEvent: string(row.trigger_event, 'rule.trigger_event'),
@@ -403,6 +449,7 @@ export function mapPartnerDocument(value: unknown): PartnerDocument {
   const row = record(value)
   return {
     id: string(row.id, 'id'),
+    productId: nullableString(row.product_id, 'product_id'),
     name: string(row.name, 'name'),
     type: string(row.document_type, 'document_type'),
     version: integer(row.version, 'version'),
@@ -422,9 +469,52 @@ export function mapPartnerDocument(value: unknown): PartnerDocument {
   }
 }
 
+export function mapPartnerDocumentDownload(value: unknown) {
+  const row = record(value)
+  const filePath = string(row.file_path, 'file_path')
+  if (
+    filePath.length > 2000 ||
+    !/^[0-9a-f-]{36}\//i.test(filePath) ||
+    filePath.includes('\\') ||
+    filePath.split('/').some((part) => !part || part === '.' || part === '..')
+  )
+    throw new Error('Invalid document path')
+  return {
+    ...(row.rules === undefined
+      ? {}
+      : { rules: records(row.rules, 'signature rules').map(mapCommissionRule) }),
+    ...(row.terms_sha256 == null ? {} : { termsSha256: string(row.terms_sha256, 'terms_sha256') }),
+    documentId: string(row.document_id, 'document_id'),
+    bucket: enumValue(row.bucket, ['affiliate-private-documents'] as const, 'bucket'),
+    filePath,
+  }
+}
+
+export function mapPartnerSignatureReceipt(value: unknown): PartnerSignatureReceipt {
+  const row = record(value)
+  const signedAt = string(row.signed_by_partner_at, 'signed_by_partner_at')
+  const acknowledgedAt = string(row.partner_acknowledged_at, 'partner_acknowledged_at')
+  if (!Number.isFinite(Date.parse(signedAt)) || !Number.isFinite(Date.parse(acknowledgedAt)))
+    throw new Error('signature evidence timestamps are invalid')
+  return {
+    documentId: string(row.id, 'id'),
+    agreementId: string(row.agreement_id, 'agreement_id'),
+    version: integer(row.version, 'version'),
+    status: enumValue(row.status, ['awaiting_kissmyapps_signature'] as const, 'status'),
+    signerName: string(row.partner_signer_name, 'partner_signer_name'),
+    signerUserId: string(row.partner_signer_user_id, 'partner_signer_user_id'),
+    signedAt,
+    acknowledgedAt,
+  }
+}
+
 export function mapPartnerSignatureQueue(value: unknown): readonly PartnerSignatureRequest[] {
   if (value === null || value === undefined) return []
   return records(value, 'signature queue').map((row) => ({
+    ...(row.rules === undefined
+      ? {}
+      : { rules: records(row.rules, 'signature rules').map(mapCommissionRule) }),
+    ...(row.terms_sha256 == null ? {} : { termsSha256: string(row.terms_sha256, 'terms_sha256') }),
     documentId: string(row.document_id, 'document_id'),
     name: string(row.name, 'name'),
     version: integer(row.version, 'version'),

@@ -148,7 +148,9 @@ describe('Admin portal shell', () => {
     expect(within(navigation).getByRole('button', { name: 'Attribution' })).toBeEnabled()
     expect(within(navigation).getByRole('button', { name: 'Data Health' })).toBeEnabled()
     expect(within(navigation).getByRole('button', { name: 'Settings' })).toBeEnabled()
-    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(3)
+    expect(within(navigation).getByRole('button', { name: 'Subscriptions' })).toBeEnabled()
+    expect(within(navigation).getByRole('button', { name: 'Payouts' })).toBeEnabled()
+    expect(within(navigation).getAllByText('Upcoming')).toHaveLength(1)
     expect(screen.getByText('Kissmyapps')).toBeVisible()
     expect(screen.getByText('Admin', { selector: '.brand-context' })).toBeVisible()
 
@@ -172,6 +174,9 @@ describe('Admin portal shell', () => {
     await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Settings' }))
     expect(props.onNavigate).toHaveBeenCalledWith('settings')
 
+    await userEvent.setup().click(within(navigation).getByRole('button', { name: 'Payouts' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('payouts')
+
     await userEvent.setup().click(screen.getByRole('button', { name: 'Menu' }))
     const mobileNavigation = screen.getByRole('navigation', { name: 'Mobile admin navigation' })
     expect(within(mobileNavigation).getByRole('button', { name: 'Funnels & Links' })).toBeEnabled()
@@ -187,6 +192,7 @@ describe('Admin portal shell', () => {
     ['attribution', 'Attribution'],
     ['data-health', 'Data Health'],
     ['settings', 'Settings'],
+    ['payouts', 'Payouts'],
   ] as const)('marks %s active in desktop and mobile navigation', async (route, label) => {
     renderPortal({ route })
 

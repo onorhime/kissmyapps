@@ -17,6 +17,7 @@ export type ProductConfigurationState = Readonly<{
   affiliates: readonly AdminAffiliate[]
   sources: readonly AdminSource[]
   error: AdminDataError | null
+  refreshing: boolean
 }>
 
 function loadingState(): ProductConfigurationState {
@@ -26,6 +27,7 @@ function loadingState(): ProductConfigurationState {
     affiliates: [],
     sources: [],
     error: null,
+    refreshing: false,
   }
 }
 
@@ -52,10 +54,11 @@ export function useProductConfiguration({
   const [reloadVersion, setReloadVersion] = useState(0)
   const [scopedState, setScopedState] = useState<{
     productId: string
+    gateway: typeof gateway
     value: ProductConfigurationState
-  }>(() => ({ productId, value: loadingState() }))
+  }>(() => ({ productId, gateway, value: loadingState() }))
   const state = gateway
-    ? scopedState.productId === productId
+    ? scopedState.productId === productId && scopedState.gateway === gateway
       ? scopedState.value
       : loadingState()
     : {
@@ -72,53 +75,81 @@ export function useProductConfiguration({
     if (!gateway) return
     let active = true
 
-    void (async () => {
-      const configurationResult = await gateway.getProductConfiguration(productId)
+    function fail(error: AdminDataError | null) {
       if (!active) return
-      if (configurationResult.status !== 'ready' || !configurationResult.data) {
-        setScopedState({
-          productId,
-          value: {
-            ...loadingState(),
-            status: failedStatus(configurationResult.error),
-            error: configurationResult.error,
-          },
-        })
-        return
-      }
-
-      const [affiliatesResult, sourcesResult] = await Promise.all([
-        gateway.getAffiliates(),
-        gateway.getSources(),
-      ])
-      if (!active) return
-      const affiliatesReady =
-        affiliatesResult.status === 'ready' || affiliatesResult.status === 'empty'
-      const sourcesReady = sourcesResult.status === 'ready' || sourcesResult.status === 'empty'
-      if (!affiliatesReady || !sourcesReady) {
-        const error = affiliatesReady ? sourcesResult.error : affiliatesResult.error
-        setScopedState({
-          productId,
-          value: {
-            ...loadingState(),
-            status: failedStatus(error),
-            error,
-          },
-        })
-        return
-      }
-
-      onProductRead?.(configurationResult.data.product)
-      setScopedState({
+      const status = failedStatus(error)
+      setScopedState((current) => ({
         productId,
-        value: {
-          status: 'ready',
-          configuration: configurationResult.data,
-          affiliates: affiliatesResult.data,
-          sources: sourcesResult.data,
-          error: null,
-        },
-      })
+        gateway,
+        value:
+          status === 'error' &&
+          current.productId === productId &&
+          current.gateway === gateway &&
+          current.value.configuration
+            ? {
+                ...current.value,
+                refreshing: false,
+                error: error ?? {
+                  code: 'temporarily_unavailable',
+                  message: 'Configuration refresh failed.',
+                  retryable: true,
+                },
+              }
+            : { ...loadingState(), status, error },
+      }))
+    }
+
+    void (async () => {
+      try {
+        const configurationResult = await gateway.getProductConfiguration(productId)
+        if (!active) return
+        if (configurationResult.data && configurationResult.data.product.id !== productId) {
+          fail({
+            code: 'invalid_reference',
+            message: 'Product configuration does not match this workspace.',
+            retryable: false,
+          })
+          return
+        }
+        if (configurationResult.status !== 'ready' || !configurationResult.data) {
+          fail(configurationResult.error)
+          return
+        }
+
+        const [affiliatesResult, sourcesResult] = await Promise.all([
+          gateway.getAffiliates(),
+          gateway.getSources(),
+        ])
+        if (!active) return
+        const affiliatesReady =
+          affiliatesResult.status === 'ready' || affiliatesResult.status === 'empty'
+        const sourcesReady = sourcesResult.status === 'ready' || sourcesResult.status === 'empty'
+        if (!affiliatesReady || !sourcesReady) {
+          const error = affiliatesReady ? sourcesResult.error : affiliatesResult.error
+          fail(error)
+          return
+        }
+
+        onProductRead?.(configurationResult.data.product)
+        setScopedState({
+          productId,
+          gateway,
+          value: {
+            status: 'ready',
+            configuration: configurationResult.data,
+            affiliates: affiliatesResult.data,
+            sources: sourcesResult.data,
+            error: null,
+            refreshing: false,
+          },
+        })
+      } catch {
+        fail({
+          code: 'temporarily_unavailable',
+          message: 'Configuration refresh failed. Your saved changes were not undone.',
+          retryable: true,
+        })
+      }
     })()
 
     return () => {
@@ -127,9 +158,24 @@ export function useProductConfiguration({
   }, [gateway, onProductRead, productId, reloadVersion])
 
   const reload = useCallback(() => {
-    setScopedState({ productId, value: loadingState() })
+    setScopedState((current) => ({
+      productId,
+      gateway,
+      value:
+        current.productId === productId &&
+        current.gateway === gateway &&
+        current.value.configuration
+          ? { ...current.value, refreshing: true, error: null }
+          : loadingState(),
+    }))
     setReloadVersion((version) => version + 1)
-  }, [productId])
+  }, [productId, gateway])
 
-  return { state, reload }
+  const invalidate = (error: AdminDataError) =>
+    setScopedState({
+      productId,
+      gateway,
+      value: { ...loadingState(), status: failedStatus(error), error },
+    })
+  return { state, reload, invalidate }
 }

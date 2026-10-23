@@ -124,6 +124,10 @@ export type PartnerLiveWorkspaceActions = Readonly<{
 
 export type PartnerLiveWorkspaceValue = Readonly<{
   snapshot: PartnerLiveWorkspaceSnapshot
+  /** Scope independent reporting surfaces to the active account and date window. */
+  sessionUserId: string | null
+  reporting: PartnerLiveReportingQuery
+  client?: PartnerSupabaseClient | null
   selectedProductId: string | null
   isRefreshing: boolean
   mutation: PartnerLiveMutationState
@@ -133,6 +137,8 @@ export type PartnerLiveWorkspaceValue = Readonly<{
 }>
 
 export type PartnerLiveWorkspaceProviderProps = Readonly<{
+  /** Opt in only on read-only report pages; never poll an editing workflow. */
+  autoRefresh?: boolean
   children: ReactNode
   client?: PartnerSupabaseClient | null
   sessionUserId: string | null

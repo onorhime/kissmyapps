@@ -458,7 +458,9 @@ describe('live partner session shell', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Partner data is not available')).toBeInTheDocument()
     expect(screen.getByText('The partner data connection is not configured.')).toBeInTheDocument()
-    expect(screen.getByText('No active products')).toBeInTheDocument()
+    expect(screen.getByText('Products unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('No active products')).not.toBeInTheDocument()
+    expect(screen.queryByText('No agreement configured')).not.toBeInTheDocument()
     expect(screen.getByText('North Star Media')).toBeInTheDocument()
     expect(screen.getByText('partner@example.com')).toBeInTheDocument()
     expect(screen.queryByText('UI preview')).not.toBeInTheDocument()
@@ -529,6 +531,8 @@ describe('live partner session shell', () => {
 
   it.each([
     ['attribution', 'Attribution', 'Admin attribution · KissMyApps Admin'],
+    ['subscriptions', 'Subscriptions', 'Admin subscriptions · KissMyApps Admin'],
+    ['payouts', 'Payouts', 'Admin payouts · KissMyApps Admin'],
     ['data-health', 'Data Health', 'Admin data health · KissMyApps Admin'],
     ['settings', 'Settings', 'Admin settings · KissMyApps Admin'],
   ] as const)(
@@ -560,7 +564,7 @@ describe('live partner session shell', () => {
     },
   )
 
-  it.each(['attribution', 'data-health', 'settings'] as const)(
+  it.each(['attribution', 'subscriptions', 'payouts', 'data-health', 'settings'] as const)(
     'keeps the Partner host authoritative over the %s Admin route',
     async (route) => {
       vi.mocked(useAuthSession).mockReturnValue(authenticatedSession)

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { mapAdminBillingOffer, mapAdminMainLink } from './configurationMappers'
 import { ADMIN_EDGE_FUNCTIONS, ADMIN_RPCS, createAdminGateway } from './gateway'
 import type { AdminBackendResponse, AdminEdgeFunctionResponse, AdminSupabaseClient } from './types'
 
@@ -51,6 +52,7 @@ describe('admin configuration RPC gateway', () => {
     })
     expect(ADMIN_EDGE_FUNCTIONS).toEqual({
       verifyBillingOfferPrice: 'stripe-price-verifier',
+      verifyManagedBillingOfferPrice: 'managed-price-verifier',
     })
   })
 
@@ -118,9 +120,51 @@ describe('admin configuration RPC gateway', () => {
       status: 'ready',
       data: {
         tracking: { enabled: false, baseUrl: null },
-        readiness: { trackingReady: false, hasActiveBillingOffer: false },
+        readiness: {
+          trackingReady: false,
+          hasActiveBillingOffer: false,
+          managedPaymentCheckoutEnabled: false,
+        },
         funnels: [],
         agreements: [],
+      },
+    })
+  })
+
+  it('maps managed one-time checkout opt-in separately from subscription launch readiness', async () => {
+    const rpcClient = client({
+      data: {
+        product,
+        tracking: { enabled: false, base_url: null },
+        readiness: {
+          has_live_default_funnel: false,
+          has_active_agreement: false,
+          has_active_billing_offer: false,
+          tracking_ready: false,
+          tracking_only_ready: false,
+          tracking_only_can_issue_links: false,
+          managed_payment_checkout_enabled: true,
+        },
+        funnels: [],
+        campaigns: [],
+        agreements: [],
+        billing_offers: [],
+        main_links: [],
+      },
+      error: null,
+      status: 200,
+    })
+
+    const result = await createAdminGateway(rpcClient.value).getProductConfiguration?.('product-1')
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      data: {
+        readiness: {
+          managedPaymentCheckoutEnabled: true,
+          hasActiveBillingOffer: false,
+          trackingReady: false,
+        },
       },
     })
   })
@@ -340,10 +384,40 @@ describe('admin configuration RPC gateway', () => {
 
     const payload = rpcClient.rpc.mock.calls[0]?.[1] as { p_input: Record<string, unknown> }
     expect(payload).toEqual({
-      p_input: { affiliate_id: 'affiliate-1', product_id: 'product-1' },
+      p_input: { affiliate_id: 'affiliate-1', product_id: 'product-1', environment: 'live' },
     })
-    expect(Object.keys(payload.p_input)).toEqual(['affiliate_id', 'product_id'])
+    expect(Object.keys(payload.p_input)).toEqual(['affiliate_id', 'product_id', 'environment'])
     expect(result?.data).toMatchObject({ partnerName: 'Creator Studio' })
+  })
+
+  it('sends the selected TEST environment and preserves the server-owned readable test URL', async () => {
+    const rpcClient = client({
+      data: {
+        id: 'test-link-1',
+        affiliate_id: 'affiliate-1',
+        product_id: 'product-1',
+        funnel_id: 'funnel-1',
+        environment: 'test',
+        status: 'active',
+        tracking_url: 'https://go.example.test/r/partner/server-code',
+        short_url: 'https://go.example.test/product/creator/test',
+        created_at: '2026-10-22T10:00:00.000Z',
+      },
+      error: null,
+      status: 200,
+    })
+    const result = await createAdminGateway(rpcClient.value).issueMainLink?.({
+      affiliateId: 'affiliate-1',
+      productId: 'product-1',
+      environment: 'test',
+    })
+    expect(rpcClient.rpc).toHaveBeenCalledExactlyOnceWith('issue_admin_main_link', {
+      p_input: { affiliate_id: 'affiliate-1', product_id: 'product-1', environment: 'test' },
+    })
+    expect(result?.data).toMatchObject({
+      environment: 'test',
+      trackingUrl: 'https://go.example.test/product/creator/test',
+    })
   })
 
   it('sanitizes lifecycle failures instead of returning database wording', async () => {
@@ -472,5 +546,211 @@ describe('admin configuration RPC gateway', () => {
       error: { code: 'invalid_state', retryable: false },
     })
     expect(result?.error?.message).not.toMatch(/sk_live|amount 1|raw Stripe/i)
+  })
+})
+
+it('sends and reads the canonical rule refund policy without a second settlement rate', async () => {
+  const rpcClient = client({
+    data: {
+      id: 'rule-1',
+      agreement_id: 'agreement-1',
+      name: 'Signed share',
+      version: 1,
+      status: 'draft',
+      model: 'revenue_share',
+      trigger_event: 'purchase.completed',
+      fixed_amount_minor: null,
+      rate_basis_points: 1500,
+      currency: null,
+      validation_window_hours: 72,
+      refund_cutoff_days: 30,
+      commission_basis_policy: 'subtotal_ex_tax_shipping',
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+    },
+    error: null,
+    status: 200,
+  })
+  const result = await createAdminGateway(rpcClient.value).createCommissionRule?.({
+    agreementId: 'agreement-1',
+    name: 'Signed share',
+    model: 'revenue_share',
+    triggerEvent: 'purchase.completed',
+    fixedAmountMinor: null,
+    rateBasisPoints: 1500,
+    currency: null,
+    validationWindowHours: 72,
+    refundCutoffDays: 30,
+    commissionBasisPolicy: 'subtotal_ex_tax_shipping',
+  })
+  expect(rpcClient.rpc).toHaveBeenCalledWith('create_admin_commission_rule', {
+    p_input: {
+      agreement_id: 'agreement-1',
+      name: 'Signed share',
+      model: 'revenue_share',
+      trigger_event: 'purchase.completed',
+      fixed_amount_minor: null,
+      rate_basis_points: 1500,
+      currency: null,
+      validation_window_hours: 72,
+      refund_cutoff_days: 30,
+      commission_basis_policy: 'subtotal_ex_tax_shipping',
+    },
+  })
+  expect(result?.data).toMatchObject({
+    refundCutoffDays: 30,
+    commissionBasisPolicy: 'subtotal_ex_tax_shipping',
+    validationWindowHours: 72,
+  })
+})
+it('creates eligibility only as an explicit new canonical commission rule', async () => {
+  const row = {
+    id: 'rule-new',
+    agreement_id: 'agreement-draft',
+    name: 'First fulfilled purchase',
+    version: 1,
+    status: 'draft',
+    model: 'revenue_share',
+    trigger_event: 'purchase.completed',
+    fixed_amount_minor: null,
+    rate_basis_points: 2500,
+    currency: null,
+    validation_window_hours: 72,
+    refund_cutoff_days: 30,
+    commission_basis_policy: 'subtotal_ex_tax_shipping',
+    policy_version: 3,
+    first_purchase_only: true,
+    fulfilment_required: true,
+    created_at: product.created_at,
+    updated_at: product.updated_at,
+  }
+  const c = client({ data: row, error: null, status: 200 })
+  const result = await createAdminGateway(c.value).createCommissionRule?.({
+    agreementId: 'agreement-draft',
+    name: row.name,
+    model: 'revenue_share',
+    triggerEvent: 'purchase.completed',
+    fixedAmountMinor: null,
+    rateBasisPoints: 2500,
+    currency: null,
+    validationWindowHours: 72,
+    refundCutoffDays: 30,
+    commissionBasisPolicy: 'subtotal_ex_tax_shipping',
+    firstPurchaseOnly: true,
+    fulfilmentRequired: true,
+  })
+  expect(c.rpc).toHaveBeenCalledWith('create_admin_commission_rule', {
+    p_input: expect.objectContaining({
+      first_purchase_only: true,
+      fulfilment_required: true,
+      rate_basis_points: 2500,
+      validation_window_hours: 72,
+      refund_cutoff_days: 30,
+    }),
+  })
+  expect(result?.data).toMatchObject({
+    firstPurchaseOnly: true,
+    fulfilmentRequired: true,
+    validationWindowHours: 72,
+    refundCutoffDays: 30,
+  })
+})
+
+it('routes managed Price verification to the scoped verifier and validates its account and mode receipt', async () => {
+  const receipt = {
+    verified: true,
+    billing_offer_id: 'offer-1',
+    request_id: 'request-1',
+    binding_id: 'marathon-test',
+    stripe_price_id: 'price_ManagedFixture',
+    account_id: 'acct_fixture',
+    livemode: false,
+  }
+  const rpcClient = clientWithFunctions({ data: receipt, error: null })
+  const request = {
+    billingOfferId: 'offer-1',
+    managed: { bindingId: 'marathon-test', stripePriceId: 'price_ManagedFixture' },
+  }
+  const response = await createAdminGateway(rpcClient.value).verifyBillingOfferPrice?.(request)
+  expect(rpcClient.invoke).toHaveBeenCalledWith('managed-price-verifier', {
+    body: {
+      billing_offer_id: 'offer-1',
+      binding_id: 'marathon-test',
+      stripe_price_id: 'price_ManagedFixture',
+    },
+  })
+  expect(response?.data?.managed).toEqual({
+    bindingId: 'marathon-test',
+    stripePriceId: 'price_ManagedFixture',
+    accountId: 'acct_fixture',
+    livemode: false,
+  })
+  const wrong = clientWithFunctions({ data: { ...receipt, binding_id: 'other' }, error: null })
+  expect(
+    (await createAdminGateway(wrong.value).verifyBillingOfferPrice?.(request))?.data,
+  ).toBeNull()
+})
+
+describe('server-controlled one-time link readiness', () => {
+  const offer = {
+    id: 'offer-1',
+    product_id: product.id,
+    key: 'marathon',
+    version: 1,
+    name: 'Marathon',
+    billing_mode: 'payment',
+    stripe_price_id: 'price_MarathonCommercial',
+    currency: 'USD',
+    unit_amount_minor: 16900,
+    success_url_template: 'https://marathon.speaksix.com/success?session_id={CHECKOUT_SESSION_ID}',
+    cancel_url: 'https://marathon.speaksix.com',
+    status: 'active',
+    stripe_price_verified: false,
+    stripe_livemode_verified_at: null,
+    created_at: product.created_at,
+    updated_at: product.updated_at,
+  }
+
+  it('requires an explicit server-ready flag and tolerates older mutation responses', () => {
+    expect(mapAdminBillingOffer({ ...offer, main_link_ready: true }).mainLinkReady).toBe(true)
+    expect(mapAdminBillingOffer({ ...offer, main_link_ready: false }).mainLinkReady).toBe(false)
+    expect(mapAdminBillingOffer(offer).mainLinkReady).toBe(false)
+  })
+
+  it.each([null, 'true', 1])('rejects a malformed readiness flag: %s', (value) => {
+    expect(() => mapAdminBillingOffer({ ...offer, main_link_ready: value })).toThrow()
+  })
+})
+
+describe('readable admin creator links', () => {
+  const link = {
+    id: 'link-1',
+    affiliate_id: 'affiliate-1',
+    product_id: 'product-1',
+    partner_name: 'Victory',
+    funnel_id: 'funnel-1',
+    name: 'Marathon',
+    public_code: 'abcdefghijklmnop',
+    tracking_url: 'https://go.example.test/r/partner/abcdefghijklmnop',
+    status: 'active',
+    created_at: '2026-10-18T10:00:00Z',
+  }
+
+  it('displays the server alias without changing attribution identity', () => {
+    expect(
+      mapAdminMainLink({
+        ...link,
+        short_url: 'https://go.kissmyapps.dev/speaksix-marathon/victory',
+      }),
+    ).toMatchObject({
+      id: link.id,
+      publicCode: link.public_code,
+      trackingUrl: 'https://go.kissmyapps.dev/speaksix-marathon/victory',
+    })
+  })
+
+  it('keeps the legacy link if an alias is unavailable', () => {
+    expect(mapAdminMainLink(link).trackingUrl).toBe(link.tracking_url)
+    expect(mapAdminMainLink({ ...link, short_url: null }).trackingUrl).toBe(link.tracking_url)
   })
 })

@@ -35,7 +35,8 @@ export const supabase: SupabaseClient | null = hasSupabaseConfig
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        // Stripe's OAuth code belongs to merchant-connect, not Supabase Auth.
+        detectSessionInUrl: window.location.pathname !== '/merchant/callback',
         flowType: 'pkce',
       },
     })

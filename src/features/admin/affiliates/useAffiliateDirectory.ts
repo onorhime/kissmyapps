@@ -85,9 +85,10 @@ export function useAffiliateDirectory({
   const [mutation, setMutation] = useState<AffiliateMutationState>(idleMutation)
   const [refreshVersion, setRefreshVersion] = useState(0)
   const [detailVersion, setDetailVersion] = useState(0)
-  const summaryScope = String(refreshVersion)
-  const directoryScope = `${refreshVersion}:${JSON.stringify(input)}`
-  const detailScope = `${detailVersion}:${selectedAffiliateId ?? ''}`
+  const [settledVersion, setSettledVersion] = useState(0)
+  const summaryScope = 'summary'
+  const directoryScope = JSON.stringify(input)
+  const detailScope = selectedAffiliateId ?? ''
   const [scopedSummary, setScopedSummary] = useState<
     ScopedLoadable<AdminAffiliateDirectorySummary>
   >(() => ({ gateway: managementGateway, scope: summaryScope, value: loadingLoadable() }))
@@ -134,6 +135,7 @@ export function useAffiliateDirectory({
       .getAffiliateDirectory(input)
       .then((result) => {
         if (!active) return
+        setSettledVersion(refreshVersion)
         setScopedDirectory({
           gateway: managementGateway,
           scope: directoryScope,
@@ -147,12 +149,13 @@ export function useAffiliateDirectory({
           scope: directoryScope,
           value: failedLoadable(),
         })
+        setSettledVersion(refreshVersion)
       })
 
     return () => {
       active = false
     }
-  }, [directoryScope, enabled, input, managementGateway])
+  }, [directoryScope, enabled, input, managementGateway, refreshVersion])
 
   useEffect(() => {
     if (!enabled || !selectedAffiliateId || !managementGateway) return
@@ -180,7 +183,7 @@ export function useAffiliateDirectory({
     return () => {
       active = false
     }
-  }, [detailScope, enabled, managementGateway, selectedAffiliateId])
+  }, [detailScope, enabled, managementGateway, selectedAffiliateId, detailVersion])
 
   const applyFilters = useCallback(
     (filters: Omit<AdminAffiliateDirectoryInput, 'limit' | 'offset'>) => {
@@ -274,6 +277,7 @@ export function useAffiliateDirectory({
           : loadingLoadable<AdminAffiliateDirectoryRecord>()
 
   return {
+    refreshing: settledVersion !== refreshVersion,
     input,
     summary: resolvedSummary,
     directory: resolvedDirectory,

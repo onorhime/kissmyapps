@@ -1,5 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Box, CircleAlert, LoaderCircle, PackagePlus, Settings2, ShieldCheck } from 'lucide-react'
+import { ActionNotice } from '../../../components/ActionNotice'
+import { markFormSaved } from '../../../components/useFormNavigationGuard'
+import { Box, LoaderCircle, PackagePlus, Settings2, ShieldCheck } from 'lucide-react'
 import type { AdminContext, AdminDataResult, AdminProduct, AdminProductCreate } from '../api'
 import {
   normalizeProductDraft,
@@ -33,6 +35,7 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
   const [slugEdited, setSlugEdited] = useState(false)
   const [errors, setErrors] = useState<ProductDraftErrors>({})
   const [submitting, setSubmitting] = useState(false)
+  const submitLock = useRef(false)
   const [feedback, setFeedback] = useState<{
     kind: 'success' | 'error'
     message: string
@@ -56,16 +59,18 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!canCreate || submitting) return
+    if (!canCreate || submitLock.current) return
+    const submittedForm = event.currentTarget
 
     const nextErrors = validateProductDraft(name, slug)
     const firstError = (['name', 'slug'] as const).find((field) => nextErrors[field])
     if (firstError) {
       setErrors(nextErrors)
-      queueMicrotask(() => fields.current[firstError]?.focus({ preventScroll: true }))
+      queueMicrotask(() => fields.current[firstError]?.focus())
       return
     }
 
+    submitLock.current = true
     setSubmitting(true)
     setErrors({})
     setFeedback(null)
@@ -84,6 +89,7 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
         },
       }
     } finally {
+      submitLock.current = false
       setSubmitting(false)
     }
 
@@ -91,6 +97,7 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
       setName('')
       setSlug('')
       setSlugEdited(false)
+      markFormSaved(submittedForm)
       setFeedback({
         kind: 'success',
         message: `${creation.data.name} was created as a draft product.`,
@@ -212,17 +219,7 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
             </fieldset>
           </form>
 
-          <div className="admin-feedback" aria-live="polite">
-            {feedback && (
-              <p
-                className={`admin-feedback-${feedback.kind}`}
-                role={feedback.kind === 'error' ? 'alert' : 'status'}
-              >
-                {feedback.kind === 'error' && <CircleAlert size={17} aria-hidden="true" />}
-                {feedback.message}
-              </p>
-            )}
-          </div>
+          <ActionNotice notice={feedback} onDismiss={() => setFeedback(null)} />
         </article>
 
         <article className="admin-panel admin-products-card">

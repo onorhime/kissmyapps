@@ -49,10 +49,10 @@ export function toPartnerLiveWorkspaceContext(
     agreementStatus: selectedProduct?.agreementStatus ?? null,
     mainTrackingUrl: selectedProduct?.mainTrackingUrl ?? null,
     canCreateLinks:
-      selectedProduct?.mainLinkId !== null &&
-      selectedProduct?.mainLinkId !== undefined &&
-      selectedProduct.mainTrackingUrl !== null &&
-      snapshot.availability.funnels === 'available',
+      Boolean(
+        (selectedProduct?.mainLinkId && selectedProduct.mainTrackingUrl) ||
+        (selectedProduct?.testMainLinkId && selectedProduct.testMainTrackingUrl),
+      ) && snapshot.availability.funnels === 'available',
     availability: snapshot.availability,
   }
 }

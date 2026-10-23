@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -6,6 +6,7 @@ import {
   emptyPartnerPayoutSummary,
   type PartnerDataGateway,
   type PartnerDataResult,
+  type PartnerDocument,
   type PartnerLink,
   type PartnerProduct,
   type PartnerProfile,
@@ -197,11 +198,16 @@ function gateway() {
   return { dataGateway, createPartnerLink }
 }
 
-function renderPortal(dataGateway: PartnerDataGateway, page: PortalPage = 'links') {
-  return render(
+function portal(
+  dataGateway: PartnerDataGateway,
+  page: PortalPage = 'links',
+  sessionUserId: string | null = 'user-1',
+) {
+  return (
     <PartnerLiveWorkspaceProvider
       gateway={dataGateway}
-      sessionUserId="user-1"
+      client={null}
+      sessionUserId={sessionUserId}
       reporting={{
         startsOn: '2026-08-01',
         endsOn: '2026-09-01',
@@ -211,11 +217,532 @@ function renderPortal(dataGateway: PartnerDataGateway, page: PortalPage = 'links
       }}
     >
       <LivePartnerPortal page={page} />
-    </PartnerLiveWorkspaceProvider>,
+    </PartnerLiveWorkspaceProvider>
   )
 }
 
+it('offers configured funnel reporting when a commercial product has no canonical finance activity yet', async () => {
+  const { dataGateway } = gateway()
+  dataGateway.getProducts = async () =>
+    result([{ ...product, trackingMode: 'commercial' }], 'ready')
+  render(portal(dataGateway, 'performance'))
+  expect(
+    await screen.findByRole('heading', { name: 'Configured funnel metrics' }),
+  ).toBeInTheDocument()
+  expect(screen.getByLabelText('Metrics funnel')).toHaveValue('funnel-demo')
+  // Existing financial cards remain independently unavailable; custom reporting is not hidden.
+  expect(screen.getByText('Financial totals are not available yet.')).toBeInTheDocument()
+  expect(screen.queryByText('No verified activity yet')).not.toBeInTheDocument()
+})
+
+it('shows verified commercial traffic without turning unavailable financial totals into zero', async () => {
+  const { dataGateway } = gateway()
+  dataGateway.getProducts = async () =>
+    result([{ ...product, trackingMode: 'commercial' }], 'ready')
+  dataGateway.getDashboardSummary = async () =>
+    result(
+      {
+        ...emptyPartnerDashboardSummary(),
+        hasData: true,
+        currency: 'USD',
+        reconciliationStage: 'preliminary',
+        metrics: {
+          ...emptyPartnerDashboardSummary().metrics,
+          clicks: 2,
+          funnelStarts: 2,
+          paymentViews: 2,
+        },
+      },
+      'ready',
+    )
+  dataGateway.getDashboardTrends = async () =>
+    result(
+      [
+        trendPoint({ key: 'tiktok', label: 'TikTok' }, '2026-08-30', {
+          clicks: 1,
+          funnelStarts: 1,
+          paymentViews: 1,
+          appStoreClicks: null,
+        }),
+        trendPoint({ key: 'tiktok', label: 'TikTok' }, '2026-08-31', {
+          clicks: 1,
+          funnelStarts: 1,
+          paymentViews: 1,
+          appStoreClicks: 0,
+        }),
+      ],
+      'ready',
+    )
+  render(portal(dataGateway, 'performance'))
+  const summary = await screen.findByRole('region', { name: 'Performance live summary' })
+  const cards = summary.querySelector('.live-summary-grid') as HTMLElement
+  expect(within(cards).getByText('2')).toBeVisible()
+  expect(within(cards).getAllByText('—')).toHaveLength(3)
+  const tiktok = screen.getByRole('row', { name: /TikTok/ })
+  expect(within(tiktok).getAllByText('2')).toHaveLength(3)
+  expect(within(tiktok).getByText('—')).toBeVisible()
+  expect(within(summary).queryByText('$0.00')).not.toBeInTheDocument()
+  expect(
+    screen.getByText(/Verified traffic can appear before financial totals are complete/),
+  ).toBeVisible()
+  expect(screen.getByText('Financial totals are not available yet.')).toBeVisible()
+})
+
+it('separates confirmed zero revenue from active free subscriptions without claiming payout readiness', async () => {
+  const { dataGateway } = gateway()
+  dataGateway.getProducts = async () =>
+    result([{ ...product, trackingMode: 'commercial' }], 'ready')
+  dataGateway.getDashboardSummary = async () =>
+    result(
+      {
+        ...emptyPartnerDashboardSummary(),
+        hasData: true,
+        currency: 'USD',
+        reconciliationStage: 'preliminary',
+        metrics: {
+          ...emptyPartnerDashboardSummary().metrics,
+          clicks: 5,
+          purchases: 0,
+          earningsMinor: 0,
+          activeSubscriptions: 2,
+        },
+      },
+      'ready',
+    )
+  render(portal(dataGateway, 'performance'))
+  const summary = await screen.findByRole('region', { name: 'Performance live summary' })
+  const cards = summary.querySelector('.live-summary-grid') as HTMLElement
+  expect(within(cards).getByText('Recorded paid purchases').parentElement).toHaveTextContent('0')
+  expect(within(cards).getByText('Recorded earnings').parentElement).toHaveTextContent('$0.00')
+  expect(within(cards).getByText('Active / trial subscriptions').parentElement).toHaveTextContent(
+    '2',
+  )
+  expect(within(cards).queryByText('—')).not.toBeInTheDocument()
+  expect(screen.getByText('Recorded totals · preliminary.')).toBeVisible()
+  expect(screen.getByText(/not money available for payout/)).toBeVisible()
+  expect(screen.getByText(/a free checkout is not a paid purchase/)).toBeVisible()
+  expect(screen.getByText(/Links & Sources shows all-time raw clicks/)).toBeVisible()
+})
+
+it('explains that link counts include bot-classified visits and are all-time', async () => {
+  const { dataGateway } = gateway()
+  render(portal(dataGateway))
+  expect(await screen.findByRole('columnheader', { name: 'Raw clicks · all time' })).toBeVisible()
+  expect(screen.getByText(/Raw clicks count all recorded visits/)).toBeVisible()
+  const table = screen
+    .getByRole('columnheader', { name: 'Raw clicks · all time' })
+    .closest('table')!
+  expect(table).toHaveAccessibleDescription(/Performance shows bot-filtered clicks/)
+  expect(within(table).getByText('7')).toBeVisible()
+})
+
+function renderPortal(dataGateway: PartnerDataGateway, page: PortalPage = 'links') {
+  return render(portal(dataGateway, page))
+}
+
+describe('product read failures versus empty configuration', () => {
+  it.each(['links', 'performance', 'payouts'] as const)(
+    'shows a retryable product failure on %s instead of claiming no configuration',
+    async (page) => {
+      const { dataGateway } = gateway()
+      dataGateway.getProducts = vi.fn(async () => ({
+        data: [],
+        status: 'error' as const,
+        error: {
+          code: 'not_authorized' as const,
+          message: 'Partner data is not available.',
+          retryable: false,
+        },
+      }))
+      renderPortal(dataGateway, page)
+      expect(
+        await screen.findByRole('heading', { name: 'Product data is unavailable' }),
+      ).toBeVisible()
+      expect(screen.getByRole('option', { name: 'Products unavailable' })).toBeInTheDocument()
+      expect(screen.getByText('Agreement details unavailable')).toBeVisible()
+      expect(screen.queryByText('No active products')).not.toBeInTheDocument()
+      expect(screen.queryByText('No agreement configured')).not.toBeInTheDocument()
+      expect(screen.queryByText('No verified activity yet')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Retry product data' })).toBeEnabled()
+    },
+  )
+
+  it('recovers product and main-link data through a read-only retry', async () => {
+    const user = userEvent.setup()
+    const { dataGateway, createPartnerLink } = gateway()
+    const readProducts = vi.fn().mockResolvedValue(unavailable([], 'Unavailable'))
+    dataGateway.getProducts = readProducts
+    renderPortal(dataGateway)
+    await screen.findByRole('heading', { name: 'Product data is unavailable' })
+    readProducts.mockResolvedValue(result([product], 'ready'))
+    await user.click(screen.getByRole('button', { name: 'Retry product data' }))
+    expect(await screen.findByRole('textbox', { name: 'Main tracking URL' })).toHaveValue(
+      product.mainTrackingUrl,
+    )
+    expect(screen.queryByText('Agreement details unavailable')).not.toBeInTheDocument()
+    expect(createPartnerLink).not.toHaveBeenCalled()
+  })
+
+  it('keeps a successful empty product response distinct from an error', async () => {
+    const { dataGateway } = gateway()
+    dataGateway.getProducts = async () => result([], 'empty')
+    renderPortal(dataGateway)
+    expect(
+      await screen.findByRole('heading', { name: 'No products are connected yet' }),
+    ).toBeVisible()
+    expect(screen.getByRole('option', { name: 'No active products' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry product data' })).not.toBeInTheDocument()
+  })
+})
+
+const signedDocument: PartnerDocument = {
+  id: 'document-signed',
+  productId: 'draft-product',
+  name: 'BC Learn agreement',
+  type: 'partner_agreement',
+  version: 1,
+  status: 'signed',
+  createdAt: '2026-09-05T08:00:00Z',
+  effectiveAt: null,
+  expiresAt: null,
+  terminatedAt: null,
+  partnerSignedAt: '2026-09-05T09:53:18Z',
+  companySignedAt: '2026-09-05T10:28:28Z',
+  supersedesDocumentId: null,
+  supersededByDocumentId: null,
+  downloadAvailable: true,
+}
+
+describe('live account documents before launch', () => {
+  function documentsGateway(documents = [signedDocument]) {
+    const { dataGateway } = gateway()
+    dataGateway.getProducts = async () => result([], 'empty')
+    dataGateway.getLinkDirectory = async () =>
+      result({ products: [], funnels: [], sources: [], campaigns: [] }, 'empty')
+    dataGateway.getDocuments = vi.fn(async () =>
+      result(documents, documents.length ? 'ready' : 'empty'),
+    )
+    return dataGateway
+  }
+  const pdfUrl =
+    'https://project.supabase.co/storage/v1/object/sign/affiliate-private-documents/example/terms.pdf?token=test-only'
+  async function openDocument(dataGateway: PartnerDataGateway) {
+    const user = userEvent.setup()
+    const view = renderPortal(dataGateway, 'profile')
+    await user.click(
+      await screen.findByRole('button', { name: 'View BC Learn agreement, version 1' }),
+    )
+    return { user, view }
+  }
+
+  it('renders saved signatures without products, funnels, activity, or a main link', async () => {
+    const dataGateway = documentsGateway()
+    renderPortal(dataGateway, 'profile')
+    const card = await screen.findByRole('article', { name: 'BC Learn agreement, version 1' })
+    expect(within(card).getByText('Signed by both parties')).toBeVisible()
+    expect(within(card).getByText(/Sep 5, 2026, 10:53 AM/)).toBeVisible()
+    expect(within(card).getByText(/Sep 5, 2026, 11:28 AM/)).toBeVisible()
+    expect(screen.queryByText('No verified activity yet')).not.toBeInTheDocument()
+    expect(screen.queryByText('No agreement configured')).not.toBeInTheDocument()
+    expect(screen.getByText('1 document · All products')).toBeVisible()
+    expect(dataGateway.getDocuments).toHaveBeenCalledWith()
+  })
+
+  it('keeps documents visible with a draft product and failed reporting data', async () => {
+    const dataGateway = documentsGateway()
+    dataGateway.getProducts = async () =>
+      result([{ ...product, id: 'draft-product', status: 'draft', hasLiveFunnel: false }], 'ready')
+    dataGateway.getDashboardSummary = async () =>
+      unavailable(emptyPartnerDashboardSummary(), 'Metrics unavailable')
+    renderPortal(dataGateway, 'profile')
+    expect(await screen.findByRole('article', { name: /BC Learn agreement/ })).toBeVisible()
+    expect(screen.queryByText('No live funnel is available yet')).not.toBeInTheDocument()
+  })
+
+  it('distinguishes a failed document read from an empty list and retries', async () => {
+    const user = userEvent.setup()
+    const dataGateway = documentsGateway()
+    const getDocuments = vi
+      .fn()
+      .mockResolvedValueOnce(unavailable([], 'Documents could not be verified.'))
+      .mockResolvedValue(result([signedDocument], 'ready'))
+    dataGateway.getDocuments = getDocuments
+    renderPortal(dataGateway, 'profile')
+    expect(await screen.findByRole('heading', { name: 'Documents are unavailable' })).toBeVisible()
+    expect(screen.queryByText('No documents shared yet')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Refresh documents' }))
+    expect(await screen.findByRole('article', { name: /BC Learn agreement/ })).toBeVisible()
+  })
+
+  it('shows a document-specific empty state without suggesting traffic is needed', async () => {
+    renderPortal(documentsGateway([]), 'profile')
+    expect(await screen.findByText('No documents shared yet')).toBeVisible()
+    expect(screen.getByText(/No traffic or payments are required/)).toBeVisible()
+  })
+
+  it('preserves historical versions, filters status, and displays linked versions', async () => {
+    const dataGateway = documentsGateway([
+      signedDocument,
+      {
+        ...signedDocument,
+        id: 'historical',
+        name: 'Original agreement',
+        version: 0,
+        status: 'superseded',
+        supersededByDocumentId: signedDocument.id,
+      },
+    ])
+    const user = userEvent.setup()
+    renderPortal(dataGateway, 'profile')
+    await user.selectOptions(
+      await screen.findByRole('combobox', { name: 'Document status' }),
+      'superseded',
+    )
+    expect(
+      screen.queryByRole('article', { name: 'BC Learn agreement, version 1' }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'View Original agreement, version 0' }))
+    expect(
+      within(screen.getByRole('dialog')).getByText('BC Learn agreement · Version 1'),
+    ).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Close dialog' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Document status' }), 'expired')
+    expect(screen.getByText('No documents match this status')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Clear document filter' }))
+    expect(screen.getAllByRole('article')).toHaveLength(2)
+  })
+
+  it('prepares a fresh private URL only after an explicit click and opens safely', async () => {
+    const dataGateway = documentsGateway()
+    const getDocumentUrl = vi.fn(async () => result(pdfUrl, 'ready'))
+    dataGateway.getDocumentUrl = getDocumentUrl
+    const { user } = await openDocument(dataGateway)
+    expect(getDocumentUrl).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Prepare PDF link' }))
+    const link = await screen.findByRole('link', { name: 'Open PDF' })
+    expect(link).toHaveAttribute('href', pdfUrl)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(getDocumentUrl).toHaveBeenCalledExactlyOnceWith(signedDocument.id)
+    expect(screen.queryByRole('button', { name: 'Sign the agreement' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    { status: 'draft' as const, downloadAvailable: true },
+    { status: 'signed' as const, downloadAvailable: false },
+  ])('does not attempt downloads for an unavailable document', async (patch) => {
+    const dataGateway = documentsGateway([{ ...signedDocument, ...patch }])
+    const getDocumentUrl = vi.fn(async () => result(pdfUrl, 'ready'))
+    dataGateway.getDocumentUrl = getDocumentUrl
+    await openDocument(dataGateway)
+    expect(screen.queryByRole('button', { name: 'Prepare PDF link' })).not.toBeInTheDocument()
+    expect(getDocumentUrl).not.toHaveBeenCalled()
+    expect(screen.getByText(/No downloadable file is available/)).toBeVisible()
+  })
+
+  it('reports an authorization/download failure without a stale URL or private error details', async () => {
+    const dataGateway = documentsGateway()
+    dataGateway.getDocumentUrl = vi.fn(async () => unavailable(null, 'secret/path/internal error'))
+    const { user } = await openDocument(dataGateway)
+    await user.click(screen.getByRole('button', { name: 'Prepare PDF link' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The private PDF link could not be prepared',
+    )
+    expect(screen.queryByRole('link', { name: 'Open PDF' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/secret\/path/)).not.toBeInTheDocument()
+  })
+
+  it('removes the PDF URL at expiry and requires a fresh authorized lookup', async () => {
+    const dataGateway = documentsGateway()
+    dataGateway.getDocumentUrl = vi.fn(async () => result(pdfUrl, 'ready'))
+    await openDocument(dataGateway)
+    vi.useFakeTimers()
+    try {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Prepare PDF link' }))
+      })
+      expect(screen.getByRole('link', { name: 'Open PDF' })).toBeVisible()
+      await act(async () => {
+        vi.advanceTimersByTime(240_000)
+      })
+      expect(screen.queryByRole('link', { name: 'Open PDF' })).not.toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('expired')
+      expect(dataGateway.getDocumentUrl).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('bounds a stalled download request and prevents duplicate clicks', async () => {
+    const dataGateway = documentsGateway()
+    dataGateway.getDocumentUrl = vi.fn(
+      () => new Promise<PartnerDataResult<string | null>>(() => {}),
+    )
+    await openDocument(dataGateway)
+    vi.useFakeTimers()
+    try {
+      const button = screen.getByRole('button', { name: 'Prepare PDF link' })
+      fireEvent.click(button)
+      fireEvent.click(button)
+      expect(button).toBeDisabled()
+      await act(async () => {
+        vi.advanceTimersByTime(15_000)
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent('could not be prepared')
+      expect(dataGateway.getDocumentUrl).toHaveBeenCalledOnce()
+      expect(screen.getByRole('button', { name: 'Prepare PDF link' })).toBeEnabled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('discards a late private URL when the dialog has closed', async () => {
+    let resolve!: (value: PartnerDataResult<string | null>) => void
+    const dataGateway = documentsGateway()
+    dataGateway.getDocumentUrl = () =>
+      new Promise((done) => {
+        resolve = done
+      })
+    const { user } = await openDocument(dataGateway)
+    await user.click(screen.getByRole('button', { name: 'Prepare PDF link' }))
+    await user.click(screen.getByRole('button', { name: 'Close dialog' }))
+    await act(async () => {
+      resolve(result(pdfUrl, 'ready'))
+    })
+    await user.click(screen.getByRole('button', { name: 'View BC Learn agreement, version 1' }))
+    expect(screen.queryByRole('link', { name: 'Open PDF' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Prepare PDF link' })).toBeVisible()
+  })
+
+  it('drops documents and any open private link immediately on sign-out', async () => {
+    const dataGateway = documentsGateway()
+    dataGateway.getDocumentUrl = async () => result(pdfUrl, 'ready')
+    const { user, view } = await openDocument(dataGateway)
+    await user.click(screen.getByRole('button', { name: 'Prepare PDF link' }))
+    expect(await screen.findByRole('link', { name: 'Open PDF' })).toBeVisible()
+    view.rerender(portal(dataGateway, 'profile', null))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open PDF' })).not.toBeInTheDocument()
+  })
+})
+
 describe('live partner links and sources', () => {
+  it('shows a separate TEST main link and derives test campaigns from that exact parent', async () => {
+    const user = userEvent.setup()
+    const { dataGateway, createPartnerLink } = gateway()
+    const testProduct: PartnerProduct = {
+      ...product,
+      trackingMode: 'commercial',
+      testMainLinkId: 'test-main-link',
+      testMainTrackingUrl: 'https://go.example.test/demo-product/creator/test',
+    }
+    dataGateway.getProducts = async () => result([testProduct], 'ready')
+    const directory = await dataGateway.getLinkDirectory()
+    dataGateway.getLinkDirectory = async () =>
+      result({ ...directory.data, products: [testProduct] }, 'ready')
+    dataGateway.getPartnerLinks = async () =>
+      result([{ ...existingLink, environment: 'test' }], 'ready')
+    renderPortal(dataGateway)
+    expect(await screen.findByDisplayValue(testProduct.testMainTrackingUrl!)).toBeVisible()
+    expect(screen.getByDisplayValue(product.mainTrackingUrl!)).toBeVisible()
+    expect(within(screen.getByRole('row', { name: /TikTok bio/ })).getByText('TEST')).toBeVisible()
+    expect(screen.getByText(/activity appears under Test in funnel reporting/)).toBeVisible()
+
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    await user.click(screen.getByRole('button', { name: 'Copy test main link' }))
+    expect(writeText).toHaveBeenCalledWith(testProduct.testMainTrackingUrl)
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Campaign link environment' }),
+      'test',
+    )
+    await user.click(screen.getByRole('button', { name: 'Create tracked link' }))
+    await user.type(screen.getByRole('textbox', { name: 'Link name' }), 'Instagram test')
+    await user.type(screen.getByRole('textbox', { name: /Link placement \(Sub 1/ }), 'test_bio')
+    await user.click(screen.getByRole('button', { name: 'Create test link' }))
+    expect(createPartnerLink).toHaveBeenCalledWith(
+      expect.objectContaining({ parentLinkId: 'test-main-link' }),
+    )
+  })
+
+  it('allows a TEST campaign when only the TEST main link has been issued', async () => {
+    const user = userEvent.setup()
+    const { dataGateway } = gateway()
+    const testProduct: PartnerProduct = {
+      ...product,
+      trackingMode: 'commercial',
+      mainLinkId: null,
+      mainTrackingUrl: null,
+      testMainLinkId: 'test-main-only',
+      testMainTrackingUrl: 'https://go.example.test/demo/creator/test',
+    }
+    dataGateway.getProducts = async () => result([testProduct], 'ready')
+    const directory = await dataGateway.getLinkDirectory()
+    dataGateway.getLinkDirectory = async () =>
+      result({ ...directory.data, products: [testProduct] }, 'ready')
+    renderPortal(dataGateway)
+    await screen.findByDisplayValue(testProduct.testMainTrackingUrl!)
+    expect(screen.getByRole('button', { name: 'Create tracked link' })).toBeEnabled()
+    expect(screen.getByRole('combobox', { name: 'Campaign link environment' })).toHaveValue('test')
+    await user.click(screen.getByRole('button', { name: 'Create tracked link' }))
+    expect(screen.getByRole('button', { name: 'Create test link' })).toBeVisible()
+  })
+
+  it('explains tracking labels, examples and optional fields without prefilling or creating a link', async () => {
+    const user = userEvent.setup()
+    const { dataGateway, createPartnerLink } = gateway()
+    renderPortal(dataGateway)
+    await user.click(await screen.findByRole('button', { name: 'Create tracked link' }))
+
+    const placement = screen.getByRole('textbox', { name: 'Link placement (Sub 1 · required)' })
+    const position = screen.getByRole('textbox', { name: 'Position (Sub 2 · optional)' })
+    const content = screen.getByRole('textbox', { name: 'Content version (Sub 3 · optional)' })
+    expect(placement).toBeRequired()
+    expect(position).not.toBeRequired()
+    expect(content).not.toBeRequired()
+    for (const input of [placement, position, content]) {
+      expect(input).toHaveValue('')
+      expect(input).toHaveAccessibleDescription(/1–64 letters, numbers, hyphens or underscores/)
+      expect(input).toHaveAccessibleDescription(/No spaces or personal data/)
+    }
+    expect(placement).toHaveAttribute('placeholder', 'e.g. profile_bio')
+    expect(placement).toHaveAccessibleDescription(/Where will you share this link/)
+    expect(position).toHaveAttribute('placeholder', 'e.g. link_1')
+    expect(position).toHaveAccessibleDescription(/story_slide_2.*leave blank/)
+    expect(content).toHaveAttribute('placeholder', 'e.g. video_01')
+    expect(content).toHaveAccessibleDescription(/video_01 or creative_a, or leave blank/)
+    expect(screen.getByText(/These are not IDs you need from TikTok or Instagram/)).toBeVisible()
+    expect(screen.getByText(/sharing the same link keeps the same labels/)).toBeVisible()
+    expect(screen.getByText(/and leave Position and Content version blank/)).toBeVisible()
+    expect(createPartnerLink).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['Link placement (Sub 1 · required)', ''],
+    ['Position (Sub 2 · optional)', 'invalid position'],
+    ['Content version (Sub 3 · optional)', 'invalid/content'],
+  ])('preserves validation and accessible guidance for %s', async (label, invalidValue) => {
+    const user = userEvent.setup()
+    const { dataGateway, createPartnerLink } = gateway()
+    renderPortal(dataGateway)
+    await user.click(await screen.findByRole('button', { name: 'Create tracked link' }))
+    await user.type(screen.getByRole('textbox', { name: 'Link name' }), 'TikTok test')
+    const placement = screen.getByRole('textbox', { name: 'Link placement (Sub 1 · required)' })
+    if (invalidValue) await user.type(placement, 'profile_bio')
+    const invalidInput = screen.getByRole('textbox', { name: label })
+    if (invalidValue) await user.type(invalidInput, invalidValue)
+    await user.click(screen.getByRole('button', { name: 'Create live link' }))
+
+    expect(invalidInput).toHaveFocus()
+    expect(invalidInput).toHaveAttribute('aria-invalid', 'true')
+    expect(invalidInput).toHaveAccessibleDescription(
+      /1–64 letters, numbers, hyphens, or underscores/,
+    )
+    expect(invalidInput).toHaveAccessibleDescription(/No spaces or personal data/)
+    expect(createPartnerLink).not.toHaveBeenCalled()
+  })
+
   it('shows only real server links, attribution dimensions and non-commercial scope', async () => {
     const user = userEvent.setup()
     const { dataGateway } = gateway()
@@ -226,7 +753,7 @@ describe('live partner links and sources', () => {
     expect(screen.getByText(/Purchases, earnings and payouts are unavailable/)).toBeVisible()
 
     const row = screen.getByRole('row', { name: /TikTok bio/ })
-    expect(within(row).getByText(/TikTok · Demo launch · Sub 1: profile-bio/)).toBeVisible()
+    expect(within(row).getByText(/TikTok · Demo launch · Placement: profile-bio/)).toBeVisible()
     expect(within(row).getByText('7')).toBeVisible()
     expect(within(row).getByText('Demo · non-commercial')).toBeVisible()
     expect(within(row).getByDisplayValue(existingLink.trackingUrl)).toBeVisible()
@@ -234,7 +761,7 @@ describe('live partner links and sources', () => {
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     await user.click(screen.getByRole('button', { name: 'Copy main link' }))
     expect(writeText).toHaveBeenCalledWith(product.mainTrackingUrl)
-    expect(screen.getByRole('status')).toHaveTextContent('Main link copied.')
+    expect(await screen.findByText('Main link copied.')).toBeVisible()
   })
 
   it('creates a derived source link with the exact current main parent', async () => {
@@ -252,7 +779,7 @@ describe('live partner links and sources', () => {
       screen.getByRole('combobox', { name: 'Traffic source' }),
       'source-instagram',
     )
-    await user.type(screen.getByRole('textbox', { name: 'Sub 1' }), 'profile-link')
+    await user.type(screen.getByRole('textbox', { name: /Link placement \(Sub 1/ }), 'profile-link')
     await user.click(screen.getByRole('button', { name: 'Create live link' }))
 
     await waitFor(() => expect(createPartnerLink).toHaveBeenCalledOnce())
@@ -372,3 +899,30 @@ describe('live partner links and sources', () => {
     ).toBeVisible()
   })
 })
+
+it.each(['victory', 'анна-иванова', '王小明'])(
+  'shows and copies readable creator and campaign URLs for %s without raw IDs',
+  async (handle) => {
+    const user = userEvent.setup()
+    const { dataGateway } = gateway()
+    const mainUrl = `https://go.kissmyapps.dev/speaksix-marathon/${handle}`
+    const campaignUrl = `${mainUrl}/tiktok`
+    const prettyProduct = { ...product, mainTrackingUrl: mainUrl }
+    dataGateway.getProducts = async () => result([prettyProduct], 'ready')
+    const originalDirectory = dataGateway.getLinkDirectory
+    dataGateway.getLinkDirectory = async () => {
+      const response = await originalDirectory()
+      return { ...response, data: { ...response.data, products: [prettyProduct] } }
+    }
+    dataGateway.getPartnerLinks = async () =>
+      result([{ ...existingLink, trackingUrl: campaignUrl }], 'ready')
+    renderPortal(dataGateway)
+    expect(await screen.findByRole('textbox', { name: 'Main tracking URL' })).toHaveValue(mainUrl)
+    expect(screen.getByDisplayValue(campaignUrl)).toBeVisible()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    await user.click(screen.getByRole('button', { name: 'Copy main link' }))
+    await user.click(screen.getByRole('button', { name: 'Copy TikTok bio tracking link' }))
+    expect(writeText).toHaveBeenNthCalledWith(1, mainUrl)
+    expect(writeText).toHaveBeenNthCalledWith(2, campaignUrl)
+  },
+)

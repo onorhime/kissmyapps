@@ -56,6 +56,50 @@
   opacity: 0.52;
 }
 
+.admin-action-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.admin-refresh-status {
+  min-height: 48px;
+  padding: 8px 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+}
+.admin-review-dialog {
+  min-height: 0;
+  min-width: 0;
+  background: var(--admin-surface);
+  max-height: calc(100dvh - 32px);
+}
+.admin-review-body {
+  display: grid;
+  gap: 18px;
+  outline: none;
+}
+.admin-review-body > p {
+  margin: 0;
+}
+.admin-review-body .admin-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.admin-review-body .admin-field {
+  display: grid;
+  gap: 8px;
+}
+.admin-review-body input {
+  width: 100%;
+  min-width: 0;
+}
+.admin-portal .admin-primary-button {
+  color: var(--brand-bg-deep, #111);
+}
+
 .admin-skip-link {
   position: fixed;
   top: 12px;
@@ -4703,4 +4747,12 @@ button.admin-routing-action,
 .admin-danger-button-solid {
   background: var(--admin-red);
   color: #ffffff;
+}
+.admin-field input[type='checkbox'] {
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 8px;
+  accent-color: var(--admin-pink);
 }

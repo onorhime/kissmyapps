@@ -1,15 +1,12 @@
+import { PartnerRuleTerms } from './PartnerRuleTerms'
+import { providerMoney } from '../../../lib/providerMoney'
 import { useEffect, useRef, useState } from 'react'
-import { Check, Download, FileSignature, LoaderCircle } from 'lucide-react'
+import { Download, FileSignature, LoaderCircle } from 'lucide-react'
 import { Dialog } from '../../../components/Dialog'
+import { StatusNotice } from '../../../components/ActionNotice'
 import type { PartnerDataError, PartnerDataGateway, PartnerSignatureRequest } from '../api'
 
-function money(minor: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(minor / 100)
-  } catch {
-    return `${currency} ${(minor / 100).toFixed(2)}`
-  }
-}
+const money = providerMoney
 
 function modelLabel(model: string): string {
   const labels: Record<string, string> = {
@@ -21,20 +18,31 @@ function modelLabel(model: string): string {
   return labels[model] ?? model
 }
 
-type SignPhase = 'review' | 'signing' | 'error'
+type SignPhase = 'review' | 'signing' | 'checking' | 'error' | 'uncertain'
 
-export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }) {
+export function AgreementSignBanner({
+  gateway,
+  onCompleted,
+}: {
+  gateway: PartnerDataGateway
+  onCompleted?: () => void
+}) {
   const [queue, setQueue] = useState<readonly PartnerSignatureRequest[] | null>(null)
   const [loadError, setLoadError] = useState<PartnerDataError | null>(null)
   const [active, setActive] = useState<PartnerSignatureRequest | null>(null)
   const [phase, setPhase] = useState<SignPhase>('review')
   const [actionError, setActionError] = useState<string | null>(null)
   const [legalName, setLegalName] = useState('')
-  const [signedName, setSignedName] = useState<string | null>(null)
+  const [confirmation, setConfirmation] = useState<string | null>(null)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
+  const [documentError, setDocumentError] = useState<string | null>(null)
+  const [documentReadyUntil, setDocumentReadyUntil] = useState(0)
+  const [documentReload, setDocumentReload] = useState(0)
+  const [acknowledged, setAcknowledged] = useState(false)
   const [reloadVersion, setReloadVersion] = useState(0)
   const loadedRef = useRef(false)
-  const signing = phase === 'signing'
+  const submittingRef = useRef(false)
+  const signing = phase === 'signing' || phase === 'checking'
   const signatureQueue =
     typeof gateway.getSignatureQueue === 'function' && typeof gateway.signAgreement === 'function'
       ? gateway
@@ -70,46 +78,180 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
   }, [reloadVersion, signatureQueue])
 
   useEffect(() => {
-    if (!signedName) return
-    const timeout = setTimeout(() => setSignedName(null), 8000)
+    if (!confirmation) return
+    const timeout = setTimeout(() => setConfirmation(null), 8000)
     return () => clearTimeout(timeout)
-  }, [signedName])
+  }, [confirmation])
 
-  async function openReview(request: PartnerSignatureRequest) {
+  useEffect(() => {
+    if (!active) return
+    let current = true
+    let expiry: ReturnType<typeof setTimeout> | undefined
+    const loadingTimeout = setTimeout(() => {
+      if (!current) return
+      current = false
+      setDocumentError('The agreement PDF request timed out. Reload it before signing.')
+    }, 15_000)
+    void (async () => {
+      try {
+        const result = await gateway.getAgreementDocumentUrl?.({ filePath: active.filePath })
+        if (!current) return
+        if (result?.status !== 'ready' || !result.data) throw new Error('document unavailable')
+        setDownloadUrl(result.data)
+        setDocumentReadyUntil(Date.now() + 240_000)
+        expiry = setTimeout(() => {
+          if (!current) return
+          setDownloadUrl(null)
+          setDocumentReadyUntil(0)
+          setAcknowledged(false)
+          setDocumentError('This document link has expired. Reload it before signing.')
+        }, 240_000)
+      } catch {
+        if (current)
+          setDocumentError('The agreement PDF could not be opened. Reload it before signing.')
+      } finally {
+        clearTimeout(loadingTimeout)
+      }
+    })()
+    return () => {
+      current = false
+      clearTimeout(loadingTimeout)
+      if (expiry) clearTimeout(expiry)
+    }
+  }, [active, documentReload, gateway])
+
+  function openReview(request: PartnerSignatureRequest) {
     setActive(request)
     setPhase('review')
     setActionError(null)
     setLegalName('')
     setDownloadUrl(null)
-    if (gateway.getAgreementDocumentUrl) {
-      const url = await gateway.getAgreementDocumentUrl({ filePath: request.filePath })
-      if (url.status === 'ready' && url.data) setDownloadUrl(url.data)
+    setDocumentReadyUntil(0)
+    setDocumentError(null)
+    setAcknowledged(false)
+  }
+
+  function reloadDocument() {
+    setDownloadUrl(null)
+    setDocumentReadyUntil(0)
+    setDocumentError(null)
+    setAcknowledged(false)
+    setDocumentReload((value) => value + 1)
+  }
+
+  function finishReview(request: PartnerSignatureRequest, message: string) {
+    setConfirmation(message)
+    setActive(null)
+    setQueue((current) =>
+      current ? current.filter((item) => item.documentId !== request.documentId) : current,
+    )
+    setPhase('review')
+    setActionError(null)
+    onCompleted?.()
+  }
+
+  async function reconcileSignature(request: PartnerSignatureRequest, failureMessage: string) {
+    // An error or lost response is not proof that the write failed. Read the
+    // partner-safe directory before offering another legal-signature attempt.
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    try {
+      const result = await Promise.race([
+        gateway.getDocuments(request.productId),
+        new Promise<undefined>((resolve) => {
+          timeout = setTimeout(() => resolve(undefined), 15_000)
+        }),
+      ])
+      if (result?.status === 'ready' || result?.status === 'empty') {
+        const document = result.data.find((item) => item.id === request.documentId)
+        if (document?.version === request.version) {
+          const hasPartnerSignature =
+            document.partnerSignedAt && Number.isFinite(Date.parse(document.partnerSignedAt))
+          if (hasPartnerSignature && document.status === 'awaiting_kissmyapps_signature') {
+            finishReview(
+              request,
+              'The partner signature is recorded. KissMyApps will countersign next.',
+            )
+            return
+          }
+          if (
+            hasPartnerSignature &&
+            document.companySignedAt &&
+            Number.isFinite(Date.parse(document.companySignedAt)) &&
+            ['signed', 'active'].includes(document.status)
+          ) {
+            finishReview(request, 'This agreement has already been signed by both parties.')
+            return
+          }
+          if (!document.partnerSignedAt && document.status === 'awaiting_partner_signature') {
+            setPhase('error')
+            setActionError(failureMessage)
+            return
+          }
+        }
+      }
+    } catch {
+      // Keep this unresolved instead of treating a missing read as a failed write.
+    } finally {
+      if (timeout) clearTimeout(timeout)
+    }
+    setPhase('uncertain')
+    setActionError(
+      'We couldn’t confirm the signature status. Check status before trying to sign again.',
+    )
+  }
+
+  async function checkSignatureStatus() {
+    if (!active || submittingRef.current) return
+    submittingRef.current = true
+    setPhase('checking')
+    try {
+      await reconcileSignature(active, 'No signature is recorded yet. You can try signing again.')
+    } finally {
+      submittingRef.current = false
     }
   }
 
   async function confirmSign() {
-    if (!active || !gateway.signAgreement) return
+    if (!active || !gateway.signAgreement || submittingRef.current || phase === 'uncertain') return
+    if (!downloadUrl || documentReadyUntil <= Date.now() || !acknowledged) {
+      setActionError('Open the agreement PDF and acknowledge the terms before signing.')
+      return
+    }
     if (legalName.trim().length < 2) {
       setActionError('Enter your full legal name to sign.')
       return
     }
+    const request = active
+    submittingRef.current = true
     setPhase('signing')
     setActionError(null)
-    const result = await gateway.signAgreement({
-      documentId: active.documentId,
-      legalName: legalName.trim(),
-    })
-    if (result.status === 'ready') {
-      setSignedName(legalName.trim())
-      setActive(null)
-      setQueue((current) =>
-        current ? current.filter((item) => item.documentId !== active.documentId) : current,
+    try {
+      const result = await gateway.signAgreement({
+        documentId: request.documentId,
+        legalName: legalName.trim(),
+        acknowledged: true,
+      })
+      if (
+        result.status === 'ready' &&
+        result.data?.documentId === request.documentId &&
+        result.data.agreementId === request.agreementId &&
+        result.data.version === request.version
+      ) {
+        finishReview(
+          request,
+          `Signed as ${result.data.signerName}. KissMyApps will countersign next.`,
+        )
+        return
+      }
+      await reconcileSignature(
+        request,
+        result.error?.message ?? 'The signature could not be confirmed. Try again.',
       )
-      setPhase('review')
-      return
+    } catch {
+      await reconcileSignature(request, 'The signature could not be recorded. Try again.')
+    } finally {
+      submittingRef.current = false
     }
-    setPhase('error')
-    setActionError(result.error?.message ?? 'The signature could not be recorded. Try again.')
   }
 
   if (!signatureQueue) return null
@@ -130,12 +272,7 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
     )
   }
 
-  const successNote = signedName ? (
-    <div className="agreement-sign-success" role="status">
-      <Check size={16} aria-hidden="true" /> Signed as {signedName}. KissMyApps will countersign
-      next.
-    </div>
-  ) : null
+  const successNote = confirmation ? <StatusNotice success={confirmation} /> : null
 
   if (!queue?.length) return successNote
 
@@ -165,7 +302,7 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
       <Dialog
         open={Boolean(active)}
         onOpenChange={(open) => {
-          if (!open) setActive(null)
+          if (!open && !signing) setActive(null)
         }}
         title="Review and sign the partnership agreement"
         description="Read the terms, then sign with your full legal name."
@@ -194,6 +331,23 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
                 <dd>{money(active.minimumPayoutMinor, active.payoutCurrency)}</dd>
               </div>
             </dl>
+            {active.rules && active.rules.length > 0 && (
+              <section aria-label="Commission policy to sign">
+                <h3>Commission policy</h3>
+                {active.rules.map((rule, index) => (
+                  <PartnerRuleTerms
+                    key={`${rule.name}:${index}`}
+                    rule={rule}
+                    currency={active.payoutCurrency}
+                  />
+                ))}
+              </section>
+            )}
+            {active.termsSha256 && (
+              <p className="field-hint" style={{ overflowWrap: 'anywhere' }}>
+                Signed terms fingerprint: {active.termsSha256}
+              </p>
+            )}
             {downloadUrl ? (
               <a
                 className="agreement-sign-download"
@@ -203,6 +357,13 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
               >
                 <Download size={16} aria-hidden="true" /> Open the agreement PDF
               </a>
+            ) : documentError ? (
+              <div role="alert">
+                <p>{documentError}</p>
+                <button className="button" type="button" onClick={reloadDocument}>
+                  Reload document
+                </button>
+              </div>
             ) : (
               <p className="agreement-sign-download-pending" role="status">
                 Preparing the document preview…
@@ -215,6 +376,7 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
                 value={legalName}
                 onChange={(event) => setLegalName(event.target.value)}
                 maxLength={160}
+                disabled={signing}
                 autoComplete="name"
                 aria-invalid={Boolean(actionError)}
               />
@@ -223,6 +385,18 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
               Signing records your legal name, account, and the exact document version as immutable
               evidence.
             </p>
+            <label className="field-hint agreement-sign-acknowledgement">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                disabled={!downloadUrl || signing}
+                onChange={(event) => setAcknowledged(event.target.checked)}
+              />
+              <span>
+                I have read the agreement PDF, accept its terms, and am authorized to sign for this
+                partner.
+              </span>
+            </label>
             {actionError && (
               <p className="agreement-sign-error" role="alert">
                 {actionError}
@@ -237,15 +411,26 @@ export function AgreementSignBanner({ gateway }: { gateway: PartnerDataGateway }
               >
                 Cancel
               </button>
-              <button
-                className="button button-primary"
-                type="button"
-                disabled={signing}
-                onClick={() => void confirmSign()}
-              >
-                {signing && <LoaderCircle className="spin" size={16} aria-hidden="true" />}
-                {signing ? 'Signing…' : 'Sign the agreement'}
-              </button>
+              {phase === 'uncertain' || phase === 'checking' ? (
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={signing}
+                  onClick={() => void checkSignatureStatus()}
+                >
+                  {phase === 'checking' ? 'Checking status…' : 'Check signature status'}
+                </button>
+              ) : (
+                <button
+                  className="button button-primary"
+                  type="button"
+                  disabled={signing || !downloadUrl || !acknowledged}
+                  onClick={() => void confirmSign()}
+                >
+                  {signing && <LoaderCircle className="spin" size={16} aria-hidden="true" />}
+                  {signing ? 'Signing…' : 'Sign the agreement'}
+                </button>
+              )}
             </div>
           </div>
         )}

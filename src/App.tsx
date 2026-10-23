@@ -1,3 +1,4 @@
+import { NavigationGuardContext, useFormNavigationGuard } from './components/useFormNavigationGuard'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
 import {
@@ -59,6 +60,8 @@ import './features/partner/Reporting.css'
 import './features/partner/Payouts.css'
 import './features/partner/PartnerManagement.css'
 import './brand.css'
+import { MerchantConnectionPage } from './features/merchant-connections/MerchantConnectionPage'
+import { isMerchantRoute } from './features/merchant-connections/routing'
 
 const navigation = [
   { id: 'performance', label: 'Performance', icon: ChartNoAxesCombined },
@@ -91,6 +94,8 @@ function currentAdminRoute(): AdminRoute {
   if (segments[1] === 'affiliates') return 'affiliates'
   if (segments[1] === 'funnels-links') return 'funnels-links'
   if (segments[1] === 'attribution') return 'attribution'
+  if (segments[1] === 'subscriptions') return 'subscriptions'
+  if (segments[1] === 'payouts') return 'payouts'
   if (segments[1] === 'data-health') return 'data-health'
   if (segments[1] === 'settings') return 'settings'
   return segments[1] === 'products' ? 'products' : 'overview'
@@ -210,6 +215,10 @@ function App({
       hostname: workspaceHostname,
       previewMode,
     }),
+  )
+  const formGuard = useFormNavigationGuard(
+    !previewMode && workspaceMode === 'partner',
+    session.user?.id ?? '',
   )
   const [adminRoute, setAdminRoute] = useState<AdminRoute>(currentAdminRoute)
   const [adminProductId, setAdminProductId] = useState<string | null>(currentAdminProductId)
@@ -460,13 +469,17 @@ function App({
                 ? 'Admin funnels & links'
                 : adminRoute === 'attribution'
                   ? 'Admin attribution'
-                  : adminRoute === 'data-health'
-                    ? 'Admin data health'
-                    : adminRoute === 'settings'
-                      ? 'Admin settings'
-                      : adminRoute === 'affiliate-detail'
-                        ? 'Affiliate details'
-                        : 'Product configuration'
+                  : adminRoute === 'subscriptions'
+                    ? 'Admin subscriptions'
+                    : adminRoute === 'payouts'
+                      ? 'Admin payouts'
+                      : adminRoute === 'data-health'
+                        ? 'Admin data health'
+                        : adminRoute === 'settings'
+                          ? 'Admin settings'
+                          : adminRoute === 'affiliate-detail'
+                            ? 'Affiliate details'
+                            : 'Product configuration'
         : navigation.find((item) => item.id === page)?.label
     document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
     const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)
@@ -511,6 +524,10 @@ function App({
   }, [toast])
 
   function navigate(nextPage: PortalPage, section: ProfileSection = 'details') {
+    formGuard.request(() => navigatePartner(nextPage, section))
+  }
+
+  function navigatePartner(nextPage: PortalPage, section: ProfileSection) {
     setReportLink(null)
     setAuthScreen(null)
     setWorkspaceMode('partner')
@@ -741,7 +758,11 @@ function App({
   )
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onFocusCapture={formGuard.capture}
+      onPointerDownCapture={formGuard.capture}
+    >
       <a
         className="skip-link"
         href="#main-content"
@@ -818,7 +839,7 @@ function App({
               <button
                 className="sign-out-button"
                 aria-label={signOutPending ? 'Signing out' : 'Sign out'}
-                onClick={() => void signOut()}
+                onClick={() => formGuard.request(() => void signOut())}
                 disabled={signOutPending}
               >
                 {signOutPending ? (
@@ -839,11 +860,14 @@ function App({
           {!previewMode ? (
             <PartnerLiveWorkspaceProvider
               sessionUserId={session.user?.id ?? null}
+              autoRefresh={page === 'performance'}
               reporting={liveReporting}
               gateway={partnerGateway}
               client={import.meta.env.MODE === 'test' && !partnerGateway ? null : undefined}
             >
-              <LivePartnerPortal page={page} />
+              <NavigationGuardContext.Provider value={formGuard.request}>
+                <LivePartnerPortal page={page} />
+              </NavigationGuardContext.Provider>
             </PartnerLiveWorkspaceProvider>
           ) : (
             <>
@@ -1057,8 +1081,16 @@ function App({
           </div>
         )}
       </div>
+      {formGuard.dialog}
     </div>
   )
 }
 
-export default App
+function RoutedApp(props: AppProps = {}) {
+  if (isMerchantRoute(window.location.pathname)) {
+    return <MerchantConnectionPage client={props.authClient} />
+  }
+  return <App {...props} />
+}
+
+export default RoutedApp

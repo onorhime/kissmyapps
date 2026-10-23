@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { PARTNER_COLUMNS, PARTNER_RPCS, PARTNER_VIEWS } from './contract'
 import { createPartnerDataGateway } from './gateway'
 import type { PartnerQueryBuilder, PartnerSupabaseClient } from './gateway'
@@ -76,6 +76,183 @@ const notifications = {
   adjustments: true,
   inactive_links: false,
 }
+
+// Shape returned by to_jsonb(documents), deliberately without view-only
+// download_available / partner_signed_at / company_signed_at aliases.
+const signedDocumentRow = {
+  id: 'document-1',
+  agreement_id: 'agreement-1',
+  version: 1,
+  status: 'awaiting_kissmyapps_signature',
+  partner_signer_name: 'Victory Onorhime',
+  partner_signer_user_id: 'user-1',
+  signed_by_partner_at: '2026-09-05T09:53:18Z',
+  partner_acknowledged_at: '2026-09-05T09:53:18Z',
+}
+
+describe('partner signature RPC receipt', () => {
+  const input = {
+    documentId: 'document-1',
+    legalName: ' Victory Onorhime ',
+    acknowledged: true as const,
+  }
+
+  it.each([signedDocumentRow, [signedDocumentRow]].map((row) => ({ row })))(
+    'accepts the committed raw row without document-directory fields',
+    async ({ row }) => {
+      const { client, calls } = mockClient({ rpcs: { [PARTNER_RPCS.signAgreement]: ok(row) } })
+      const result = await createPartnerDataGateway(client).signAgreement!(input)
+      expect(result).toEqual({
+        status: 'ready',
+        error: null,
+        data: {
+          documentId: 'document-1',
+          agreementId: 'agreement-1',
+          version: 1,
+          status: 'awaiting_kissmyapps_signature',
+          signerName: 'Victory Onorhime',
+          signerUserId: 'user-1',
+          signedAt: '2026-09-05T09:53:18Z',
+          acknowledgedAt: '2026-09-05T09:53:18Z',
+        },
+      })
+      expect(calls).toEqual([
+        {
+          target: PARTNER_RPCS.signAgreement,
+          operation: 'rpc',
+          args: [
+            {
+              p_input: {
+                document_id: 'document-1',
+                legal_name: 'Victory Onorhime',
+                acknowledged: true,
+              },
+            },
+          ],
+        },
+      ])
+    },
+  )
+
+  it.each(
+    [
+      null,
+      [],
+      {},
+      [signedDocumentRow, signedDocumentRow],
+      { ...signedDocumentRow, id: 'other-document' },
+      { ...signedDocumentRow, partner_signer_name: 'Another signer' },
+      { ...signedDocumentRow, partner_signer_user_id: null },
+      { ...signedDocumentRow, signed_by_partner_at: null },
+      { ...signedDocumentRow, signed_by_partner_at: 'not-a-date' },
+      { ...signedDocumentRow, partner_acknowledged_at: null },
+      { ...signedDocumentRow, status: 'awaiting_partner_signature' },
+    ].map((row) => ({ row })),
+  )('does not report success for an empty, incomplete or mismatched receipt', async ({ row }) => {
+    const { client } = mockClient({ rpcs: { [PARTNER_RPCS.signAgreement]: ok(row) } })
+    expect(await createPartnerDataGateway(client).signAgreement!(input)).toMatchObject({
+      status: 'error',
+      data: null,
+      error: { code: 'invalid_response' },
+    })
+  })
+})
+
+describe('private partner document download gateway', () => {
+  const locator = {
+    document_id: 'document-1',
+    bucket: 'affiliate-private-documents',
+    file_path: '00000000-0000-4000-8000-000000000001/agreements/terms.pdf',
+  }
+  const signedUrl = `https://project.supabase.co/storage/v1/object/sign/${locator.bucket}/${locator.file_path}?token=short-lived-test-token`
+  function downloadClient(response = ok(locator), url = signedUrl) {
+    const mock = mockClient({ rpcs: { [PARTNER_RPCS.documentDownload]: response } })
+    const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: url }, error: null }))
+    const from = vi.fn(() => ({ createSignedUrl }))
+    mock.client.storage = { from }
+    return { ...mock, createSignedUrl, from }
+  }
+
+  it('resolves an owned document ID, then requests only a five-minute private URL', async () => {
+    const { client, calls, from, createSignedUrl } = downloadClient()
+    expect(await createPartnerDataGateway(client).getDocumentUrl!('document-1')).toMatchObject({
+      status: 'ready',
+      data: signedUrl,
+    })
+    expect(calls).toEqual([
+      {
+        target: PARTNER_RPCS.documentDownload,
+        operation: 'rpc',
+        args: [{ p_document_id: 'document-1' }],
+      },
+    ])
+    expect(from).toHaveBeenCalledWith('affiliate-private-documents')
+    expect(createSignedUrl).toHaveBeenCalledWith(locator.file_path, 300)
+  })
+
+  it.each([
+    { row: null },
+    { row: [] },
+    { row: {} },
+    { row: { ...locator, document_id: 'another-document' } },
+    { row: { ...locator, bucket: 'public' } },
+    { row: { ...locator, file_path: 'https://untrusted.example/terms.pdf' } },
+    { row: { ...locator, file_path: '00000000-0000-4000-8000-000000000001/../terms.pdf' } },
+  ])('never signs an invalid or mismatched locator', async ({ row }) => {
+    const { client, createSignedUrl } = downloadClient(ok(row))
+    expect(await createPartnerDataGateway(client).getDocumentUrl!('document-1')).toMatchObject({
+      status: 'error',
+      data: null,
+      error: { code: 'invalid_response' },
+    })
+    expect(createSignedUrl).not.toHaveBeenCalled()
+  })
+
+  it('does not contact Storage after a forbidden locator response', async () => {
+    const { client, createSignedUrl } = downloadClient({
+      data: null,
+      error: { code: '42501' },
+      status: 403,
+    })
+    expect(
+      await createPartnerDataGateway(client).getDocumentUrl!('foreign-document'),
+    ).toMatchObject({ status: 'error', data: null })
+    expect(createSignedUrl).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    'javascript:alert(1)',
+    'http://project.supabase.co/test',
+    'https://public.example/file.pdf',
+    signedUrl.replace('terms.pdf', 'another.pdf'),
+    signedUrl.split('?')[0],
+  ])('rejects an unsafe or wrong-file URL: %s', async (url) => {
+    const { client } = downloadClient(ok(locator), url)
+    expect(await createPartnerDataGateway(client).getDocumentUrl!('document-1')).toMatchObject({
+      status: 'error',
+      data: null,
+    })
+  })
+
+  it('fails closed on a Storage failure without returning the private path', async () => {
+    const { client } = downloadClient()
+    client.storage = {
+      from: () => ({
+        createSignedUrl: async () => ({ data: null, error: { message: 'internal path details' } }),
+      }),
+    }
+    const result = await createPartnerDataGateway(client).getDocumentUrl!('document-1')
+    expect(result).toMatchObject({ status: 'error', data: null })
+    expect(JSON.stringify(result)).not.toContain('internal path details')
+  })
+
+  it('never falls back to a global Storage client when this client is disconnected', async () => {
+    expect(await createPartnerDataGateway(null).getDocumentUrl!('document-1')).toMatchObject({
+      status: 'unconfigured',
+      data: null,
+    })
+  })
+})
 
 const profileRow = {
   email: 'partner@example.test',
@@ -466,6 +643,7 @@ describe('partner Supabase data gateway', () => {
         [PARTNER_VIEWS.documents]: ok([
           {
             id: 'document-1',
+            product_id: 'product-1',
             name: 'Partner agreement',
             document_type: 'Partnership Agreement',
             version: 1,
@@ -572,7 +750,7 @@ describe('partner Supabase data gateway', () => {
       data: { agreementVersion: 1, calculation: [{ key: 'gross' }] },
     })
     await expect(gateway.getDocuments()).resolves.toMatchObject({
-      data: [{ id: 'document-1', downloadAvailable: true }],
+      data: [{ id: 'document-1', productId: 'product-1', downloadAvailable: true }],
     })
     await expect(gateway.getAgreements()).resolves.toMatchObject({
       data: [{ version: 1, rules: [{ rateBasisPoints: 3000 }] }],
@@ -652,5 +830,110 @@ describe('partner Supabase data gateway', () => {
       gateway.getDashboardTrends({ ...query, grain: 'day', breakdown: 'date' }),
     ).resolves.toEqual({ data: [], status: 'empty', error: null })
     expect(calls).toEqual([])
+  })
+})
+
+describe('readable creator links', () => {
+  it('maps TEST main links separately from LIVE links and keeps each row environment', async () => {
+    const testUrl = 'https://go.kissmyapps.dev/speaksix-marathon/victory/test'
+    const { client } = mockClient({
+      views: {
+        [PARTNER_VIEWS.products]: ok([
+          {
+            ...productRow,
+            test_main_link_id: 'test-main-id',
+            test_main_tracking_url: 'https://go.kissmyapps.dev/r/partner/test-code',
+            test_main_short_url: testUrl,
+          },
+        ]),
+        [PARTNER_VIEWS.links]: ok([
+          { ...linkRow, environment: 'test', short_url: `${testUrl}/instagram` },
+        ]),
+      },
+    })
+    const gateway = createPartnerDataGateway(client)
+    await expect(gateway.getProducts()).resolves.toMatchObject({
+      status: 'ready',
+      data: [
+        {
+          mainTrackingUrl: productRow.main_tracking_url,
+          testMainLinkId: 'test-main-id',
+          testMainTrackingUrl: testUrl,
+        },
+      ],
+    })
+    await expect(gateway.getPartnerLinks('product-1')).resolves.toMatchObject({
+      status: 'ready',
+      data: [
+        {
+          environment: 'test',
+          trackingUrl: `${testUrl}/instagram`,
+        },
+      ],
+    })
+  })
+
+  it('rejects an unknown link environment instead of presenting it as LIVE', async () => {
+    const { client } = mockClient({
+      views: { [PARTNER_VIEWS.links]: ok([{ ...linkRow, environment: 'production-ish' }]) },
+    })
+    await expect(
+      createPartnerDataGateway(client).getPartnerLinks('product-1'),
+    ).resolves.toMatchObject({
+      status: 'error',
+      error: { code: 'invalid_response' },
+    })
+  })
+
+  it('uses server-issued readable URLs for main and campaign links', async () => {
+    const mainUrl = 'https://go.kissmyapps.dev/speaksix-marathon/victory'
+    const campaignUrl = `${mainUrl}/instagram`
+    const { client } = mockClient({
+      views: {
+        [PARTNER_VIEWS.products]: ok([{ ...productRow, main_short_url: mainUrl }]),
+        [PARTNER_VIEWS.links]: ok([{ ...linkRow, short_url: campaignUrl }]),
+      },
+    })
+    const gateway = createPartnerDataGateway(client)
+    await expect(gateway.getProducts()).resolves.toMatchObject({
+      status: 'ready',
+      data: [{ mainTrackingUrl: mainUrl }],
+    })
+    await expect(gateway.getPartnerLinks('product-1')).resolves.toMatchObject({
+      status: 'ready',
+      data: [{ trackingUrl: campaignUrl, id: linkRow.id, sub1: linkRow.sub1 }],
+    })
+  })
+
+  it('preserves working legacy URLs when no alias exists', async () => {
+    const { client } = mockClient({
+      views: {
+        [PARTNER_VIEWS.products]: ok([{ ...productRow, main_short_url: null }]),
+        [PARTNER_VIEWS.links]: ok([{ ...linkRow, short_url: null }]),
+      },
+    })
+    const gateway = createPartnerDataGateway(client)
+    await expect(gateway.getProducts()).resolves.toMatchObject({
+      status: 'ready',
+      data: [{ mainTrackingUrl: productRow.main_tracking_url }],
+    })
+    await expect(gateway.getPartnerLinks('product-1')).resolves.toMatchObject({
+      status: 'ready',
+      data: [{ trackingUrl: linkRow.tracking_url }],
+    })
+  })
+
+  it('rejects malformed alias values instead of constructing a link in the browser', async () => {
+    const { client } = mockClient({
+      views: {
+        [PARTNER_VIEWS.links]: ok([{ ...linkRow, short_url: 42 }]),
+      },
+    })
+    await expect(
+      createPartnerDataGateway(client).getPartnerLinks('product-1'),
+    ).resolves.toMatchObject({
+      status: 'error',
+      error: { code: 'invalid_response' },
+    })
   })
 })

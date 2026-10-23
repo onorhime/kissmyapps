@@ -213,7 +213,7 @@ describe('Product configuration page', () => {
     await user.click(screen.getByRole('button', { name: /Tracking-only testing/ }))
     await user.click(screen.getByRole('button', { name: 'Review tracking-only mode' }))
     const confirm = screen.getByRole('button', { name: 'Confirm tracking-only mode' })
-    await waitFor(() => expect(confirm).toHaveFocus())
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement)
     expect(
       screen.getByText(
         /checkout, purchase qualification, commissions, and payouts remain disabled/i,
@@ -306,6 +306,8 @@ describe('Product configuration page', () => {
               rateBasisPoints: null,
               currency: 'USD',
               validationWindowHours: 72,
+              refundCutoffDays: null,
+              commissionBasisPolicy: 'net_after_fees',
               createdAt: product.createdAt,
               updatedAt: product.updatedAt,
             },

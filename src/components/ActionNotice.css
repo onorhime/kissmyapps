@@ -1,0 +1,72 @@
+.action-notice-stack {
+  position: fixed;
+  z-index: 1200;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  gap: 10px;
+  pointer-events: none;
+}
+.action-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #606066;
+  border-left: 4px solid #58d65e;
+  border-radius: 14px;
+  background: #222;
+  color: #fff;
+  box-shadow: 0 8px 32px #0006;
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+.action-notice-error {
+  border-left-color: #ff6767;
+}
+.action-notice > svg {
+  flex-shrink: 0;
+  color: #58d65e;
+}
+.action-notice-error > svg {
+  color: #ff6767;
+}
+.action-notice p {
+  flex: 1;
+  margin: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.action-notice button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  padding: 3px;
+  cursor: pointer;
+}
+.action-notice button:focus-visible {
+  outline: 3px solid #66ccff;
+  outline-offset: 3px;
+}
+body:has(.dialog-content[data-state='open']) .action-notice-stack {
+  visibility: hidden;
+}
+body:has(.admin-mobile-navigation-wrap:not([hidden])) .action-notice-stack {
+  visibility: hidden;
+}
+.live-link-fields {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .action-notice-stack {
+    right: max(16px, env(safe-area-inset-right));
+    /* Keep the 65/66px mobile header and its navigation controls unobscured. */
+    top: calc(82px + env(safe-area-inset-top));
+  }
+}

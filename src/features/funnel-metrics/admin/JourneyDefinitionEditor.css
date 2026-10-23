@@ -1,0 +1,109 @@
+.journey-definition-editor {
+  margin: 20px 0;
+  min-width: 0;
+}
+.journey-definition-editor > summary,
+.journey-definition-integration > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 0;
+}
+.journey-definition-editor p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--brand-muted, #a9a9ae);
+}
+.journey-definition-editor fieldset {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.journey-definition-editor legend {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.journey-definition-list {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+}
+.journey-definition-row {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--brand-line, #4a4a4a);
+  border-radius: 12px;
+}
+.journey-definition-row h5 {
+  margin: 0;
+  font-size: 14px;
+}
+.journey-definition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.journey-definition-event-list,
+.journey-definition-steps {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  margin: 16px 0;
+  list-style: none;
+}
+.journey-definition-step {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+.journey-definition-step > label {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.journey-definition-step .journey-definition-actions {
+  padding-bottom: 8px;
+}
+.journey-definition-sequences {
+  margin: 24px 0;
+}
+.journey-definition-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.journey-definition-integration table {
+  min-width: 500px;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.journey-definition-integration caption {
+  text-align: left;
+  padding: 12px 0;
+  font-weight: 600;
+}
+.journey-definition-integration td,
+.journey-definition-integration th {
+  padding: 12px;
+  border-bottom: 1px solid var(--brand-line, #4a4a4a);
+}
+.journey-definition-integration code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.journey-definition-editor .admin-config-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 650px) {
+  .journey-definition-editor .admin-config-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .journey-definition-row {
+    padding: 12px;
+  }
+  .journey-definition-step {
+    align-items: start;
+  }
+}

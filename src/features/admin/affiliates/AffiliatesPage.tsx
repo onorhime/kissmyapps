@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { StatusNotice } from '../../../components/ActionNotice'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -479,6 +480,7 @@ export function AffiliatesPage({
     input,
     summary,
     directory,
+    refreshing,
     detail,
     mutation,
     applyFilters,
@@ -615,15 +617,7 @@ export function AffiliatesPage({
         </span>
       </header>
 
-      {success && (
-        <div className="admin-config-feedback admin-config-feedback-success" role="status">
-          <CircleCheck size={17} aria-hidden="true" />
-          <span>{success}</span>
-          <button type="button" onClick={() => setSuccess('')}>
-            Dismiss
-          </button>
-        </div>
-      )}
+      <StatusNotice success={success} />
 
       <div className="admin-affiliate-summary-grid" aria-label="Affiliate lifecycle summary">
         {summaryCards.map((card) => (
@@ -641,10 +635,10 @@ export function AffiliatesPage({
           <button
             className="admin-text-button"
             type="button"
-            disabled={directory.status === 'loading'}
+            disabled={directory.status === 'loading' || refreshing}
             onClick={refresh}
           >
-            <RefreshCw size={15} aria-hidden="true" /> Refresh
+            <RefreshCw size={15} aria-hidden="true" /> {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
 
@@ -843,6 +837,7 @@ export function AffiliatesPage({
         }}
         title="Affiliate details"
         description={detailsDescription}
+        restoreFocusAcrossRoutes
         wide
       >
         {detail.status === 'loading' && !selectedDetail ? (

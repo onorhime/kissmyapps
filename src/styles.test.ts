@@ -9,6 +9,7 @@ const appStyles = readFileSync('src/App.css', 'utf8')
 const authStyles = readFileSync('src/features/auth/AuthPreview.css', 'utf8')
 const adminStyles = readFileSync('src/features/admin/AdminPortal.css', 'utf8')
 const brandStyles = readFileSync('src/brand.css', 'utf8')
+const documentStyles = readFileSync('src/features/partner/live/LiveDocumentsPage.css', 'utf8')
 
 function token(name: string) {
   const value = baseStyles.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))?.[1]
@@ -31,6 +32,16 @@ function contrast(foreground: string, background: string) {
 }
 
 describe('reviewed accessibility color tokens (not a rendered-page audit)', () => {
+  it('keeps live document values and controls readable and responsive without legacy green text', () => {
+    expect(documentStyles).toMatch(/\.live-document-facts dd,[\s\S]*?color: var\(--brand-text\)/)
+    expect(documentStyles).toMatch(
+      /\.live-document-review \.live-document-primary \{[\s\S]*?color: var\(--brand-bg-deep\)/,
+    )
+    expect(documentStyles).toContain('min-height: 44px')
+    expect(documentStyles).toContain('@media (max-width: 640px)')
+    expect(documentStyles).toContain('grid-template-columns: 1fr')
+    expect(contrast(token('brand-pink'), token('brand-bg-deep'))).toBeGreaterThanOrEqual(4.5)
+  })
   it.each(['#111111', '#222222', '#2e2e2e', '#3b3b3b'])(
     'keeps muted text above 4.5:1 on %s',
     (background) => expect(contrast(token('brand-muted'), background)).toBeGreaterThanOrEqual(4.5),
@@ -83,6 +94,23 @@ describe('reviewed accessibility color tokens (not a rendered-page audit)', () =
       /button\.admin-nav-item\.admin-nav-item-active[\s\S]*?color: var\(--admin-plum-deep\);[\s\S]*?background: var\(--admin-pink\);/,
     )
     expect(contrast(token('brand-bg-deep'), token('brand-pink'))).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps agreement values, links and the signing action readable on the dark dialog', () => {
+    expect(brandStyles).toMatch(/\.agreement-sign-terms dd,[\s\S]*?color: var\(--brand-text\);/)
+    expect(brandStyles).toMatch(
+      /\.agreement-sign-download,[\s\S]*?color: var\(--brand-light-blue\);/,
+    )
+    expect(brandStyles).toMatch(
+      /\.agreement-sign-dialog \.button-primary,[\s\S]*?background: var\(--brand-pink\);[\s\S]*?color: var\(--brand-bg-deep\);/,
+    )
+    expect(brandStyles).toMatch(
+      /\.agreement-sign-dialog \.form-field input \{[\s\S]*?background: var\(--brand-bg-deep\);[\s\S]*?color: var\(--brand-text\);/,
+    )
+    expect(contrast(token('brand-text'), token('brand-card'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-light-blue'), token('brand-card'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-bg-deep'), token('brand-pink'))).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('brand-red'), token('brand-card'))).toBeGreaterThanOrEqual(4.5)
   })
 
   it('keeps the Admin routing overview contained, touchable, and card-based on small screens', () => {

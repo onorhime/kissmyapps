@@ -19,8 +19,22 @@ import {
   mapAdminSource,
 } from './configurationMappers'
 import { mapAdminContext, mapAdminProduct, mapAdminRows, singleAdminRow } from './mappers'
-import { mapAdminAttributionOverview, mapAdminDataHealth } from './observabilityMappers'
+import {
+  mapAdminAttributionOverview,
+  mapAdminDataHealth,
+  mapAdminAgreementOperationsHealth,
+} from './observabilityMappers'
 import { mapAdminPlatformSettings } from './settingsMappers'
+import { mapAdminProcessingHealth, type AdminProcessingHealth } from './processingHealth'
+import { mapAdminSubscriptionPage, type AdminSubscriptionPage } from './subscriptions'
+import {
+  mapPayoutWorkspace,
+  mapPayoutStatement,
+  mapPayoutActionResult,
+  type PayoutWorkspace,
+  type PayoutStatement,
+  type PayoutActionResult,
+} from './payouts'
 import type {
   AdminAffiliate,
   AdminAffiliateDirectoryPage,
@@ -39,6 +53,7 @@ import type {
   AdminContext,
   AdminDataError,
   AdminDataHealth,
+  AdminAgreementOperationsHealth,
   AdminDataResult,
   AdminFunnel,
   AdminGateway,
@@ -51,6 +66,9 @@ import type {
 } from './types'
 
 export const ADMIN_RPCS = Object.freeze({
+  payoutWorkspace: 'get_admin_payout_workspace',
+  payoutStatement: 'get_admin_payout_statement',
+  payoutAction: 'perform_admin_payout_action',
   context: 'get_admin_context',
   products: 'get_admin_products',
   createProduct: 'create_admin_product',
@@ -86,12 +104,14 @@ export const ADMIN_RPCS = Object.freeze({
   setBillingOfferStatus: 'set_admin_billing_offer_status',
   attributionOverview: 'get_admin_attribution_overview',
   dataHealth: 'get_admin_data_health',
+  subscriptions: 'get_admin_subscriptions',
   platformSettings: 'get_admin_platform_settings',
   configureTracking: 'configure_admin_tracking',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
   verifyBillingOfferPrice: 'stripe-price-verifier',
+  verifyManagedBillingOfferPrice: 'managed-price-verifier',
 })
 
 type Empty<T> = () => T
@@ -153,14 +173,14 @@ function edgeFailure<T>(response: AdminEdgeFunctionResponse, empty: Empty<T>): A
   if (status === 404) {
     return result(empty(), 'error', {
       code: 'contract_unavailable',
-      message: 'Live Stripe Price verification is not available yet.',
+      message: 'Stripe Price verification is not available yet.',
       retryable: false,
     })
   }
   if (status === 0 || (status !== undefined && status >= 500)) {
     return result(empty(), 'error', {
       code: 'temporarily_unavailable',
-      message: 'Live Stripe Price verification is temporarily unavailable.',
+      message: 'Stripe Price verification is temporarily unavailable.',
       retryable: true,
     })
   }
@@ -174,6 +194,7 @@ function edgeFailure<T>(response: AdminEdgeFunctionResponse, empty: Empty<T>): A
 function mapBillingOfferVerification(
   value: unknown,
   expectedBillingOfferId: string,
+  managed?: { bindingId: string; stripePriceId: string },
 ): AdminBillingOfferVerification {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Invalid verification response.')
@@ -188,10 +209,29 @@ function mapBillingOfferVerification(
   ) {
     throw new Error('Invalid verification response.')
   }
+  if (
+    managed &&
+    (row.binding_id !== managed.bindingId ||
+      row.stripe_price_id !== managed.stripePriceId ||
+      typeof row.account_id !== 'string' ||
+      !/^acct_[A-Za-z0-9]+$/.test(row.account_id) ||
+      typeof row.livemode !== 'boolean')
+  )
+    throw new Error('Invalid managed verification response.')
   return {
     verified: true,
     billingOfferId: expectedBillingOfferId,
     requestId: row.request_id,
+    ...(managed
+      ? {
+          managed: {
+            bindingId: managed.bindingId,
+            stripePriceId: managed.stripePriceId,
+            accountId: row.account_id as string,
+            livemode: row.livemode as boolean,
+          },
+        }
+      : {}),
   }
 }
 
@@ -419,6 +459,67 @@ export function createAdminGateway(
     async getDataHealth() {
       if (!client) return notConfigured<AdminDataHealth | null>(() => null)
       return mappedObject(client, ADMIN_RPCS.dataHealth, mapAdminDataHealth)
+    },
+
+    async getAgreementOperationsHealth() {
+      if (!client) return notConfigured<AdminAgreementOperationsHealth | null>(() => null)
+      return mappedObject(
+        client,
+        'get_admin_agreement_email_health',
+        mapAdminAgreementOperationsHealth,
+      )
+    },
+
+    async getProcessingHealth() {
+      if (!client) return notConfigured<AdminProcessingHealth | null>(() => null)
+      return mappedObject(client, 'get_admin_processing_health', mapAdminProcessingHealth)
+    },
+
+    async getSubscriptions(input) {
+      if (!client) return notConfigured<AdminSubscriptionPage | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.subscriptions, mapAdminSubscriptionPage, {
+        p_query: input.query?.trim() || null,
+        p_status: input.status || null,
+        p_product_id: input.productId || null,
+        p_limit: input.limit ?? 25,
+        p_offset: input.offset ?? 0,
+        p_sort: input.sort ?? 'newest',
+      })
+    },
+
+    async getPayoutWorkspace(input) {
+      if (!client) return notConfigured<PayoutWorkspace | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.payoutWorkspace, mapPayoutWorkspace, {
+        p_period_id: input.periodId || null,
+        p_query: input.query?.trim() || null,
+        p_status: input.status || null,
+        p_limit: input.limit ?? 25,
+        p_offset: input.offset ?? 0,
+      })
+    },
+    async getPayoutStatement(id) {
+      if (!client) return notConfigured<PayoutStatement | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.payoutStatement, mapPayoutStatement, {
+        p_payout_id: id,
+      })
+    },
+    async performPayoutAction(input) {
+      if (!client) return notConfigured<PayoutActionResult | null>(() => null)
+      return mappedObject(
+        client,
+        ADMIN_RPCS.payoutAction,
+        mapPayoutActionResult,
+        { p_input: input },
+        {
+          conflict:
+            'This record changed, the period overlaps an existing period, or the request was reused with different details. Refresh and review the latest state.',
+          invalidInput: 'Check the audit reason, UTC dates, and selected payout action.',
+          invalidReference:
+            'The selected payout or period is no longer available. Refresh the records.',
+          invalidState:
+            'This action is not ready. Refresh and check the period dates, reconciliation, agreement terms, balance, and verified destination. No transfer was initiated.',
+        },
+      )
     },
 
     async getPlatformSettings() {
@@ -711,6 +812,10 @@ export function createAdminGateway(
           rate_basis_points: input.rateBasisPoints,
           currency: input.currency?.trim().toUpperCase() ?? null,
           validation_window_hours: input.validationWindowHours,
+          refund_cutoff_days: input.refundCutoffDays,
+          ...(input.firstPurchaseOnly ? { first_purchase_only: true } : {}),
+          ...(input.fulfilmentRequired ? { fulfilment_required: true } : {}),
+          commission_basis_policy: input.commissionBasisPolicy,
         },
         mapAdminCommissionRule,
         {
@@ -739,12 +844,15 @@ export function createAdminGateway(
         ADMIN_RPCS.activateAgreement,
         { agreement_id: input.agreementId },
         mapAdminAgreement,
-        { invalidState: 'Activate at least one compatible commission rule first.' },
+        {
+          invalidState:
+            'Activation requires one supported active purchase rule and the matching fully signed agreement document.',
+        },
       )
     },
 
     async uploadAgreementDocument(input) {
-      if (!supabase) {
+      if (!supabase || !client) {
         return notConfigured<AdminAgreementDocument | null>(() => null)
       }
       const file = input.file
@@ -756,10 +864,32 @@ export function createAdminGateway(
         })
       }
       const safeName = file.name.replace(/[^\w.-]+/g, '-') || 'agreement.pdf'
+      let contentSha256: string
+      try {
+        const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onerror = () => reject(new Error('PDF could not be read'))
+          reader.onload = () =>
+            reader.result instanceof ArrayBuffer
+              ? resolve(reader.result)
+              : reject(new Error('PDF could not be read'))
+          reader.readAsArrayBuffer(file)
+        })
+        const digest = await crypto.subtle.digest('SHA-256', bytes)
+        contentSha256 = Array.from(new Uint8Array(digest), (value) =>
+          value.toString(16).padStart(2, '0'),
+        ).join('')
+      } catch {
+        return result<AdminAgreementDocument | null>(null, 'error', {
+          code: 'temporarily_unavailable',
+          message: 'The PDF could not be fingerprinted. Reload and try again.',
+          retryable: true,
+        })
+      }
       // The private bucket and the recording RPC both require the exact
       // partner-scoped path prefix, so the object is stored under the
       // agreement's affiliate id.
-      const objectPath = `${input.affiliateId}/agreements/${input.agreementId}/${Date.now()}-${safeName}`
+      const objectPath = `${input.affiliateId}/agreements/${input.agreementId}/${crypto.randomUUID()}-${safeName}`
       let uploadedPath: string | null = null
       try {
         const upload = await supabase.storage
@@ -777,9 +907,6 @@ export function createAdminGateway(
           retryable: true,
         })
       }
-      if (!client) {
-        return notConfigured<AdminAgreementDocument | null>(() => null)
-      }
       const recorded = await mappedMutation(
         client,
         ADMIN_RPCS.createAgreementDocument,
@@ -791,16 +918,36 @@ export function createAdminGateway(
               .trim()
               .slice(0, 160) || 'Partner agreement',
           file_path: uploadedPath,
+          content_sha256: contentSha256,
         },
         mapAdminAgreementDocument,
         {
-          invalidState: 'This agreement already has a current document.',
+          invalidState:
+            'Check that this draft has one active purchase rule and no current document. Reload before requesting signatures.',
           invalidReference: 'That agreement is no longer available.',
         },
       )
       if (recorded.status !== 'ready') {
-        // Best-effort cleanup so an unrecorded upload does not linger.
-        await supabase.storage.from('affiliate-private-documents').remove([uploadedPath])
+        // A server-authorized queue deletes only unreferenced objects. Browser
+        // users never receive permission to delete signed agreement files.
+        let queued = false
+        try {
+          const cleanup = await client.rpc('request_admin_document_cleanup', {
+            p_file_path: uploadedPath,
+          })
+          queued = !cleanup.error
+        } catch {
+          /* Preserve the original recording error with cleanup status. */
+        }
+        return result<AdminAgreementDocument | null>(null, 'error', {
+          code: recorded.error?.code ?? 'temporarily_unavailable',
+          message: `${recorded.error?.message ?? 'The agreement could not be recorded.'} ${
+            queued
+              ? 'The unused upload is queued for secure cleanup.'
+              : 'The unused upload may remain stored; ask an administrator to review cleanup.'
+          }`,
+          retryable: recorded.error?.retryable ?? true,
+        })
       }
       return recorded
     },
@@ -814,10 +961,12 @@ export function createAdminGateway(
           agreement_id: input.agreementId,
           name: input.name.trim(),
           file_path: input.filePath.trim(),
+          content_sha256: input.contentSha256,
         },
         mapAdminAgreementDocument,
         {
-          invalidState: 'This agreement already has a current document.',
+          invalidState:
+            'Check that this draft has one active purchase rule and no current document. Reload before requesting signatures.',
           invalidReference: 'That agreement is no longer available.',
         },
       )
@@ -933,10 +1082,14 @@ export function createAdminGateway(
       return mappedMutation(
         client,
         ADMIN_RPCS.issueMainLink,
-        { affiliate_id: input.affiliateId, product_id: input.productId },
+        {
+          affiliate_id: input.affiliateId,
+          product_id: input.productId,
+          environment: input.environment ?? 'live',
+        },
         mapAdminMainLink,
         {
-          conflict: 'This partner already has a canonical main link for the product.',
+          conflict: 'This partner already has a main link for this product and environment.',
           invalidState: 'The product, default funnel, partner terms, and tracking must be active.',
         },
       )
@@ -1002,7 +1155,7 @@ export function createAdminGateway(
           conflict: 'Another version of this billing offer is already active.',
           invalidReference: 'That billing offer is no longer available.',
           invalidState:
-            'Activation requires an active product and an exact, live-verified subscription Price.',
+            'Activation requires an active product and an exact verified Price for the offer’s checkout account and mode.',
         },
       )
     },
@@ -1012,19 +1165,32 @@ export function createAdminGateway(
       if (!client.functions) {
         return result<AdminBillingOfferVerification | null>(null, 'unconfigured', {
           code: 'contract_unavailable',
-          message: 'Live Stripe Price verification is not available yet.',
+          message: 'Stripe Price verification is not available yet.',
           retryable: false,
         })
       }
       let response: AdminEdgeFunctionResponse
       try {
-        response = await client.functions.invoke(ADMIN_EDGE_FUNCTIONS.verifyBillingOfferPrice, {
-          body: { billing_offer_id: input.billingOfferId },
-        })
+        response = await client.functions.invoke(
+          input.managed
+            ? ADMIN_EDGE_FUNCTIONS.verifyManagedBillingOfferPrice
+            : ADMIN_EDGE_FUNCTIONS.verifyBillingOfferPrice,
+          {
+            body: {
+              billing_offer_id: input.billingOfferId,
+              ...(input.managed
+                ? {
+                    binding_id: input.managed.bindingId,
+                    stripe_price_id: input.managed.stripePriceId,
+                  }
+                : {}),
+            },
+          },
+        )
       } catch {
         return result<AdminBillingOfferVerification | null>(null, 'error', {
           code: 'temporarily_unavailable',
-          message: 'Live Stripe Price verification is temporarily unavailable.',
+          message: 'Stripe Price verification is temporarily unavailable.',
           retryable: true,
         })
       }
@@ -1033,7 +1199,7 @@ export function createAdminGateway(
       }
       try {
         return result<AdminBillingOfferVerification | null>(
-          mapBillingOfferVerification(response.data, input.billingOfferId),
+          mapBillingOfferVerification(response.data, input.billingOfferId, input.managed),
           'ready',
         )
       } catch {

@@ -10,10 +10,19 @@ type Props = {
   children: ReactNode
   wide?: boolean
   initialFocusRef?: RefObject<HTMLElement | null>
+  className?: string
+  dismissible?: boolean
+  restoreFocusAcrossRoutes?: boolean
 }
 
 function isVisibleFocusTarget(element: HTMLElement | null): element is HTMLElement {
-  if (!element?.isConnected || element.hasAttribute('disabled')) return false
+  if (
+    !element?.isConnected ||
+    element === document.body ||
+    element === document.documentElement ||
+    element.matches(':disabled')
+  )
+    return false
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current)
     if (
@@ -37,7 +46,7 @@ function revealFocusedControl(event: FocusEvent<HTMLDivElement>) {
   // Radix intentionally prevents document scrolling when focus loops. Reveal
   // that control inside this scrollable dialog without moving the page behind it.
   if (control.top < viewport.top + 16) dialog.scrollTop += control.top - viewport.top - 16
-  else if (control.bottom > viewport.bottom - 16)
+  else if (control.height < viewport.height - 32 && control.bottom > viewport.bottom - 16)
     dialog.scrollTop += control.bottom - viewport.bottom + 16
 }
 
@@ -49,18 +58,23 @@ export function Dialog({
   children,
   wide,
   initialFocusRef,
+  className = '',
+  dismissible = true,
+  restoreFocusAcrossRoutes = false,
 }: Props) {
   const opener = useRef<HTMLElement | null>(null)
+  const openerContainer = useRef<HTMLElement | null>(null)
   const openedHash = useRef('')
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content
-          className={`dialog-content ${wide ? 'dialog-wide' : ''}`}
+          className={`dialog-content ${wide ? 'dialog-wide' : ''} ${className}`}
           onFocusCapture={revealFocusedControl}
           onOpenAutoFocus={(event) => {
             opener.current = document.activeElement as HTMLElement | null
+            openerContainer.current = opener.current?.closest('article, section') ?? null
             openedHash.current = window.location.hash
             if (initialFocusRef?.current) {
               event.preventDefault()
@@ -69,15 +83,24 @@ export function Dialog({
           }}
           onCloseAutoFocus={(event) => {
             event.preventDefault()
-            if (
-              window.location.hash !== openedHash.current ||
-              !isVisibleFocusTarget(opener.current)
-            )
-              (
-                document.getElementById('main-content') ??
-                document.getElementById('admin-main-content')
-              )?.focus({ preventScroll: true })
-            else opener.current.focus({ preventScroll: true })
+            const sameRoute =
+              restoreFocusAcrossRoutes || window.location.hash === openedHash.current
+            if (sameRoute && isVisibleFocusTarget(opener.current)) {
+              opener.current.focus({ preventScroll: true })
+              return
+            }
+            if (sameRoute && openerContainer.current?.isConnected) {
+              const heading = openerContainer.current.querySelector<HTMLElement>('h2, h3')
+              if (heading) {
+                heading.tabIndex = -1
+                heading.focus({ preventScroll: true })
+                return
+              }
+            }
+            ;(
+              document.getElementById('main-content') ??
+              document.getElementById('admin-main-content')
+            )?.focus({ preventScroll: true })
           }}
         >
           <div className="dialog-heading">
@@ -85,7 +108,11 @@ export function Dialog({
               <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
               <DialogPrimitive.Description>{description}</DialogPrimitive.Description>
             </div>
-            <DialogPrimitive.Close className="icon-button" aria-label="Close dialog">
+            <DialogPrimitive.Close
+              className="icon-button"
+              aria-label="Close dialog"
+              disabled={!dismissible}
+            >
               <X size={20} />
             </DialogPrimitive.Close>
           </div>

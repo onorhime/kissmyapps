@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { StatusNotice } from '../../../components/ActionNotice'
+import { markFormSaved } from '../../../components/useFormNavigationGuard'
+import { ConfigurationReview } from '../configuration/ConfigurationReview'
 import {
   CheckCircle2,
   CircleAlert,
@@ -241,12 +244,13 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
 
   async function submitOrigin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const submittedForm = event.currentTarget
     if (!canEdit || !settings || pending) return
 
     const normalized = normalizedTrackingOrigin(draftOrigin)
     if (!normalized) {
       setOriginError(`Enter exactly ${ADMIN_TRACKING_ORIGIN}. Other HTTPS origins are not allowed.`)
-      queueMicrotask(() => originInput.current?.focus({ preventScroll: true }))
+      queueMicrotask(() => originInput.current?.focus())
       return
     }
 
@@ -258,6 +262,7 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
       enabled: settings.tracking.enabled,
     })
     if (result.status === 'ready' && result.data) {
+      markFormSaved(submittedForm)
       setSuccessMessage(
         result.data.tracking.enabled
           ? 'Tracking origin saved. Collection remains enabled.'
@@ -327,13 +332,6 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
     } else {
       focusAfterMutation.current = 'enable'
     }
-  }
-
-  function cancelConfirmationOnEscape(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== 'Escape' || pending) return
-    event.preventDefault()
-    if (confirmation === 'enable') cancelEnable()
-    if (confirmation === 'disable') cancelDisable()
   }
 
   function refreshSettings() {
@@ -544,12 +542,11 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
               {confirmation === 'enable' &&
                 settings.readiness.canEnable &&
                 !settings.tracking.enabled && (
-                  <div
-                    className="admin-settings-confirm"
-                    id="admin-confirm-enable-tracking"
-                    role="alert"
-                    aria-labelledby="admin-confirm-enable-title"
-                    onKeyDown={cancelConfirmationOnEscape}
+                  <ConfigurationReview
+                    title="Confirm production collection"
+                    description="Review enabling tracking for the saved production origin."
+                    busy={pending}
+                    onCancel={cancelEnable}
                   >
                     <div>
                       <strong id="admin-confirm-enable-title">Confirm production collection</strong>
@@ -584,16 +581,15 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
                         Cancel
                       </button>
                     </div>
-                  </div>
+                  </ConfigurationReview>
                 )}
 
               {confirmation === 'disable' && settings.tracking.enabled && (
-                <div
-                  className="admin-settings-confirm admin-settings-confirm-disable"
-                  id="admin-confirm-disable-tracking"
-                  role="alert"
-                  aria-labelledby="admin-confirm-disable-title"
-                  onKeyDown={cancelConfirmationOnEscape}
+                <ConfigurationReview
+                  title="Confirm collection shutdown"
+                  description="Review disabling production collection."
+                  busy={pending}
+                  onCancel={cancelDisable}
                 >
                   <div>
                     <strong id="admin-confirm-disable-title">Confirm collection shutdown</strong>
@@ -626,22 +622,13 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
                       Cancel
                     </button>
                   </div>
-                </div>
+                </ConfigurationReview>
               )}
 
-              <div className="admin-settings-feedback" aria-live="polite">
-                {successMessage && (
-                  <p className="admin-feedback-success" role="status">
-                    <CheckCircle2 size={17} aria-hidden="true" /> {successMessage}
-                  </p>
-                )}
-                {mutation.status === 'failed' && (
-                  <p className="admin-feedback-error" role="alert">
-                    <CircleAlert size={17} aria-hidden="true" />
-                    {mutationFailureMessage(mutation.error)}
-                  </p>
-                )}
-              </div>
+              <StatusNotice
+                success={successMessage}
+                error={mutation.status === 'failed' ? mutationFailureMessage(mutation.error) : null}
+              />
             </section>
 
             <section className="admin-panel admin-settings-hosts" aria-labelledby="expected-hosts">

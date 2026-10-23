@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { AdminConfigurationGateway, AdminProductConfiguration } from '../api'
 import type { ConfigurationActionRunner } from './actionTypes'
+import { ConfigurationReview } from './ConfigurationReview'
 
 type TrackingModeAction = 'enable' | 'reapprove' | 'commercial'
 
@@ -44,7 +45,7 @@ export function TrackingModeSection({
   const focusStatusAfterReload = useRef(false)
   const trackingOnly = configuration.product.trackingMode === 'tracking_only'
   const trackingOnlyReady = configuration.readiness.trackingOnlyReady
-  const busy = pendingKey?.startsWith('tracking-mode:') ?? false
+  const busy = Boolean(pendingKey)
 
   useEffect(() => {
     if (!focusStatusAfterReload.current) return
@@ -55,7 +56,6 @@ export function TrackingModeSection({
   function requestConfirmation(action: TrackingModeAction) {
     if (!canManageMode || busy) return
     setConfirmation(action)
-    queueMicrotask(() => confirmButton.current?.focus({ preventScroll: true }))
   }
 
   function cancelConfirmation() {
@@ -106,15 +106,12 @@ export function TrackingModeSection({
           }
 
   const confirmGroup = confirmation ? (
-    <div
-      className="admin-confirm-action admin-tracking-mode-confirm"
-      role="group"
-      aria-labelledby="admin-tracking-mode-confirm-title"
+    <ConfigurationReview
+      title={actionCopy.title}
+      description={actionCopy.body}
+      busy={busy}
+      onCancel={cancelConfirmation}
     >
-      <p>
-        <strong id="admin-tracking-mode-confirm-title">{actionCopy.title}</strong>
-        <span>{actionCopy.body}</span>
-      </p>
       <div className="admin-record-actions">
         <button
           ref={confirmButton}
@@ -135,7 +132,7 @@ export function TrackingModeSection({
           Cancel
         </button>
       </div>
-    </div>
+    </ConfigurationReview>
   ) : null
 
   if (!trackingOnly) {
@@ -148,8 +145,8 @@ export function TrackingModeSection({
           Commercial
         </span>
         <p className="admin-mode-strip-copy">
-          <strong>Full production launch gates are enforced.</strong> Links require a verified
-          subscription offer and a bilaterally signed agreement.
+          <strong>Full production launch gates are enforced.</strong> Links require a live-verified
+          subscription or managed one-time offer and a bilaterally signed agreement.
         </p>
         {canManageMode && (
           <button
@@ -185,7 +182,7 @@ export function TrackingModeSection({
                 Configure one live default HTTPS funnel before tracking-only mode can be approved.
               </small>
             )}
-            {!confirmation && (
+            {
               <div className="admin-record-actions">
                 <button
                   className="admin-secondary-button"
@@ -196,7 +193,7 @@ export function TrackingModeSection({
                   Review tracking-only mode
                 </button>
               </div>
-            )}
+            }
             {confirmGroup}
           </div>
         )}

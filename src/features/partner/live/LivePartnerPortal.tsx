@@ -1,3 +1,6 @@
+import { useContext } from 'react'
+import { NavigationGuardContext } from '../../../components/useFormNavigationGuard'
+import { CreatorEarningsPanel } from '../../creator-settlements/CreatorEarningsPanel'
 import {
   AlertCircle,
   ChartNoAxesCombined,
@@ -14,6 +17,8 @@ import type { PortalPage } from '../data'
 import { toPartnerLiveWorkspaceContext } from './adapters'
 import { AgreementSignBanner } from './AgreementSignBanner'
 import { LiveLinksPage } from './LiveLinksPage'
+import { LiveDocumentsPage } from './LiveDocumentsPage'
+import { FunnelMetricsReport } from './FunnelMetricsReport'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 
 const pageCopy = {
@@ -60,14 +65,14 @@ function money(value: number | null, currency: string | null) {
   }).format(value / 100)
 }
 
-type DemoTrafficMetrics = Readonly<
+type TrafficMetrics = Readonly<
   Pick<PartnerMetricValues, 'clicks' | 'funnelStarts' | 'paymentViews' | 'appStoreClicks'>
 >
 
-type DemoSourceRow = Readonly<{
+type TrafficSourceRow = Readonly<{
   key: string
   label: string
-  metrics: DemoTrafficMetrics
+  metrics: TrafficMetrics
 }>
 
 function addKnown(left: number | null, right: number | null) {
@@ -79,12 +84,12 @@ function addKnown(left: number | null, right: number | null) {
  * source's buckets. A null bucket keeps the aggregate unknown instead of being
  * silently treated as zero.
  */
-function sourceBreakdown(points: readonly PartnerTrendPoint[]): readonly DemoSourceRow[] {
-  const rows = new Map<string, DemoSourceRow>()
+function sourceBreakdown(points: readonly PartnerTrendPoint[]): readonly TrafficSourceRow[] {
+  const rows = new Map<string, TrafficSourceRow>()
 
   for (const point of points) {
     const current = rows.get(point.dimensionKey)
-    const nextMetrics: DemoTrafficMetrics = current
+    const nextMetrics: TrafficMetrics = current
       ? {
           clicks: addKnown(current.metrics.clicks, point.metrics.clicks),
           funnelStarts: addKnown(current.metrics.funnelStarts, point.metrics.funnelStarts),
@@ -143,85 +148,106 @@ function stateMessage(
 }
 
 export function LivePartnerPortal({ page }: { page: PortalPage }) {
+  const navigateSafely = useContext(NavigationGuardContext)
   const workspace = usePartnerLiveWorkspace()
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
   const context = toPartnerLiveWorkspaceContext(snapshot, selectedProductId)
   const copy = pageCopy[page]
   const Icon = copy.icon
   const selectedProduct = context.selectedProduct
-  const profile = snapshot.resources.profile.data
   const summary = snapshot.resources.dashboardSummary.data
   const payout = snapshot.resources.payoutSummary.data
   const empty = stateMessage(snapshot.availability.emptyReason)
   const error = snapshot.errors[0]
   const loading = snapshot.status === 'loading'
+  const productsKnown = ['ready', 'empty'].includes(snapshot.resources.products.status)
+  const productsUnavailable = !loading && !productsKnown
   const failed = ['unavailable', 'unconfigured', 'error'].includes(snapshot.status)
   const trackingOnly = selectedProduct?.trackingMode === 'tracking_only'
   const trends = snapshot.resources.dashboardTrends
-  const demoSources = trackingOnly && trends.status === 'ready' ? sourceBreakdown(trends.data) : []
+  const trafficSources = trends.status === 'ready' ? sourceBreakdown(trends.data) : []
   const canRenderOperationalPage =
     snapshot.availability.emptyReason === 'no_activity' &&
-    (page === 'links' || (trackingOnly && (page === 'performance' || page === 'payouts')))
+    (page === 'links' || page === 'performance' || (trackingOnly && page === 'payouts'))
   const showEmptyState =
     snapshot.status === 'ready-empty' ||
     (Boolean(snapshot.availability.emptyReason) && !canRenderOperationalPage)
 
   return (
     <>
-      <section className="workspace-context" aria-label="Product and partnership context">
-        <label className="workspace-product">
-          <Layers3 size={18} aria-hidden="true" />
-          <span>
-            <span className="context-label">PRODUCT</span>
-            <select
-              aria-label="Product"
-              value={selectedProductId ?? ''}
-              disabled={loading || context.products.length === 0}
-              onChange={(event) => actions.selectProduct(event.target.value || null)}
-              aria-describedby="product-context-note"
-            >
-              {context.products.length === 0 ? (
-                <option value="">No active products</option>
-              ) : (
-                context.products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
+      {page !== 'profile' && (
+        <section className="workspace-context" aria-label="Product and partnership context">
+          <label className="workspace-product">
+            <Layers3 size={18} aria-hidden="true" />
+            <span>
+              <span className="context-label">PRODUCT</span>
+              <select
+                aria-label="Product"
+                value={selectedProductId ?? ''}
+                disabled={loading || productsUnavailable || context.products.length === 0}
+                onChange={(event) => {
+                  const productId = event.target.value || null
+                  navigateSafely(() => actions.selectProduct(productId))
+                }}
+                aria-describedby="product-context-note"
+              >
+                {context.products.length === 0 ? (
+                  <option value="">
+                    {loading
+                      ? 'Loading products…'
+                      : productsUnavailable
+                        ? 'Products unavailable'
+                        : 'No active products'}
                   </option>
-                ))
-              )}
-            </select>
-          </span>
-          <ChevronDown size={14} aria-hidden="true" />
-        </label>
-        <div className="context-partner">
-          <span className="context-label">PARTNER</span>
-          <strong>{context.partnerName ?? 'Partner workspace not assigned'}</strong>
-          <span>
-            {[label(context.partnerRole), label(context.partnerStatus)]
-              .filter(Boolean)
-              .join(' · ') || 'Account assignment pending'}
-          </span>
-        </div>
-        <div className="context-terms">
-          <span className="context-label">COMMERCIAL MODEL</span>
-          <strong>
-            {trackingOnly
-              ? 'Tracking-only demo'
-              : selectedProduct
-                ? [label(context.commercialModel), context.payoutCurrency]
-                    .filter(Boolean)
-                    .join(' · ') || 'Agreement pending'
-                : 'No agreement configured'}
-          </strong>
-          <span id="product-context-note">
-            {trackingOnly
-              ? 'Non-commercial · purchases, earnings and payouts unavailable'
-              : selectedProduct
-                ? `${label(context.agreementStatus) ?? 'Agreement pending'} · ${label(selectedProduct.status)}`
-                : 'Your first product will appear here when it is ready.'}
-          </span>
-        </div>
-      </section>
+                ) : (
+                  context.products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </span>
+            <ChevronDown size={14} aria-hidden="true" />
+          </label>
+          <div className="context-partner">
+            <span className="context-label">PARTNER</span>
+            <strong>{context.partnerName ?? 'Partner workspace not assigned'}</strong>
+            <span>
+              {[label(context.partnerRole), label(context.partnerStatus)]
+                .filter(Boolean)
+                .join(' · ') || 'Account assignment pending'}
+            </span>
+          </div>
+          <div className="context-terms">
+            <span className="context-label">COMMERCIAL MODEL</span>
+            <strong>
+              {loading
+                ? 'Loading agreement…'
+                : productsUnavailable
+                  ? 'Agreement details unavailable'
+                  : trackingOnly
+                    ? 'Tracking-only demo'
+                    : selectedProduct
+                      ? [label(context.commercialModel), context.payoutCurrency]
+                          .filter(Boolean)
+                          .join(' · ') || 'Agreement pending'
+                      : 'No agreement configured'}
+            </strong>
+            <span id="product-context-note">
+              {loading
+                ? 'Reading your authorized product and agreement details.'
+                : productsUnavailable
+                  ? 'Product details could not be loaded. Your saved configuration has not been changed.'
+                  : trackingOnly
+                    ? 'Non-commercial · purchases, earnings and payouts unavailable'
+                    : selectedProduct
+                      ? `${label(context.agreementStatus) ?? 'Agreement pending'} · ${label(selectedProduct.status)}`
+                      : 'Your first product will appear here when it is ready.'}
+            </span>
+          </div>
+        </section>
+      )}
 
       <div className="page-heading">
         <div>
@@ -238,9 +264,23 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
         </div>
       </div>
 
-      {!loading && !failed && <AgreementSignBanner gateway={workspace.gateway} />}
+      {!loading && !failed && (
+        <AgreementSignBanner gateway={workspace.gateway} onCompleted={actions.refresh} />
+      )}
 
-      {loading ? (
+      {page === 'performance' && !loading && !failed && !productsUnavailable && (
+        <p className="inline-note live-partial-note">
+          Traffic refreshes automatically while this page is open. New activity can take a few
+          minutes to process. A dash (—) means unavailable, not zero.
+          {!trackingOnly &&
+            summary.reconciliationStage === 'preliminary' &&
+            ' Verified traffic can appear before financial totals are complete.'}
+        </p>
+      )}
+
+      {page === 'profile' ? (
+        <LiveDocumentsPage workspace={workspace} />
+      ) : loading ? (
         <section className="panel live-data-state" aria-busy="true">
           <LoaderCircle className="spin" size={28} aria-hidden="true" />
           <h2>Loading your partner workspace</h2>
@@ -261,6 +301,23 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
               {isRefreshing ? 'Refreshing…' : 'Try again'}
             </button>
           )}
+        </section>
+      ) : productsUnavailable ? (
+        <section className="panel live-data-state" role="alert">
+          <AlertCircle size={28} aria-hidden="true" />
+          <h2>Product data is unavailable</h2>
+          <p>
+            We could not load your authorized products and main links. This does not mean they have
+            not been configured.
+          </p>
+          <button
+            className="button button-primary"
+            onClick={actions.refresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={isRefreshing ? 'spin' : ''} size={16} aria-hidden="true" />
+            {isRefreshing ? 'Refreshing…' : 'Retry product data'}
+          </button>
         </section>
       ) : showEmptyState ? (
         <section className="panel live-data-state" aria-labelledby="live-empty-title">
@@ -297,95 +354,117 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
                   </article>
                 </div>
               ) : (
-                <div className="live-summary-grid">
+                <div className="live-summary-grid live-demo-summary-grid">
                   <article className="panel">
-                    <span>Clicks</span>
+                    <span>Verified clicks</span>
                     <strong>{metric(summary.metrics.clicks)}</strong>
                   </article>
                   <article className="panel">
-                    <span>Purchases</span>
+                    <span>Recorded paid purchases</span>
                     <strong>{metric(summary.metrics.purchases)}</strong>
                   </article>
                   <article className="panel">
-                    <span>Earnings</span>
+                    <span>Recorded earnings</span>
                     <strong>{money(summary.metrics.earningsMinor, summary.currency)}</strong>
+                  </article>
+                  <article className="panel">
+                    <span>Active / trial subscriptions</span>
+                    <strong>{metric(summary.metrics.activeSubscriptions)}</strong>
                   </article>
                 </div>
               )}
 
-              {trackingOnly && (
-                <section
-                  className="panel live-source-breakdown"
-                  aria-labelledby="source-results-title"
-                >
-                  <div className="live-source-breakdown-heading">
-                    <div>
-                      <span className="context-label">SOURCE ATTRIBUTION</span>
-                      <h2 id="source-results-title">Traffic source results</h2>
-                    </div>
-                    <p>Verified, non-bot demo traffic in the current reporting window.</p>
-                  </div>
-
-                  {trends.status === 'ready' && demoSources.length > 0 ? (
-                    <div className="table-scroll live-source-breakdown-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th scope="col">Source</th>
-                            <th scope="col">Clicks</th>
-                            <th scope="col">Funnel starts</th>
-                            <th scope="col">Payment views</th>
-                            <th scope="col">App-store clicks</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {demoSources.map((source) => (
-                            <tr key={source.key}>
-                              <th scope="row">{source.label}</th>
-                              <td>{metric(source.metrics.clicks)}</td>
-                              <td>{metric(source.metrics.funnelStarts)}</td>
-                              <td>{metric(source.metrics.paymentViews)}</td>
-                              <td>{metric(source.metrics.appStoreClicks)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : trends.status === 'empty' || trends.status === 'ready' ? (
-                    <div className="live-source-unavailable" role="status">
-                      <Link2 size={24} aria-hidden="true" />
-                      <div>
-                        <strong>No attributed source activity yet</strong>
-                        <span>Results will appear after the first verified tracking click.</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="live-source-unavailable" role="alert">
-                      <AlertCircle size={24} aria-hidden="true" />
-                      <div>
-                        <strong>Source results are temporarily unavailable</strong>
-                        <span>
-                          {trends.error?.message ??
-                            'The source attribution read could not be verified safely.'}
-                        </span>
-                      </div>
-                      <button
-                        className="button button-white"
-                        type="button"
-                        onClick={actions.refresh}
-                        disabled={isRefreshing}
-                      >
-                        <RefreshCw
-                          className={isRefreshing ? 'spin' : ''}
-                          size={15}
-                          aria-hidden="true"
-                        />
-                        {isRefreshing ? 'Refreshing sources…' : 'Retry source results'}
-                      </button>
-                    </div>
-                  )}
-                </section>
+              {!trackingOnly && (
+                <div className="inline-note live-partial-note" role="status">
+                  <strong>
+                    {summary.metrics.purchases === null || summary.metrics.earningsMinor === null
+                      ? 'Financial totals are not available yet.'
+                      : summary.reconciliationStage === 'preliminary'
+                        ? 'Recorded totals · preliminary.'
+                        : 'Recorded totals.'}
+                  </strong>{' '}
+                  These totals reflect processed billing records, not money available for payout.
+                  Pending processing or missing evidence stays as —. Active / trial subscriptions
+                  include trials and $0 subscriptions; a free checkout is not a paid purchase and
+                  does not generate revenue-share earnings.
+                </div>
               )}
+
+              <section
+                className="panel live-source-breakdown"
+                aria-labelledby="source-results-title"
+              >
+                <div className="live-source-breakdown-heading">
+                  <div>
+                    <span className="context-label">SOURCE ATTRIBUTION</span>
+                    <h2 id="source-results-title">Traffic source results</h2>
+                  </div>
+                  <p>
+                    Bot-filtered clicks and funnel activity in the reporting window. Counts are
+                    events, not unique people. Links & Sources shows all-time raw clicks, including
+                    visits classified as bots, so its total can be higher.
+                  </p>
+                </div>
+
+                {trends.status === 'ready' && trafficSources.length > 0 ? (
+                  <div className="table-scroll live-source-breakdown-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">Source</th>
+                          <th scope="col">Verified clicks</th>
+                          <th scope="col">Funnel starts</th>
+                          <th scope="col">Payment views</th>
+                          <th scope="col">App-store clicks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trafficSources.map((source) => (
+                          <tr key={source.key}>
+                            <th scope="row">{source.label}</th>
+                            <td>{metric(source.metrics.clicks)}</td>
+                            <td>{metric(source.metrics.funnelStarts)}</td>
+                            <td>{metric(source.metrics.paymentViews)}</td>
+                            <td>{metric(source.metrics.appStoreClicks)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : trends.status === 'empty' || trends.status === 'ready' ? (
+                  <div className="live-source-unavailable" role="status">
+                    <Link2 size={24} aria-hidden="true" />
+                    <div>
+                      <strong>No attributed source activity yet</strong>
+                      <span>Results will appear after the first verified tracking click.</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="live-source-unavailable" role="alert">
+                    <AlertCircle size={24} aria-hidden="true" />
+                    <div>
+                      <strong>Source results are temporarily unavailable</strong>
+                      <span>
+                        {trends.error?.message ??
+                          'The source attribution read could not be verified safely.'}
+                      </span>
+                    </div>
+                    <button
+                      className="button button-white"
+                      type="button"
+                      onClick={actions.refresh}
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw
+                        className={isRefreshing ? 'spin' : ''}
+                        size={15}
+                        aria-hidden="true"
+                      />
+                      {isRefreshing ? 'Refreshing sources…' : 'Retry source results'}
+                    </button>
+                  </div>
+                )}
+              </section>
             </>
           )}
           {page === 'payouts' &&
@@ -422,18 +501,26 @@ export function LivePartnerPortal({ page }: { page: PortalPage }) {
               workspace={workspace}
             />
           )}
-          {page === 'profile' && (
-            <section className="panel live-data-state">
-              <Icon size={28} aria-hidden="true" />
-              <h2>{profile?.publicName ?? 'Partner profile'}</h2>
-              <p>
-                {snapshot.resources.documents.data.length} documents ·{' '}
-                {snapshot.resources.agreements.data.length} agreement versions
-              </p>
-            </section>
-          )}
         </section>
       )}
+      {page === 'performance' &&
+        selectedProduct &&
+        !loading &&
+        !failed &&
+        !productsUnavailable &&
+        snapshot.resources.profile.data && <FunnelMetricsReport workspace={workspace} />}
+      {page === 'payouts' &&
+        selectedProduct &&
+        !trackingOnly &&
+        !loading &&
+        !failed &&
+        snapshot.resources.profile.data && (
+          <CreatorEarningsPanel
+            key={`${workspace.sessionUserId}:${selectedProduct.id}`}
+            productId={selectedProduct.id}
+            client={workspace.client}
+          />
+        )}
     </>
   )
 }

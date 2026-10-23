@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
 import type { Session } from '@supabase/supabase-js'
@@ -339,7 +339,11 @@ describe('password recovery and reset', () => {
     ).not.toBeInTheDocument()
 
     finishUpdate({ session: authenticatedSupabaseSession, activationStatus: 'active' })
-    expect(await screen.findByRole('heading', { name: 'Your password is ready.' })).toHaveFocus()
+    // The heading mounts before its passive focus effect runs; wait for the
+    // user-observable focus result rather than only waiting for DOM insertion.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Your password is ready.' })).toHaveFocus(),
+    )
   })
 
   it('shows the password-update error after recovery session rotation', async () => {

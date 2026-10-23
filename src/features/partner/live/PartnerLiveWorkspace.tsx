@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   createPartnerDataGateway,
   type PartnerDataResult,
@@ -119,6 +119,7 @@ export function PartnerLiveWorkspaceProvider({
   sessionUserId,
   reporting,
   initialProductId = null,
+  autoRefresh = false,
   gateway: suppliedGateway,
 }: PartnerLiveWorkspaceProviderProps) {
   const gateway = useMemo(
@@ -136,6 +137,7 @@ export function PartnerLiveWorkspaceProvider({
     selection.scope === selectionScope ? selection.productId : initialProductId
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [refreshVersion, setRefreshVersion] = useState(0)
+  const readInFlight = useRef<symbol | null>(null)
   const [scopedMutation, setScopedMutation] = useState(() => ({
     scope: selectionScope,
     value: idleMutation,
@@ -166,45 +168,52 @@ export function PartnerLiveWorkspaceProvider({
   useEffect(() => {
     if (sessionUserId === null || !hasConnection) return
     let active = true
+    const read = Symbol('partner-read')
+    readInFlight.current = read
 
     void (async () => {
-      const products = await loadPartnerLiveProducts(gateway)
-      if (!active) return
-      if (isKnownCollection(products.status)) {
-        const resolvedProductId = resolveProductId(products.data, selectedProductId)
-        if (resolvedProductId !== selectedProductId) {
-          setSelection({ scope: selectionScope, productId: resolvedProductId })
-          setIsRefreshing(false)
-          return
+      try {
+        const products = await loadPartnerLiveProducts(gateway)
+        if (!active) return
+        if (isKnownCollection(products.status)) {
+          const resolvedProductId = resolveProductId(products.data, selectedProductId)
+          if (resolvedProductId !== selectedProductId) {
+            setSelection({ scope: selectionScope, productId: resolvedProductId })
+            setIsRefreshing(false)
+            return
+          }
         }
-      }
 
-      const nextSnapshot = await loadPartnerLiveWorkspace(
-        gateway,
-        {
-          productId: selectedProductId,
-          reporting: {
-            startsOn: reporting.startsOn,
-            endsOn: reporting.endsOn,
-            timezone: reporting.timezone,
-            sourceId: reporting.sourceId,
-            campaignId: reporting.campaignId,
-            funnelId: reporting.funnelId,
-            countryCode: reporting.countryCode,
-            subId: reporting.subId,
-            grain: reporting.grain,
-            breakdown: reporting.breakdown,
+        const nextSnapshot = await loadPartnerLiveWorkspace(
+          gateway,
+          {
+            productId: selectedProductId,
+            reporting: {
+              startsOn: reporting.startsOn,
+              endsOn: reporting.endsOn,
+              timezone: reporting.timezone,
+              sourceId: reporting.sourceId,
+              campaignId: reporting.campaignId,
+              funnelId: reporting.funnelId,
+              countryCode: reporting.countryCode,
+              subId: reporting.subId,
+              grain: reporting.grain,
+              breakdown: reporting.breakdown,
+            },
           },
-        },
-        products,
-      )
-      if (!active) return
-      setLoaded({ gateway, requestKey, snapshot: nextSnapshot })
-      setIsRefreshing(false)
+          products,
+        )
+        if (!active) return
+        setLoaded({ gateway, requestKey, snapshot: nextSnapshot })
+        setIsRefreshing(false)
+      } finally {
+        if (readInFlight.current === read) readInFlight.current = null
+      }
     })()
 
     return () => {
       active = false
+      if (readInFlight.current === read) readInFlight.current = null
     }
   }, [
     gateway,
@@ -228,9 +237,47 @@ export function PartnerLiveWorkspaceProvider({
   ])
 
   const refresh = useCallback(() => {
+    // Reserve immediately so focus + visibility events cannot start two reads.
+    // Explicit refreshes (including post-save) may supersede an older read;
+    // the effect cleanup prevents that older result from replacing fresh data.
+    readInFlight.current = Symbol('refresh-requested')
     setIsRefreshing(true)
     setRefreshVersion((version) => version + 1)
   }, [])
+
+  useEffect(() => {
+    if (!autoRefresh || !sessionUserId || !hasConnection || !loadedMatchesRequest) return
+    let lastRequestedAt = Date.now()
+    const refreshVisibleReport = () => {
+      if (
+        document.visibilityState !== 'visible' ||
+        readInFlight.current !== null ||
+        mutation.status === 'pending' ||
+        document.querySelector('form, [role="dialog"], [role="alertdialog"]') ||
+        document.activeElement?.matches('input, textarea, select, [contenteditable="true"]') ||
+        Date.now() - lastRequestedAt < 60_000
+      )
+        return
+      lastRequestedAt = Date.now()
+      refresh()
+    }
+    const interval = window.setInterval(refreshVisibleReport, 60_000)
+    window.addEventListener('focus', refreshVisibleReport)
+    document.addEventListener('visibilitychange', refreshVisibleReport)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshVisibleReport)
+      document.removeEventListener('visibilitychange', refreshVisibleReport)
+    }
+  }, [
+    autoRefresh,
+    hasConnection,
+    loadedMatchesRequest,
+    mutation.status,
+    refresh,
+    requestKey,
+    sessionUserId,
+  ])
 
   const selectProduct = useCallback(
     (productId: string | null) => setSelection({ scope: selectionScope, productId }),
@@ -407,13 +454,27 @@ export function PartnerLiveWorkspaceProvider({
   const value = useMemo<PartnerLiveWorkspaceValue>(
     () => ({
       snapshot,
+      sessionUserId,
+      reporting,
+      client,
       selectedProductId,
       isRefreshing: loadedMatchesRequest && isRefreshing,
       mutation,
       actions,
       gateway,
     }),
-    [actions, gateway, isRefreshing, loadedMatchesRequest, mutation, selectedProductId, snapshot],
+    [
+      actions,
+      client,
+      gateway,
+      isRefreshing,
+      loadedMatchesRequest,
+      mutation,
+      reporting,
+      selectedProductId,
+      sessionUserId,
+      snapshot,
+    ],
   )
 
   return (

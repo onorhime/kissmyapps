@@ -181,6 +181,28 @@ export function mapAdminBillingOffer(value: unknown): AdminBillingOffer {
       'stripe_livemode_verified_at',
       'stripeLivemodeVerifiedAt',
     ),
+    managedPriceVerifications: rows(
+      row,
+      'managed_price_verifications',
+      'managedPriceVerifications',
+    ).map((value) => {
+      const proof = record(value)
+      return {
+        configuredPriceId: requiredString(proof, 'configured_price_id', 'configuredPriceId'),
+        accountId: requiredString(proof, 'account_id', 'accountId'),
+        livemode: boolean(proof, 'livemode'),
+        stripePriceId: requiredString(proof, 'stripe_price_id', 'stripePriceId'),
+        currency: requiredString(proof, 'currency'),
+        unitAmountMinor: integer(proof, 'unit_amount_minor', 'unitAmountMinor'),
+        offerVersion: integer(proof, 'offer_version', 'offerVersion'),
+        verifiedAt: requiredString(proof, 'verified_at', 'verifiedAt'),
+      }
+    }),
+    mainLinkTestReady: valueAt(row, 'main_link_test_ready', 'mainLinkTestReady') === true,
+    mainLinkReady:
+      valueAt(row, 'main_link_ready', 'mainLinkReady') === undefined
+        ? false
+        : boolean(row, 'main_link_ready', 'mainLinkReady'),
     createdAt: requiredString(row, 'created_at', 'createdAt'),
     updatedAt: requiredString(row, 'updated_at', 'updatedAt'),
   }
@@ -188,6 +210,21 @@ export function mapAdminBillingOffer(value: unknown): AdminBillingOffer {
 
 export function mapAdminCommissionRule(value: unknown): AdminCommissionRule {
   const row = record(value)
+  const refundCutoffDays = nullableInteger(row, 'refund_cutoff_days', 'refundCutoffDays')
+  const policyVersion = valueAt(row, 'policy_version', 'policyVersion')
+  if (refundCutoffDays !== null && (refundCutoffDays < 0 || refundCutoffDays > 3650))
+    throw Error('Invalid refund cutoff.')
+  if (
+    (policyVersion === 2 || policyVersion === 3) &&
+    (valueAt(row, 'refund_cutoff_days', 'refundCutoffDays') === undefined ||
+      valueAt(row, 'commission_basis_policy', 'commissionBasisPolicy') == null)
+  )
+    throw Error('Canonical commission policy is missing.')
+  if (
+    policyVersion === 3 &&
+    (typeof row.first_purchase_only !== 'boolean' || typeof row.fulfilment_required !== 'boolean')
+  )
+    throw Error('Signed eligibility policy is missing.')
   return {
     id: requiredString(row, 'id'),
     agreementId: requiredString(row, 'agreement_id', 'agreementId'),
@@ -200,6 +237,13 @@ export function mapAdminCommissionRule(value: unknown): AdminCommissionRule {
     rateBasisPoints: nullableInteger(row, 'rate_basis_points', 'rateBasisPoints'),
     currency: nullableString(row, 'currency'),
     validationWindowHours: integer(row, 'validation_window_hours', 'validationWindowHours'),
+    refundCutoffDays,
+    ...(row.first_purchase_only === true ? { firstPurchaseOnly: true } : {}),
+    ...(row.fulfilment_required === true ? { fulfilmentRequired: true } : {}),
+    commissionBasisPolicy: enumValue(
+      valueAt(row, 'commission_basis_policy', 'commissionBasisPolicy') ?? 'net_after_fees',
+      ['net_after_fees', 'subtotal_ex_tax_shipping'] as const,
+    ),
     createdAt: requiredString(row, 'created_at', 'createdAt'),
     updatedAt: requiredString(row, 'updated_at', 'updatedAt'),
   }
@@ -316,7 +360,10 @@ export function mapAdminMainLink(value: unknown, fallbackProductId?: string): Ad
     funnelId: requiredString(row, 'funnel_id', 'funnelId'),
     name: nullableString(row, 'name'),
     publicCode: nullableString(row, 'public_code', 'publicCode'),
-    trackingUrl: requiredString(row, 'tracking_url', 'trackingUrl'),
+    trackingUrl:
+      nullableString(row, 'short_url', 'shortUrl') ??
+      requiredString(row, 'tracking_url', 'trackingUrl'),
+    environment: enumValue(valueAt(row, 'environment') ?? 'live', ['test', 'live'] as const),
     status: enumValue(row.status, linkStatuses),
     createdAt: requiredString(row, 'created_at', 'createdAt'),
   }
@@ -351,7 +398,13 @@ export function mapAdminProductConfiguration(value: unknown): AdminProductConfig
         'has_active_billing_offer',
         'hasActiveBillingOffer',
       ),
+      hasActiveTestBillingOffer:
+        valueAt(readiness, 'has_active_test_billing_offer', 'hasActiveTestBillingOffer') === true,
+      managedPaymentCheckoutEnabled:
+        valueAt(readiness, 'managed_payment_checkout_enabled', 'managedPaymentCheckoutEnabled') ===
+        true,
       trackingReady: boolean(readiness, 'tracking_ready', 'trackingReady'),
+      testTrackingReady: valueAt(readiness, 'test_tracking_ready', 'testTrackingReady') === true,
       trackingOnlyReady: boolean(readiness, 'tracking_only_ready', 'trackingOnlyReady'),
       trackingOnlyCanIssueLinks: boolean(
         readiness,

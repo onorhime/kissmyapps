@@ -28,6 +28,17 @@ const offer: AdminBillingOffer = {
   updatedAt: '2026-08-28T12:00:00.000Z',
 }
 
+const managedProof = {
+  configuredPriceId: offer.stripePriceId!,
+  accountId: 'acct_catalogfixture',
+  livemode: false,
+  stripePriceId: 'price_ManagedTestFixture',
+  currency: offer.currency!,
+  unitAmountMinor: offer.unitAmountMinor!,
+  offerVersion: offer.version,
+  verifiedAt: offer.updatedAt,
+}
+
 const configuration: AdminProductConfiguration = {
   product: {
     id: 'product-1',
@@ -82,10 +93,10 @@ describe('Admin billing offers', () => {
     })
   })
 
-  it('keeps payment mode visibly draft-only and blocked', () => {
+  it('keeps one-time activation blocked until managed checkout is explicitly configured', () => {
     const payment = { ...offer, id: 'offer-2', billingMode: 'payment' as const }
-    expect(billingOfferActivationBlockers(payment, true)[0]).toMatch(/draft-only/)
-    expect(canVerifyBillingOfferPrice({ ...payment, stripePriceVerified: false })).toBe(false)
+    expect(billingOfferActivationBlockers(payment, true)[0]).toMatch(/managed checkout integration/)
+    expect(canVerifyBillingOfferPrice({ ...payment, stripePriceVerified: false })).toBe(true)
     render(
       <BillingOffersSection
         configuration={{ ...configuration, billingOffers: [payment] }}
@@ -95,8 +106,60 @@ describe('Admin billing offers', () => {
         runAction={vi.fn()}
       />,
     )
-    expect(screen.getByText('Payment · draft only')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Review activation' })).not.toBeInTheDocument()
+    expect(
+      screen.getByText('One-time payment · managed checkout', { selector: 'span' }),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Review activation' })).toBeDisabled()
+    expect(screen.getByText(/Managed checkout is disabled for this product/)).toBeVisible()
+    expect(screen.getByText(/Test verification alone does not qualify/)).toBeVisible()
+    expect(screen.queryByText(/does not unlock.*partner-link launch/)).not.toBeInTheDocument()
+  })
+
+  it('reviews a verified managed one-time offer without changing commission settings', async () => {
+    const user = userEvent.setup()
+    const payment = {
+      ...offer,
+      id: 'offer-2',
+      billingMode: 'payment' as const,
+      managedPriceVerifications: [managedProof],
+    }
+    const setBillingOfferStatus = vi.fn(async () => ({
+      data: { ...payment, status: 'active' as const },
+      status: 'ready' as const,
+      error: null,
+    }))
+    expect(billingOfferActivationBlockers(payment, true, true)).toEqual([])
+    expect(
+      billingOfferActivationBlockers({ ...payment, managedPriceVerifications: [] }, true, true),
+    ).toContain('Verify a Price for the managed checkout account and mode.')
+    expect(
+      billingOfferActivationBlockers({ ...payment, stripePriceVerified: false }, true, true),
+    ).toEqual([])
+    expect(
+      billingOfferActivationBlockers({ ...payment, unitAmountMinor: 1 }, true, true),
+    ).toContain('Verify a Price for the managed checkout account and mode.')
+    render(
+      <BillingOffersSection
+        configuration={{
+          ...configuration,
+          billingOffers: [payment],
+          readiness: { ...configuration.readiness, managedPaymentCheckoutEnabled: true },
+        }}
+        gateway={{ setBillingOfferStatus } as unknown as AdminConfigurationGateway}
+        canManage
+        pendingKey={null}
+        runAction={async (_key, operation) => Boolean((await operation()).data)}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Review activation' }))
+    expect(setBillingOfferStatus).not.toHaveBeenCalled()
+    expect(screen.getByText(/It does not enable the subscription checkout/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Confirm active' }))
+    expect(setBillingOfferStatus).toHaveBeenCalledWith({
+      billingOfferId: payment.id,
+      status: 'active',
+    })
   })
 
   it('verifies a complete draft by sending only its offer ID', async () => {
@@ -133,5 +196,39 @@ describe('Admin billing offers', () => {
     expect(Object.keys(verifyBillingOfferPrice.mock.calls[0]?.[0] ?? {})).toEqual([
       'billingOfferId',
     ])
+  })
+})
+
+it('verifies a managed Price using the configured binding and shows Test mode clearly', async () => {
+  const user = userEvent.setup()
+  const payment = {
+    ...offer,
+    billingMode: 'payment' as const,
+    managedPriceVerifications: [managedProof],
+  }
+  const verifyBillingOfferPrice = vi.fn(async () => ({
+    data: { verified: true as const, billingOfferId: offer.id, requestId: 'fixture' },
+    status: 'ready' as const,
+    error: null,
+  }))
+  render(
+    <BillingOffersSection
+      configuration={{ ...configuration, billingOffers: [payment] }}
+      gateway={{ verifyBillingOfferPrice } as unknown as AdminConfigurationGateway}
+      canManage
+      pendingKey={null}
+      runAction={async (_key, operation) => Boolean((await operation()).data)}
+    />,
+  )
+  expect(screen.getByText('Test Price verified')).toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Verify live Price' })).not.toBeInTheDocument()
+  await user.click(screen.getByText('Verify a managed Stripe Price'))
+  await user.type(screen.getByLabelText('Managed integration ID'), 'marathon-test')
+  await user.clear(screen.getByLabelText('Managed Stripe Price ID'))
+  await user.type(screen.getByLabelText('Managed Stripe Price ID'), 'price_ManagedTestFixture')
+  await user.click(screen.getByRole('button', { name: 'Verify managed Price' }))
+  expect(verifyBillingOfferPrice).toHaveBeenCalledWith({
+    billingOfferId: offer.id,
+    managed: { bindingId: 'marathon-test', stripePriceId: 'price_ManagedTestFixture' },
   })
 })

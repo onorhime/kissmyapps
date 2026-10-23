@@ -255,7 +255,9 @@ export async function loadPartnerLiveWorkspace(
       () => [],
     ),
     safely(
-      () => gateway.getDocuments(request.productId),
+      // Documents belong to the partner account, including unlaunched and
+      // historical products outside the currently selected reporting scope.
+      () => gateway.getDocuments(),
       () => [],
     ),
     safely(

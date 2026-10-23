@@ -36,7 +36,7 @@ export function CampaignSourcesSection({
   const [startsAt, setStartsAt] = useState('')
   const [endsAt, setEndsAt] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const busy = pendingKey?.startsWith('dimension:') ?? false
+  const busy = Boolean(pendingKey)
 
   async function createSource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

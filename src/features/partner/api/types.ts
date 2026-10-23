@@ -96,6 +96,8 @@ export type PartnerProduct = Readonly<{
   hasLiveFunnel: boolean
   mainLinkId: string | null
   mainTrackingUrl: string | null
+  testMainLinkId?: string | null
+  testMainTrackingUrl?: string | null
 }>
 
 export type PartnerLinkOptionKind = 'funnel' | 'source' | 'campaign'
@@ -134,6 +136,7 @@ export type PartnerLink = Readonly<{
   sub3: string
   status: PartnerLinkStatus
   trackingUrl: string
+  environment?: 'test' | 'live'
   parentLinkId: string | null
   commercialEligible: boolean
   clicks: number
@@ -281,6 +284,16 @@ export type PartnerPayoutDetail = PartnerPayout &
 export type PartnerCommissionModel = 'cpl' | 'cpa' | 'revenue_share' | 'hybrid'
 
 export type PartnerCommissionRule = Readonly<{
+  version?: number
+  status?: string
+  validationWindowHours?: number
+  refundCutoffDays?: number | null
+  commissionBasisPolicy?: 'net_after_fees' | 'subtotal_ex_tax_shipping'
+  firstPurchaseOnly?: boolean
+  fulfilmentRequired?: boolean
+  policyVersion?: number
+  externalRefundCalculation?: 'proportional_commission'
+
   name: string
   model: PartnerCommissionModel
   triggerEvent: string
@@ -317,6 +330,7 @@ export type PartnerDocumentStatus =
 
 export type PartnerDocument = Readonly<{
   id: string
+  productId: string | null
   name: string
   type: string
   version: number
@@ -332,7 +346,22 @@ export type PartnerDocument = Readonly<{
   downloadAvailable: boolean
 }>
 
+/** Receipt from the signing RPC, not the enriched document-directory view. */
+export type PartnerSignatureReceipt = Readonly<{
+  documentId: string
+  agreementId: string
+  version: number
+  status: 'awaiting_kissmyapps_signature'
+  signerName: string
+  signerUserId: string
+  signedAt: string
+  acknowledgedAt: string
+}>
+
 export type PartnerSignatureRequest = Readonly<{
+  rules?: readonly PartnerCommissionRule[]
+  termsSha256?: string
+
   documentId: string
   name: string
   version: number

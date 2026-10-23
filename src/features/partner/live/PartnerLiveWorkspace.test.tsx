@@ -181,7 +181,11 @@ function liveGateway() {
   }
 }
 
-function wrapper(gateway: PartnerDataGateway, sessionUserId: string | null = 'user-1') {
+function wrapper(
+  gateway: PartnerDataGateway,
+  sessionUserId: string | null = 'user-1',
+  autoRefresh = false,
+) {
   return function LiveWorkspaceTestProvider({ children }: { children: ReactNode }) {
     return (
       <PartnerLiveWorkspaceProvider
@@ -189,6 +193,7 @@ function wrapper(gateway: PartnerDataGateway, sessionUserId: string | null = 'us
         gateway={gateway}
         sessionUserId={sessionUserId}
         reporting={reporting}
+        autoRefresh={autoRefresh}
       >
         {children}
       </PartnerLiveWorkspaceProvider>
@@ -197,6 +202,158 @@ function wrapper(gateway: PartnerDataGateway, sessionUserId: string | null = 'us
 }
 
 describe('PartnerLiveWorkspaceProvider', () => {
+  it('refreshes in the background without discarding visible data or overlapping reads', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    try {
+      const testGateway = liveGateway()
+      const summary = (clicks: number) =>
+        dataResult(
+          {
+            ...emptyPartnerDashboardSummary(),
+            hasData: true,
+            metrics: { ...emptyPartnerDashboardSummary().metrics, clicks },
+          },
+          'ready',
+        )
+      let resolveRead: ((value: ReturnType<typeof summary>) => void) | undefined
+      const readSummary = vi.fn(async () => summary(2))
+      testGateway.gateway.getDashboardSummary = readSummary
+      const { result, unmount } = renderHook(() => usePartnerLiveWorkspace(), {
+        wrapper: wrapper(testGateway.gateway, 'user-1', true),
+      })
+      await act(async () => {})
+      await waitFor(() => expect(result.current.snapshot.status).toBe('ready'))
+      const initial = result.current.snapshot
+      readSummary.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRead = resolve
+          }),
+      )
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(readSummary).toHaveBeenCalledTimes(2)
+      expect(result.current.isRefreshing).toBe(true)
+      expect(result.current.snapshot).toBe(initial)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+        window.dispatchEvent(new Event('focus'))
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      expect(readSummary).toHaveBeenCalledTimes(2)
+      readSummary.mockResolvedValueOnce(summary(3))
+      await act(async () => {
+        result.current.actions.refresh()
+      })
+      await waitFor(() => expect(result.current.isRefreshing).toBe(false))
+      expect(result.current.snapshot.resources.dashboardSummary.data.metrics.clicks).toBe(3)
+      await act(async () => {
+        resolveRead!(summary(1))
+      })
+      expect(result.current.snapshot.resources.dashboardSummary.data.metrics.clicks).toBe(3)
+      unmount()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+      })
+      expect(readSummary).toHaveBeenCalledTimes(3)
+    } finally {
+      visibility.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('pauses hidden or editing reports and coalesces return-to-tab events', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    const form = document.createElement('form')
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    try {
+      const testGateway = liveGateway()
+      const { result, unmount } = renderHook(() => usePartnerLiveWorkspace(), {
+        wrapper: wrapper(testGateway.gateway, 'user-1', true),
+      })
+      await act(async () => {})
+      await waitFor(() => expect(result.current.snapshot.status).toBe('ready'))
+      const initialReads = testGateway.getProducts.mock.calls.length
+      visibility.mockReturnValue('hidden')
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(initialReads)
+      visibility.mockReturnValue('visible')
+      document.body.append(form)
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'))
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(initialReads)
+      form.remove()
+      document.body.append(dialog)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(initialReads)
+      dialog.remove()
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+      await waitFor(() => expect(result.current.isRefreshing).toBe(false))
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(initialReads + 1)
+      expect(testGateway.createPartnerLink).not.toHaveBeenCalled()
+      unmount()
+    } finally {
+      form.remove()
+      dialog.remove()
+      visibility.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not schedule reads on editing routes or after sign-out', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] })
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    try {
+      const testGateway = liveGateway()
+      const Probe = () => <span>{usePartnerLiveWorkspace().snapshot.status}</span>
+      const ui = (enabled: boolean, user: string | null) => (
+        <PartnerLiveWorkspaceProvider
+          gateway={testGateway.gateway}
+          sessionUserId={user}
+          reporting={reporting}
+          autoRefresh={enabled}
+        >
+          <Probe />
+        </PartnerLiveWorkspaceProvider>
+      )
+      const { rerender, unmount } = render(ui(false, 'user-1'))
+      await screen.findByText('ready')
+      const reads = testGateway.getProducts.mock.calls.length
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(reads)
+      rerender(ui(true, 'user-1'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(reads + 1)
+      rerender(ui(true, null))
+      await screen.findByText('error')
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000)
+      })
+      expect(testGateway.getProducts).toHaveBeenCalledTimes(reads + 1)
+      unmount()
+    } finally {
+      visibility.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it('does not call partner data endpoints without an authenticated session', async () => {
     const testGateway = liveGateway()
     const { result } = renderHook(() => usePartnerLiveWorkspace(), {

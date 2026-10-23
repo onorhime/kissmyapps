@@ -7,6 +7,8 @@ import {
   validateOptionalProductionHttpsUrl,
 } from './configurationValidation'
 import type { ConfigurationActionRunner } from './actionTypes'
+import { FunnelMetricsPanel } from '../../funnel-metrics/admin/FunnelMetricsPanel'
+import type { FunnelMetricTemplateKey } from '../../funnel-metrics'
 
 export function FunnelSection({
   configuration,
@@ -27,7 +29,12 @@ export function FunnelSection({
   const [isDefault, setIsDefault] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [editing, setEditing] = useState<AdminFunnel | null>(null)
-  const busy = pendingKey?.startsWith('funnel:') ?? false
+  const [metricsTemplate, setMetricsTemplate] = useState<FunnelMetricTemplateKey>('blank')
+  const [metricsFunnel, setMetricsFunnel] = useState<{
+    funnel: AdminFunnel
+    template?: FunnelMetricTemplateKey
+  } | null>(null)
+  const busy = Boolean(pendingKey)
 
   async function createFunnel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -37,16 +44,20 @@ export function FunnelSection({
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length) return
 
+    let createdFunnel: AdminFunnel | null = null
     const created = await runAction(
       'funnel:create',
-      () =>
-        gateway.createFunnel({
+      async () => {
+        const response = await gateway.createFunnel({
           productId: configuration.product.id,
           name: name.trim().replace(/\s+/g, ' '),
           key: normalizeConfigurationKey(key),
           destinationUrl: destination.trim(),
           isDefault,
-        }),
+        })
+        if (response.status === 'ready') createdFunnel = response.data
+        return response
+      },
       'Draft funnel created. Review it before setting it live.',
     )
     if (created) {
@@ -54,6 +65,8 @@ export function FunnelSection({
       setKey('')
       setDestination('')
       setIsDefault(false)
+      if (createdFunnel) setMetricsFunnel({ funnel: createdFunnel, template: metricsTemplate })
+      setMetricsTemplate('blank')
     }
   }
 
@@ -105,9 +118,14 @@ export function FunnelSection({
         </div>
       </div>
 
+      {metricsFunnel && (
+        <p className="admin-field-hint">
+          Close the reporting editor below before adding or configuring another funnel.
+        </p>
+      )}
       <div className="admin-config-split">
         <form className="admin-config-form" onSubmit={createFunnel} noValidate>
-          <fieldset disabled={!canManage || busy}>
+          <fieldset disabled={!canManage || busy || Boolean(metricsFunnel)}>
             <legend>Add a draft funnel</legend>
             <div className="admin-config-form-grid">
               <label className="admin-field">
@@ -146,6 +164,24 @@ export function FunnelSection({
                     go live without a production HTTPS destination.
                   </small>
                 )}
+              </label>
+              <label className="admin-field admin-config-span-two">
+                <span>Reporting starter template</span>
+                <select
+                  value={metricsTemplate}
+                  onChange={(event) =>
+                    setMetricsTemplate(event.target.value as FunnelMetricTemplateKey)
+                  }
+                >
+                  <option value="blank">Blank — choose metrics myself</option>
+                  <option value="sales">Sales funnel</option>
+                  <option value="subscription">Subscription funnel</option>
+                  <option value="webinar">Webinar funnel</option>
+                </select>
+                <small className="admin-field-hint">
+                  Configure and review these metrics after creating the funnel. Nothing is published
+                  automatically.
+                </small>
               </label>
               <label className="admin-config-check admin-config-span-two">
                 <input
@@ -208,6 +244,17 @@ export function FunnelSection({
                     <ExternalLink size={13} aria-hidden="true" />
                   </a>
                 )}
+                <button
+                  className="admin-secondary-button"
+                  type="button"
+                  disabled={busy || Boolean(metricsFunnel && metricsFunnel.funnel.id !== funnel.id)}
+                  onClick={() => {
+                    if (!metricsFunnel) setMetricsFunnel({ funnel })
+                  }}
+                  aria-expanded={metricsFunnel?.funnel.id === funnel.id}
+                >
+                  Reporting metrics
+                </button>
                 {editing?.id === funnel.id ? (
                   <form className="admin-inline-edit-form" onSubmit={updateFunnel} noValidate>
                     <label className="admin-field">
@@ -310,6 +357,21 @@ export function FunnelSection({
           )}
         </div>
       </div>
+      {metricsFunnel && (
+        <FunnelMetricsPanel
+          key={metricsFunnel.funnel.id}
+          productId={configuration.product.id}
+          funnelId={metricsFunnel.funnel.id}
+          funnelName={metricsFunnel.funnel.name}
+          initialTemplate={metricsFunnel.template}
+          canManage={
+            canManage &&
+            (configuration.funnels.find((funnel) => funnel.id === metricsFunnel.funnel.id)
+              ?.status ?? metricsFunnel.funnel.status) !== 'archived'
+          }
+          onClose={() => setMetricsFunnel(null)}
+        />
+      )}
     </section>
   )
 }

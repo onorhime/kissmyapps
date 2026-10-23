@@ -4,9 +4,11 @@ import type {
   AdminAgreement,
   AdminCommissionRule,
   AdminMainLinkReadiness,
+  AdminLinkEnvironment,
   AdminProductConfiguration,
   AdminReadinessBlockerCode,
 } from '../api'
+import { managedPriceVerifications } from './billingOfferReadiness'
 
 const supportedLaunchModels = new Set(['cpa', 'revenue_share', 'hybrid'])
 
@@ -21,7 +23,11 @@ export const readinessCopy: Record<AdminReadinessBlockerCode, string> = {
   active_agreement_missing: 'Activate an agreement for the selected partner and product.',
   active_commission_rule_missing: 'Activate a compatible commission rule.',
   active_billing_offer_missing:
-    'Activate a live-verified subscription offer before issuing partner links.',
+    'Activate a live-verified subscription or managed one-time offer before issuing partner links.',
+  active_test_billing_offer_missing:
+    'Activate an offer verified against the assigned TEST merchant before issuing test links.',
+  test_links_require_commercial_product:
+    'TEST links use normal product agreements and offers. A tracking-only demo cannot issue them.',
   launch_ready_agreement_missing:
     'A partner agreement needs a bilateral signed document and exactly one supported active purchase rule.',
   tracking_only_approval_required:
@@ -50,6 +56,34 @@ export function hasLiveVerifiedActiveSubscriptionOffer(
       offer.billingMode === 'subscription' &&
       offer.stripePriceVerified &&
       Boolean(offer.stripeLivemodeVerifiedAt),
+  )
+}
+
+export function hasLaunchReadyActiveBillingOffer(
+  configuration: AdminProductConfiguration,
+): boolean {
+  return (
+    hasLiveVerifiedActiveSubscriptionOffer(configuration) ||
+    (configuration.readiness.managedPaymentCheckoutEnabled === true &&
+      configuration.billingOffers.some(
+        (offer) =>
+          offer.productId === configuration.product.id &&
+          offer.status === 'active' &&
+          offer.billingMode === 'payment' &&
+          offer.mainLinkReady === true &&
+          managedPriceVerifications(offer).some((proof) => proof.livemode),
+      ))
+  )
+}
+
+export function hasTestReadyActiveBillingOffer(configuration: AdminProductConfiguration): boolean {
+  return configuration.billingOffers.some(
+    (offer) =>
+      offer.productId === configuration.product.id &&
+      offer.status === 'active' &&
+      offer.billingMode === 'payment' &&
+      offer.mainLinkTestReady === true &&
+      managedPriceVerifications(offer).some((proof) => !proof.livemode),
   )
 }
 
@@ -102,13 +136,14 @@ export function productActivationReadiness(
 export function mainLinkReadiness(
   configuration: AdminProductConfiguration,
   affiliates: readonly AdminAffiliate[],
+  environment: AdminLinkEnvironment = 'live',
 ): AdminMainLinkReadiness {
   const blockers: AdminReadinessBlockerCode[] = []
   if (configuration.product.status !== 'active') blockers.push('product_not_active')
 
   const linkedAffiliateIds = new Set(
     configuration.mainLinks
-      .filter((link) => link.status !== 'archived')
+      .filter((link) => link.status !== 'archived' && (link.environment ?? 'live') === environment)
       .map((link) => link.affiliateId),
   )
   const activeAffiliateIds = affiliates
@@ -116,6 +151,7 @@ export function mainLinkReadiness(
     .map((affiliate) => affiliate.id)
 
   if (configuration.product.trackingMode === 'tracking_only') {
+    if (environment === 'test') blockers.push('test_links_require_commercial_product')
     if (!configuration.tracking.baseUrl || !configuration.tracking.enabled) {
       blockers.push(trackingBlocker(configuration))
     }
@@ -134,12 +170,25 @@ export function mainLinkReadiness(
     return { allowed: blockers.length === 0, blockers, eligibleAffiliateIds }
   }
 
-  if (!configuration.readiness.trackingReady) blockers.push(trackingBlocker(configuration))
+  const routingReady =
+    environment === 'test'
+      ? configuration.tracking.enabled && Boolean(configuration.tracking.baseUrl)
+      : configuration.readiness.trackingReady
+  if (!routingReady) blockers.push(trackingBlocker(configuration))
   if (!configuration.readiness.hasLiveDefaultFunnel) blockers.push(funnelBlocker(configuration))
   if (!configuration.readiness.hasActiveAgreement) blockers.push('active_agreement_missing')
 
-  const hasLiveVerifiedSubscriptionOffer = hasLiveVerifiedActiveSubscriptionOffer(configuration)
-  if (!configuration.readiness.hasActiveBillingOffer || !hasLiveVerifiedSubscriptionOffer) {
+  if (environment === 'test') {
+    if (
+      !configuration.readiness.hasActiveTestBillingOffer ||
+      !hasTestReadyActiveBillingOffer(configuration)
+    ) {
+      blockers.push('active_test_billing_offer_missing')
+    }
+  } else if (
+    !configuration.readiness.hasActiveBillingOffer ||
+    !hasLaunchReadyActiveBillingOffer(configuration)
+  ) {
     blockers.push('active_billing_offer_missing')
   }
 

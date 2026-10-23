@@ -90,6 +90,8 @@ const launchReadyAgreement: AdminAgreement = {
       rateBasisPoints: null,
       currency: 'USD',
       validationWindowHours: 72,
+      refundCutoffDays: null,
+      commissionBasisPolicy: 'net_after_fees',
       createdAt: configuration.product.createdAt,
       updatedAt: configuration.product.updatedAt,
     },
@@ -149,7 +151,7 @@ describe('admin production readiness', () => {
     })
   })
 
-  it('allows only a live-verified subscription and launch-ready signed agreement', () => {
+  it('preserves live-verified subscription and signed-agreement readiness', () => {
     expect(mainLinkReadiness(launchReadyConfiguration, [affiliate])).toEqual({
       allowed: true,
       blockers: [],
@@ -291,5 +293,86 @@ describe('admin production readiness', () => {
       blockers: [],
       eligibleAffiliateIds: [affiliate.id],
     })
+  })
+})
+
+describe('one-time creator link readiness', () => {
+  const payment: AdminBillingOffer = {
+    ...activeOffer,
+    key: 'marathon',
+    billingMode: 'payment',
+    stripePriceVerified: false,
+    stripeLivemodeVerifiedAt: null,
+    mainLinkReady: true,
+    managedPriceVerifications: [
+      {
+        configuredPriceId: activeOffer.stripePriceId!,
+        accountId: 'acct_MarathonMerchant',
+        livemode: true,
+        stripePriceId: 'price_MarathonMerchant',
+        currency: activeOffer.currency!,
+        unitAmountMinor: activeOffer.unitAmountMinor!,
+        offerVersion: activeOffer.version,
+        verifiedAt: activeOffer.updatedAt,
+      },
+    ],
+  }
+  const ready: AdminProductConfiguration = {
+    ...launchReadyConfiguration,
+    readiness: { ...launchReadyConfiguration.readiness, managedPaymentCheckoutEnabled: true },
+    billingOffers: [payment],
+  }
+
+  it('allows a verified one-time offer without a subscription', () => {
+    expect(mainLinkReadiness(ready, [affiliate])).toEqual({
+      allowed: true,
+      blockers: [],
+      eligibleAffiliateIds: [affiliate.id],
+    })
+  })
+
+  it.each([
+    ['draft offer', { status: 'draft' }],
+    ['wrong product', { productId: 'other-product' }],
+    ['missing server approval', { mainLinkReady: undefined }],
+    ['server-rejected merchant evidence', { mainLinkReady: false }],
+    ['no price evidence', { managedPriceVerifications: [] }],
+    [
+      'test-only evidence',
+      {
+        managedPriceVerifications: [{ ...payment.managedPriceVerifications![0], livemode: false }],
+      },
+    ],
+    ['changed price', { stripePriceId: 'price_ChangedAfterVerification' }],
+    ['changed amount', { unitAmountMinor: 16900 }],
+    ['changed currency', { currency: 'EUR' }],
+    ['changed offer version', { version: 2 }],
+  ] as const)('blocks %s', (_label, patch) => {
+    expect(
+      mainLinkReadiness({ ...ready, billingOffers: [{ ...payment, ...patch }] }, [affiliate]),
+    ).toMatchObject({
+      allowed: false,
+      blockers: expect.arrayContaining(['active_billing_offer_missing']),
+    })
+  })
+
+  it('requires the product opt-in and server-level billing readiness', () => {
+    for (const field of ['managedPaymentCheckoutEnabled', 'hasActiveBillingOffer'] as const) {
+      expect(
+        mainLinkReadiness({ ...ready, readiness: { ...ready.readiness, [field]: false } }, [
+          affiliate,
+        ]).allowed,
+      ).toBe(false)
+    }
+  })
+
+  it('still requires a signed agreement and an active eligible creator', () => {
+    expect(
+      mainLinkReadiness(
+        { ...ready, agreements: [{ ...launchReadyAgreement, hasSignedDocument: false }] },
+        [affiliate],
+      ).allowed,
+    ).toBe(false)
+    expect(mainLinkReadiness(ready, [{ ...affiliate, status: 'paused' }]).allowed).toBe(false)
   })
 })

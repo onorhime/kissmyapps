@@ -1,3 +1,4 @@
+import { providerMoney } from '../../../lib/providerMoney'
 import { useMemo, useState, type FormEvent } from 'react'
 import {
   BadgeDollarSign,
@@ -29,6 +30,7 @@ import {
   isSupportedActivePurchaseRule,
 } from './readiness'
 import type { ConfigurationActionRunner } from './actionTypes'
+import { ConfigurationReview } from './ConfigurationReview'
 import { Select } from '../../../components/Select'
 
 const modelLabels: Record<AdminCommissionModel, string> = {
@@ -55,12 +57,14 @@ function formatTimestamp(value: string | null): string {
   }).format(date)
 }
 
-function formatMinor(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value / 100)
-  } catch {
-    return `${currency} ${(value / 100).toFixed(2)}`
-  }
+const formatMinor = providerMoney
+
+function canChangeRules(agreement: AdminAgreement): boolean {
+  return (
+    ['draft', 'awaiting_signature'].includes(agreement.status) &&
+    !agreement.hasSignedDocument &&
+    !agreement.document
+  )
 }
 
 export function AgreementSection({
@@ -92,6 +96,12 @@ export function AgreementSection({
   const [fixedAmount, setFixedAmount] = useState('')
   const [ratePercent, setRatePercent] = useState('')
   const [validationHours, setValidationHours] = useState('72')
+  const [refundDays, setRefundDays] = useState('')
+  const [firstPurchaseOnly, setFirstPurchaseOnly] = useState(false)
+  const [fulfilmentRequired, setFulfilmentRequired] = useState(false)
+  const [basisPolicy, setBasisPolicy] = useState<'net_after_fees' | 'subtotal_ex_tax_shipping'>(
+    'net_after_fees',
+  )
   const [ruleErrors, setRuleErrors] = useState<Record<string, string>>({})
   const [pendingDocument, setPendingDocument] = useState<{
     agreementId: string
@@ -104,7 +114,7 @@ export function AgreementSection({
     { kind: 'rule'; id: string } | { kind: 'agreement'; id: string } | null
   >(null)
   const [supersedingRuleId, setSupersedingRuleId] = useState<string | null>(null)
-  const busy = pendingKey?.startsWith('commercial:') ?? false
+  const busy = Boolean(pendingKey)
   const availableAffiliates = affiliates.filter((affiliate) =>
     ['active', 'paused'].includes(affiliate.status),
   )
@@ -119,7 +129,7 @@ export function AgreementSection({
     const attributionWindowDays = positiveInteger(attributionDays, 1, 365)
     const renewalDurationDays = renewalDays ? positiveInteger(renewalDays, 1, 3650) : null
     const payoutFrequencyDays = positiveInteger(payoutDays, 1, 365)
-    const minimumPayoutMinor = moneyToMinor(minimumPayout)
+    const minimumPayoutMinor = moneyToMinor(minimumPayout, currency)
     if (!affiliateId) nextErrors.affiliateId = 'Choose a partner.'
     if (attributionWindowDays === null) nextErrors.attributionDays = 'Use 1 to 365 days.'
     if (renewalDays && renewalDurationDays === null) nextErrors.renewalDays = 'Use 1 to 3,650 days.'
@@ -171,10 +181,13 @@ export function AgreementSection({
         triggerEvent: TRIGGER_EVENT,
         fixedAmount,
         ratePercent,
-        currency,
+        currency: ruleAgreement?.payoutCurrency ?? currency,
       }),
     }
     const windowHours = positiveInteger(validationHours, 1, 8760)
+    const refundCutoffDays = refundDays.trim() ? positiveInteger(refundDays, 0, 3650) : null
+    if (refundDays.trim() && refundCutoffDays === null)
+      nextErrors.refundDays = 'Use 0 to 3,650 days, or leave blank for unlimited.'
     if (!ruleAgreement) nextErrors.ruleAgreementId = 'Choose an agreement.'
     if (!ruleName.trim() || ruleName.trim().length > 120)
       nextErrors.ruleName = 'Enter a rule name of 120 characters or fewer.'
@@ -193,10 +206,16 @@ export function AgreementSection({
           name: ruleName.trim(),
           model: selectedModel,
           triggerEvent: TRIGGER_EVENT,
-          fixedAmountMinor: usesFixed ? moneyToMinor(fixedAmount) : null,
+          fixedAmountMinor: usesFixed
+            ? moneyToMinor(fixedAmount, ruleAgreement.payoutCurrency)
+            : null,
           rateBasisPoints: usesRate ? percentageToBasisPoints(ratePercent) : null,
-          currency: usesFixed ? currency.trim().toUpperCase() : null,
+          currency: usesFixed ? ruleAgreement.payoutCurrency : null,
           validationWindowHours: windowHours,
+          refundCutoffDays,
+          commissionBasisPolicy: basisPolicy,
+          ...(firstPurchaseOnly ? { firstPurchaseOnly: true } : {}),
+          ...(fulfilmentRequired ? { fulfilmentRequired: true } : {}),
         }),
       'Draft commission rule created. Activate it only after reviewing the commercial terms.',
     )
@@ -426,14 +445,10 @@ export function AgreementSection({
                 <Select
                   options={[
                     { value: '', label: 'Choose a draft agreement' },
-                    ...configuration.agreements
-                      .filter((agreement) =>
-                        ['draft', 'awaiting_signature', 'active'].includes(agreement.status),
-                      )
-                      .map((agreement) => ({
-                        value: agreement.id,
-                        label: `${agreement.partnerName ?? agreement.affiliateId} · v${agreement.version} · ${agreement.status}`,
-                      })),
+                    ...configuration.agreements.filter(canChangeRules).map((agreement) => ({
+                      value: agreement.id,
+                      label: `${agreement.partnerName ?? agreement.affiliateId} · v${agreement.version} · ${agreement.status}`,
+                    })),
                   ]}
                   value={ruleAgreementId}
                   onChange={setRuleAgreementId}
@@ -468,7 +483,7 @@ export function AgreementSection({
               </label>
               {ruleAgreement?.model !== 'revenue_share' && (
                 <label className="admin-field">
-                  <span>Fixed amount ({currency})</span>
+                  <span>Fixed amount ({ruleAgreement?.payoutCurrency ?? currency})</span>
                   <input
                     inputMode="decimal"
                     value={fixedAmount}
@@ -495,6 +510,70 @@ export function AgreementSection({
                 </label>
               )}
               <label className="admin-field">
+                <span>Commission basis</span>
+                <Select
+                  ariaLabel="Commission basis"
+                  value={basisPolicy}
+                  onChange={(value) => setBasisPolicy(value as typeof basisPolicy)}
+                  options={[
+                    { value: 'net_after_fees', label: 'Net amount after payment fees' },
+                    {
+                      value: 'subtotal_ex_tax_shipping',
+                      label: 'Subtotal after discounts, excluding tax and shipping',
+                    },
+                  ]}
+                />
+                <small className="admin-field-hint">
+                  Subtotal basis requires the verified external purchase integration. Legacy billing
+                  supports net after fees.
+                </small>
+              </label>
+              <label className="admin-field">
+                <span>Ordinary refund cutoff (days, optional)</span>
+                <input
+                  inputMode="numeric"
+                  value={refundDays}
+                  onChange={(event) => setRefundDays(event.target.value)}
+                  aria-invalid={Boolean(ruleErrors.refundDays)}
+                />
+                <small className="admin-field-hint">
+                  Blank means unlimited. This controls ordinary refund adjustments from purchase
+                  time; disputes and fraud remain subject to review.
+                </small>
+                {ruleErrors.refundDays && (
+                  <small className="admin-field-error">{ruleErrors.refundDays}</small>
+                )}
+              </label>
+              <label className="admin-field admin-config-span-two">
+                <span>
+                  <input
+                    type="checkbox"
+                    checked={firstPurchaseOnly}
+                    onChange={(event) => setFirstPurchaseOnly(event.target.checked)}
+                  />{' '}
+                  First verified product purchase only
+                </span>
+                <small className="admin-field-hint">
+                  Optional for the external purchase integration. Later purchases do not earn this
+                  commission. Existing signed rules stay unchanged.
+                </small>
+              </label>
+              <label className="admin-field admin-config-span-two">
+                <span>
+                  <input
+                    type="checkbox"
+                    checked={fulfilmentRequired}
+                    onChange={(event) => setFulfilmentRequired(event.target.checked)}
+                  />{' '}
+                  Require verified service fulfilment before payout eligibility
+                </span>
+                <small className="admin-field-hint">
+                  The existing validation window starts when the product confirms fulfilment (for
+                  example, a confirmed group). Manual payout approval remains required. These
+                  options require a new signed rule version.
+                </small>
+              </label>
+              <label className="admin-field">
                 <span>Validation window (hours)</span>
                 <input
                   inputMode="numeric"
@@ -502,6 +581,9 @@ export function AgreementSection({
                   onChange={(event) => setValidationHours(event.target.value)}
                   aria-invalid={Boolean(ruleErrors.validationHours)}
                 />
+                <small className="admin-field-hint">
+                  Earnings stay on hold for this period. This is separate from the refund cutoff.
+                </small>
                 {ruleErrors.validationHours && (
                   <small className="admin-field-error">{ruleErrors.validationHours}</small>
                 )}
@@ -705,30 +787,29 @@ export function AgreementSection({
                             <ShieldCheck size={16} aria-hidden="true" /> Countersign for KissMyApps
                           </button>
                         )}
-                        {agreement.document &&
-                          !revoking?.documentId &&
-                          agreement.document.status !== 'signed' && (
-                            <button
-                              className="admin-text-button"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => {
-                                setRevokeError(null)
-                                setRevoking({ documentId: agreement.document!.id, reason: '' })
-                              }}
-                            >
-                              Revoke
-                            </button>
-                          )}
+                        {agreement.document && agreement.document.status !== 'signed' && (
+                          <button
+                            className="admin-text-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setRevokeError(null)
+                              setRevoking({ documentId: agreement.document!.id, reason: '' })
+                            }}
+                          >
+                            Revoke
+                          </button>
+                        )}
                       </div>
                     )}
                   {revoking?.documentId === agreement.document?.id &&
                     revoking &&
                     agreement.document && (
-                      <div
-                        className="admin-confirm-action"
-                        role="group"
-                        aria-label="Revoke document"
+                      <ConfigurationReview
+                        title="Revoke document"
+                        description={`Revoke version ${agreement.version} for this partner. A reason will be recorded.`}
+                        busy={busy}
+                        onCancel={() => setRevoking(null)}
                       >
                         <p>
                           <strong>Revoke this agreement document?</strong>
@@ -770,7 +851,7 @@ export function AgreementSection({
                             Cancel
                           </button>
                         </div>
-                      </div>
+                      </ConfigurationReview>
                     )}
                 </div>
                 {agreement.commissionRules.length ? (
@@ -782,11 +863,31 @@ export function AgreementSection({
                           <small>
                             {rule.triggerEvent} · v{rule.version}
                           </small>
+                          <small>
+                            {rule.rateBasisPoints !== null ? `${rule.rateBasisPoints / 100}%` : ''}
+                            {rule.fixedAmountMinor !== null
+                              ? ` ${formatMinor(rule.fixedAmountMinor, rule.currency ?? agreement.payoutCurrency)}`
+                              : ''}
+                            {' · '}
+                            {rule.firstPurchaseOnly && 'First product purchase only · '}
+                            {rule.fulfilmentRequired && 'Verified fulfilment required · '}
+                            {rule.validationWindowHours}-hour validation hold · Ordinary refund
+                            cutoff:{' '}
+                            {rule.refundCutoffDays === null
+                              ? 'unlimited'
+                              : `${rule.refundCutoffDays} days`}
+                          </small>
+                          <small>
+                            Basis:{' '}
+                            {rule.commissionBasisPolicy === 'subtotal_ex_tax_shipping'
+                              ? 'subtotal after discounts, excluding tax and shipping'
+                              : 'net after payment fees'}
+                          </small>
                         </span>
                         <span className={`admin-status-badge admin-status-${rule.status}`}>
                           {rule.status}
                         </span>
-                        {canManage && rule.status === 'draft' && (
+                        {canManage && canChangeRules(agreement) && rule.status === 'draft' && (
                           <button
                             className="admin-text-button"
                             type="button"
@@ -796,76 +897,50 @@ export function AgreementSection({
                             Activate rule
                           </button>
                         )}
-                        {canManage &&
-                          rule.status === 'active' &&
-                          ['draft', 'awaiting_signature'].includes(agreement.status) && (
-                            <button
-                              className="admin-text-button"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void setRuleStatus(rule, 'active')}
-                            >
-                              Activate rule
-                            </button>
-                          )}
-                        {canManage &&
-                          rule.status === 'active' &&
-                          agreement.status === 'active' &&
-                          (supersedingRuleId === rule.id ? (
-                            <span className="admin-record-actions">
+                        {canManage && rule.status === 'active' && canChangeRules(agreement) && (
+                          <button
+                            className="admin-text-button admin-danger-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setSupersedingRuleId(rule.id)}
+                          >
+                            Supersede
+                          </button>
+                        )}
+                        {supersedingRuleId === rule.id && (
+                          <ConfigurationReview
+                            title="Supersede commission rule"
+                            description={`Supersede ${rule.name}? Historical commissions retain their original rule.`}
+                            busy={busy}
+                            onCancel={() => setSupersedingRuleId(null)}
+                          >
+                            <div className="admin-record-actions">
                               <button
-                                className="admin-text-button admin-danger-button"
+                                className="admin-primary-button"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => {
-                                  void setRuleStatus(rule, 'superseded')
-                                  setSupersedingRuleId(null)
+                                onClick={async () => {
+                                  if (await setRuleStatus(rule, 'superseded'))
+                                    setSupersedingRuleId(null)
                                 }}
                               >
                                 Confirm supersede
                               </button>
                               <button
-                                className="admin-text-button"
+                                className="admin-secondary-button"
                                 type="button"
                                 disabled={busy}
                                 onClick={() => setSupersedingRuleId(null)}
                               >
                                 Cancel
                               </button>
-                            </span>
-                          ) : (
-                            <button
-                              className="admin-text-button admin-danger-button"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => setSupersedingRuleId(rule.id)}
-                            >
-                              Supersede
-                            </button>
-                          ))}
+                            </div>
+                          </ConfigurationReview>
+                        )}
                         {canManage &&
-                          agreement.status !== 'active' &&
-                          typeof gateway.deleteCommissionRule === 'function' &&
-                          (deleting?.kind === 'rule' && deleting.id === rule.id ? (
-                            <span className="admin-record-actions">
-                              <button
-                                className="admin-text-button admin-danger-button"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => void confirmDeletion()}
-                              >
-                                Confirm delete
-                              </button>
-                              <button
-                                className="admin-text-button"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => setDeleting(null)}
-                              >
-                                Cancel
-                              </button>
-                            </span>
-                          ) : (
+                          canChangeRules(agreement) &&
+                          rule.status === 'draft' &&
+                          typeof gateway.deleteCommissionRule === 'function' && (
                             <button
                               className="admin-text-button admin-danger-button"
                               type="button"
@@ -874,17 +949,44 @@ export function AgreementSection({
                             >
                               <Trash2 size={14} aria-hidden="true" /> Delete
                             </button>
-                          ))}
+                          )}
+                        {deleting?.kind === 'rule' && deleting.id === rule.id && (
+                          <ConfigurationReview
+                            title="Delete draft commission rule"
+                            description={`Permanently delete ${rule.name}? Active and historical rules remain protected.`}
+                            busy={busy}
+                            onCancel={() => setDeleting(null)}
+                          >
+                            <div className="admin-record-actions">
+                              <button
+                                className="admin-primary-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void confirmDeletion()}
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                className="admin-secondary-button"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setDeleting(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </ConfigurationReview>
+                        )}
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <p className="admin-record-empty-copy">No commission rules yet.</p>
                 )}
-                {canManage && agreement.hasSignedDocument && (
+                {canManage && (agreement.document || agreement.hasSignedDocument) && (
                   <p className="admin-record-empty-copy">
-                    This agreement has a fully signed document, which is preserved as evidence and
-                    cannot be deleted. Only a new version can replace its terms.
+                    Commercial terms are frozen for this document. Revoke a pending request before
+                    changing them; fully signed terms require a new agreement version.
                   </p>
                 )}
                 <div className="admin-record-actions admin-agreement-card-actions">
@@ -913,10 +1015,11 @@ export function AgreementSection({
                     )}
                 </div>
                 {deleting?.kind === 'agreement' && deleting.id === agreement.id && (
-                  <div
-                    className="admin-confirm-action"
-                    role="group"
-                    aria-label="Delete draft agreement"
+                  <ConfigurationReview
+                    title="Delete draft agreement"
+                    description={`Delete version ${agreement.version} and its draft rules? Pending signature requests will be cancelled.`}
+                    busy={busy}
+                    onCancel={() => setDeleting(null)}
                   >
                     <p>
                       <strong>Delete this draft agreement?</strong>
@@ -944,7 +1047,7 @@ export function AgreementSection({
                         Cancel
                       </button>
                     </div>
-                  </div>
+                  </ConfigurationReview>
                 )}
                 {['draft', 'awaiting_signature'].includes(agreement.status) && (
                   <div className="admin-gate-copy">

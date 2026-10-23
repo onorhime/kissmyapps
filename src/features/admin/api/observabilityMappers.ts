@@ -5,6 +5,7 @@ import {
   ADMIN_DATA_HEALTH_STATUSES,
   type AdminAttributionOverview,
   type AdminDataHealth,
+  type AdminAgreementOperationsHealth,
 } from './types'
 
 const attributionMethods = ['deterministic_web', 'singular', 'manual'] as const
@@ -77,6 +78,21 @@ function nonNegativeInteger(row: Record<string, unknown>, key: string): number {
         : Number.NaN
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Invalid ${key}.`)
   return value
+}
+
+export function mapAdminAgreementOperationsHealth(value: unknown): AdminAgreementOperationsHealth {
+  const row = rpcRoot(value, 'get_admin_agreement_email_health')
+  return {
+    pending: nonNegativeInteger(row, 'pending'),
+    processing: nonNegativeInteger(row, 'processing'),
+    failed: nonNegativeInteger(row, 'failed'),
+    sent: nonNegativeInteger(row, 'sent'),
+    oldestPendingAt: nullableTimestamp(row, 'oldest_pending_at'),
+    cleanupPending: nonNegativeInteger(row, 'cleanup_pending'),
+    cleanupProcessing: nonNegativeInteger(row, 'cleanup_processing'),
+    cleanupFailed: nonNegativeInteger(row, 'cleanup_failed'),
+    cleanupDone: nonNegativeInteger(row, 'cleanup_done'),
+  }
 }
 
 function enumValue<T extends string>(value: unknown, allowed: readonly T[], key: string): T {

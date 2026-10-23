@@ -166,9 +166,9 @@ describe('Admin Platform Settings page', () => {
         expectedUpdatedAt: null,
       }),
     )
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Tracking origin saved. Collection remains disabled.',
-    )
+    expect(
+      await screen.findByText('Tracking origin saved. Collection remains disabled.'),
+    ).toBeVisible()
   })
 
   it('rejects any origin other than the canonical tracking host and focuses the field', async () => {
