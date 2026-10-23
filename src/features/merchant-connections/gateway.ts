@@ -197,7 +197,7 @@ const messages: Record<string, string> = {
 export function createMerchantGateway(client: MerchantClient | null = supabase): MerchantGateway {
   const pendingRequests = new Map<string, string>()
   async function request(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    if (!client) throw Error('Merchant connections are not configured yet.')
+    if (!client) throw new MerchantGatewayError(messages.not_configured, 'not_configured')
     const invitationWrite = ['create_invitation', 'resend_invitation'].includes(String(body.action))
     const codeWrite = body.action === 'request_invitation_code'
     const uncertainMessage = codeWrite

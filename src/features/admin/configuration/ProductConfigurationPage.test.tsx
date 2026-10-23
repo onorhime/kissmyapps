@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
@@ -90,6 +90,11 @@ function fakeGateway(configuration = emptyConfiguration) {
   } as unknown as AdminGateway & AdminConfigurationGateway
 }
 
+async function openStep(user: ReturnType<typeof userEvent.setup>, title: string) {
+  const steps = screen.getByRole('navigation', { name: 'Setup steps' })
+  await user.click(within(steps).getByRole('button', { name: new RegExp(`^${title}`) }))
+}
+
 describe('Product configuration page', () => {
   it('renders truthful zero-data sections with no accessibility violations', async () => {
     const gateway = fakeGateway()
@@ -102,10 +107,15 @@ describe('Product configuration page', () => {
       />,
     )
 
+    const user = userEvent.setup()
     expect(await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Funnel', level: 2 })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'No funnels configured' })).toBeVisible()
+    await openStep(user, 'Partner agreement')
     expect(screen.getByRole('heading', { name: 'No partner agreements' })).toBeVisible()
+    await openStep(user, 'Payments')
     expect(screen.getByRole('heading', { name: 'No billing offers configured' })).toBeVisible()
+    await openStep(user, 'Go live')
     expect(screen.getByRole('heading', { name: 'No main links issued' })).toBeVisible()
     expect(screen.queryByText(/\.invalid/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Activate product' })).toBeDisabled()
@@ -143,6 +153,7 @@ describe('Product configuration page', () => {
     )
 
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    await openStep(userEvent.setup(), 'Funnel')
     expect(screen.queryByText(destination)).not.toBeInTheDocument()
     expect(screen.getByText('HTTPS destination configured')).toBeVisible()
     expect(screen.getByText(/destinations remain masked/i)).toBeVisible()
@@ -173,6 +184,7 @@ describe('Product configuration page', () => {
       />,
     )
     await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    await openStep(user, 'Go live')
     expect(screen.getByText(/Production tracking origin is configured/i)).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Activate product' }))
@@ -208,7 +220,8 @@ describe('Product configuration page', () => {
         onBack={vi.fn()}
       />,
     )
-    await screen.findByRole('button', { name: /Tracking-only testing/ })
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    await openStep(user, 'Product settings')
 
     await user.click(screen.getByRole('button', { name: /Tracking-only testing/ }))
     await user.click(screen.getByRole('button', { name: 'Review tracking-only mode' }))
@@ -244,13 +257,15 @@ describe('Product configuration page', () => {
       />,
     )
 
-    expect(await screen.findByText(/Owner-only mode control/i)).toBeVisible()
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    await openStep(userEvent.setup(), 'Product settings')
+    expect(screen.getByText(/Owner-only mode control/i)).toBeVisible()
     expect(
       screen.queryByRole('button', { name: 'Review tracking-only mode' }),
     ).not.toBeInTheDocument()
   })
 
-  it('issues a main link with only partner and product identifiers', async () => {
+  it('issues a main link with only partner, product, and environment identifiers', async () => {
     const user = userEvent.setup()
     const affiliate = {
       id: 'affiliate-1',
@@ -367,8 +382,8 @@ describe('Product configuration page', () => {
 
     await waitFor(() => expect(gateway.issueMainLink).toHaveBeenCalledOnce())
     const input = (gateway.issueMainLink as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
-    expect(input).toEqual({ affiliateId: affiliate.id, productId: product.id })
-    expect(Object.keys(input)).toEqual(['productId', 'affiliateId'])
+    expect(input).toEqual({ affiliateId: affiliate.id, productId: product.id, environment: 'live' })
+    expect(Object.keys(input)).toEqual(['productId', 'affiliateId', 'environment'])
   })
 
   it('issues a non-commercial tracking-only main link without billing or agreement fixtures', async () => {
@@ -421,11 +436,15 @@ describe('Product configuration page', () => {
       />,
     )
 
-    expect(await screen.findByText('Tracking only')).toBeVisible()
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    expect(screen.getByRole('heading', { name: 'Go live', level: 2 })).toBeVisible()
+    expect(screen.getByText('Server tracking-only link gate is ready')).toBeVisible()
+    await openStep(user, 'Approve demo funnel')
+    expect(screen.getByText('Tracking only')).toBeVisible()
     expect(
       screen.getByText(/approved browser events run on production infrastructure/i),
     ).toBeVisible()
-    expect(screen.getByText('Server tracking-only link gate is ready')).toBeVisible()
+    await openStep(user, 'Go live')
     expect(screen.queryByText(/live-verified subscription offer exists/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Billing offers' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Partner agreements' })).not.toBeInTheDocument()
@@ -439,7 +458,117 @@ describe('Product configuration page', () => {
       expect(gateway.issueMainLink).toHaveBeenCalledWith({
         productId: product.id,
         affiliateId: affiliate.id,
+        environment: 'live',
       }),
     )
+  })
+  it('guides setup step by step and keeps drafts when switching steps', async () => {
+    const user = userEvent.setup()
+    const configured: AdminProductConfiguration = {
+      ...emptyConfiguration,
+      tracking: { enabled: true, baseUrl: 'https://go.example.test' },
+      readiness: { ...emptyConfiguration.readiness, hasLiveDefaultFunnel: true },
+    }
+    render(
+      <ProductConfigurationPage
+        productId="product-1"
+        context={owner}
+        gateway={fakeGateway(configured)}
+        onBack={vi.fn()}
+      />,
+    )
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+
+    // The live funnel is done, so setup opens on the first unfinished required step.
+    expect(screen.getByRole('heading', { name: 'Payments', level: 2 })).toBeVisible()
+    expect(screen.getByRole('progressbar', { name: 'Setup progress' })).toHaveAttribute(
+      'aria-valuetext',
+      '1 of 4 required steps complete',
+    )
+    const steps = screen.getByRole('navigation', { name: 'Setup steps' })
+    expect(within(steps).getByRole('button', { name: /^Payments/ })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+
+    await openStep(user, 'Funnel')
+    await user.type(screen.getByRole('textbox', { name: 'Funnel name' }), 'Unsaved funnel')
+    await user.click(screen.getByRole('button', { name: /Continue to Sources & campaigns/ }))
+    expect(screen.getByRole('heading', { name: 'Sources & campaigns', level: 2 })).toHaveFocus()
+    expect(screen.queryByRole('textbox', { name: 'Funnel name' })).not.toBeInTheDocument()
+
+    await openStep(user, 'Funnel')
+    expect(screen.getByRole('textbox', { name: 'Funnel name' })).toHaveValue('Unsaved funnel')
+  })
+
+  it('links each Go live blocker to the step that resolves it', async () => {
+    const user = userEvent.setup()
+    const configured: AdminProductConfiguration = {
+      ...emptyConfiguration,
+      product: { ...product, status: 'active' },
+      tracking: { enabled: true, baseUrl: 'https://go.example.test' },
+      readiness: {
+        ...emptyConfiguration.readiness,
+        hasLiveDefaultFunnel: true,
+        trackingReady: true,
+      },
+    }
+    render(
+      <ProductConfigurationPage
+        productId="product-1"
+        context={owner}
+        gateway={fakeGateway(configured)}
+        onBack={vi.fn()}
+      />,
+    )
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    await openStep(user, 'Go live')
+    expect(screen.getByText(/Activate an agreement for the selected partner/)).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Go to Payments' }))
+    expect(screen.getByRole('heading', { name: 'Payments', level: 2 })).toHaveFocus()
+  })
+
+  it('tells the admin when the current step becomes complete', async () => {
+    const user = userEvent.setup()
+    const funnel = {
+      id: 'funnel-1',
+      productId: 'product-1',
+      key: 'checkout',
+      name: 'Checkout',
+      destinationConfigured: true,
+      destinationUrl: 'https://checkout.example.test/start',
+      isDefault: true,
+      status: 'draft' as const,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    }
+    const before = { ...emptyConfiguration, funnels: [funnel] }
+    const after: AdminProductConfiguration = {
+      ...before,
+      funnels: [{ ...funnel, status: 'live' }],
+      readiness: { ...before.readiness, hasLiveDefaultFunnel: true },
+    }
+    const gateway = fakeGateway(before)
+    gateway.setFunnelStatus = vi.fn(async () => {
+      gateway.getProductConfiguration = vi.fn(async () => ready(after))
+      return ready({ ...funnel, status: 'live' as const })
+    })
+    render(
+      <ProductConfigurationPage
+        productId="product-1"
+        context={owner}
+        gateway={gateway}
+        onBack={vi.fn()}
+      />,
+    )
+    await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })
+    expect(screen.getAllByText('Set the default funnel live')[0]).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Set live' }))
+
+    expect(await screen.findByText('Step complete.')).toBeVisible()
+    expect(screen.getByText(/Next up: Sources & campaigns/)).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Funnel', level: 2 })).toBeVisible()
   })
 })

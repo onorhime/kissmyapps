@@ -93,7 +93,7 @@ const routeLabels: Record<AdminRoute, string> = {
   payouts: 'Payouts',
   'data-health': 'Data Health',
   settings: 'Settings',
-  'product-configuration': 'Product configuration',
+  'product-configuration': 'Product setup',
   'affiliate-detail': 'Affiliate details',
 }
 
@@ -428,6 +428,7 @@ export function AdminPortalApp({
                     gateway={effectiveGateway}
                     onBack={() => navigate('products')}
                     onProductRead={replaceProduct}
+                    onOpenSettings={settingsRestricted ? undefined : () => navigate('settings')}
                   />
                 ) : (
                   <section

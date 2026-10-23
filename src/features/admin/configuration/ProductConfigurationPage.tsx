@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
-  ChevronDown,
+  ChartNoAxesColumn,
+  CircleAlert,
   DatabaseZap,
   LoaderCircle,
   RefreshCw,
@@ -15,6 +16,7 @@ import {
   type AdminDataResult,
   type AdminGateway,
   type AdminProduct,
+  type AdminReadinessBlockerCode,
 } from '../api'
 import { AgreementSection } from './AgreementSection'
 import { BillingOffersSection } from './BillingOffersSection'
@@ -30,6 +32,9 @@ import { discardScopeDrafts, markFormSaved } from '../../../components/useFormNa
 import { ConfigurationReview } from './ConfigurationReview'
 import { ConfigurationErrorContext } from './configurationErrorContext'
 import { MerchantConnectionsSection } from '../../merchant-connections/MerchantConnectionsSection'
+import { SetupProgress, SetupStepFooter, SetupStepList, SetupStepPanel } from './SetupWizard'
+import { initialSetupStep, setupSteps, stepForBlocker, type SetupStepId } from './setupSteps'
+import './ProductSetup.css'
 
 function DeleteProductZone({
   productId,
@@ -158,38 +163,9 @@ export type ProductConfigurationPageProps = Readonly<{
   gateway?: AdminGateway
   onBack: () => void
   onProductRead?: (product: AdminProduct) => void
+  onOpenStats?: () => void
+  onOpenSettings?: () => void
 }>
-
-function CollapsibleSection({
-  id,
-  label,
-  defaultOpen = false,
-  children,
-}: {
-  id: string
-  label: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className={open ? 'admin-collapsible' : 'admin-collapsible admin-collapsible-closed'}>
-      <button
-        type="button"
-        className="admin-collapse-toggle"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <ChevronDown size={16} aria-hidden="true" />
-        <span className="sr-only">{open ? `Collapse ${label}` : `Expand ${label}`}</span>
-      </button>
-      <div id={id} className="admin-collapse-region">
-        {children}
-      </div>
-    </div>
-  )
-}
 
 function ConfigurationState({
   status,
@@ -248,6 +224,8 @@ function ProductConfigurationContent({
   gateway = adminGateway,
   onBack,
   onProductRead,
+  onOpenStats,
+  onOpenSettings,
 }: ProductConfigurationPageProps) {
   const configurationGateway = hasAdminConfigurationGateway(gateway) ? gateway : null
   const { state, reload, invalidate } = useProductConfiguration({
@@ -260,6 +238,11 @@ function ProductConfigurationContent({
   const pageRoot = useRef<HTMLElement>(null)
   const actionEpoch = useRef(0)
   const mounted = useRef(true)
+  const focusStepHeading = useRef(false)
+  const [stepVisit, setStepVisit] = useState<{
+    id: SetupStepId
+    completeOnArrival: boolean
+  } | null>(null)
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -334,6 +317,150 @@ function ProductConfigurationContent({
     return false
   }
 
+  const configuration = state.configuration
+  const steps = configuration ? setupSteps(configuration) : null
+  const numberedTotal = steps?.filter((step) => step.number !== null).length ?? 0
+  if (steps && (!stepVisit || !steps.some((step) => step.id === stepVisit.id))) {
+    const id = initialSetupStep(steps)
+    // Opening the first unfinished step is derived during render, not in an effect.
+    setStepVisit({
+      id,
+      completeOnArrival: steps.find((step) => step.id === id)?.state === 'complete',
+    })
+  }
+  const activeId = stepVisit?.id ?? null
+
+  function openStep(id: SetupStepId) {
+    if (!steps) return
+    setStepVisit({
+      id,
+      completeOnArrival: steps.find((step) => step.id === id)?.state === 'complete',
+    })
+    focusStepHeading.current = true
+  }
+
+  useEffect(() => {
+    if (!focusStepHeading.current || !activeId) return
+    focusStepHeading.current = false
+    const heading = document.getElementById(`admin-setup-step-${activeId}-title`)
+    heading?.focus({ preventScroll: true })
+    pageRoot.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+  }, [activeId])
+
+  const resolveBlocker = (code: AdminReadinessBlockerCode) => {
+    if ((code === 'tracking_not_configured' || code === 'tracking_disabled') && onOpenSettings)
+      return { label: 'Open Settings', open: onOpenSettings }
+    const id = stepForBlocker(code)
+    const target = id ? steps?.find((step) => step.id === id) : null
+    return target && target.id !== 'launch'
+      ? { label: `Go to ${target.title}`, open: () => openStep(target.id) }
+      : null
+  }
+
+  const sectionPendingKey =
+    pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
+
+  function stepContent(id: SetupStepId) {
+    if (!configuration || !configurationGateway) return null
+    switch (id) {
+      case 'funnel':
+        return (
+          <FunnelSection
+            configuration={configuration}
+            gateway={configurationGateway}
+            canManage={canManage}
+            pendingKey={sectionPendingKey}
+            runAction={runAction}
+          />
+        )
+      case 'sources':
+        return (
+          <CampaignSourcesSection
+            configuration={configuration}
+            sources={state.sources}
+            gateway={configurationGateway}
+            canManage={canManage}
+            pendingKey={sectionPendingKey}
+            runAction={runAction}
+          />
+        )
+      case 'payments':
+        return (
+          <>
+            <MerchantConnectionsSection productId={productId} canManage={canManage} />
+            <BillingOffersSection
+              configuration={configuration}
+              gateway={configurationGateway}
+              canManage={canManage}
+              pendingKey={sectionPendingKey}
+              runAction={runAction}
+            />
+          </>
+        )
+      case 'agreement':
+        return (
+          <AgreementSection
+            configuration={configuration}
+            affiliates={state.affiliates}
+            gateway={configurationGateway}
+            canManage={canManage}
+            pendingKey={sectionPendingKey}
+            runAction={runAction}
+          />
+        )
+      case 'approval':
+        return (
+          <TrackingModeSection
+            configuration={configuration}
+            gateway={configurationGateway}
+            canManageMode={canManageTrackingMode}
+            pendingKey={sectionPendingKey}
+            runAction={runAction}
+          />
+        )
+      case 'launch':
+        return (
+          <LaunchSection
+            configuration={configuration}
+            affiliates={state.affiliates}
+            gateway={configurationGateway}
+            canManage={canManage}
+            pendingKey={sectionPendingKey}
+            runAction={runAction}
+            resolveBlocker={resolveBlocker}
+          />
+        )
+      case 'settings':
+        return (
+          <>
+            {!trackingOnlySelected && (
+              <TrackingModeSection
+                configuration={configuration}
+                gateway={configurationGateway}
+                canManageMode={canManageTrackingMode}
+                pendingKey={sectionPendingKey}
+                runAction={runAction}
+              />
+            )}
+            <DeleteProductZone
+              productId={configuration.product.id}
+              productSlug={configuration.product.slug}
+              productName={configuration.product.name}
+              gateway={gateway}
+              canManage={canManage}
+              busy={Boolean(pendingKey)}
+              pendingKey={pendingKey}
+              onDeleted={onBack}
+              runAction={runAction}
+            />
+          </>
+        )
+    }
+  }
+
+  const platformTrackingMissing =
+    configuration && (!configuration.tracking.baseUrl || !configuration.tracking.enabled)
+
   return (
     <section
       ref={pageRoot}
@@ -352,20 +479,38 @@ function ProductConfigurationContent({
       </button>
       <header className="admin-page-heading admin-config-page-heading">
         <div>
-          <p className="admin-eyebrow">PRODUCT CONFIGURATION</p>
-          <h1 id="admin-product-config-title">
-            {state.configuration?.product.name ?? 'Production setup'}
-          </h1>
+          <p className="admin-eyebrow">PRODUCT SETUP</p>
+          <h1 id="admin-product-config-title">{configuration?.product.name ?? 'Product setup'}</h1>
           <p>
             {trackingOnlySelected
-              ? 'This product is in tracking-only mode: redirects and attribution run, but checkout, commissions, and payouts stay disabled.'
-              : 'Configure routing, attribution, commercial terms, and partner links. Production destinations stay admin-only.'}
+              ? 'Tracking-only product: redirects and attribution run, but checkout, commissions, and payouts stay off.'
+              : 'Set up this product one step at a time. Nothing goes live until you confirm it on the Go live step.'}
           </p>
         </div>
-        <span className="admin-heading-chip">
-          <ShieldCheck size={16} aria-hidden="true" />{' '}
-          {trackingOnlySelected ? 'Tracking-only product' : 'Production controls'}
-        </span>
+        <div className="admin-setup-heading-meta">
+          {configuration && (
+            <span
+              className={`admin-status-badge admin-status-${configuration.product.status}`}
+              title="Product status"
+            >
+              {configuration.product.status}
+            </span>
+          )}
+          <span className="admin-heading-chip">
+            <ShieldCheck size={16} aria-hidden="true" />{' '}
+            {trackingOnlySelected ? 'Tracking-only product' : 'Commercial product'}
+          </span>
+          {configuration && onOpenStats && (
+            <button
+              className="admin-secondary-button"
+              type="button"
+              onClick={onOpenStats}
+              disabled={Boolean(pendingKey)}
+            >
+              <ChartNoAxesColumn size={16} aria-hidden="true" /> View stats
+            </button>
+          )}
+        </div>
       </header>
 
       {!canManage && (
@@ -382,11 +527,11 @@ function ProductConfigurationContent({
       <div className="admin-refresh-status" aria-live="polite">
         {state.refreshing ? (
           'Refreshing configuration… Your place and drafts are preserved.'
-        ) : state.configuration && state.error ? (
+        ) : configuration && state.error ? (
           <>
             <span>
-              Changes may be saved, but the latest configuration could not be refreshed. Existing
-              values are shown; actions are paused until refresh succeeds.
+              Your change may have been saved, but the latest setup could not be loaded. Existing
+              values are shown and actions are paused until a refresh succeeds.
             </span>{' '}
             <button type="button" className="admin-text-button" onClick={reload}>
               Retry refresh
@@ -395,7 +540,11 @@ function ProductConfigurationContent({
         ) : null}
       </div>
 
-      {state.status !== 'ready' || !state.configuration || !configurationGateway ? (
+      {state.status !== 'ready' ||
+      !configuration ||
+      !configurationGateway ||
+      !steps ||
+      !activeId ? (
         <ConfigurationState
           status={state.status === 'ready' ? 'error' : state.status}
           message={state.error?.message ?? null}
@@ -408,99 +557,63 @@ function ProductConfigurationContent({
             clear: clearReviewError,
           }}
         >
-          <fieldset
-            className="admin-config-stack admin-action-fieldset"
-            disabled={Boolean(pendingKey) || state.refreshing || Boolean(state.error)}
-            aria-busy={Boolean(pendingKey) || state.refreshing}
-          >
-            <CollapsibleSection id="collapse-funnels" label="funnels" defaultOpen>
-              <FunnelSection
-                configuration={state.configuration}
-                gateway={configurationGateway}
-                canManage={canManage}
-                pendingKey={
-                  pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-                }
-                runAction={runAction}
-              />
-            </CollapsibleSection>
-            <CollapsibleSection id="collapse-sources" label="sources and campaigns">
-              <CampaignSourcesSection
-                configuration={state.configuration}
-                sources={state.sources}
-                gateway={configurationGateway}
-                canManage={canManage}
-                pendingKey={
-                  pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-                }
-                runAction={runAction}
-              />
-            </CollapsibleSection>
-            {!trackingOnlySelected && (
-              <CollapsibleSection id="collapse-merchants" label="merchant Stripe connections">
-                <MerchantConnectionsSection productId={productId} canManage={canManage} />
-              </CollapsibleSection>
-            )}
-            {!trackingOnlySelected && (
-              <CollapsibleSection id="collapse-billing" label="billing offers">
-                <BillingOffersSection
-                  configuration={state.configuration}
-                  gateway={configurationGateway}
-                  canManage={canManage}
-                  pendingKey={
-                    pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-                  }
-                  runAction={runAction}
-                />
-              </CollapsibleSection>
-            )}
-            {!trackingOnlySelected && (
-              <CollapsibleSection id="collapse-agreements" label="agreements">
-                <AgreementSection
-                  configuration={state.configuration}
-                  affiliates={state.affiliates}
-                  gateway={configurationGateway}
-                  canManage={canManage}
-                  pendingKey={
-                    pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-                  }
-                  runAction={runAction}
-                />
-              </CollapsibleSection>
-            )}
-            <CollapsibleSection id="collapse-launch" label="launch" defaultOpen>
-              <LaunchSection
-                configuration={state.configuration}
-                affiliates={state.affiliates}
-                gateway={configurationGateway}
-                canManage={canManage}
-                pendingKey={
-                  pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-                }
-                runAction={runAction}
-              />
-            </CollapsibleSection>
-            <TrackingModeSection
-              configuration={state.configuration}
-              gateway={configurationGateway}
-              canManageMode={canManageTrackingMode}
-              pendingKey={
-                pendingKey ?? (state.refreshing || state.error ? 'configuration:refresh' : null)
-              }
-              runAction={runAction}
-            />
-            <DeleteProductZone
-              productId={state.configuration.product.id}
-              productSlug={state.configuration.product.slug}
-              productName={state.configuration.product.name}
-              gateway={gateway}
-              canManage={canManage}
-              busy={Boolean(pendingKey)}
-              pendingKey={pendingKey}
-              onDeleted={onBack}
-              runAction={runAction}
-            />
-          </fieldset>
+          <SetupProgress steps={steps} />
+          {platformTrackingMissing && (
+            <div className="admin-inline-notice admin-setup-platform-notice" role="note">
+              <CircleAlert size={18} aria-hidden="true" />
+              <p>
+                <strong>Platform tracking is not switched on yet.</strong> An Owner sets the
+                tracking domain in Settings. You can finish every step here, but partner links
+                cannot be issued until tracking is on.
+              </p>
+              {onOpenSettings && (
+                <button className="admin-text-button" type="button" onClick={onOpenSettings}>
+                  Open Settings
+                </button>
+              )}
+            </div>
+          )}
+          <div className="admin-setup-layout">
+            <SetupStepList steps={steps} activeId={activeId} onSelect={openStep} />
+            <fieldset
+              className="admin-setup-panels admin-action-fieldset"
+              disabled={Boolean(pendingKey) || state.refreshing || Boolean(state.error)}
+              aria-busy={Boolean(pendingKey) || state.refreshing}
+            >
+              {steps.map((step) => {
+                const numbered = steps.filter((candidate) => candidate.number !== null)
+                const position = numbered.findIndex((candidate) => candidate.id === step.id)
+                const previous =
+                  step.number === null
+                    ? (numbered.at(-1) ?? null)
+                    : (numbered[position - 1] ?? null)
+                const next = step.number === null ? null : (numbered[position + 1] ?? null)
+                const active = step.id === activeId
+                return (
+                  <SetupStepPanel
+                    key={step.id}
+                    step={step}
+                    total={numberedTotal}
+                    active={active}
+                    single={step.id !== 'payments' && step.id !== 'settings'}
+                    footer={
+                      <SetupStepFooter
+                        step={step}
+                        previous={previous}
+                        next={next}
+                        completedHere={
+                          active && step.state === 'complete' && !stepVisit?.completeOnArrival
+                        }
+                        onSelect={openStep}
+                      />
+                    }
+                  >
+                    {stepContent(step.id)}
+                  </SetupStepPanel>
+                )
+              })}
+            </fieldset>
+          </div>
         </ConfigurationErrorContext.Provider>
       )}
     </section>

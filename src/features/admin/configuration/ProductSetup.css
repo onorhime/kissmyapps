@@ -1,0 +1,403 @@
+/* Step-by-step product setup. Every step stays mounted (hidden when inactive)
+   so unsaved drafts survive switching steps and configuration refreshes. */
+
+.admin-setup-heading-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-setup-progress {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-surface);
+}
+
+.admin-setup-progress-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 18px;
+}
+
+.admin-setup-progress-copy strong {
+  font-size: 15px;
+}
+
+.admin-setup-progress-copy span {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-setup-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--admin-surface-raised);
+}
+
+.admin-setup-progress-track span {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--admin-pink), var(--admin-green));
+  transition: width 0.4s ease;
+}
+
+.admin-setup-platform-notice {
+  align-items: center;
+  margin: 0 0 18px;
+  font-size: 12px;
+}
+
+.admin-setup-platform-notice p {
+  flex: 1;
+  margin: 0;
+}
+
+.admin-setup-platform-notice strong {
+  color: var(--admin-text);
+}
+
+.admin-setup-layout {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+}
+
+/* Step rail */
+.admin-setup-rail {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-surface);
+}
+
+.admin-setup-step-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-setup-step-list-extra {
+  padding-top: 10px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-setup-step-link {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-setup-step-link:hover {
+  background: var(--admin-surface-raised);
+}
+
+.admin-setup-step-link[aria-current='step'] {
+  border-color: color-mix(in srgb, var(--admin-pink) 55%, var(--admin-line));
+  background: color-mix(in srgb, var(--admin-pink) 10%, var(--admin-surface));
+}
+
+.admin-setup-step-marker {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  background: var(--admin-plum-deep);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-setup-step-link[aria-current='step'] .admin-setup-step-marker {
+  border-color: var(--admin-pink);
+  color: var(--admin-pink);
+}
+
+.admin-setup-step-complete .admin-setup-step-marker {
+  border-color: color-mix(in srgb, var(--admin-green) 50%, transparent);
+  color: var(--admin-plum-deep);
+  background: var(--admin-green);
+}
+
+.admin-setup-step-optional .admin-setup-step-marker {
+  border-style: dashed;
+}
+
+.admin-setup-step-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.admin-setup-step-text strong {
+  font-size: 13px;
+}
+
+.admin-setup-step-text small {
+  overflow: hidden;
+  color: var(--admin-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Step panel */
+.admin-setup-panels {
+  min-width: 0;
+}
+
+.admin-setup-step {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-setup-step[hidden] {
+  display: none;
+}
+
+.admin-setup-step-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.admin-setup-step-header h2 {
+  margin: 6px 0 0;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  outline: none;
+}
+
+.admin-setup-step-header p:last-child {
+  max-width: 640px;
+  margin: 8px 0 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.admin-setup-state-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--admin-line);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  background: var(--admin-surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-setup-state-complete {
+  border-color: color-mix(in srgb, var(--admin-green) 45%, var(--admin-line));
+  color: var(--admin-green);
+}
+
+.admin-setup-state-incomplete {
+  border-color: color-mix(in srgb, var(--admin-yellow) 40%, var(--admin-line));
+  color: var(--admin-yellow);
+}
+
+.admin-setup-step-body {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* A single embedded section already sits under the step title: drop its
+   duplicate heading block. Multi-section steps keep compact sub-headings. */
+.admin-setup-step-single
+  .admin-setup-step-body
+  > .admin-config-section
+  > .admin-config-section-heading {
+  display: none;
+}
+
+.admin-setup-step-body > .admin-config-section > .admin-config-section-heading .admin-panel-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.admin-setup-step-body > .admin-config-section > .admin-config-section-heading h2 {
+  font-size: 17px;
+}
+
+.admin-setup-footer {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-setup-footer-hint {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-setup-done-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--admin-green) 40%, var(--admin-line));
+  border-radius: 10px;
+  color: #dff9e8;
+  background: color-mix(in srgb, var(--admin-green) 10%, transparent);
+  font-size: 13px;
+}
+
+.admin-setup-done-note svg {
+  color: var(--admin-green);
+}
+
+.admin-setup-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* Launch blockers as an actionable list */
+.admin-gate-list {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-gate-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.admin-gate-list .admin-text-button {
+  white-space: nowrap;
+}
+
+.admin-gate-list .admin-text-button {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+@media (max-width: 1020px) {
+  .admin-setup-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-setup-rail {
+    position: static;
+    overflow-x: auto;
+    grid-auto-flow: column;
+    justify-content: start;
+  }
+
+  .admin-setup-step-list {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(150px, max-content);
+  }
+
+  .admin-setup-step-list-extra {
+    padding: 0 0 0 10px;
+    border-top: 0;
+    border-left: 1px solid var(--admin-line);
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-setup-step-header {
+    flex-direction: column;
+  }
+
+  .admin-setup-step-text small {
+    display: none;
+  }
+
+  .admin-gate-list li {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .admin-setup-step-list {
+    grid-auto-columns: max-content;
+  }
+
+  .admin-setup-footer-actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-setup-progress-track span {
+    transition: none;
+  }
+}
+
+/* Native selects in setup forms match the text inputs. */
+.admin-config-page .admin-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+  color: var(--admin-text);
+  background: var(--admin-plum-deep);
+  font: inherit;
+  font-size: 14px;
+}
+
+.admin-config-page .admin-field:has(select) {
+  display: grid;
+  gap: 7px;
+}
+
+/* Keep the refresh line from reserving space when it has nothing to say. */
+.admin-config-page .admin-refresh-status:empty {
+  min-height: 0;
+  padding: 0;
+}
+
+/* Section intros inside a step read as secondary text. */
+.admin-setup-step-body .admin-config-section-heading p:not(.admin-eyebrow) {
+  margin: 6px 0 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}

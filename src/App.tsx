@@ -479,7 +479,7 @@ function App({
                           ? 'Admin settings'
                           : adminRoute === 'affiliate-detail'
                             ? 'Affiliate details'
-                            : 'Product configuration'
+                            : 'Product setup'
         : navigation.find((item) => item.id === page)?.label
     document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
     const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)

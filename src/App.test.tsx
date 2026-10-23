@@ -624,13 +624,13 @@ describe('live partner session shell', () => {
     render(<App previewMode={false} authService={service} adminGateway={emptyAdminGateway()} />)
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Production setup' }),
+      await screen.findByRole('heading', { level: 1, name: 'Product setup' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'Configuration contracts are not available' }),
     ).toBeInTheDocument()
     expect(window.location.hash).toBe('#admin/products/product%2Fone/configuration')
-    expect(document.title).toBe('Product configuration · KissMyApps Admin')
+    expect(document.title).toBe('Product setup · KissMyApps Admin')
   })
 
   it('preserves an Affiliate detail deep route and returns to the directory when it closes', async () => {
