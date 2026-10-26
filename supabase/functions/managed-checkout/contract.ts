@@ -254,13 +254,30 @@ export function validateInput(
   void now;
   return v;
 }
+// The _EXTRA secret adds bindings without rewriting the existing secret, whose
+// value cannot be read back. A binding id may appear in only one of them.
+function managedBindingEntries(): [string, unknown][] {
+  const entries: [string, unknown][] = [];
+  for (
+    const name of [
+      "MANAGED_CHECKOUT_BINDINGS_JSON",
+      "MANAGED_CHECKOUT_BINDINGS_EXTRA_JSON",
+    ]
+  ) {
+    const raw: unknown = JSON.parse(Deno.env.get(name) ?? "{}");
+    if (!object(raw)) throw new ConfigurationError();
+    for (const entry of Object.entries(raw)) {
+      if (entries.some(([id]) => id === entry[0])) {
+        throw new ConfigurationError();
+      }
+      entries.push(entry);
+    }
+  }
+  return entries;
+}
 export function managedBindings(): Map<string, ManagedBinding> {
-  const raw: unknown = JSON.parse(
-    Deno.env.get("MANAGED_CHECKOUT_BINDINGS_JSON") ?? "{}",
-  );
-  if (!object(raw)) throw new ConfigurationError();
   return new Map(
-    Object.entries(raw).map(([id, v]) => {
+    managedBindingEntries().map(([id, v]) => {
       if (
         !object(v) || !/^[A-Za-z0-9_-]{1,64}$/.test(id) ||
         !UUID.test(String(v.product_id)) || !UUID.test(String(v.funnel_id)) ||
