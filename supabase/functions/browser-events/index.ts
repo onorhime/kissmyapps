@@ -1,4 +1,4 @@
-import { productionOrigins } from "../_shared/env.ts";
+import { productionOriginsWithExtra } from "../_shared/env.ts";
 import { RequestError } from "../_shared/errors.ts";
 import {
   corsHeaders,
@@ -16,7 +16,8 @@ import { validateBrowserEvent } from "../_shared/validation.ts";
 function acceptedOrigin(request: Request): string {
   const origin = request.headers.get("origin")?.trim();
   if (
-    !origin || !productionOrigins("BROWSER_EVENT_ALLOWED_ORIGINS").has(origin)
+    !origin ||
+    !productionOriginsWithExtra("BROWSER_EVENT_ALLOWED_ORIGINS").has(origin)
   ) {
     throw new RequestError(
       403,

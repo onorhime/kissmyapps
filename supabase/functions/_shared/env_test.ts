@@ -4,6 +4,7 @@ import {
   funnelKeyBindings,
   funnelMetricKeyBindings,
   funnelSigningSecrets,
+  productionOriginsWithExtra,
   requiredSecret,
 } from "./env.ts";
 
@@ -136,6 +137,40 @@ Deno.test("dedicated telemetry bindings preserve shared keys and reject collisio
     assertEquals([...funnelMetricKeyBindings().keys()], ["telemetry"]);
     Deno.env.delete(names[1]);
     assertThrows(() => funnelMetricKeyBindings(), ConfigurationError);
+  } finally {
+    names.forEach((name, i) =>
+      previous[i] === undefined
+        ? Deno.env.delete(name)
+        : Deno.env.set(name, previous[i]!)
+    );
+  }
+});
+
+Deno.test("extra production origins add to the base list and are validated", () => {
+  const names = ["KMA_ORIGINS_TEST", "KMA_ORIGINS_TEST_EXTRA"];
+  const previous = names.map((name) => Deno.env.get(name));
+  try {
+    Deno.env.set(names[0], "https://one.example.com");
+    Deno.env.delete(names[1]);
+    assertEquals([...productionOriginsWithExtra(names[0])], [
+      "https://one.example.com",
+    ]);
+    Deno.env.set(names[1], " https://two.example.com/ ");
+    assertEquals([...productionOriginsWithExtra(names[0])], [
+      "https://one.example.com",
+      "https://two.example.com",
+    ]);
+    Deno.env.set(names[1], "http://two.example.com");
+    assertThrows(
+      () => productionOriginsWithExtra(names[0]),
+      ConfigurationError,
+    );
+    Deno.env.delete(names[0]);
+    Deno.env.set(names[1], "https://two.example.com");
+    assertThrows(
+      () => productionOriginsWithExtra(names[0]),
+      ConfigurationError,
+    );
   } finally {
     names.forEach((name, i) =>
       previous[i] === undefined

@@ -74,6 +74,16 @@ export function productionOrigins(name: string): ReadonlySet<string> {
   return new Set(configured);
 }
 
+// The optional <name>_EXTRA list adds origins without rewriting the existing
+// secret, whose value cannot be read back.
+export function productionOriginsWithExtra(
+  name: string,
+): ReadonlySet<string> {
+  const origins = productionOrigins(name);
+  if (!Deno.env.get(`${name}_EXTRA`)?.trim()) return origins;
+  return new Set([...origins, ...productionOrigins(`${name}_EXTRA`)]);
+}
+
 export function configuredNames(name: string): ReadonlySet<string> {
   const values = requiredEnv(name)
     .split(",")
