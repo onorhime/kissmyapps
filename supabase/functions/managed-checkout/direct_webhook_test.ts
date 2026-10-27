@@ -364,6 +364,7 @@ Deno.test("direct webhook secrets are bound to connected versus platform envelop
 Deno.test("parsed merchant bindings require separate connected webhook secret while legacy bindings remain valid", () => {
   const names = [
     "MANAGED_CHECKOUT_BINDINGS_JSON",
+    "MANAGED_CHECKOUT_BINDINGS_EXTRA_JSON",
     "MANAGED_FIXTURE_KEY",
     "MANAGED_FIXTURE_WEBHOOK",
     "MANAGED_FIXTURE_CONNECT_WEBHOOK",
@@ -412,6 +413,23 @@ Deno.test("parsed merchant bindings require separate connected webhook secret wh
     const b = managedBindings().get("fixture")!;
     assertEquals(b.webhookSecret, fixtureBinding.webhookSecret);
     assertEquals(b.connectedWebhookSecret, CONNECT_SECRET);
+    // The extra secret adds bindings but never redefines an existing id.
+    set({});
+    Deno.env.set(
+      "MANAGED_CHECKOUT_BINDINGS_EXTRA_JSON",
+      JSON.stringify({ added: raw }),
+    );
+    assertEquals([...managedBindings().keys()], ["fixture", "added"]);
+    Deno.env.set(
+      "MANAGED_CHECKOUT_BINDINGS_EXTRA_JSON",
+      JSON.stringify({ fixture: raw }),
+    );
+    assertThrows(() => managedBindings());
+    Deno.env.set(
+      "MANAGED_CHECKOUT_BINDINGS_EXTRA_JSON",
+      JSON.stringify({ added: { ...raw, livemode: "no" } }),
+    );
+    assertThrows(() => managedBindings());
   } finally {
     for (const [name, value] of before) {
       if (value === undefined) Deno.env.delete(name);

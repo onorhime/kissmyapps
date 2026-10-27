@@ -74,6 +74,16 @@ export function productionOrigins(name: string): ReadonlySet<string> {
   return new Set(configured);
 }
 
+// The optional <name>_EXTRA list adds origins without rewriting the existing
+// secret, whose value cannot be read back.
+export function productionOriginsWithExtra(
+  name: string,
+): ReadonlySet<string> {
+  const origins = productionOrigins(name);
+  if (!Deno.env.get(`${name}_EXTRA`)?.trim()) return origins;
+  return new Set([...origins, ...productionOrigins(`${name}_EXTRA`)]);
+}
+
 export function configuredNames(name: string): ReadonlySet<string> {
   const values = requiredEnv(name)
     .split(",")
@@ -163,15 +173,20 @@ export function funnelKeyBindings(): ReadonlyMap<string, FunnelKeyBinding> {
 }
 
 // Dedicated telemetry credentials never overwrite checkout or shared funnel keys.
+// The _EXTRA secret adds keys without rewriting the existing secrets, whose
+// values cannot be read back.
 export function funnelMetricKeyBindings(): ReadonlyMap<
   string,
   FunnelKeyBinding
 > {
-  const shared = Deno.env.get("FUNNEL_HMAC_BINDINGS")?.trim();
-  const dedicated = Deno.env.get("FUNNEL_METRIC_HMAC_BINDINGS")?.trim();
-  if (!shared && !dedicated) throw new ConfigurationError();
+  const encodedBindings = [
+    "FUNNEL_HMAC_BINDINGS",
+    "FUNNEL_METRIC_HMAC_BINDINGS",
+    "FUNNEL_METRIC_HMAC_BINDINGS_EXTRA",
+  ].map((name) => Deno.env.get(name)?.trim());
+  if (!encodedBindings.some(Boolean)) throw new ConfigurationError();
   const merged = new Map<string, FunnelKeyBinding>();
-  for (const encoded of [shared, dedicated]) {
+  for (const encoded of encodedBindings) {
     if (!encoded) continue;
     for (const [key, binding] of parseFunnelKeyBindings(encoded)) {
       if (merged.has(key)) throw new ConfigurationError();
