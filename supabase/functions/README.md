@@ -129,7 +129,8 @@ Required hosted secrets/configuration:
 - `TRACKING_HASH_SECRET` (32 or more characters)
 - `ADMIN_ALLOWED_ORIGINS` (exact production dashboard HTTPS origin)
 - `BROWSER_EVENT_ALLOWED_ORIGINS` (comma-separated production HTTPS origins)
-- `BROWSER_EVENT_ALLOWED_ORIGINS_EXTRA` (optional; more origins, added without rewriting the list above)
+- `BROWSER_EVENT_ALLOWED_ORIGINS_EXTRA` (optional; more origins, added without
+  rewriting the list above)
 - `EXTERNAL_COMMERCE_HMAC_BINDINGS` (JSON object keyed by `x-kma-key-id`; every
   value has one 32+ character `secret`, exact `product_id`, and exact
   `funnel_id`)
