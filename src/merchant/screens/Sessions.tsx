@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Bot, ChevronRight, Search } from 'lucide-react'
 import { api } from '../api'
 import type { EventRow, Project, Range, SessionDetail, SessionsQuery } from '../api'
@@ -31,10 +31,14 @@ import {
   ShowMore,
   Skeleton,
 } from '../ui/Primitives'
-import { ReplayPlayer } from '../ui/ReplayPlayer'
 import type { ReplayData } from '../ui/ReplayPlayer'
 import { useRpc } from '../ui/useRpc'
 import { SessionRows } from './Users'
+
+// The rrweb player is most of the console's weight, so it loads with the first replay.
+const ReplayPlayer = lazy(() =>
+  import('../ui/ReplayPlayer').then((module) => ({ default: module.ReplayPlayer })),
+)
 
 const PAGE = 50
 
@@ -275,6 +279,8 @@ function useReplay(projectId: string, sessionId: string, enabled: boolean) {
   return { ...state, reload: useCallback(() => setNonce((value) => value + 1), []) }
 }
 
+const LEAD_IN_MS = 30_000
+
 function EventList({
   events,
   replay,
@@ -290,13 +296,18 @@ function EventList({
 }) {
   const [open, setOpen] = useState<number | null>(null)
   const start = replay?.events[0]?.timestamp ?? null
-  const offsets = events.map((event) =>
-    start !== null && replay ? Date.parse(event.time) - replay.skewMs - start : null,
-  )
+  // The recorder starts a moment after the page opens, so the first events of a visit land
+  // just before the recording; they belong at its start.
+  const offsets = events.map((event) => {
+    if (start === null || !replay) return null
+    const offset = Date.parse(event.time) - replay.skewMs - start
+    return offset < 0 && offset > -LEAD_IN_MS ? 0 : offset
+  })
   let activeIndex = -1
   if (current !== null)
     offsets.forEach((offset, index) => {
-      if (offset !== null && offset <= current) activeIndex = index
+      // A little slack, so the event at the very end is current when the player stops there.
+      if (offset !== null && offset <= current + 500) activeIndex = index
     })
   return (
     <ol className="mc-session-events" tabIndex={0} aria-label="Session events">
@@ -541,12 +552,20 @@ export function SessionDetailScreen({
         <section className="mc-panel mc-session-player" aria-label="Session replay">
           {session.has_replay ? (
             replay.data ? (
-              <ReplayPlayer
-                replay={replay.data}
-                events={events}
-                onTime={setPlayhead}
-                seekTo={seekTo}
-              />
+              <Suspense
+                fallback={
+                  <div className="mc-replay-missing" role="status">
+                    <p>Opening the player</p>
+                  </div>
+                }
+              >
+                <ReplayPlayer
+                  replay={replay.data}
+                  events={events}
+                  onTime={setPlayhead}
+                  seekTo={seekTo}
+                />
+              </Suspense>
             ) : replay.error ? (
               <ErrorNote
                 message={`The replay could not load. ${replay.error}`}

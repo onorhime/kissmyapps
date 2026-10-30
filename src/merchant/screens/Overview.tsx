@@ -46,8 +46,8 @@ function Delta({
   comparable: boolean
   goodWhenUp?: boolean
 }) {
-  if (!comparable)
-    return <span className="mc-kpi-change is-neutral">No earlier data to compare</span>
+  // Without earlier data the note under the strip says so once, not on every number.
+  if (!comparable) return null
   const change = formatChange(current, previous, goodWhenUp)
   return <span className={`mc-kpi-change is-${change.tone}`}>{change.text}</span>
 }
@@ -120,7 +120,10 @@ function KpiStrip({ data, range }: { data?: Overview; range: Range }) {
       ))}
       {data && (
         <p className="mc-kpis-note mc-muted">
-          Changes {previousPhrase[range]}. Bots and development traffic are left out.
+          {data.comparable
+            ? `Changes ${previousPhrase[range]}.`
+            : 'No data from before this range to compare with yet.'}{' '}
+          Bots and development traffic are left out.
         </p>
       )}
     </div>

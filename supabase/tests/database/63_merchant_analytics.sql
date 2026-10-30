@@ -262,7 +262,10 @@ select pg_temp.check((select (e->>'events')::int = 0 from qa, jsonb_array_elemen
 insert into qa select 'event', public.analytics_event((select value::uuid from qa where key = 'project'), 'lesson_completed', '7d', 'platform')::text;
 select pg_temp.check((select value::jsonb->'keys' = '["android","ios"]'::jsonb and (value::jsonb->'totals'->>'users')::int = 2
   and value::jsonb->'properties'->0->>'key' = 'lesson' and jsonb_array_length(value::jsonb->'series') = 7 from qa where key = 'event'), 'event detail breaks down by platform');
-select pg_temp.check(jsonb_array_length(public.analytics_live((select value::uuid from qa where key = 'project'), null, 500)) = 49, 'live feed lists every event');
+select pg_temp.check(jsonb_array_length(public.analytics_live((select value::uuid from qa where key = 'project'), null, 500))
+  = (select count(*) from public.analytics_events where project_id = (select value::uuid from qa where key = 'project') and occurred_at >= now() - interval '1 day')
+  and (select count(*) from public.analytics_events where project_id = (select value::uuid from qa where key = 'project') and occurred_at < now() - interval '1 day') > 0,
+  'live feed lists what happened in the last day, not older history sent now');
 select pg_temp.check(jsonb_array_length(public.analytics_live((select value::uuid from qa where key = 'project'),
   (select max(id) - 2 from public.analytics_events), 500)) = 2, 'live feed pages after an ID');
 

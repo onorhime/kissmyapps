@@ -1654,7 +1654,8 @@ begin
       join public.analytics_people p on p.id = e.person_id
       left join public.analytics_sessions s on s.id = e.session_id
       where e.project_id = p_project and (p_after is null or e.id > p_after)
-        and e.received_at >= now() - interval '1 day'
+        -- Imported history arrives now but happened earlier, so it is not live.
+        and e.received_at >= now() - interval '1 day' and e.occurred_at >= now() - interval '1 day'
       order by e.id desc
       limit greatest(1, least(coalesce(p_limit, 100), 500))
     ) t), '[]'::jsonb);

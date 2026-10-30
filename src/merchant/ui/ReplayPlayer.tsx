@@ -168,7 +168,12 @@ export function ReplayPlayer({
 
   return (
     <div className="mc-replay">
-      <div className="mc-replay-stage" ref={stage}>
+      <div
+        className={viewport ? 'mc-replay-stage has-ratio' : 'mc-replay-stage'}
+        ref={stage}
+        // The stage takes the recorded window's shape, so a phone recording is not letterboxed.
+        style={viewport ? { aspectRatio: `${viewport.width} / ${viewport.height}` } : undefined}
+      >
         <div
           className="mc-replay-mount"
           ref={mount}

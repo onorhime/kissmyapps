@@ -35,6 +35,9 @@ import {
 } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
 
+// The feed keeps the newest events; older ones are on each event's page.
+const LIVE_ROWS = 100
+
 function EventTabs({ project, live }: { project: Project; live: boolean }) {
   return (
     <nav className="mc-tabs" aria-label="Events views">
@@ -215,13 +218,13 @@ function LiveEvents({ project }: { project: Project }) {
     let cancelled = false
     const poll = async () => {
       try {
-        const fresh = await api.live(project.id, last.current, 200)
+        const fresh = await api.live(project.id, last.current, LIVE_ROWS)
         if (cancelled) return
         setError(null)
         setLoaded(true)
         if (fresh.length) {
           last.current = Math.max(last.current ?? 0, ...fresh.map((event) => event.id))
-          setRows((current) => [...fresh, ...current].slice(0, 300))
+          setRows((current) => [...fresh, ...current].slice(0, LIVE_ROWS))
         }
       } catch (problem) {
         if (!cancelled)
@@ -782,7 +785,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
 
       <Panel
         title="Latest"
-        description="The 25 most recent times, with who did it"
+        description="Newest first, up to 25, with who did it"
         id="mc-event-recent"
         flush
       >

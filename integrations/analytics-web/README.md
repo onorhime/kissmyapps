@@ -68,6 +68,11 @@ Every input field is masked. Mark anything else private:
 - `data-kma-block`: the element is replaced by an empty box of the same size.
 - `data-kma-ignore`: input in the element is not recorded.
 
+The first snapshot of each page is sent about a second after it loads, and
+what is left when the page closes goes out with `sendBeacon`, so a short
+visit to one page of a multi-page site is still in the replay. Automated
+browsers (`navigator.webdriver`) are not recorded.
+
 Replays can be turned off for a project in **Settings > General**; the SDK
 then stops recording for a day. Replays are kept for 30 days.
 

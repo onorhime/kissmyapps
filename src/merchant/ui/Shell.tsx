@@ -312,7 +312,11 @@ function Account() {
       </span>
       <span className="mc-account-text">
         <strong>{user.name}</strong>
-        <span>{workspace ? `${workspace.name} · ${workspace.role}` : user.email}</span>
+        <span>
+          {workspace
+            ? `${workspace.name} · ${workspace.role[0].toUpperCase()}${workspace.role.slice(1)}`
+            : user.email}
+        </span>
       </span>
       <button
         type="button"

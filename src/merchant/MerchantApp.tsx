@@ -125,9 +125,12 @@ function Screens() {
     )
   }
 
+  // Workspace pages keep the project the person was in, so its menu stays.
   const shellProject =
     project ??
-    (route.name === 'workspace' ? projects.find((item) => item.id === route.projectId) : undefined)
+    (route.name === 'workspace'
+      ? (projects.find((item) => item.id === route.projectId) ?? rememberedProject(projects))
+      : undefined)
   let content
   if (route.name === 'workspace') {
     content =
@@ -150,7 +153,13 @@ function Screens() {
         content = <OverviewScreen key={project.id} project={project} />
         break
       case 'users':
-        content = <UsersScreen key={project.id} project={project} />
+        // A link with other filters (from the overview) opens a fresh list.
+        content = (
+          <UsersScreen
+            key={`${project.id}?${window.location.hash.split('?')[1] ?? ''}`}
+            project={project}
+          />
+        )
         break
       case 'person':
         content = <PersonScreen key={route.personId} project={project} personId={route.personId} />

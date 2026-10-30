@@ -276,7 +276,11 @@ export function ProjectsScreen({ create = false }: { create?: boolean }) {
     <div className="mc-page">
       <PageHeader
         title="Projects"
-        description={`${workspace?.name ?? 'Your workspace'} has ${plural(projects.length, 'project')}. Each one has its own API keys, users and reports.`}
+        description={
+          projects.length
+            ? `${workspace?.name ?? 'Your workspace'} has ${plural(projects.length, 'project')}. Each one has its own API keys, users and reports.`
+            : `Create a project for each app or website. Each one has its own API keys, users and reports.`
+        }
         actions={
           <>
             <WorkspaceName />
@@ -711,7 +715,7 @@ function General({ project, role }: { project: Project; role: Role }) {
             <>
               <div className="mc-inline-add">
                 <label htmlFor="mc-origin" className="sr-only">
-                  Website
+                  Website address
                 </label>
                 <input
                   id="mc-origin"
@@ -1337,7 +1341,9 @@ export function InstallGuide({
           <dl className="mc-facts">
             <div>
               <dt>Client key</dt>
-              <dd className="mc-mono mc-break">{live?.token ?? 'None yet'}</dd>
+              <dd className="mc-mono mc-break">
+                {settings.data ? (live?.token ?? 'No live client key') : <Skeleton height={16} />}
+              </dd>
             </div>
             <div>
               <dt>Endpoint</dt>

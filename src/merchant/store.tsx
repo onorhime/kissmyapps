@@ -66,7 +66,10 @@ function returnUrl(hash: string): string {
 }
 
 export function MerchantStoreProvider({ children }: { children: ReactNode }) {
+  // The shared message speaks of partner sign-in; the console says it in its own words.
   const configurationIssue = getSupabaseConfigurationIssue()
+    ? 'Sign-in is not set up for this site yet: the build needs the Supabase URL and publishable key.'
+    : null
   const [status, setStatus] = useState<Status>(configurationIssue ? 'unconfigured' : 'loading')
   const [error, setError] = useState<string | null>(configurationIssue)
   const [context, setContext] = useState<Context | null>(null)

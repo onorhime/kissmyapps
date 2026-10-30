@@ -5,16 +5,19 @@ export function toCsv(rows: Array<Record<string, string | number>>): Array<Array
   return [keys, ...rows.map((row) => keys.map((key) => row[key] ?? ''))]
 }
 
-/** Builds a CSV in the browser and saves it. Cells that start like a formula are quoted as text. */
-export function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
+/** CSV text. Cells that start like a formula are prefixed so spreadsheets keep them as text. */
+export function csvText(rows: Array<Array<string | number>>): string {
   const escape = (value: string | number) => {
     let text = String(value)
     if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
     return /[",\n']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
   }
-  const blob = new Blob([rows.map((row) => row.map(escape).join(',')).join('\n')], {
-    type: 'text/csv;charset=utf-8',
-  })
+  return rows.map((row) => row.map(escape).join(',')).join('\n')
+}
+
+/** Builds a CSV in the browser and saves it. */
+export function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
+  const blob = new Blob([csvText(rows)], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url

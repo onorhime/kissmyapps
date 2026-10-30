@@ -38,7 +38,8 @@ const methods = [
 function call(method: string, ...args: unknown[]): unknown {
   if (method === 'init') return init(args[0] as string, args[1] as Omit<KmaOptions, 'key'>)
   if (!instance) {
-    pending.push([method, ...args])
+    // Kept until init; a page whose key is wrong never grows this without bound.
+    if (pending.length < 200) pending.push([method, ...args])
     return undefined
   }
   const fn = (instance as unknown as Record<string, (...a: unknown[]) => unknown>)[method]
@@ -71,10 +72,19 @@ for (const method of methods) {
 }
 ;(window as unknown as { kma: Global }).kma = api
 
+// A wrong key is reported in the console instead of throwing on the merchant's page.
+function start(key: string, options: Omit<KmaOptions, 'key'>) {
+  try {
+    init(key, options)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+  }
+}
+
 // <script src=".../kma.js" data-key="kma_pk_live_…" data-endpoint="…" data-replay="false">
 const key = script?.dataset.key
 if (key) {
-  init(key, {
+  start(key, {
     endpoint: script?.dataset.endpoint || undefined,
     replay: script?.dataset.replay !== 'false',
     appVersion: script?.dataset.appVersion || undefined,
@@ -82,5 +92,5 @@ if (key) {
 } else if (pending.some(([method]) => method === 'init')) {
   const index = pending.findIndex(([method]) => method === 'init')
   const [[, initKey, initOptions]] = pending.splice(index, 1)
-  init(initKey as string, initOptions as Omit<KmaOptions, 'key'>)
+  start(initKey as string, (initOptions ?? {}) as Omit<KmaOptions, 'key'>)
 }

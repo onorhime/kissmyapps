@@ -71,6 +71,10 @@ const BATCH_SIZE = 50
 const FLUSH_MS = 2000
 const HEARTBEAT_MS = 60_000
 const REPLAY_FLUSH_MS = 5000
+// The page's first snapshot goes out soon after load, so a short visit to a page of a
+// multi-page site still has it: on page hide only about 60 kB can be handed to the browser.
+const REPLAY_FIRST_FLUSH_MS = 1000
+const BEACON_BYTES = 60_000
 const REPLAY_CHUNK_BYTES = 300_000
 const REPLAY_MAX_BYTES = 3_500_000
 const MAX_ERRORS_PER_PAGE = 20
@@ -146,6 +150,7 @@ export class Kma {
   private replayBytes = 0
   private replaySession: Session | null = null
   private replayTimer: ReturnType<typeof setInterval> | null = null
+  private replayKickoff: ReturnType<typeof setTimeout> | null = null
   private stopped = false
   private readonly cleanup: (() => void)[] = []
 
@@ -496,7 +501,7 @@ export class Kma {
       const json = JSON.stringify({ ...this.body(batch), api_key: this.options.key })
       const ok =
         typeof navigator.sendBeacon === 'function' &&
-        json.length < 60_000 &&
+        json.length < BEACON_BYTES &&
         navigator.sendBeacon(url, new Blob([json], { type: 'text/plain' }))
       if (!ok) break
       const sent = new Set(batch.map((event) => event.insert_id))
@@ -554,16 +559,17 @@ export class Kma {
       },
       { capture: true, passive: true },
     )
+    // Events first: they and the replay share the browser's small allowance for page hide.
     on('pagehide', () => {
       this.persist()
-      this.flushReplay(true)
       this.beacon()
+      this.flushReplay(true)
     })
     const visibility = () => {
       if (document.visibilityState === 'hidden') {
         this.persist()
-        this.flushReplay(true)
         this.beacon()
+        this.flushReplay(true)
       }
     }
     document.addEventListener('visibilitychange', visibility)
@@ -639,6 +645,8 @@ export class Kma {
   private startReplay(): void {
     if (this.options.replay === false || this.recorder || this.state.optedOut) return
     if (Date.now() < this.state.replayOffUntil) return
+    // Automated browsers are left out of reports, so their visits are not recorded.
+    if (navigator.webdriver) return
     const session = this.ensureSession()
     if (!session.replay) return
     const load =
@@ -668,6 +676,7 @@ export class Kma {
           this.replayBytes += JSON.stringify(event).length
           if (this.replayBytes > REPLAY_CHUNK_BYTES) this.flushReplay(false)
         })
+        this.replayKickoff = setTimeout(() => this.flushReplay(false), REPLAY_FIRST_FLUSH_MS)
         this.replayTimer = setInterval(() => this.flushReplay(false), REPLAY_FLUSH_MS)
       })
       .catch(() => this.warn('Session replay could not start.'))
@@ -677,7 +686,9 @@ export class Kma {
     this.recorder?.stop()
     this.recorder = null
     if (this.replayTimer) clearInterval(this.replayTimer)
+    if (this.replayKickoff) clearTimeout(this.replayKickoff)
     this.replayTimer = null
+    this.replayKickoff = null
     this.replayBuffer = []
     this.replayBytes = 0
   }
@@ -693,7 +704,7 @@ export class Kma {
       this.warn('A replay chunk was too large to send and was skipped.')
       return
     }
-    if (closing && bytes > 60_000) return
+    if (closing && bytes > BEACON_BYTES) return
     const seq = Math.max(0, Math.round(events[0].timestamp - session.started))
     const body = {
       anonymous_id: this.state.anonymousId,
@@ -707,6 +718,19 @@ export class Kma {
         last_ts: events[events.length - 1].timestamp,
         events,
       },
+    }
+    if (closing) {
+      // A request with headers needs a preflight, which the browser drops once the page is
+      // gone, so the last part goes as a plain beacon with the key in the body.
+      if (typeof navigator.sendBeacon === 'function') {
+        const json = JSON.stringify({ ...body, api_key: this.options.key })
+        if (json.length < BEACON_BYTES)
+          navigator.sendBeacon(
+            `${this.options.endpoint}/v1/replay`,
+            new Blob([json], { type: 'text/plain' }),
+          )
+      }
+      return
     }
     this.post('/v1/replay', body)
       .then((response) => {

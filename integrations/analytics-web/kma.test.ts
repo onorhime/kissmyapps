@@ -278,6 +278,37 @@ describe('web SDK', () => {
     expect(saved.replayOffUntil).toBeGreaterThan(Date.now())
   })
 
+  it('sends the first snapshot within a second and beacons the rest on page hide', async () => {
+    const beacon = vi.fn((_url: string, _data: Blob) => true)
+    Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true })
+    let emit: (event: { timestamp: number; type: number }) => void = () => undefined
+    const loadReplay = vi.fn(async () => ({
+      start(callback: typeof emit) {
+        emit = callback
+        return { stop: vi.fn(), takeFullSnapshot: vi.fn() }
+      },
+    }))
+    const kma = start({ autoPageViews: false, replay: true, loadReplay })
+    await vi.advanceTimersByTimeAsync(0)
+    emit({ type: 4, timestamp: Date.now() })
+    emit({ type: 2, timestamp: Date.now() })
+    await vi.advanceTimersByTimeAsync(1000)
+    const first = sent.filter((s) => s.url.endsWith('/v1/replay'))
+    expect(first).toHaveLength(1)
+    expect(first[0].body.replay?.events).toHaveLength(2)
+
+    emit({ type: 3, timestamp: Date.now() })
+    kma.track('left_quickly')
+    window.dispatchEvent(new Event('pagehide'))
+    const replayBeacon = beacon.mock.calls.find(([url]) => url.endsWith('/v1/replay'))!
+    expect(replayBeacon[1].type).toBe('text/plain')
+    const body = JSON.parse(await replayBeacon[1].text()) as Body
+    expect(body.api_key).toBe(key)
+    expect(body.replay?.events).toEqual([{ type: 3, timestamp: Date.now() }])
+    // Events go first: they share the browser's allowance for page hide with the replay.
+    expect(beacon.mock.calls[0][0]).toBe('https://events.example/v1/events')
+  })
+
   it('needs a client key', () => {
     expect(() => new Kma({ key: 'kma_sk_live_ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpq' })).toThrow(
       /client key/,

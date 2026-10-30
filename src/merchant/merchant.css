@@ -422,8 +422,11 @@
   white-space: nowrap;
 }
 .mc-account-text span {
+  overflow: hidden;
   color: var(--mc-muted);
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mc-topbar {
@@ -1134,6 +1137,15 @@
 }
 .mc-people-table td:first-child {
   width: 24%;
+}
+.mc-sessions-table td:first-child,
+.mc-people-table td:first-child,
+.mc-bots-table td:first-child {
+  min-width: 190px;
+}
+.mc-table td > a.mc-num,
+.mc-table td.mc-num {
+  white-space: nowrap;
 }
 .mc-live-table tr.is-open td {
   background: var(--mc-row-hover);
@@ -1925,6 +1937,11 @@ button.mc-session-time:hover {
   background: #0b0b0b;
   overflow: hidden;
 }
+.mc-replay-stage.has-ratio {
+  height: auto;
+  min-height: 200px;
+  max-height: min(66vh, 680px);
+}
 .mc-replay-mount {
   position: absolute;
   top: 50%;
@@ -2437,8 +2454,32 @@ button.mc-session-time:hover {
   align-items: flex-end;
   gap: 8px;
 }
-.mc-inline-add .mc-field {
+.mc-inline-add .mc-field,
+.mc-inline-add > input {
   flex: 1;
+  min-width: 0;
+}
+.mc-inline-add > input {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--mc-control);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  color: var(--mc-text);
+  font-size: 15px;
+  transition: border-color 150ms ease-out;
+}
+.mc-inline-add > input::placeholder {
+  color: #8a8a90;
+}
+.mc-inline-add > input:hover {
+  border-color: #55555b;
+}
+.mc-inline-add > input:focus {
+  border-color: var(--mc-link);
+}
+.mc-inline-add > input[aria-invalid='true'] {
+  border-color: #ff6767;
 }
 .mc-inline-add .mc-btn {
   height: 40px;
@@ -3018,6 +3059,9 @@ button.mc-session-time:hover {
   .mc-keys-table td:nth-child(2) {
     white-space: normal;
   }
+  .mc-table tbody td.mc-num-col {
+    text-align: left;
+  }
   .mc-online-list {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3072,9 +3116,15 @@ button.mc-session-time:hover {
   .mc-toolbar {
     align-items: stretch;
   }
-  .mc-toolbar .mc-search,
-  .mc-toolbar .mc-select {
+  .mc-toolbar .mc-search {
     flex: 1 1 100%;
+    min-width: 0;
+  }
+  .mc-toolbar .mc-select {
+    flex: 1 1 calc(50% - 12px);
+    min-width: 0;
+  }
+  .mc-toolbar .mc-select-box select {
     min-width: 0;
   }
   .mc-toolbar .mc-segmented {

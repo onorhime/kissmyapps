@@ -39,13 +39,14 @@ import {
 import { useRpc } from '../ui/useRpc'
 
 const PAGE = 50
+const EXPORT_MAX = 50_000
 
 function hashParams(): URLSearchParams {
   return new URLSearchParams(window.location.hash.split('?')[1] ?? '')
 }
 
 export function UsersScreen({ project }: { project: Project }) {
-  const { now } = useStore()
+  const { now, notify } = useStore()
   const time = timeIn(project.timezone)
   const initial = hashParams()
   const [range, setRange] = useState<Range>('30d')
@@ -76,9 +77,29 @@ export function UsersScreen({ project }: { project: Project }) {
   const page = people.data
   const reset = () => setLimit(PAGE)
 
-  const exportCsv = () => {
+  const [exporting, setExporting] = useState(false)
+  // Exports everyone matching the filters, not only the rows on screen.
+  const exportCsv = async () => {
     if (!page) return
-    const rows = page.rows.map((person) => {
+    setExporting(true)
+    const everyone: Person[] = []
+    try {
+      while (everyone.length < Math.min(page.total, EXPORT_MAX)) {
+        const next = await api.people(project.id, {
+          ...params,
+          limit: 1000,
+          offset: everyone.length,
+        })
+        everyone.push(...next.rows)
+        if (!next.rows.length) break
+      }
+    } catch (problem) {
+      notify(problem instanceof Error ? `Export failed. ${problem.message}` : 'Export failed.')
+      return
+    } finally {
+      setExporting(false)
+    }
+    const rows = everyone.map((person) => {
       const label = personLabel(person)
       return {
         user_id: person.user_id ?? '',
@@ -122,11 +143,11 @@ export function UsersScreen({ project }: { project: Project }) {
             <button
               type="button"
               className="mc-btn mc-btn-secondary"
-              onClick={exportCsv}
-              disabled={!page?.rows.length}
+              onClick={() => void exportCsv()}
+              disabled={!page?.rows.length || exporting}
             >
               <Download size={16} aria-hidden="true" />
-              Export CSV
+              {exporting ? 'Exporting' : 'Export CSV'}
             </button>
           </>
         }
@@ -492,7 +513,6 @@ export function PersonScreen({ project, personId }: { project: Project; personId
 
   const person = data.person
   const label = personLabel(person)
-  const device = deviceLabel(person)
   const traits = Object.entries(person.traits).filter(([key]) => !['name', 'email'].includes(key))
   const canEdit = canDo(workspace?.role, 'developer')
   const verdict = data.override?.verdict
@@ -679,7 +699,6 @@ export function PersonScreen({ project, personId }: { project: Project; personId
               <Fact label="All devices">{data.stats.devices.join(', ')}</Fact>
             )}
           </dl>
-          <p className="mc-sub">{device.secondary}</p>
         </Panel>
         <Panel title="How they found you" id="mc-source-person" className="mc-span-12">
           <dl className="mc-facts mc-facts-row">
@@ -743,7 +762,9 @@ export function PersonScreen({ project, personId }: { project: Project; personId
             <ol className="mc-timeline" tabIndex={0} aria-label="Latest activity">
               {data.recent_events.map((event) => (
                 <li key={event.id}>
-                  <span className="mc-num mc-muted">{time.dateTime(event.time)}</span>
+                  <span className="mc-num mc-muted">
+                    {time.date(event.time)}, {time.clock(event.time)}
+                  </span>
                   <span className="mc-mono">{event.name}</span>
                   <span className="mc-muted mc-truncate">{event.screen ?? ''}</span>
                   {event.session_id && (
