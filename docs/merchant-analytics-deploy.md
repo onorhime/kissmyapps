@@ -139,8 +139,9 @@ duplicate, and holds no credential.
 
 ### Funnels
 
-Not deployed yet. Funnels are calculated from the stored events when they are read, so
-past visits show up straight away and nothing has to be backfilled.
+Deployed 2026-10-30 (release `20261030T222002Z-funnels-retention-places-ddfeeea88981`, from
+fbb4c28). Funnels are calculated from the stored events when they are read, so past visits
+show up straight away and nothing has to be backfilled.
 
 1. Apply `supabase/migrations/20261030140000_merchant_funnels.sql`. It adds the
    `analytics_funnels` table and the `analytics_funnels`, `analytics_save_funnel`,
@@ -152,8 +153,8 @@ past visits show up straight away and nothing has to be backfilled.
 
 ### Retention
 
-Not deployed yet. Like funnels, retention is worked out from the stored events when it is
-read, so the cohorts fill in from past visits straight away.
+Deployed 2026-10-30 with funnels. Like funnels, retention is worked out from the stored
+events when it is read, so the cohorts fill in from past visits straight away.
 
 1. Apply `supabase/migrations/20261030150000_merchant_retention.sql` after the funnels
    migration, which it builds on. It adds the `analytics_retention_report`,
@@ -166,8 +167,12 @@ read, so the cohorts fill in from past visits straight away.
 
 ### City location
 
-Not deployed yet. A small relay on the VPS, `kissmyapps-geo`, sits between the edge Caddy
-and the `analytics-ingest` function. It looks each visitor's address up in DB-IP's free
+Deployed 2026-10-30 with funnels: the relay runs with the 2026-10 database, the edge's
+events block points at it, and the old block is backed up in
+`/srv/kissmyapps/edge-backups/20261030-geo-relay/Caddyfile`.
+
+A small relay on the VPS, `kissmyapps-geo`, sits between the edge Caddy and the
+`analytics-ingest` function. It looks each visitor's address up in DB-IP's free
 city database (IP to City Lite, CC BY 4.0) and passes the request on with the country,
 region and city. It also takes over the proxy secret, so the live Caddyfile no longer
 holds it. Addresses are only looked up, never stored. The Overview's countries open into
@@ -245,9 +250,11 @@ failed download shows there and in the logs, and the old file keeps working).
 
 ### Mobile SDKs
 
-Not released yet. SDKs for iOS (Swift package), Android (Kotlin, built by JitPack) and
-React Native (npm) record installs, updates, opens, time in the app, sessions and screens
-on their own, and keep events on the phone while it is offline. They send the same
+Released 2026-10-30 as 1.0.0 at https://github.com/onorhime/kissmyapps-mobile, built by
+JitPack. The npm package is not published yet.
+
+SDKs for iOS (Swift package), Android (Kotlin, built by JitPack) and React Native (npm)
+record installs, updates, opens, time in the app, sessions and screens on their own, and keep events on the phone while it is offline. They send the same
 `/v1/events` requests as the HTTP API, so the live ingest function and database already
 accept them: there is nothing to migrate or redeploy for them. The ingest function's
 `contract_test.ts` and each SDK's tests check the same file,
