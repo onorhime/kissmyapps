@@ -1,7 +1,16 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { ActionNotice } from '../../../components/ActionNotice'
+import './ProductStats.css'
+import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
+import { errorGuidance } from '../../../components/feedback'
 import { markFormSaved } from '../../../components/useFormNavigationGuard'
-import { Box, LoaderCircle, PackagePlus, Settings2, ShieldCheck } from 'lucide-react'
+import {
+  Box,
+  ChartNoAxesColumn,
+  LoaderCircle,
+  PackagePlus,
+  Settings2,
+  ShieldCheck,
+} from 'lucide-react'
 import type { AdminContext, AdminDataResult, AdminProduct, AdminProductCreate } from '../api'
 import {
   normalizeProductDraft,
@@ -27,19 +36,23 @@ export type ProductsPageProps = Readonly<{
   products: readonly AdminProduct[]
   onCreate: (input: AdminProductCreate) => Promise<AdminDataResult<AdminProduct | null>>
   onConfigure?: (productId: string) => void
+  onViewStats?: (productId: string) => void
 }>
 
-export function ProductsPage({ context, products, onCreate, onConfigure }: ProductsPageProps) {
+export function ProductsPage({
+  context,
+  products,
+  onCreate,
+  onConfigure,
+  onViewStats,
+}: ProductsPageProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
   const [errors, setErrors] = useState<ProductDraftErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const submitLock = useRef(false)
-  const [feedback, setFeedback] = useState<{
-    kind: 'success' | 'error'
-    message: string
-  } | null>(null)
+  const [feedback, setFeedback] = useState<ActionMessage | null>(null)
   const fields = useRef<Partial<Record<ProductDraftField, HTMLInputElement | null>>>({})
   const canCreate = context.role === 'owner' || context.role === 'operations'
 
@@ -100,13 +113,15 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
       markFormSaved(submittedForm)
       setFeedback({
         kind: 'success',
-        message: `${creation.data.name} was created as a draft product.`,
+        title: 'Product created',
+        message: `${creation.data.name} was created as a draft. Open Setup to configure it.`,
       })
       return
     }
     setFeedback({
       kind: 'error',
       message: creation.error?.message ?? 'The draft product could not be created.',
+      ...errorGuidance(creation.error),
     })
   }
 
@@ -246,7 +261,7 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
                     <th scope="col">Status</th>
                     <th scope="col">Created</th>
                     <th scope="col">Updated</th>
-                    {onConfigure && <th scope="col">Action</th>}
+                    {(onConfigure || onViewStats) && <th scope="col">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -270,16 +285,32 @@ export function ProductsPage({ context, products, onCreate, onConfigure }: Produ
                       </td>
                       <td>{formattedDate(product.createdAt)}</td>
                       <td>{formattedDate(product.updatedAt)}</td>
-                      {onConfigure && (
+                      {(onConfigure || onViewStats) && (
                         <td>
-                          <button
-                            className="admin-table-action"
-                            type="button"
-                            onClick={() => onConfigure(product.id)}
-                          >
-                            <Settings2 size={15} aria-hidden="true" />
-                            {canCreate ? 'Configure' : 'View configuration'}
-                          </button>
+                          <span className="admin-table-actions">
+                            {onConfigure && (
+                              <button
+                                className="admin-table-action"
+                                type="button"
+                                aria-label={`${canCreate ? 'Set up' : 'View setup for'} ${product.name}`}
+                                onClick={() => onConfigure(product.id)}
+                              >
+                                <Settings2 size={15} aria-hidden="true" />
+                                {canCreate ? 'Setup' : 'View setup'}
+                              </button>
+                            )}
+                            {onViewStats && (
+                              <button
+                                className="admin-table-action"
+                                type="button"
+                                aria-label={`View stats for ${product.name}`}
+                                onClick={() => onViewStats(product.id)}
+                              >
+                                <ChartNoAxesColumn size={15} aria-hidden="true" />
+                                Stats
+                              </button>
+                            )}
+                          </span>
                         </td>
                       )}
                     </tr>

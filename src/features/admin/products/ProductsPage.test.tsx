@@ -49,7 +49,9 @@ describe('Admin Products page', () => {
     const input = onCreate.mock.calls[0]?.[0]
     expect(input).toEqual({ name: 'Daily Planner', slug: 'daily-planner' })
     expect(Object.keys(input ?? {})).toEqual(['name', 'slug'])
-    expect(await screen.findByText('Daily Planner was created as a draft product.')).toBeVisible()
+    expect(
+      await screen.findByText('Daily Planner was created as a draft. Open Setup to configure it.'),
+    ).toBeVisible()
   })
 
   it('focuses the first invalid field and exposes the validation error', async () => {

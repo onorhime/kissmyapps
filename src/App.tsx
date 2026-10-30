@@ -60,6 +60,7 @@ import './features/partner/Reporting.css'
 import './features/partner/Payouts.css'
 import './features/partner/PartnerManagement.css'
 import './brand.css'
+import type { ReportingPeriod } from './features/partner/live/performanceData'
 import { MerchantConnectionPage } from './features/merchant-connections/MerchantConnectionPage'
 import { isMerchantRoute } from './features/merchant-connections/routing'
 
@@ -88,6 +89,9 @@ function currentAdminRoute(): AdminRoute {
   if (segments[1] === 'products' && segments[2] && segments[3] === 'configuration') {
     return 'product-configuration'
   }
+  if (segments[1] === 'products' && segments[2] && segments[3] === 'stats') {
+    return 'product-stats'
+  }
   if (segments[1] === 'affiliates' && segments[2]) {
     return currentAdminAffiliateId() ? 'affiliate-detail' : 'affiliates'
   }
@@ -107,7 +111,7 @@ function currentAdminProductId(): string | null {
     segments[0] !== 'admin' ||
     segments[1] !== 'products' ||
     !segments[2] ||
-    segments[3] !== 'configuration'
+    (segments[3] !== 'configuration' && segments[3] !== 'stats')
   ) {
     return null
   }
@@ -252,10 +256,11 @@ function App({
     : session.status === 'authenticated' && activationState.userId === session.user?.id
       ? activationState.status
       : 'loading'
+  const [reportingDays, setReportingDays] = useState<ReportingPeriod>(30)
   const liveReporting = useMemo(() => {
     const end = new Date()
     const start = new Date(end)
-    start.setUTCDate(start.getUTCDate() - 29)
+    start.setUTCDate(start.getUTCDate() - (reportingDays - 1))
     return {
       startsOn: start.toISOString().slice(0, 10),
       endsOn: end.toISOString().slice(0, 10),
@@ -265,7 +270,7 @@ function App({
       // legacy preview keeps its independent date-series reporting controls.
       breakdown: 'source' as const,
     }
-  }, [])
+  }, [reportingDays])
   const forcedPasswordScreen =
     !previewMode && session.status === 'authenticated' && session.recoveryMode && !recoveryComplete
       ? 'reset'
@@ -479,7 +484,9 @@ function App({
                           ? 'Admin settings'
                           : adminRoute === 'affiliate-detail'
                             ? 'Affiliate details'
-                            : 'Product configuration'
+                            : adminRoute === 'product-stats'
+                              ? 'Product stats'
+                              : 'Product setup'
         : navigation.find((item) => item.id === page)?.label
     document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
     const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)
@@ -542,13 +549,14 @@ function App({
     setAuthScreen(null)
     setWorkspaceMode('admin')
     setAdminRoute(nextRoute)
-    if (nextRoute !== 'product-configuration') setAdminProductId(null)
+    if (nextRoute !== 'product-configuration' && nextRoute !== 'product-stats')
+      setAdminProductId(null)
     if (nextRoute !== 'affiliate-detail') setAdminAffiliateId(null)
     setMobileMenu(false)
     setHelpOpen(false)
     setNotificationsOpen(false)
     const routeHash =
-      nextRoute === 'product-configuration'
+      nextRoute === 'product-configuration' || nextRoute === 'product-stats'
         ? 'products'
         : nextRoute === 'affiliate-detail'
           ? adminAffiliateId
@@ -558,15 +566,15 @@ function App({
     window.location.hash = `admin/${routeHash}`
   }
 
-  function openAdminProductConfiguration(productId: string) {
+  function openAdminProduct(productId: string, view: 'configuration' | 'stats') {
     setAuthScreen(null)
     setWorkspaceMode('admin')
-    setAdminRoute('product-configuration')
+    setAdminRoute(view === 'stats' ? 'product-stats' : 'product-configuration')
     setAdminProductId(productId)
     setMobileMenu(false)
     setHelpOpen(false)
     setNotificationsOpen(false)
-    window.location.hash = `admin/products/${encodeURIComponent(productId)}/configuration`
+    window.location.hash = `admin/products/${encodeURIComponent(productId)}/${view}`
   }
 
   function openAdminAffiliate(affiliateId: string) {
@@ -690,7 +698,8 @@ function App({
           email: session.user?.email ?? null,
         }}
         onNavigate={navigateAdmin}
-        onOpenProductConfiguration={openAdminProductConfiguration}
+        onOpenProductConfiguration={(productId) => openAdminProduct(productId, 'configuration')}
+        onOpenProductStats={(productId) => openAdminProduct(productId, 'stats')}
         onOpenAffiliate={openAdminAffiliate}
         onSwitchToPartner={switchToPartnerWorkspace}
         onSignOut={async () => {
@@ -866,7 +875,11 @@ function App({
               client={import.meta.env.MODE === 'test' && !partnerGateway ? null : undefined}
             >
               <NavigationGuardContext.Provider value={formGuard.request}>
-                <LivePartnerPortal page={page} />
+                <LivePartnerPortal
+                  page={page}
+                  reportingDays={reportingDays}
+                  onReportingDaysChange={setReportingDays}
+                />
               </NavigationGuardContext.Provider>
             </PartnerLiveWorkspaceProvider>
           ) : (

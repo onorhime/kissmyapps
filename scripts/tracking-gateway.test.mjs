@@ -8,6 +8,9 @@ const vercel = JSON.parse(read('deploy/tracking-gateway/vercel.json'))
 const upstream = 'https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/tracking-redirect'
 const pretty = caddy.match(/path_regexp pretty_get (\S+)/)?.[1]
 const route = new RegExp(pretty, 'u')
+// The tracking host's own block: other hosts (events) have their own upstreams.
+const goStart = caddy.indexOf('go.kissmyapps.dev {')
+const goBlock = caddy.slice(goStart, caddy.indexOf('\n}\n', goStart) + 2)
 
 test('Caddy routes readable Unicode aliases and rejects malformed path structure', () => {
   assert.ok(pretty)
@@ -50,11 +53,11 @@ test('Caddy preserves the legacy route first and never adds another upstream', (
   assert.match(caddy, /@wrongMethod \{\s+path \/r\/\*\s+not method GET/)
   assert.match(caddy, /@tracking \{\s+method GET\s+path \/r\/\*/)
   assert.equal(
-    (caddy.match(/rewrite \* \/functions\/v1\/tracking-redirect\{uri\}/g) ?? []).length,
+    (goBlock.match(/rewrite \* \/functions\/v1\/tracking-redirect\{uri\}/g) ?? []).length,
     2,
   )
   assert.equal(
-    (caddy.match(/reverse_proxy https:\/\/mmyruzjemjecqyivhrgr.supabase.co/g) ?? []).length,
+    (goBlock.match(/reverse_proxy https:\/\/mmyruzjemjecqyivhrgr.supabase.co/g) ?? []).length,
     2,
   )
   assert.match(caddy, /respond "Not found" 404/)

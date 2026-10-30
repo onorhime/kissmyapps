@@ -14,6 +14,7 @@ import type {
   AdminConfigurationGateway,
   AdminProductConfiguration,
   AdminLinkEnvironment,
+  AdminReadinessBlockerCode,
 } from '../api'
 import {
   hasLaunchReadyActiveAgreement,
@@ -26,6 +27,45 @@ import {
 import { Select } from '../../../components/Select'
 import type { ConfigurationActionRunner } from './actionTypes'
 import { ConfigurationReview } from './ConfigurationReview'
+
+export type BlockerResolver = (
+  code: AdminReadinessBlockerCode,
+) => { label: string; open: () => void } | null
+
+function GateSummary({
+  blockers,
+  resolveBlocker,
+}: {
+  blockers: readonly AdminReadinessBlockerCode[]
+  resolveBlocker?: BlockerResolver
+}) {
+  if (!blockers.length) return null
+  return (
+    <div className="admin-gate-summary">
+      <CircleAlert size={17} aria-hidden="true" />
+      <div>
+        <p>
+          <strong>Still needed:</strong>
+        </p>
+        <ul className="admin-gate-list">
+          {blockers.map((blocker) => {
+            const fix = resolveBlocker?.(blocker)
+            return (
+              <li key={blocker}>
+                <span>{readinessCopy[blocker]}</span>
+                {fix && (
+                  <button type="button" className="admin-text-button" onClick={fix.open}>
+                    {fix.label}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </div>
+  )
+}
 
 function ChecklistItem({ passed, children }: { passed: boolean; children: React.ReactNode }) {
   return (
@@ -45,6 +85,7 @@ export function LaunchSection({
   canManage,
   pendingKey,
   runAction,
+  resolveBlocker,
 }: {
   configuration: AdminProductConfiguration
   affiliates: readonly AdminAffiliate[]
@@ -52,6 +93,7 @@ export function LaunchSection({
   canManage: boolean
   pendingKey: string | null
   runAction: ConfigurationActionRunner
+  resolveBlocker?: BlockerResolver
 }) {
   const [confirmActivation, setConfirmActivation] = useState(false)
   const [affiliateId, setAffiliateId] = useState('')
@@ -168,11 +210,8 @@ export function LaunchSection({
                 : 'Product is in an activatable lifecycle state'}
             </ChecklistItem>
           </ul>
-          {activation.blockers.length > 0 && !productActive && (
-            <div className="admin-gate-summary">
-              <CircleAlert size={17} aria-hidden="true" />
-              <p>{activation.blockers.map((blocker) => readinessCopy[blocker]).join(' ')}</p>
-            </div>
+          {!productActive && (
+            <GateSummary blockers={activation.blockers} resolveBlocker={resolveBlocker} />
           )}
           {productActive ? (
             <p className="admin-success-banner">
@@ -323,12 +362,7 @@ export function LaunchSection({
                   : 'An active partner with a launch-ready agreement is eligible'}
             </ChecklistItem>
           </ul>
-          {visibleIssuanceBlockers.length > 0 && (
-            <div className="admin-gate-summary">
-              <CircleAlert size={17} aria-hidden="true" />
-              <p>{visibleIssuanceBlockers.map((blocker) => readinessCopy[blocker]).join(' ')}</p>
-            </div>
-          )}
+          <GateSummary blockers={visibleIssuanceBlockers} resolveBlocker={resolveBlocker} />
           {allEligibleLinksIssued && visibleIssuanceBlockers.length === 0 && (
             <p className="admin-success-banner">
               <Check size={17} aria-hidden="true" /> Main-link issuance is complete for the current
