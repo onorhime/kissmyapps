@@ -48,6 +48,11 @@ function groups(project: Project | undefined): NavGroup[] {
           match: (r) => r.name === 'sessions' || r.name === 'session',
         },
         {
+          label: 'Funnels',
+          route: { name: 'funnels', projectId },
+          match: (r) => r.name === 'funnels' || r.name === 'funnel',
+        },
+        {
           label: 'Events',
           route: { name: 'events', projectId },
           match: (r) => r.name === 'events' || r.name === 'event' || r.name === 'live',
@@ -139,6 +144,7 @@ function ProjectSwitcher({
     switch (route.name) {
       case 'users':
       case 'sessions':
+      case 'funnels':
       case 'events':
       case 'live':
       case 'bots':
@@ -148,6 +154,8 @@ function ProjectSwitcher({
         return { name: 'users', projectId: project.id }
       case 'session':
         return { name: 'sessions', projectId: project.id }
+      case 'funnel':
+        return { name: 'funnels', projectId: project.id }
       case 'event':
         return { name: 'events', projectId: project.id }
       case 'settings':

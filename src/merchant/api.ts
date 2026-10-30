@@ -420,6 +420,74 @@ export interface Members {
   invites: { id: string; email: string; role: Exclude<Role, 'owner'>; created_at: string }[]
 }
 
+export type FunnelMatch = 'is' | 'starts_with' | 'contains'
+
+export type FunnelStep = (
+  { kind: 'event'; event: string } | { kind: 'screen'; match: FunnelMatch; value: string }
+) & { label?: string; filter?: { property: string; value: string } }
+
+/** How long after the first step a person has to finish: 30 min, 1 h, 1 day, 7 or 30 days. */
+export type FunnelWindow = 1800 | 3600 | 86400 | 604800 | 2592000
+
+export type FunnelBreakdown = 'none' | 'country' | 'device' | 'platform' | 'browser' | 'source'
+
+export interface FunnelDefinition {
+  steps: FunnelStep[]
+  window_seconds: FunnelWindow
+}
+
+export interface Funnel extends FunnelDefinition {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+export interface FunnelOptions {
+  events: { name: string; description: string | null; last_seen: string }[]
+  screens: { screen: string; users: number }[]
+  /** Per event: its common property keys, each with its frequent values. */
+  properties: Record<string, { key: string; values: string[] | null }[]>
+}
+
+export interface FunnelReport {
+  range: { key: Range; from: string; to: string; bucket: 'hour' | 'day'; timezone: string }
+  window_seconds: FunnelWindow
+  steps: {
+    index: number
+    step: FunnelStep
+    people: number
+    from_start: number | null
+    from_previous: number | null
+    /** People who reached this step and went no further; null on the last step. */
+    dropped: number | null
+    median_seconds: number | null
+  }[]
+  started: number
+  converted: number
+  series: { start: string; partial: boolean; started: number; converted: number }[]
+  /** The ten largest groups, each with how many reached every step. */
+  breakdown: { key: string; steps: number[] }[]
+  other_groups: number
+}
+
+export interface FunnelPerson {
+  id: string
+  distinct_id: string
+  user_id: string | null
+  traits: Traits
+  country: string | null
+  city: string | null
+  platform: Platform | null
+  device_type: string | null
+  last_seen: string
+  /** When they did the chosen step, and in which session. */
+  at: string
+  session_id: string | null
+  replay: boolean
+}
+
 export class ApiError extends Error {
   readonly code?: string
 
@@ -573,6 +641,55 @@ export const api = {
     }),
   deleteOverride: (override: string) =>
     rpc<{ deleted: string }>('analytics_delete_override', { p_override: override }),
+  funnels: (project: string) => rpc<Funnel[]>('analytics_funnels', { p_project: project }),
+  saveFunnel: (
+    project: string,
+    funnel: string | null,
+    name: string,
+    definition: FunnelDefinition,
+  ) =>
+    rpc<Funnel>('analytics_save_funnel', {
+      p_project: project,
+      p_funnel: funnel,
+      p_name: name,
+      p_steps: definition.steps,
+      p_window_seconds: definition.window_seconds,
+    }),
+  deleteFunnel: (funnel: string) =>
+    rpc<{ deleted: string }>('analytics_delete_funnel', { p_funnel: funnel }),
+  funnelOptions: (project: string) =>
+    rpc<FunnelOptions>('analytics_funnel_options', { p_project: project }),
+  funnelReport: (
+    project: string,
+    definition: FunnelDefinition,
+    range: Range,
+    breakdown: FunnelBreakdown,
+  ) =>
+    rpc<FunnelReport>('analytics_funnel_report', {
+      p_project: project,
+      p_definition: definition,
+      p_range: range,
+      p_breakdown: breakdown,
+    }),
+  funnelPeople: (
+    project: string,
+    definition: FunnelDefinition,
+    range: Range,
+    step: number,
+    outcome: 'reached' | 'dropped',
+    group: { breakdown: FunnelBreakdown; key: string } | null,
+    offset = 0,
+  ) =>
+    rpc<{ total: number; people: FunnelPerson[] }>('analytics_funnel_people', {
+      p_project: project,
+      p_definition: definition,
+      p_range: range,
+      p_step: step,
+      p_outcome: outcome,
+      p_breakdown: group?.breakdown ?? 'none',
+      p_group: group?.key ?? null,
+      p_offset: offset,
+    }),
 }
 
 export type Api = typeof api

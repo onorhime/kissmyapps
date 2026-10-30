@@ -1,7 +1,17 @@
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApiKey, Context, Overview, Person, Project, Role } from './api'
+import type {
+  ApiKey,
+  Context,
+  Funnel,
+  FunnelReport,
+  FunnelStep,
+  Overview,
+  Person,
+  Project,
+  Role,
+} from './api'
 import { csvText, toCsv } from './csv'
 import {
   formatChange,
@@ -290,6 +300,9 @@ describe('merchant routes', () => {
       { name: 'person', projectId: 'p1', personId: 'a/b c' },
       { name: 'sessions', projectId: 'p1' },
       { name: 'session', projectId: 'p1', sessionId: 's1' },
+      { name: 'funnels', projectId: 'p1' },
+      { name: 'funnel', projectId: 'p1', funnelId: 'new' },
+      { name: 'funnel', projectId: 'p1', funnelId: 'f-1' },
       { name: 'events', projectId: 'p1' },
       { name: 'live', projectId: 'p1' },
       { name: 'event', projectId: 'p1', eventName: 'plan:selected' },
@@ -553,6 +566,188 @@ describe('merchant console', () => {
     expect(within(sidebar).getByRole('link', { name: 'Lingo Kids' })).toHaveAttribute(
       'href',
       '#p/proj-2/bots',
+    )
+  })
+})
+
+describe('funnels', () => {
+  const finishedIn = (panel: HTMLElement) =>
+    within(panel).queryByText('Finished')?.parentElement?.querySelector('strong')?.textContent
+  const steps: FunnelStep[] = [
+    { kind: 'screen', match: 'is', value: '/pricing' },
+    { kind: 'event', event: 'signup_started' },
+    { kind: 'event', event: 'purchase', filter: { property: 'plan', value: 'annual' } },
+  ]
+  const saved: Funnel = {
+    id: 'funnel-1',
+    name: 'Pricing to purchase',
+    steps,
+    window_seconds: 86400,
+    created_at: '2026-10-29T09:00:00Z',
+    updated_at: '2026-10-29T09:00:00Z',
+    created_by: 'Victory Onorhime',
+  }
+  // 10 start, 6 reach step 2, 3 finish: 40% stop after step 1 and 50% after step 2.
+  const report = (counts = [10, 6, 3]): FunnelReport => ({
+    range: {
+      key: '30d',
+      from: '2026-10-01T00:00:00Z',
+      to: '2026-10-30T10:00:00Z',
+      bucket: 'day',
+      timezone: 'Africa/Lagos',
+    },
+    window_seconds: 86400,
+    steps: counts.map((people, at) => ({
+      index: at + 1,
+      step: steps[at] ?? { kind: 'event', event: 'purchase' },
+      people,
+      from_start: people / counts[0],
+      from_previous: at ? people / counts[at - 1] : null,
+      dropped: at < counts.length - 1 ? people - counts[at + 1] : null,
+      median_seconds: at ? 90 : null,
+    })),
+    started: counts[0],
+    converted: counts[counts.length - 1],
+    series: [
+      { start: '2026-10-29T00:00:00Z', partial: false, started: 6, converted: 2 },
+      { start: '2026-10-30T00:00:00Z', partial: true, started: 4, converted: 1 },
+    ],
+    breakdown: [
+      { key: 'mobile', steps: [6, 2, 1] },
+      { key: 'desktop', steps: [4, 4, 2] },
+    ],
+    other_groups: 0,
+  })
+
+  it('builds a funnel, previews it from past visits and saves it', async () => {
+    signedInAs('analyst')
+    fake.state.handlers.analytics_funnel_options = () => ({
+      events: [{ name: 'purchase', description: 'Paid', last_seen: '2026-10-30T09:00:00Z' }],
+      screens: [{ screen: '/pricing', users: 40 }],
+      properties: {},
+    })
+    fake.state.handlers.analytics_funnel_report = () => report([10, 4])
+    fake.state.handlers.analytics_save_funnel = (args) => ({
+      ...saved,
+      id: 'funnel-2',
+      name: args.p_name as string,
+      steps: args.p_steps as FunnelStep[],
+    })
+    fake.state.handlers.analytics_funnels = () => []
+    window.location.hash = '#p/proj-1/funnels/new'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'New funnel', level: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Save funnel' }))
+    expect(screen.getByText('Name the funnel.')).toBeInTheDocument()
+    expect(screen.getAllByText('Enter the address to match.')).toHaveLength(2)
+    expect(fake.state.calls.some((call) => call.name === 'analytics_save_funnel')).toBe(false)
+
+    await user.type(screen.getByLabelText('Name'), 'Pricing to purchase')
+    await user.type(screen.getByLabelText('Step 1 page or screen'), '/pricing')
+    await user.selectOptions(screen.getByLabelText('Step 2 is'), 'event')
+    await user.type(screen.getByLabelText('Step 2 event'), 'purchase')
+    const preview = (await screen.findByRole('heading', { name: 'Preview' })).closest('section')!
+    await waitFor(() => expect(finishedIn(preview)).toBe('40%'))
+    const definition = {
+      steps: [
+        { kind: 'screen', match: 'is', value: '/pricing' },
+        { kind: 'event', event: 'purchase' },
+      ],
+      window_seconds: 86400,
+    }
+    expect(
+      fake.state.calls.filter((call) => call.name === 'analytics_funnel_report').at(-1)?.args,
+    ).toEqual({
+      p_project: 'proj-1',
+      p_definition: definition,
+      p_range: '30d',
+      p_breakdown: 'device',
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Save funnel' }))
+    await waitFor(() => expect(window.location.hash).toBe('#p/proj-1/funnels/funnel-2'))
+    expect(fake.state.calls.find((call) => call.name === 'analytics_save_funnel')?.args).toEqual({
+      p_project: 'proj-1',
+      p_funnel: null,
+      p_name: 'Pricing to purchase',
+      p_steps: definition.steps,
+      p_window_seconds: 86400,
+    })
+  })
+
+  it('shows where people stop, who they are, and the steps for one group', async () => {
+    signedInAs('owner')
+    fake.state.handlers.analytics_funnels = () => [saved]
+    fake.state.handlers.analytics_funnel_report = () => report()
+    fake.state.handlers.analytics_funnel_people = () => ({
+      total: 1,
+      people: [
+        {
+          id: 'person-1',
+          distinct_id: 'amaka@example.com',
+          user_id: 'amaka@example.com',
+          traits: { name: 'Amaka Obi' },
+          country: 'NG',
+          city: 'Lagos',
+          platform: 'web',
+          device_type: 'mobile',
+          last_seen: '2026-10-30T09:00:00Z',
+          at: '2026-10-30T08:00:00Z',
+          session_id: 'session-9',
+          replay: true,
+        },
+      ],
+    })
+    window.location.hash = '#p/proj-1/funnels/funnel-1'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'Pricing to purchase', level: 1 })
+    const stepsPanel = screen.getByRole('heading', { name: 'Steps' }).closest('section')!
+    await waitFor(() => expect(finishedIn(stepsPanel)).toBe('30%'))
+    expect(within(stepsPanel).getByText('Step 2')).toBeInTheDocument()
+    expect(within(stepsPanel).getByText('50%, the biggest drop')).toBeInTheDocument()
+    expect(within(stepsPanel).getByText('plan')).toBeInTheDocument()
+
+    await user.click(within(stepsPanel).getByRole('button', { name: '3 people stopped here' }))
+    const people = (await screen.findByRole('heading', { name: /stopped after step 2/ })).closest(
+      'section',
+    )!
+    expect(await within(people).findByText('Amaka Obi')).toBeInTheDocument()
+    expect(within(people).getByRole('link', { name: 'Watch replay' })).toHaveAttribute(
+      'href',
+      '#p/proj-1/sessions/session-9',
+    )
+    expect(
+      fake.state.calls.find((call) => call.name === 'analytics_funnel_people')?.args,
+    ).toMatchObject({ p_step: 2, p_outcome: 'dropped', p_breakdown: 'none', p_group: null })
+
+    const groups = screen.getByRole('heading', { name: 'Who finishes' }).closest('section')!
+    await user.click(within(groups).getByRole('button', { name: 'Phone' }))
+    expect(screen.getByRole('heading', { name: 'Steps for Phone' })).toBeInTheDocument()
+    expect(finishedIn(stepsPanel)).toBe('17%')
+    await user.click(within(stepsPanel).getByRole('button', { name: '4 people stopped here' }))
+    await waitFor(() =>
+      expect(
+        fake.state.calls.filter((call) => call.name === 'analytics_funnel_people').at(-1)?.args,
+      ).toMatchObject({
+        p_step: 1,
+        p_outcome: 'dropped',
+        p_breakdown: 'device',
+        p_group: 'mobile',
+      }),
+    )
+  })
+
+  it('offers the first funnel where the list will be', async () => {
+    signedInAs('analyst')
+    fake.state.handlers.analytics_funnels = () => []
+    window.location.hash = '#p/proj-1/funnels'
+    render(<MerchantApp />)
+    expect(await screen.findByRole('link', { name: 'Build your first funnel' })).toHaveAttribute(
+      'href',
+      '#p/proj-1/funnels/new',
     )
   })
 })

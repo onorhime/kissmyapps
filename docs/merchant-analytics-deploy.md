@@ -1,7 +1,8 @@
 # Merchant analytics: deploy checklist
 
 The merchant console (merchant.kissmyapps.dev), the web SDK and the events endpoint
-(events.kissmyapps.dev) ship together. Nothing below has been applied to production yet.
+(events.kissmyapps.dev) ship together. Steps 1 to 9 went to production on 2026-10-30; later
+releases are listed under [Later releases](#later-releases), each with only what it adds.
 Do the steps in order; each one is safe to repeat.
 
 ## 1. Database
@@ -133,6 +134,21 @@ duplicate, and holds no credential.
 6. `curl -i https://events.kissmyapps.dev/` answers 404, and
    `curl -i -X POST -H 'content-type: application/json' -d '{}' https://events.kissmyapps.dev/v1/events`
    answers 401 `invalid_key`.
+
+## Later releases
+
+### Funnels
+
+Not deployed yet. Funnels are calculated from the stored events when they are read, so
+past visits show up straight away and nothing has to be backfilled.
+
+1. Apply `supabase/migrations/20261030140000_merchant_funnels.sql`. It adds the
+   `analytics_funnels` table and the `analytics_funnels`, `analytics_save_funnel`,
+   `analytics_delete_funnel`, `analytics_funnel_options`, `analytics_funnel_report` and
+   `analytics_funnel_people` functions, and changes nothing that exists.
+2. Release the dashboard as in step 6. No secrets, ingest function, DNS or Caddy changes.
+3. Smoke test: in the console, Analytics, Funnels, build a two-step funnel from a page and an
+   event your test site sends, save it, and check the counts and the people behind a drop.
 
 ## Not in this release
 
