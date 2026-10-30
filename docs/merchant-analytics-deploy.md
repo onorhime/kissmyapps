@@ -34,11 +34,38 @@ supabase functions deploy analytics-ingest --project-ref mmyruzjemjecqyivhrgr --
 `supabase/config.toml` already sets `verify_jwt = false` for it: the SDK authenticates
 with the project's API key, not a user session.
 
-## 4. Auth redirects
+## 4. Auth redirects and the confirmation email
 
 In Supabase Auth URL configuration, add `https://merchant.kissmyapps.dev/**` to the
 redirect URLs. Sign-up confirmation and password reset links return to the page the
-merchant started from, so without it those links fall back to the Site URL.
+merchant started from, so without it those links fall back to the Site URL (the partner
+dashboard) and land on a page that cannot use them.
+
+The hosted Confirm signup email is the partner welcome email, and its link opens the
+partner dashboard. `supabase/templates/confirmation.html` now has a merchant branch:
+the console signs people up with `registration_flow: 'analytics_v1'`, and that branch
+sends a merchant email whose button opens
+`https://merchant.kissmyapps.dev/#confirm-email?token=...`. The partner and
+`merchant_v1` branches are unchanged. In the Supabase dashboard, Authentication, Email
+Templates, Confirm signup:
+
+1. Replace the message body with the whole of `supabase/templates/confirmation.html`.
+2. Set the subject to this single line, which keeps the partner subject for everyone
+   else:
+
+   ```text
+   {{ if eq .Data.registration_flow "analytics_v1" }}Confirm your KissMyApps Merchant email{{ else }}Welcome to KissMyApps Partners — confirm your email{{ end }}
+   ```
+
+3. Save, reload the page and check both fields read back as pasted.
+
+Until this is done, merchant sign-ups get the partner email and its link signs them in
+to the partner dashboard instead of the console. The link works once, on any device, for
+one hour; the console can send a new one from the sign-in page and from an expired link.
+
+Password reset needs no template change. Its link only works in the browser that asked
+for it (Supabase's PKCE flow); opened anywhere else, the console says the link expired
+and offers to send a new one.
 
 ## 5. DNS
 
@@ -92,12 +119,18 @@ duplicate, and holds no credential.
 
 ## 9. Smoke test after deploy
 
-1. Sign up at https://merchant.kissmyapps.dev, confirm the email, create a project.
+1. Sign up at https://merchant.kissmyapps.dev. The email's subject is "Confirm your
+   KissMyApps Merchant email" and its button opens the console signed in; open it on your
+   phone to check it works away from the sign-up browser. Create a project.
 2. Settings, Install SDK: copy the snippet into any test page on a site listed under
    allowed websites (or leave the list empty), and open it from a phone and a laptop.
 3. Overview and Users show you online with the right country and device within a few
    seconds. Open your session: the events are listed and the replay plays.
-4. `curl -i https://events.kissmyapps.dev/` answers 404, and
+4. Settings, Members: invite a second address, copy its invite link, open it in a
+   private window and sign up. The new member joins as an analyst.
+5. Sign up once on https://partners.kissmyapps.dev too and check the partner welcome
+   email is unchanged.
+6. `curl -i https://events.kissmyapps.dev/` answers 404, and
    `curl -i -X POST -H 'content-type: application/json' -d '{}' https://events.kissmyapps.dev/v1/events`
    answers 401 `invalid_key`.
 
@@ -105,6 +138,11 @@ duplicate, and holds no credential.
 
 - No native mobile SDKs: apps send events over the HTTP API (Install SDK shows how), and
   there are no replays for apps.
-- Cities and regions need visitor location headers from a CDN in front of the events host
-  (step 7). Without them the console shows countries only.
+- Location: as deployed on the VPS, nothing in front of the events host tells the
+  function where an address is, so a visitor's country comes from their device's time
+  zone (a VPN or a traveller shows their home zone's country) and there are no regions or
+  cities. Exact countries and cities need either a CDN that adds visitor location
+  headers (step 7) or an IP geolocation lookup in the function, which is not built.
+- Invitations send no email: after inviting someone, a member copies their invite link
+  from Settings, Members and sends it to them.
 - A replay ends at the last recorded change, so idle time at the end of a page is not shown.

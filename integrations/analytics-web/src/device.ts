@@ -85,7 +85,7 @@ export function parseUserAgent(
       const major = Number(hints.platformVersion.split('.')[0])
       if (major > 0) info.os_version = major >= 13 ? '11' : '10'
     } else if (hints.platform === 'macOS' && hints.platformVersion) {
-      info.os_version = hints.platformVersion.replace(/\.0$/, '')
+      info.os_version = dotted(hints.platformVersion).replace(/\.0$/, '')
     } else if (hints.platform === 'Android' && hints.platformVersion) {
       info.os_version = hints.platformVersion
     }

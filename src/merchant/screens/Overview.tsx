@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Play } from 'lucide-react'
+import { Bot, Play, Timer } from 'lucide-react'
 import { api } from '../api'
 import type { Kpis, OnlinePerson, Overview, Project, Range, Ranked } from '../api'
 import {
@@ -181,8 +181,14 @@ function OnlineNow({ project, count }: { project: Project; count?: number }) {
                     projectId: project.id,
                     sessionId: person.session_id,
                   })}
+                  aria-label={`Open this session, ${formatDuration((now - Date.parse(person.started_at)) / 1000)} so far`}
                 >
-                  <Play size={14} aria-hidden="true" />
+                  {/* Only website sessions have a replay to play. */}
+                  {person.platform === 'web' ? (
+                    <Play size={14} aria-hidden="true" />
+                  ) : (
+                    <Timer size={14} aria-hidden="true" />
+                  )}
                   <span>{formatDuration((now - Date.parse(person.started_at)) / 1000)}</span>
                 </a>
               </li>

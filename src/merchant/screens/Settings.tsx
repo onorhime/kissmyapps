@@ -382,6 +382,12 @@ const roleNotes: Record<Exclude<Role, 'owner'>, string> = {
   analyst: 'Reports only: users, sessions, replays and events.',
 }
 
+/** Opens sign-up with the invited address; the invite is accepted once that address is confirmed. */
+function inviteLink(email: string): string {
+  const { origin, pathname, search } = window.location
+  return `${origin}${pathname}${search}${href({ name: 'sign-up', email, invited: true })}`
+}
+
 export function MembersScreen() {
   const { workspace, notify, now } = useStore()
   const members = useRpc(`members:${workspace?.id}`, () => api.members(workspace!.id), {
@@ -424,14 +430,14 @@ export function MembersScreen() {
             setInvalid(undefined)
             void update(
               () => api.inviteMember(workspace.id, email.trim(), role),
-              `Invited ${email.trim()}`,
+              `Invited ${email.trim()}. Copy their invite link and send it to them.`,
             ).then(() => setEmail(''))
           }}
         >
           <Field
             label="Invite by email"
             error={invalid}
-            hint="They create an account or sign in with this address to join."
+            hint="No email is sent: after inviting, copy their invite link and send it to them."
           >
             {(props) => (
               <input
@@ -552,19 +558,26 @@ export function MembersScreen() {
                 </td>
                 {admin && (
                   <td data-label="Action">
-                    <button
-                      type="button"
-                      className="mc-text-btn is-danger"
-                      disabled={busy}
-                      onClick={() =>
-                        void update(
-                          () => api.cancelInvite(invite.id),
-                          `Invite to ${invite.email} cancelled`,
-                        )
-                      }
-                    >
-                      Cancel invite
-                    </button>
+                    <div className="mc-invite-actions">
+                      <CopyButton
+                        value={inviteLink(invite.email)}
+                        label={`invite link for ${invite.email}`}
+                        text="Copy invite link"
+                      />
+                      <button
+                        type="button"
+                        className="mc-text-btn is-danger"
+                        disabled={busy}
+                        onClick={() =>
+                          void update(
+                            () => api.cancelInvite(invite.id),
+                            `Invite to ${invite.email} cancelled`,
+                          )
+                        }
+                      >
+                        Cancel invite
+                      </button>
+                    </div>
                   </td>
                 )}
               </tr>
@@ -651,7 +664,8 @@ function General({ project, role }: { project: Project; role: Role }) {
         description="The name shows across your workspace. Reports count days in this time zone."
       >
         <form className="mc-panel" onSubmit={saveDetails} noValidate>
-          <div className="mc-form-stack">
+          {/* Analysts see the settings but cannot change them. */}
+          <fieldset className="mc-form-stack" disabled={!canEdit}>
             <Field label="Project name" error={errors.name}>
               {(props) => (
                 <input
@@ -670,7 +684,7 @@ function General({ project, role }: { project: Project; role: Role }) {
               options={timezoneOptions(timezone)}
             />
             <PlatformChoices value={platforms} onChange={setPlatforms} error={errors.platforms} />
-          </div>
+          </fieldset>
           {canEdit && (
             <div className="mc-form-actions">
               <button

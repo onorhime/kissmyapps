@@ -245,7 +245,8 @@ otp_expiry = 3600
 
 # Merchant verification uses OTP codes; partner signup retains its existing branch.
 [auth.email.template.confirmation]
-subject = "Confirm your KissMyApps email"
+# The merchant console signs people up with registration_flow analytics_v1.
+subject = '{{ if eq .Data.registration_flow "analytics_v1" }}Confirm your KissMyApps Merchant email{{ else }}Confirm your KissMyApps email{{ end }}'
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]

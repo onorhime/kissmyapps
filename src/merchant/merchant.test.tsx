@@ -279,6 +279,10 @@ describe('merchant routes', () => {
     const routes: Route[] = [
       { name: 'sign-in' },
       { name: 'new-password' },
+      { name: 'sign-up' },
+      { name: 'sign-up', email: 'ada+team@studio.test', invited: true },
+      { name: 'confirm-email', token: 'pkce_a1b2/c3+d4' },
+      { name: 'confirm-email' },
       { name: 'workspace', section: 'projects', projectId: 'p 1', create: true },
       { name: 'workspace', section: 'members', projectId: 'p1' },
       { name: 'overview', projectId: 'p1' },

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowLeft, Bot, Download, Play, Search, ShieldCheck, ShieldOff } from 'lucide-react'
 import { api } from '../api'
@@ -69,6 +69,16 @@ export function UsersScreen({ project }: { project: Project }) {
     sort,
     limit,
   }
+  // Results follow the search box as the merchant types; Enter applies it at once.
+  useEffect(() => {
+    const next = search.trim()
+    if (next === query) return
+    const timer = window.setTimeout(() => {
+      setQuery(next)
+      setLimit(PAGE)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [search, query])
   const people = useRpc(
     `people:${project.id}:${JSON.stringify(params)}`,
     () => api.people(project.id, params),

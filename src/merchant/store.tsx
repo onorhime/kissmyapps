@@ -28,6 +28,8 @@ type Store = {
     password: string
   }) => Promise<'signed-in' | 'confirm-email'>
   recover: (email: string) => Promise<void>
+  confirmEmail: (token: string) => Promise<void>
+  resendConfirmation: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
   notify: (message: string) => void
@@ -50,7 +52,9 @@ function authMessage(error: { message?: string; status?: number; code?: string }
   if (/invalid login credentials/i.test(message))
     return 'That email and password do not match an account.'
   if (/email not confirmed/i.test(message))
-    return 'Confirm your email first: open the link we sent you.'
+    return 'Confirm your email first: open the link we sent you, or send it again below.'
+  if (/expired|invalid/i.test(message) && /(link|token|otp)/i.test(message))
+    return 'This confirmation link has expired or was already used.'
   if (/already registered|already exists/i.test(message))
     return 'An account with this email already exists. Sign in instead.'
   if (/rate limit|too many/i.test(message) || error?.status === 429)
@@ -164,7 +168,12 @@ export function MerchantStoreProvider({ children }: { children: ReactNode }) {
         const { data, error: problem } = await client().auth.signUp({
           email,
           password,
-          options: { data: { full_name: name, company }, emailRedirectTo: returnUrl('') },
+          options: {
+            // registration_flow picks the merchant branch of the Confirm signup email, whose
+            // link comes back to this console instead of the partner dashboard.
+            data: { full_name: name, company, registration_flow: 'analytics_v1' },
+            emailRedirectTo: returnUrl(''),
+          },
         })
         if (problem) throw new Error(authMessage(problem))
         // An existing address comes back without identities when confirmation is on.
@@ -176,6 +185,22 @@ export function MerchantStoreProvider({ children }: { children: ReactNode }) {
       recover: async (email) => {
         const { error: problem } = await client().auth.resetPasswordForEmail(email, {
           redirectTo: returnUrl('#new-password'),
+        })
+        if (problem) throw new Error(authMessage(problem))
+      },
+      confirmEmail: async (token) => {
+        // Works on any device: the token in the link is enough, no state from the sign-up tab.
+        const { data, error: problem } = await client().auth.verifyOtp({
+          token_hash: token,
+          type: 'email',
+        })
+        if (problem || !data.session) throw new Error(authMessage(problem))
+      },
+      resendConfirmation: async (email) => {
+        const { error: problem } = await client().auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: returnUrl('') },
         })
         if (problem) throw new Error(authMessage(problem))
       },

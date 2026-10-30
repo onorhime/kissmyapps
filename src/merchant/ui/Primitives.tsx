@@ -199,10 +199,13 @@ export function CopyButton({
   value,
   label,
   compact = false,
+  text = 'Copy',
 }: {
   value: string
   label: string
   compact?: boolean
+  /** The button's words when not compact. */
+  text?: string
 }) {
   const { notify } = useStore()
   const [copied, setCopied] = useState(false)
@@ -221,7 +224,7 @@ export function CopyButton({
       }}
     >
       {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-      {!compact && <span>{copied ? 'Copied' : 'Copy'}</span>}
+      {!compact && <span>{copied ? 'Copied' : text}</span>}
     </button>
   )
 }
@@ -488,7 +491,7 @@ export function ShowMore({
   if (total <= shown)
     return total > 0 ? (
       <p className="mc-list-foot mc-muted">
-        All {total} {noun} shown
+        {total === 1 ? 'The only match is shown' : `All ${total} ${noun} shown`}
       </p>
     ) : null
   return (

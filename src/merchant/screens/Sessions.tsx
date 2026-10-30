@@ -63,6 +63,16 @@ export function SessionsScreen({ project }: { project: Project }) {
     bots,
     limit,
   }
+  // Results follow the search box as the merchant types; Enter applies it at once.
+  useEffect(() => {
+    const next = search.trim()
+    if (next === query) return
+    const timer = window.setTimeout(() => {
+      setQuery(next)
+      setLimit(PAGE)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [search, query])
   const sessions = useRpc(
     `sessions:${project.id}:${JSON.stringify(params)}`,
     () => api.sessions(project.id, params),
