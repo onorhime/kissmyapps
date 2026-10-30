@@ -1,0 +1,6 @@
+# JitPack builds the Android library from this repository's tags:
+# implementation("com.github.<owner>:<repository>:<tag>")
+jdk:
+  - openjdk17
+install:
+  - cd android && ./gradlew :kissmyapps:publishReleasePublicationToMavenLocal

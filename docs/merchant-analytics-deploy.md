@@ -243,10 +243,49 @@ restart, once DB-IP publishes it (usually on the 1st or 2nd). In the first days 
 month, check `healthz` shows the month's `built` date and no `problem` (a full disk or a
 failed download shows there and in the logs, and the old file keeps working).
 
+### Mobile SDKs
+
+Not released yet. SDKs for iOS (Swift package), Android (Kotlin, built by JitPack) and
+React Native (npm) record installs, updates, opens, time in the app, sessions and screens
+on their own, and keep events on the phone while it is offline. They send the same
+`/v1/events` requests as the HTTP API, so the live ingest function and database already
+accept them: there is nothing to migrate or redeploy for them. The ingest function's
+`contract_test.ts` and each SDK's tests check the same file,
+`integrations/analytics-mobile/contract/app-events.json`. There are no replays for apps.
+
+1. The public repository for iOS and Android. Swift Package Manager and JitPack need
+   `Package.swift` and `jitpack.yml` at a repository's root, so
+   `integrations/analytics-mobile` is published as its own public repository. The console
+   assumes `https://github.com/onorhime/kissmyapps-mobile`; for another name, change
+   `MOBILE_SDK.repository` in `src/merchant/config.ts` (or set
+   `VITE_MOBILE_SDK_REPOSITORY` for the dashboard build). Then:
+
+   ```sh
+   git subtree split --prefix integrations/analytics-mobile -b mobile-sdk
+   git push https://github.com/onorhime/kissmyapps-mobile.git mobile-sdk:main
+   ```
+
+   Tag `1.0.0` in that repository and open https://jitpack.io/#onorhime/kissmyapps-mobile/1.0.0
+   once, so JitPack builds it before the first app asks for it.
+2. npm. Create the `kissmyapps` organization on npmjs.com, then
+   `cd integrations/analytics-react-native && npm publish` (it builds `lib/` first and
+   publishes `@kissmyapps/react-native` publicly).
+3. Licence. Both SDK folders say MIT; change their `LICENSE` files and the React Native
+   `package.json` first if you want another licence.
+4. Release the dashboard as in step 6: Install SDK gains iOS, Android, React Native and
+   HTTP tabs with the project's key filled in.
+5. Smoke test: in a test app, start the SDK with a development client key and open the app.
+   Within a minute Install SDK's "Check your setup" lists "iOS app (development)" or
+   "Android app (development)". With a live key, Sessions shows the session with its
+   device model, OS, app version and first screen.
+
+`.github/workflows/mobile-sdks.yml` tests all three SDKs and builds the Android library
+and the iOS package whenever they change.
+
 ## Not in this release
 
-- No native mobile SDKs: apps send events over the HTTP API (Install SDK shows how), and
-  there are no replays for apps.
+- Mobile SDKs: until the release above, apps send events over the HTTP API (Install SDK
+  shows how). There are no replays for apps.
 - Location: until the City location release above is deployed, nothing in front of the
   events host tells the function where an address is, so a visitor's country comes from
   their device's time zone (a VPN or a traveller shows their home zone's country) and

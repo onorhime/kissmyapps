@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api'
 import type { ApiKey, KeyEnvironment, KeyKind, Members, Platform, Project, Role } from '../api'
-import { ANALYTICS_ENDPOINT, SDK_URL } from '../config'
+import { ANALYTICS_ENDPOINT, MOBILE_SDK, SDK_URL, jitpackArtifact } from '../config'
 import { formatAgo, formatCount, platformLabels, plural, timeIn } from '../format'
 import { href, navigate } from '../routes'
 import type { ProjectSettingsSection } from '../routes'
@@ -1139,7 +1139,11 @@ function Keys({
   )
 }
 
+const DEFAULT_ENDPOINT = 'https://events.kissmyapps.dev'
+
 function snippets(key: string) {
+  // App SDKs send to the default endpoint unless told otherwise, as on a local stack.
+  const custom = ANALYTICS_ENDPOINT !== DEFAULT_ENDPOINT
   return {
     web: `<!-- In the <head> of every page -->
 <script>
@@ -1156,6 +1160,98 @@ kma('track', 'plan_selected', { plan: 'annual', price: 59.99 })
 
 // When they sign out
 kma('reset')`,
+    iosPackage: `${MOBILE_SDK.repository}
+// Dependency rule: Up to Next Major Version, from ${MOBILE_SDK.version}`,
+    iosStart: `import KissMyApps
+import SwiftUI
+
+@main
+struct MyApp: App {
+    init() {
+        KissMyApps.start(key: "${key}"${custom ? `,\n                         options: KissMyAppsOptions(endpoint: "${ANALYTICS_ENDPOINT}")` : ''})
+    }
+
+    var body: some Scene {
+        WindowGroup { ContentView() }
+    }
+}`,
+    iosEvents: `// After someone signs in
+KissMyApps.identify("user-42", traits: ["email": "amaka@example.com", "plan": "annual"])
+
+// Anything they do
+KissMyApps.track("lesson_completed", properties: ["lesson": 3])
+
+// Screens: on a SwiftUI view, or call it yourself
+LessonView().kmaScreen("Lesson")
+KissMyApps.screen("Lesson")
+
+// When they sign out
+KissMyApps.reset()`,
+    androidGradle: `// settings.gradle.kts
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}
+
+// app/build.gradle.kts
+dependencies {
+    implementation("${jitpackArtifact()}")
+}`,
+    androidStart: `import android.app.Application
+import com.kissmyapps.KissMyApps${custom ? '\nimport com.kissmyapps.KissMyAppsOptions' : ''}
+
+class MyApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        KissMyApps.start(this, "${key}"${custom ? `,\n            KissMyAppsOptions(endpoint = "${ANALYTICS_ENDPOINT}")` : ''})
+    }
+}
+
+// AndroidManifest.xml: <application android:name=".MyApp" …>`,
+    androidEvents: `// After someone signs in
+KissMyApps.identify("user-42", mapOf("email" to "amaka@example.com", "plan" to "annual"))
+
+// Anything they do
+KissMyApps.track("lesson_completed", mapOf("lesson" to 3))
+
+// Screens, for example from Navigation
+navController.addOnDestinationChangedListener { _, destination, _ ->
+    KissMyApps.screen(destination.route ?: destination.label?.toString() ?: "Screen")
+}
+
+// When they sign out
+KissMyApps.reset()`,
+    reactNativeInstall: `npm install ${MOBILE_SDK.npmPackage} @react-native-async-storage/async-storage`,
+    reactNativeStart: `import AsyncStorage from '@react-native-async-storage/async-storage'
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
+import { KissMyApps, trackNavigation } from '${MOBILE_SDK.npmPackage}'
+
+KissMyApps.init({
+  key: '${key}',${custom ? `\n  endpoint: '${ANALYTICS_ENDPOINT}',` : ''}
+  storage: AsyncStorage,
+  appVersion: '1.0.0',
+})
+
+export default function App() {
+  // Records each screen under its route name
+  const navigation = useNavigationContainerRef()
+  return (
+    <NavigationContainer ref={navigation} {...trackNavigation(navigation)}>
+      {/* your screens */}
+    </NavigationContainer>
+  )
+}`,
+    reactNativeEvents: `// After someone signs in
+KissMyApps.identify('user-42', { email: 'amaka@example.com', plan: 'annual' })
+
+// Anything they do
+KissMyApps.track('lesson_completed', { lesson: 3 })
+
+// When they sign out
+KissMyApps.reset()`,
     http: `curl ${ANALYTICS_ENDPOINT}/v1/events \\
   -H "Authorization: Bearer ${key}" \\
   -H "Content-Type: application/json" \\
@@ -1171,6 +1267,26 @@ kma('reset')`,
   }
 }
 
+type InstallTab = 'web' | 'ios' | 'android' | 'react-native' | 'http'
+
+const installTabs: Array<{ value: InstallTab; label: string }> = [
+  { value: 'web', label: 'Website' },
+  { value: 'ios', label: 'iOS' },
+  { value: 'android', label: 'Android' },
+  { value: 'react-native', label: 'React Native' },
+  { value: 'http', label: 'HTTP' },
+]
+
+function firstTab(platforms: Platform[]): InstallTab {
+  if (platforms.includes('web')) return 'web'
+  if (platforms.includes('ios')) return 'ios'
+  if (platforms.includes('android')) return 'android'
+  return 'http'
+}
+
+const appsAutomatically =
+  'It records installs, updates, opens, time in the app and sessions on its own, keeps events while the phone is offline and never reads the advertising ID.'
+
 /** Install steps with the project's own key filled in, and a live check that data arrives. */
 export function InstallGuide({
   project,
@@ -1182,7 +1298,7 @@ export function InstallGuide({
   const { now, notify, workspace } = useStore()
   const settings = useRpc(`settings:${project.id}`, () => api.projectSettings(project.id))
   const status = useRpc(`status:${project.id}`, () => api.status(project.id), { pollMs: 5_000 })
-  const [tab, setTab] = useState<'web' | 'apps'>(project.platforms.includes('web') ? 'web' : 'apps')
+  const [tab, setTab] = useState<InstallTab>(() => firstTab(project.platforms))
   const [sending, setSending] = useState(false)
   const keys = settings.data?.keys.filter((key) => !key.revoked_at && key.kind === 'client') ?? []
   const live = keys.find((key) => key.environment === 'production')
@@ -1243,12 +1359,9 @@ export function InstallGuide({
           label="Where you send from"
           value={tab}
           onChange={setTab}
-          options={[
-            { value: 'web', label: 'Website' },
-            { value: 'apps', label: 'Apps and servers' },
-          ]}
+          options={installTabs}
         />
-        {tab === 'web' ? (
+        {tab === 'web' && (
           <>
             <section aria-labelledby="mc-step-1">
               <h2 id="mc-step-1">1. Add the script</h2>
@@ -1274,13 +1387,92 @@ export function InstallGuide({
               element from replays with <code className="mc-mono">data-kma-block</code>.
             </p>
           </>
-        ) : (
+        )}
+        {tab === 'ios' && (
+          <>
+            <section aria-labelledby="mc-step-ios-1">
+              <h2 id="mc-step-ios-1">1. Add the package</h2>
+              <p className="mc-muted">
+                In Xcode, choose File &gt; Add Package Dependencies and paste this address. iOS 13
+                or later.
+              </p>
+              <CodeBlock code={code.iosPackage} label="Swift Package Manager" />
+            </section>
+            <section aria-labelledby="mc-step-ios-2">
+              <h2 id="mc-step-ios-2">2. Start it when the app launches</h2>
+              <p className="mc-muted">
+                {appsAutomatically} With UIKit, call the same line in{' '}
+                <code className="mc-mono mc-break">
+                  application(_:didFinishLaunchingWithOptions:)
+                </code>
+                .
+              </p>
+              {settings.data ? (
+                <CodeBlock code={code.iosStart} label="Swift" />
+              ) : (
+                <Skeleton width="100%" height={160} />
+              )}
+            </section>
+            <section aria-labelledby="mc-step-ios-3">
+              <h2 id="mc-step-ios-3">3. Name your users, screens and actions</h2>
+              <CodeBlock code={code.iosEvents} label="Swift" />
+            </section>
+          </>
+        )}
+        {tab === 'android' && (
+          <>
+            <section aria-labelledby="mc-step-android-1">
+              <h2 id="mc-step-android-1">1. Add the library</h2>
+              <p className="mc-muted">From JitPack. Android 5.0 (API 21) or later.</p>
+              <CodeBlock code={code.androidGradle} label="Gradle" />
+            </section>
+            <section aria-labelledby="mc-step-android-2">
+              <h2 id="mc-step-android-2">2. Start it in your Application class</h2>
+              <p className="mc-muted">{appsAutomatically}</p>
+              {settings.data ? (
+                <CodeBlock code={code.androidStart} label="Kotlin" />
+              ) : (
+                <Skeleton width="100%" height={160} />
+              )}
+            </section>
+            <section aria-labelledby="mc-step-android-3">
+              <h2 id="mc-step-android-3">3. Name your users, screens and actions</h2>
+              <CodeBlock code={code.androidEvents} label="Kotlin" />
+            </section>
+          </>
+        )}
+        {tab === 'react-native' && (
+          <>
+            <section aria-labelledby="mc-step-rn-1">
+              <h2 id="mc-step-rn-1">1. Install the package</h2>
+              <p className="mc-muted">
+                Plain JavaScript, so it works with Expo and needs no linking. React Native 0.70 or
+                later.
+              </p>
+              <CodeBlock code={code.reactNativeInstall} label="Terminal" />
+            </section>
+            <section aria-labelledby="mc-step-rn-2">
+              <h2 id="mc-step-rn-2">2. Start it and follow your screens</h2>
+              <p className="mc-muted">{appsAutomatically}</p>
+              {settings.data ? (
+                <CodeBlock code={code.reactNativeStart} label="TypeScript" />
+              ) : (
+                <Skeleton width="100%" height={160} />
+              )}
+            </section>
+            <section aria-labelledby="mc-step-rn-3">
+              <h2 id="mc-step-rn-3">3. Name your users and their actions</h2>
+              <CodeBlock code={code.reactNativeEvents} label="TypeScript" />
+            </section>
+          </>
+        )}
+        {tab === 'http' && (
           <section aria-labelledby="mc-step-http">
             <h2 id="mc-step-http">Send events over HTTP</h2>
             <p className="mc-muted">
-              iOS, Android, React Native, Flutter and servers post JSON to the events endpoint. Keep
-              one anonymous ID per install, start a new session ID after 30 idle minutes, and send
-              your user ID once people sign in. Server keys may import history up to 400 days back.
+              Flutter, games and servers post JSON to the events endpoint. Keep one anonymous ID per
+              install, start a new session ID after 30 idle minutes, and send your user ID once
+              people sign in. Server keys may import history up to 400 days back.
             </p>
             {settings.data ? (
               <CodeBlock code={code.http} label="HTTP" />

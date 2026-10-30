@@ -535,6 +535,71 @@ describe('merchant console', () => {
     expect(screen.queryByText(/Waiting for the first event/)).not.toBeInTheDocument()
   })
 
+  it('gives app install steps with the project key for iOS, Android and React Native', async () => {
+    signedInAs('owner')
+    window.location.hash = '#p/proj-1/settings/install'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    const tabs = await screen.findByRole('group', { name: 'Where you send from' })
+    const code = (label: string) =>
+      [...document.querySelectorAll(`pre[aria-label="${label}"]`)]
+        .map((block) => block.textContent)
+        .join('\n')
+
+    await user.click(within(tabs).getByRole('button', { name: 'iOS' }))
+    expect(screen.getByRole('heading', { name: '1. Add the package' })).toBeInTheDocument()
+    expect(code('Swift Package Manager')).toContain('https://github.com/onorhime/kissmyapps-mobile')
+    expect(code('Swift')).toContain('KissMyApps.start(key: "kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8")')
+    expect(code('Swift')).toContain('.kmaScreen("Lesson")')
+
+    await user.click(within(tabs).getByRole('button', { name: 'Android' }))
+    expect(code('Gradle')).toContain('maven("https://jitpack.io")')
+    expect(code('Gradle')).toContain(
+      'implementation("com.github.onorhime:kissmyapps-mobile:1.0.0")',
+    )
+    expect(code('Kotlin')).toContain(
+      'KissMyApps.start(this, "kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8")',
+    )
+
+    await user.click(within(tabs).getByRole('button', { name: 'React Native' }))
+    expect(code('Terminal')).toContain('npm install @kissmyapps/react-native')
+    expect(code('TypeScript')).toContain("key: 'kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8'")
+    expect(code('TypeScript')).toContain('{...trackNavigation(navigation)}')
+    expect(screen.getByText(/Waiting for the first event from SpeakSix/)).toBeInTheDocument()
+
+    await user.click(within(tabs).getByRole('button', { name: 'HTTP' }))
+    expect(screen.getByRole('heading', { name: 'Send events over HTTP' })).toBeInTheDocument()
+  })
+
+  it('opens the install steps on the platform an app-only project chose', async () => {
+    signedInAs('owner')
+    const androidOnly = { ...project, platforms: ['android'] as Project['platforms'] }
+    fake.state.handlers.analytics_project_settings = () => ({
+      project: androidOnly,
+      role: 'owner',
+      keys: [clientKey],
+    })
+    fake.state.handlers.analytics_project_status = () => ({
+      events_total: 3,
+      last_event_at: '2026-10-30T10:20:00Z',
+      sources: [],
+    })
+    const withAndroid = (): Context => ({
+      ...context(),
+      workspaces: [{ ...context().workspaces[0], projects: [androidOnly] }],
+    })
+    fake.state.handlers.analytics_bootstrap = withAndroid
+    fake.state.handlers.analytics_context = withAndroid
+    window.location.hash = '#p/proj-1/settings/install'
+    render(<MerchantApp />)
+    expect(
+      await screen.findByRole('heading', { name: '2. Start it in your Application class' }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Events are getting through\. Waiting for the first app session/),
+    ).toBeInTheDocument()
+  })
+
   it('lets analysts read reports but not manage keys', async () => {
     signedInAs('analyst')
     fake.state.handlers.analytics_project_settings = () => ({

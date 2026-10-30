@@ -1,0 +1,109 @@
+{
+  "about": "What every KissMyApps app SDK sends to POST /v1/events. The React Native, Android and iOS tests check their requests against these rules, and the analytics-ingest tests check it keeps every field the example sends.",
+  "body": {
+    "required": ["anonymous_id", "session", "sent_at", "context", "events"],
+    "optional": ["user_id", "traits"]
+  },
+  "session": { "required": ["id", "started_at"] },
+  "context": {
+    "required": [
+      "platform",
+      "sdk",
+      "timezone",
+      "language",
+      "device_type",
+      "os_name",
+      "os_version",
+      "screen_width",
+      "screen_height"
+    ],
+    "optional": ["device_model", "app_version", "page_path"]
+  },
+  "event": {
+    "required": ["name", "insert_id", "time", "properties"],
+    "optional": ["screen", "user_id"]
+  },
+  "event_name": "^[A-Za-z][A-Za-z0-9_.:-]{0,79}$",
+  "time": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+  "platforms": ["ios", "android"],
+  "device_types": ["mobile", "tablet"],
+  "automatic_events": [
+    "session_started",
+    "app_installed",
+    "app_updated",
+    "app_opened",
+    "app_backgrounded",
+    "screen_viewed"
+  ],
+  "example": {
+    "anonymous_id": "5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f",
+    "user_id": "user-42",
+    "traits": { "email": "amaka@example.com", "plan": "annual" },
+    "session": {
+      "id": "0b9c8d7e-6f5a-4b3c-8d2e-1f0a9b8c7d6e",
+      "started_at": "2026-10-30T09:59:00.000Z"
+    },
+    "sent_at": "2026-10-30T10:00:05.000Z",
+    "context": {
+      "platform": "ios",
+      "sdk": "kma-ios/1.0.0",
+      "timezone": "Africa/Lagos",
+      "language": "en-NG",
+      "device_type": "mobile",
+      "device_model": "iPhone15,4",
+      "os_name": "iOS",
+      "os_version": "18.1",
+      "app_version": "2.4.0",
+      "screen_width": 393,
+      "screen_height": 852,
+      "page_path": "Home"
+    },
+    "events": [
+      {
+        "name": "session_started",
+        "insert_id": "e-1",
+        "time": "2026-10-30T09:59:00.000Z",
+        "properties": {},
+        "user_id": "user-42"
+      },
+      {
+        "name": "app_installed",
+        "insert_id": "e-2",
+        "time": "2026-10-30T09:59:00.010Z",
+        "properties": { "version": "2.4.0", "build": "120" },
+        "user_id": "user-42"
+      },
+      {
+        "name": "app_opened",
+        "insert_id": "e-3",
+        "time": "2026-10-30T09:59:00.020Z",
+        "properties": { "from_background": false },
+        "user_id": "user-42"
+      },
+      {
+        "name": "screen_viewed",
+        "insert_id": "e-4",
+        "time": "2026-10-30T09:59:01.000Z",
+        "screen": "Home",
+        "properties": { "name": "Home" },
+        "user_id": "user-42"
+      },
+      {
+        "name": "lesson_completed",
+        "insert_id": "e-5",
+        "time": "2026-10-30T09:59:40.000Z",
+        "screen": "Lesson",
+        "properties": { "lesson": 3 },
+        "user_id": "user-42"
+      },
+      {
+        "name": "app_backgrounded",
+        "insert_id": "e-6",
+        "time": "2026-10-30T10:00:04.000Z",
+        "screen": "Lesson",
+        "properties": { "seconds_in_foreground": 64 },
+        "user_id": "user-42"
+      }
+    ]
+  }
+}

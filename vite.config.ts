@@ -19,5 +19,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // The React Native SDK's tests mock 'react-native', which is not installed here.
+    alias: {
+      'react-native': resolve(
+        projectRoot,
+        'integrations/analytics-react-native/test/react-native.ts',
+      ),
+    },
   },
 })
