@@ -491,6 +491,24 @@ describe('merchant console', () => {
     expect(row).toHaveTextContent('BPpa')
   })
 
+  it('says events are getting through when only sessionless events have arrived', async () => {
+    signedInAs('owner')
+    fake.state.handlers.analytics_project_status = () => ({
+      events_total: 1,
+      last_event_at: '2026-10-30T10:20:00Z',
+      sources: [],
+    })
+    window.location.hash = '#p/proj-1/settings/install'
+    render(<MerchantApp />)
+    expect(
+      await screen.findByText(
+        /Events are getting through\. Waiting for the first visit from SpeakSix/,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('1 event received so far.')).toBeInTheDocument()
+    expect(screen.queryByText(/Waiting for the first event/)).not.toBeInTheDocument()
+  })
+
   it('lets analysts read reports but not manage keys', async () => {
     signedInAs('analyst')
     fake.state.handlers.analytics_project_settings = () => ({
