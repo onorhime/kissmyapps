@@ -1,27 +1,45 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { LoaderCircle, MailCheck } from 'lucide-react'
-import { minuteStrip } from '../data/model'
-import { initialProjects, platformLabels } from '../data/sample'
-import { formatAgo, formatClock } from '../format'
-import { href } from '../routes'
+import type { FormEvent, ReactNode } from 'react'
+import { LoaderCircle, MailCheck, Play } from 'lucide-react'
+import { href, navigate } from '../routes'
 import type { AuthRoute } from '../routes'
-import { useDataset, useLiveEvents, useNow, useStore } from '../store'
-import { MinuteStrip } from '../ui/Charts'
-import { Field } from '../ui/Primitives'
+import { useStore } from '../store'
+import { Avatar, Field } from '../ui/Primitives'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function useBusy() {
+function useSubmit() {
   const [busy, setBusy] = useState(false)
-  const run = (action: () => void) => {
+  const [error, setError] = useState<string>()
+  const run = async (action: () => Promise<void>) => {
     setBusy(true)
-    window.setTimeout(() => {
+    setError(undefined)
+    try {
+      await action()
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'Something went wrong. Try again.')
+    } finally {
       setBusy(false)
-      action()
-    }, 650)
+    }
   }
-  return [busy, run] as const
+  return { busy, error, run }
+}
+
+function FormError({ message }: { message?: string }) {
+  return message ? (
+    <p className="mc-form-error" role="alert">
+      {message}
+    </p>
+  ) : null
+}
+
+function Submit({ busy, idle, working }: { busy: boolean; idle: string; working: string }) {
+  return (
+    <button type="submit" className="mc-btn mc-btn-primary mc-btn-wide" disabled={busy}>
+      {busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
+      {busy ? working : idle}
+    </button>
+  )
 }
 
 function SignIn() {
@@ -29,7 +47,7 @@ function SignIn() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  const [busy, run] = useBusy()
+  const { busy, error, run } = useSubmit()
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -41,15 +59,16 @@ function SignIn() {
     }
     setErrors(next)
     if (next.email || next.password) return
-    run(() => signIn(email.trim()))
+    void run(() => signIn(email.trim(), password))
   }
 
   return (
     <form className="mc-auth-form" onSubmit={submit} noValidate>
       <div className="mc-auth-intro">
         <h1>Sign in to your merchant workspace</h1>
-        <p>See every event your apps send, as it arrives.</p>
+        <p>See who uses your apps, where they are, what they do, and watch their sessions.</p>
       </div>
+      <FormError message={error} />
       <Field label="Work email" error={errors.email}>
         {(props) => (
           <input
@@ -75,10 +94,7 @@ function SignIn() {
       <a className="mc-link mc-auth-forgot" href={href({ name: 'recover' })}>
         Forgot your password?
       </a>
-      <button type="submit" className="mc-btn mc-btn-primary mc-btn-wide" disabled={busy}>
-        {busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
-        {busy ? 'Signing in' : 'Sign in'}
-      </button>
+      <Submit busy={busy} idle="Sign in" working="Signing in" />
       <p className="mc-auth-switch">
         New to KissMyApps Merchant?{' '}
         <a className="mc-link" href={href({ name: 'sign-up' })}>
@@ -89,19 +105,41 @@ function SignIn() {
   )
 }
 
+function CheckInbox({ email, children }: { email: string; children: ReactNode }) {
+  return (
+    <div className="mc-auth-form">
+      <MailCheck size={28} className="mc-auth-icon" aria-hidden="true" />
+      <div className="mc-auth-intro">
+        <h1 tabIndex={-1} id="mc-page-title">
+          Check your inbox
+        </h1>
+        <p>
+          We sent an email to <strong>{email}</strong>. {children}
+        </p>
+      </div>
+      <a className="mc-btn mc-btn-secondary mc-btn-wide" href={href({ name: 'sign-in' })}>
+        Back to sign in
+      </a>
+    </div>
+  )
+}
+
 function SignUp() {
   const { signUp } = useStore()
-  const [values, setValues] = useState({
-    name: '',
-    company: '',
-    email: '',
-    password: '',
-    terms: false,
-  })
+  const [values, setValues] = useState({ name: '', company: '', email: '', password: '' })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({})
-  const [busy, run] = useBusy()
-  const set = (key: keyof typeof values, value: string | boolean) =>
+  const [confirmTo, setConfirmTo] = useState<string>()
+  const { busy, error, run } = useSubmit()
+  const set = (key: keyof typeof values, value: string) =>
     setValues((current) => ({ ...current, [key]: value }))
+
+  if (confirmTo) {
+    return (
+      <CheckInbox email={confirmTo}>
+        Open the link in it to confirm your address and open your workspace.
+      </CheckInbox>
+    )
+  }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -110,25 +148,27 @@ function SignUp() {
       company: values.company.trim() ? undefined : 'Enter your company or studio name.',
       email: emailPattern.test(values.email.trim()) ? undefined : 'Enter a valid work email.',
       password: values.password.length >= 10 ? undefined : 'Use at least 10 characters.',
-      terms: values.terms ? undefined : 'Accept the merchant terms to continue.',
     }
     setErrors(next)
     if (Object.values(next).some(Boolean)) return
-    run(() =>
-      signUp({
+    void run(async () => {
+      const result = await signUp({
         name: values.name.trim(),
-        email: values.email.trim(),
         company: values.company.trim(),
-      }),
-    )
+        email: values.email.trim(),
+        password: values.password,
+      })
+      if (result === 'confirm-email') setConfirmTo(values.email.trim())
+    })
   }
 
   return (
     <form className="mc-auth-form" onSubmit={submit} noValidate>
       <div className="mc-auth-intro">
         <h1>Create your merchant account</h1>
-        <p>Add a project for each app, get a key and start sending events in a few minutes.</p>
+        <p>Add a project for each app, get its key and see your first users in a few minutes.</p>
       </div>
+      <FormError message={error} />
       <Field label="Your name" error={errors.name}>
         {(props) => (
           <input
@@ -139,7 +179,11 @@ function SignUp() {
           />
         )}
       </Field>
-      <Field label="Company or studio" error={errors.company}>
+      <Field
+        label="Company or studio"
+        hint="Your workspace is named after it."
+        error={errors.company}
+      >
         {(props) => (
           <input
             {...props}
@@ -171,27 +215,7 @@ function SignUp() {
           />
         )}
       </Field>
-      <div className={errors.terms ? 'mc-check has-error' : 'mc-check'}>
-        <input
-          id="mc-terms"
-          type="checkbox"
-          checked={values.terms}
-          aria-describedby={errors.terms ? 'mc-terms-error' : undefined}
-          onChange={(event) => set('terms', event.target.checked)}
-        />
-        <label htmlFor="mc-terms">
-          I agree to the KissMyApps merchant terms and privacy policy.
-        </label>
-        {errors.terms && (
-          <p id="mc-terms-error" className="mc-field-error">
-            {errors.terms}
-          </p>
-        )}
-      </div>
-      <button type="submit" className="mc-btn mc-btn-primary mc-btn-wide" disabled={busy}>
-        {busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
-        {busy ? 'Creating your account' : 'Create account'}
-      </button>
+      <Submit busy={busy} idle="Create account" working="Creating your account" />
       <p className="mc-auth-switch">
         Already have an account?{' '}
         <a className="mc-link" href={href({ name: 'sign-in' })}>
@@ -203,33 +227,17 @@ function SignUp() {
 }
 
 function Recover() {
+  const { recover } = useStore()
   const [email, setEmail] = useState('')
-  const [error, setError] = useState<string>()
+  const [invalid, setInvalid] = useState<string>()
   const [sentTo, setSentTo] = useState<string>()
-  const [busy, run] = useBusy()
+  const { busy, error, run } = useSubmit()
 
   if (sentTo) {
     return (
-      <div className="mc-auth-form">
-        <MailCheck size={28} className="mc-auth-icon" aria-hidden="true" />
-        <div className="mc-auth-intro">
-          <h1>Check your inbox</h1>
-          <p>
-            If <strong>{sentTo}</strong> has a merchant account, a reset link is on its way. The
-            link works for 30 minutes.
-          </p>
-        </div>
-        <a className="mc-btn mc-btn-secondary mc-btn-wide" href={href({ name: 'sign-in' })}>
-          Back to sign in
-        </a>
-        <button
-          type="button"
-          className="mc-link mc-auth-switch"
-          onClick={() => setSentTo(undefined)}
-        >
-          Use a different email
-        </button>
-      </div>
+      <CheckInbox email={sentTo}>
+        If it belongs to a merchant account, the link in it lets you choose a new password.
+      </CheckInbox>
     )
   }
 
@@ -240,11 +248,14 @@ function Recover() {
       onSubmit={(event) => {
         event.preventDefault()
         if (!emailPattern.test(email.trim())) {
-          setError('Enter the email you sign in with.')
+          setInvalid('Enter the email you sign in with.')
           return
         }
-        setError(undefined)
-        run(() => setSentTo(email.trim()))
+        setInvalid(undefined)
+        void run(async () => {
+          await recover(email.trim())
+          setSentTo(email.trim())
+        })
       }}
     >
       <div className="mc-auth-intro">
@@ -253,7 +264,8 @@ function Recover() {
           Enter the email you sign in with and we will send you a link to choose a new password.
         </p>
       </div>
-      <Field label="Work email" error={error}>
+      <FormError message={error} />
+      <Field label="Work email" error={invalid}>
         {(props) => (
           <input
             {...props}
@@ -264,10 +276,7 @@ function Recover() {
           />
         )}
       </Field>
-      <button type="submit" className="mc-btn mc-btn-primary mc-btn-wide" disabled={busy}>
-        {busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
-        {busy ? 'Sending' : 'Send reset link'}
-      </button>
+      <Submit busy={busy} idle="Send reset link" working="Sending" />
       <p className="mc-auth-switch">
         Remembered it?{' '}
         <a className="mc-link" href={href({ name: 'sign-in' })}>
@@ -278,50 +287,117 @@ function Recover() {
   )
 }
 
-/** A working fragment of the product, so the first screen shows what merchants get. */
-function LiveFragment() {
-  const project = initialProjects[0]
-  const dataset = useDataset(project)
-  const events = useLiveEvents(project)
-  const now = useNow()
-  if (!dataset) return null
-  return (
-    <section
-      className="mc-auth-fragment"
-      data-ui
-      aria-label={`Live events from ${project.name}, sample data`}
-    >
-      <div className="mc-fragment-head">
-        <span className="mc-live-dot" aria-hidden="true" />
-        <strong>{project.name}</strong>
-        <span>Arriving now</span>
+function NewPassword() {
+  const { updatePassword, status, notify } = useStore()
+  const [password, setPassword] = useState('')
+  const [invalid, setInvalid] = useState<string>()
+  const { busy, error, run } = useSubmit()
+
+  if (status === 'signed-out') {
+    return (
+      <div className="mc-auth-form">
+        <div className="mc-auth-intro">
+          <h1 tabIndex={-1} id="mc-page-title">
+            This reset link has expired
+          </h1>
+          <p>Reset links work once and for a short time. Ask for a new one.</p>
+        </div>
+        <a className="mc-btn mc-btn-primary mc-btn-wide" href={href({ name: 'recover' })}>
+          Send a new link
+        </a>
       </div>
-      <ul className="mc-fragment-sources">
-        {project.platforms.map((platform) => {
-          const last = events.find((event) => event.platform === platform)
-          return (
-            <li key={platform}>
-              <span className="mc-fragment-source">{platformLabels[platform]}</span>
-              <MinuteStrip
-                points={minuteStrip(dataset, platform, 40)}
-                label={`${platformLabels[platform]}, last 40 minutes`}
-              />
-              <span className="mc-fragment-ago">
-                {last ? formatAgo(last.time, now) : 'No events'}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-      <ol className="mc-fragment-events">
-        {events.slice(0, 7).map((event) => (
-          <li key={event.id}>
-            <span className="mc-num">{formatClock(event.time)}</span>
-            <span className="mc-mono">{event.name}</span>
-            <span>{platformLabels[event.platform]}</span>
-          </li>
-        ))}
+    )
+  }
+
+  return (
+    <form
+      className="mc-auth-form"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (password.length < 10) {
+          setInvalid('Use at least 10 characters.')
+          return
+        }
+        setInvalid(undefined)
+        void run(async () => {
+          await updatePassword(password)
+          notify('Password changed')
+          navigate({ name: 'home' }, true)
+        })
+      }}
+    >
+      <div className="mc-auth-intro">
+        <h1>Choose a new password</h1>
+        <p>You will stay signed in on this device.</p>
+      </div>
+      <FormError message={error} />
+      <Field label="New password" hint="At least 10 characters." error={invalid}>
+        {(props) => (
+          <input
+            {...props}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        )}
+      </Field>
+      <Submit busy={busy} idle="Save password" working="Saving" />
+    </form>
+  )
+}
+
+/** What a merchant gets, drawn as the product draws it. Labelled as an example. */
+function ProfileExample() {
+  return (
+    <section className="mc-auth-fragment" data-ui aria-label="Example of a user profile">
+      <p className="mc-fragment-label">Example</p>
+      <div className="mc-fragment-person">
+        <span className="mc-person-avatar-wrap">
+          <Avatar id="example-amaka" name="Amaka Obi" size={40} />
+          <span className="mc-online-badge" aria-label="Online now" />
+        </span>
+        <div>
+          <strong>Amaka Obi</strong>
+          <span className="mc-muted">Online now · on Lesson 4</span>
+        </div>
+      </div>
+      <dl className="mc-fragment-facts">
+        <div>
+          <dt>Where</dt>
+          <dd>Lagos, Nigeria · 14:32 local</dd>
+        </div>
+        <div>
+          <dt>Device</dt>
+          <dd>iPhone 15 · iOS 18.1 · app 2.4.0</dd>
+        </div>
+        <div>
+          <dt>Came from</dt>
+          <dd>Instagram ad, 12 days ago</dd>
+        </div>
+        <div>
+          <dt>Sessions</dt>
+          <dd>9 sessions · 1 h 12 m in total</dd>
+        </div>
+      </dl>
+      <ol className="mc-fragment-timeline">
+        <li>
+          <span className="mc-num">14:29</span>
+          <span className="mc-mono">lesson_started</span>
+        </li>
+        <li>
+          <span className="mc-num">14:31</span>
+          <span className="mc-mono">answer_recorded</span>
+        </li>
+        <li>
+          <span className="mc-num">14:32</span>
+          <span className="mc-mono">streak_extended</span>
+        </li>
       </ol>
+      <p className="mc-fragment-replay">
+        <Play size={14} aria-hidden="true" /> Session replay, 6 m 40 s
+      </p>
     </section>
   )
 }
@@ -344,16 +420,15 @@ export function AuthScreen({ route }: { route: AuthRoute }) {
             <SignUp />
           ) : route.name === 'recover' ? (
             <Recover />
+          ) : route.name === 'new-password' ? (
+            <NewPassword />
           ) : (
             <SignIn />
           )}
         </main>
-        <p className="mc-preview-note">
-          Preview build. Any email and password opens the sample workspace.
-        </p>
       </div>
       <div className="mc-auth-aside">
-        <LiveFragment />
+        <ProfileExample />
       </div>
     </div>
   )

@@ -1,9 +1,9 @@
 import { useId, useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Check, ChevronDown, Copy, X } from 'lucide-react'
-import type { Platform, Project } from '../data/sample'
-import { platformLabels } from '../data/sample'
+import { Check, ChevronDown, Copy, RefreshCw, TriangleAlert, X } from 'lucide-react'
+import type { Platform, Project, Traits } from '../api'
+import { formatAgo, personHue, personLabel, platformLabels } from '../format'
 import { useStore } from '../store'
 
 export function Segmented<T extends string>({
@@ -13,7 +13,7 @@ export function Segmented<T extends string>({
   onChange,
 }: {
   label: string
-  options: Array<{ value: T; label: string }>
+  options: Array<{ value: T; label: ReactNode }>
   value: T
   onChange: (value: T) => void
 }) {
@@ -79,11 +79,13 @@ export function Pill({ tone = 'neutral', children }: { tone?: PillTone; children
   return <span className={`mc-pill is-${tone}`}>{children}</span>
 }
 
+const projectHues = ['blue', 'amber', 'pink', 'green', 'violet', 'teal'] as const
+
 export function ProjectMark({
   project,
   size = 32,
 }: {
-  project: Pick<Project, 'name' | 'hue'>
+  project: Pick<Project, 'id' | 'name'>
   size?: number
 }) {
   const letters = project.name
@@ -96,7 +98,7 @@ export function ProjectMark({
     .toUpperCase()
   return (
     <span
-      className={`mc-project-mark is-${project.hue}`}
+      className={`mc-project-mark is-${projectHues[personHue(project.id)]}`}
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-hidden="true"
     >
@@ -111,6 +113,68 @@ export function PlatformList({ platforms }: { platforms: Platform[] }) {
       {platforms.map((platform) => platformLabels[platform]).join(', ')}
     </span>
   )
+}
+
+/** A person's initial on their own pale tint; the same person always gets the same one. */
+export function Avatar({ id, name, size = 32 }: { id: string; name: string; size?: number }) {
+  const initial =
+    name
+      .replace(/^Anonymous /, '')
+      .match(/[\p{L}\p{N}]/u)?.[0]
+      ?.toUpperCase() ?? '?'
+  return (
+    <span
+      className={`mc-person-avatar is-tint-${personHue(id)}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
+      aria-hidden="true"
+    >
+      {initial}
+    </span>
+  )
+}
+
+export function PersonCell({
+  person,
+  href,
+  online,
+}: {
+  person: {
+    distinct_id: string
+    user_id?: string | null
+    traits?: Traits | null
+    id?: string
+    person_id?: string
+  }
+  href?: string
+  online?: boolean
+}) {
+  const label = personLabel(person)
+  const id = person.id ?? person.person_id ?? person.distinct_id
+  const body = (
+    <>
+      <span className="mc-person-avatar-wrap">
+        <Avatar id={id} name={label.name} />
+        {online && <span className="mc-online-badge" aria-label="Online now" />}
+      </span>
+      <span className="mc-person-text">
+        <strong className="mc-truncate">{label.name}</strong>
+        <span className="mc-truncate mc-muted">
+          {label.anonymous ? 'Not signed in' : (label.detail ?? 'Signed in')}
+        </span>
+      </span>
+    </>
+  )
+  return href ? (
+    <a className="mc-person" href={href}>
+      {body}
+    </a>
+  ) : (
+    <span className="mc-person">{body}</span>
+  )
+}
+
+export function LiveDot({ label = 'Live' }: { label?: string }) {
+  return <span className="mc-live-dot" role="img" aria-label={label} />
 }
 
 async function copyText(value: string): Promise<boolean> {
@@ -173,7 +237,8 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
         <code>
           {code.split('\n').map((line, index) => {
             const trimmed = line.trim()
-            const comment = trimmed.startsWith('//') || trimmed.startsWith('#')
+            const comment =
+              trimmed.startsWith('//') || trimmed.startsWith('#') || trimmed.startsWith('<!--')
             return (
               <span key={index} className={comment ? 'mc-code-comment' : undefined}>
                 {line}
@@ -299,5 +364,141 @@ export function PageHeader({
       </div>
       {actions && <div className="mc-page-actions">{actions}</div>}
     </header>
+  )
+}
+
+export function Panel({
+  title,
+  description,
+  actions,
+  className = '',
+  flush = false,
+  children,
+  id,
+}: {
+  title: ReactNode
+  description?: ReactNode
+  actions?: ReactNode
+  className?: string
+  flush?: boolean
+  children: ReactNode
+  id?: string
+}) {
+  return (
+    <section
+      className={`mc-panel ${flush ? 'mc-panel-flush' : ''} ${className}`}
+      aria-labelledby={id}
+    >
+      <div className="mc-panel-head">
+        <div>
+          <h2 id={id}>{title}</h2>
+          {description && <p>{description}</p>}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+/** One sentence where data will appear; the block keeps its frame. */
+export function Empty({ children }: { children: ReactNode }) {
+  return <p className="mc-empty-line">{children}</p>
+}
+
+/** A failure inside the block that failed, with when the data was last good. */
+export function ErrorNote({
+  message,
+  updatedAt,
+  onRetry,
+  timezoneClock,
+}: {
+  message: string
+  updatedAt?: number | null
+  onRetry?: () => void
+  timezoneClock?: (time: number) => string
+}) {
+  return (
+    <p className="mc-error-note" role="alert">
+      <TriangleAlert size={16} aria-hidden="true" />
+      <span>
+        {message}
+        {updatedAt && timezoneClock ? ` Showing data from ${timezoneClock(updatedAt)}.` : ''}
+      </span>
+      {onRetry && (
+        <button type="button" className="mc-text-btn" onClick={onRetry}>
+          Retry
+        </button>
+      )}
+    </p>
+  )
+}
+
+/** A flat grey bar at the size of the value it stands for. */
+export function Skeleton({
+  width = '60%',
+  height = 14,
+}: {
+  width?: number | string
+  height?: number
+}) {
+  return <span className="mc-skeleton" style={{ width, height }} aria-hidden="true" />
+}
+
+export function Freshness({
+  updatedAt,
+  loading,
+  onRefresh,
+  now,
+}: {
+  updatedAt: number | null
+  loading: boolean
+  onRefresh: () => void
+  now: number
+}) {
+  return (
+    <span className="mc-freshness">
+      <span className="mc-muted">
+        {updatedAt ? `Updated ${formatAgo(updatedAt, Math.max(now, updatedAt))}` : 'Loading'}
+      </span>
+      <button
+        type="button"
+        className="mc-icon-btn"
+        aria-label="Refresh"
+        onClick={onRefresh}
+        disabled={loading}
+      >
+        <RefreshCw size={16} aria-hidden="true" className={loading ? 'mc-spin' : undefined} />
+      </button>
+    </span>
+  )
+}
+
+export function ShowMore({
+  shown,
+  total,
+  onMore,
+  noun,
+}: {
+  shown: number
+  total: number
+  onMore: () => void
+  noun: string
+}) {
+  if (total <= shown)
+    return total > 0 ? (
+      <p className="mc-list-foot mc-muted">
+        All {total} {noun} shown
+      </p>
+    ) : null
+  return (
+    <div className="mc-list-foot">
+      <span className="mc-muted">
+        Showing {shown} of {total} {noun}
+      </span>
+      <button type="button" className="mc-btn mc-btn-secondary" onClick={onMore}>
+        Show more
+      </button>
+    </div>
   )
 }

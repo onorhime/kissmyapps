@@ -164,6 +164,7 @@ select pg_temp.check(pg_temp.fails(format('select public.analytics_update_projec
 select pg_temp.check(pg_temp.fails(format('select public.analytics_update_project(%L, ''{"owner":"me"}'')', (select value from qa where key = 'project'))) like '22023%', 'unknown settings refused');
 select pg_temp.check(pg_temp.fails($$select pg_temp.ingest((select value from qa where key = 'client_token'), '{"anonymous_id":"x","events":[]}'::jsonb, '{"origin":"https://evil.example"}'::jsonb)$$) like '42501%', 'other websites cannot use the client key');
 select pg_temp.check(pg_temp.fails($$select pg_temp.ingest((select value from qa where key = 'client_token'), '{"anonymous_id":"x","events":[]}'::jsonb, '{"origin":"https://www.speaksix.example"}'::jsonb)$$) = 'ok', 'listed websites can');
+select pg_temp.check(pg_temp.fails($$select pg_temp.ingest((select value from qa where key = 'dev_token'), '{"anonymous_id":"x","events":[]}'::jsonb, '{"origin":"http://localhost:3000"}'::jsonb)$$) = 'ok', 'development keys work from any site');
 
 -- Server import: history for many users, place from the payload, no browser rules.
 select pg_temp.as_user(null);

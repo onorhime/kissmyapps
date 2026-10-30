@@ -694,7 +694,8 @@ begin
     raise exception 'invalid_key' using errcode = '28000';
   end if;
   select * into v_project from public.analytics_projects where id = v_key.project_id;
-  if v_key.kind = 'client' and cardinality(v_project.allowed_origins) > 0 and p->>'origin' is not null
+  -- The website list guards live client keys; development keys run on local and staging sites.
+  if v_key.kind = 'client' and v_key.environment = 'production' and cardinality(v_project.allowed_origins) > 0 and p->>'origin' is not null
      and not (p->>'origin' = any(v_project.allowed_origins)) then
     raise exception 'origin_not_allowed' using errcode = '42501';
   end if;
@@ -1499,7 +1500,9 @@ begin
     where session_id = p_session and seq >= coalesce(p_from_seq, 0)
   ) t where running > 4 * 1024 * 1024;
   return jsonb_build_object(
-    'chunks', coalesce((select jsonb_agg(jsonb_build_object('seq', c.seq, 'events', c.events) order by c.seq)
+    -- first_ts is corrected for the device clock; the events inside keep the device's own times.
+    'chunks', coalesce((select jsonb_agg(jsonb_build_object('seq', c.seq,
+        'first_ts', round(extract(epoch from c.first_ts) * 1000)::bigint, 'events', c.events) order by c.seq)
       from public.analytics_replay_chunks c
       where c.session_id = p_session and c.seq >= coalesce(p_from_seq, 0) and (v_next is null or c.seq < v_next)), '[]'::jsonb),
     'next_seq', v_next
@@ -1608,7 +1611,7 @@ begin
       'sample_size', (select least(count(*), 1000) from ev),
       'recent', coalesce((select jsonb_agg(row_data order by (row_data->>'time') desc) from (
         select jsonb_build_object('id', ev.id, 'time', ev.occurred_at, 'person_id', ev.person_id, 'distinct_id', p.distinct_id,
-          'traits', p.traits, 'session_id', ev.session_id, 'platform', ev.platform, 'country', ev.country,
+          'user_id', p.user_id, 'traits', p.traits, 'session_id', ev.session_id, 'platform', ev.platform, 'country', ev.country,
           'properties', ev.properties) row_data
         from ev join public.analytics_people p on p.id = ev.person_id order by ev.occurred_at desc limit 25) t), '[]'::jsonb)
     )
@@ -1641,7 +1644,7 @@ begin
       select jsonb_build_object(
         'id', e.id, 'name', e.name, 'time', e.occurred_at, 'received_at', e.received_at, 'screen', e.screen,
         'properties', e.properties, 'environment', e.environment,
-        'person_id', e.person_id, 'distinct_id', p.distinct_id, 'traits', p.traits,
+        'person_id', e.person_id, 'distinct_id', p.distinct_id, 'user_id', p.user_id, 'traits', p.traits,
         'session_id', e.session_id, 'platform', coalesce(s.platform, 'server'), 'country', s.country, 'city', s.city,
         'device_model', s.device_model, 'device_type', s.device_type, 'os_name', s.os_name, 'os_version', s.os_version,
         'browser', s.browser, 'app_version', s.app_version,
@@ -1696,7 +1699,7 @@ begin
         from public.analytics_bot_rules r where r.project_id = p_project), '[]'::jsonb),
       'flagged', coalesce((select jsonb_agg(row_data order by (row_data->>'started_at') desc) from (
         select jsonb_build_object('session_id', s.id, 'person_id', s.person_id, 'distinct_id', p.distinct_id,
-          'started_at', s.started_at, 'duration_seconds', round(extract(epoch from (s.ended_at - s.started_at)))::integer,
+          'user_id', p.user_id, 'traits', p.traits, 'started_at', s.started_at, 'duration_seconds', round(extract(epoch from (s.ended_at - s.started_at)))::integer,
           'reasons', to_jsonb(s.bot_reasons), 'excluded', s.excluded, 'platform', s.platform, 'country', s.country, 'city', s.city,
           'user_agent', s.user_agent, 'browser', s.browser, 'os_name', s.os_name, 'events_count', s.events_count,
           'screens_count', s.screens_count, 'ip_hash', left(s.ip_hash, 10),

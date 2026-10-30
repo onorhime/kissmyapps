@@ -1,421 +1,584 @@
 import { useState } from 'react'
-import { ArrowRight, Check, Circle, Radio } from 'lucide-react'
+import { Bot, Play } from 'lucide-react'
+import { api } from '../api'
+import type { Kpis, OnlinePerson, Overview, Project, Range, Ranked } from '../api'
 import {
-  HISTORY_DAYS,
-  eventSummaries,
-  lastHours,
-  minuteStrip,
-  rangeLabels,
-  rangeTotals,
-  volumeSeries,
-} from '../data/model'
-import type { Dataset, Point, Range } from '../data/model'
-import type { TrackedEvent } from '../data/live'
-import type { Project } from '../data/sample'
-import { platformLabels } from '../data/sample'
-import {
+  countryName,
+  deviceLabel,
+  deviceTypeLabels,
   formatAgo,
   formatChange,
-  formatClock,
   formatCount,
-  formatDate,
   formatDecimal,
-  formatTime,
+  formatDuration,
+  formatPercent,
+  languageName,
+  plural,
+  timeIn,
 } from '../format'
-import type { Tone } from '../format'
+import { previousPhrase, rangeOptions, rangePhrase } from '../ranges'
 import { href } from '../routes'
-import { useDataset, useLiveEvents, useNow, useStore } from '../store'
-import { BarList, LineChart, MinuteStrip } from '../ui/Charts'
+import { useStore } from '../store'
+import { BarList, LineChart } from '../ui/Charts'
+import type { BarRow } from '../ui/Charts'
 import { seriesColors } from '../ui/chart-utils'
-import { PageHeader, Segmented } from '../ui/Primitives'
+import {
+  Empty,
+  ErrorNote,
+  Freshness,
+  PageHeader,
+  Panel,
+  PersonCell,
+  Segmented,
+  Skeleton,
+} from '../ui/Primitives'
+import { useRpc } from '../ui/useRpc'
+import { InstallGuide } from './Settings'
 
-const ranges: Range[] = ['today', '7d', '30d', '90d']
-
-function comparisonLabel(range: Range) {
-  return range === 'today'
-    ? 'vs yesterday at this time'
-    : `vs the ${rangeLabels[range].toLowerCase()} before`
-}
-
-type Kpi = { label: string; value: string; change?: { text: string; tone: Tone }; lead?: boolean }
-
-function KpiStrip({ items, note }: { items: Kpi[]; note: string }) {
-  return (
-    <section className="mc-kpis" aria-label="Key figures">
-      {items.map((item) => (
-        <div key={item.label} className={item.lead ? 'mc-kpi is-lead' : 'mc-kpi'}>
-          <span className="mc-kpi-label">{item.label}</span>
-          <span className="mc-kpi-value">{item.value}</span>
-          <span className="mc-kpi-change">
-            {item.change ? (
-              <>
-                <span className={`is-${item.change.tone}`}>{item.change.text}</span> {note}
-              </>
-            ) : (
-              <span className="mc-muted">No earlier data</span>
-            )}
-          </span>
-        </div>
-      ))}
-    </section>
-  )
-}
-
-function ArrivingNow({
-  project,
-  dataset,
-  events,
-  now,
+function Delta({
+  current,
+  previous,
+  comparable,
+  goodWhenUp = true,
 }: {
-  project: Project
-  dataset: Dataset | null
-  events: TrackedEvent[]
-  now: number
+  current: number
+  previous: number
+  comparable: boolean
+  goodWhenUp?: boolean
 }) {
-  const lastHour = dataset
-    ? project.platforms.reduce(
-        (sum, platform) =>
-          sum + minuteStrip(dataset, platform).reduce((total, point) => total + point.value, 0),
-        0,
-      )
-    : events.filter((event) => now - event.time < 3_600_000).length
-  return (
-    <section className="mc-panel mc-arriving" aria-labelledby="mc-arriving-title">
-      <div className="mc-panel-head is-row">
-        <h2 id="mc-arriving-title">Arriving now</h2>
-        <span className="mc-muted mc-num">{formatCount(lastHour)} in the last hour</span>
-      </div>
-      <ul>
-        {project.platforms.map((platform) => {
-          const last = events.find((event) => event.platform === platform)
-          const quiet = project.quietSource?.platform === platform
-          const points: Point[] = dataset
-            ? minuteStrip(dataset, platform)
-            : Array.from({ length: 60 }, (_, index) => {
-                const time = Math.floor(now / 60_000) * 60_000 - (59 - index) * 60_000
-                const value = events.filter(
-                  (event) =>
-                    event.platform === platform && event.time >= time && event.time < time + 60_000,
-                ).length
-                return { time, value }
-              })
-          return (
-            <li key={platform}>
-              <div className="mc-arriving-line">
-                <span className="mc-arriving-name">
-                  <strong>{platformLabels[platform]}</strong>
-                  <span className="mc-muted">
-                    {project.sdk[platform] ?? (last ? 'Test events only' : 'SDK not installed')}
-                  </span>
-                </span>
-                <span className={quiet ? 'mc-arriving-ago is-warning' : 'mc-arriving-ago'}>
-                  {last
-                    ? quiet
-                      ? `Quiet for ${formatAgo(last.time, now).replace(' ago', '')}`
-                      : formatAgo(last.time, now)
-                    : 'No events yet'}
-                </span>
-              </div>
-              {last || dataset ? (
-                <MinuteStrip
-                  points={points}
-                  label={`${platformLabels[platform]}, events per minute for the last hour`}
-                />
-              ) : (
-                <p className="mc-arriving-wait">
-                  Bars start here a second after the first {platformLabels[platform]} event.
-                </p>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-      <p className="mc-panel-foot mc-muted">One bar per minute, oldest on the left.</p>
-    </section>
-  )
+  if (!comparable)
+    return <span className="mc-kpi-change is-neutral">No earlier data to compare</span>
+  const change = formatChange(current, previous, goodWhenUp)
+  return <span className={`mc-kpi-change is-${change.tone}`}>{change.text}</span>
 }
 
-function LatestEvents({ project, events }: { project: Project; events: TrackedEvent[] }) {
-  return (
-    <section className="mc-panel" aria-labelledby="mc-latest-title">
-      <div className="mc-panel-head is-row">
-        <h2 id="mc-latest-title">Latest events</h2>
-        <a className="mc-link" href={href({ name: 'live', projectId: project.id })}>
-          Open live events
-        </a>
-      </div>
-      {events.length ? (
-        <ol className="mc-latest">
-          {events.slice(0, 6).map((event) => (
-            <li key={event.id}>
-              <span className="mc-num mc-muted">{formatClock(event.time)}</span>
-              <span className="mc-mono mc-truncate">{event.name}</span>
-              <span className="mc-mono mc-muted mc-truncate">{event.userId}</span>
-              <span className="mc-muted">{platformLabels[event.platform]}</span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="mc-empty-line">Events appear here a second after your app sends them.</p>
-      )}
-    </section>
-  )
-}
-
-function SetupChecklist({ project, received }: { project: Project; received: boolean }) {
-  const { keys } = useStore()
-  const key = keys.find(
-    (item) => item.projectId === project.id && item.kind === 'client' && !item.revokedAt,
-  )
-  const steps = [
+function KpiStrip({ data, range }: { data?: Overview; range: Range }) {
+  const items: Array<{
+    key: keyof Kpis
+    label: string
+    value: (k: Kpis) => string
+    sub?: (k: Kpis) => string
+    goodWhenUp?: boolean
+  }> = [
     {
-      label: 'Create the project',
-      done: true,
-      detail: `Created for ${project.platforms.map((platform) => platformLabels[platform]).join(', ')}`,
+      key: 'users',
+      label: 'Unique users',
+      value: (k) => formatCount(k.users),
+      sub: (k) =>
+        range === 'today'
+          ? 'people active today'
+          : `${formatDecimal(k.daily_users)} a day on average`,
     },
     {
-      label: 'Get a client key',
-      done: Boolean(key),
-      detail: key ? `${key.name}, ending ${key.suffix}` : 'Create one in Settings',
+      key: 'new_users',
+      label: 'New users',
+      value: (k) => formatCount(k.new_users),
+      sub: (k) => `${formatPercent(k.new_users, k.users)} of users`,
     },
     {
-      label: 'Install the SDK and send a first event',
-      done: received,
-      detail: received ? 'Received' : 'Takes about five minutes',
+      key: 'returning_users',
+      label: 'Returning users',
+      value: (k) => formatCount(k.returning_users),
+      sub: () => 'first seen before this range',
+    },
+    {
+      key: 'sessions',
+      label: 'Sessions',
+      value: (k) => formatCount(k.sessions),
+      sub: (k) => `${formatDecimal(k.sessions_per_user)} per user`,
+    },
+    {
+      key: 'avg_session_seconds',
+      label: 'Average session',
+      value: (k) => formatDuration(k.avg_session_seconds),
+      sub: (k) => `${formatCount(k.events)} events`,
     },
   ]
-  const done = steps.filter((step) => step.done).length
   return (
-    <section className="mc-panel mc-setup mc-span-8" aria-labelledby="mc-setup-title">
-      <div className="mc-panel-head is-row">
-        <h2 id="mc-setup-title">Finish setting up {project.name}</h2>
-        <span className="mc-muted mc-num">
-          {done} of {steps.length} done
-        </span>
+    <div className="mc-kpis mc-kpis-5" role="group" aria-label={`Users ${rangePhrase[range]}`}>
+      {items.map((item) => (
+        <div key={item.key} className="mc-kpi">
+          <span className="mc-kpi-label">{item.label}</span>
+          {data ? (
+            <>
+              <strong className="mc-kpi-value mc-num">{item.value(data.current)}</strong>
+              <Delta
+                current={data.current[item.key]}
+                previous={data.previous[item.key]}
+                comparable={data.comparable}
+                goodWhenUp={item.goodWhenUp}
+              />
+              {item.sub && <span className="mc-sub">{item.sub(data.current)}</span>}
+            </>
+          ) : (
+            <>
+              <Skeleton width={72} height={28} />
+              <Skeleton width={120} height={14} />
+            </>
+          )}
+        </div>
+      ))}
+      {data && (
+        <p className="mc-kpis-note mc-muted">
+          Changes {previousPhrase[range]}. Bots and development traffic are left out.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function OnlineNow({ project, count }: { project: Project; count?: number }) {
+  const { now } = useStore()
+  const online = useRpc(`online:${project.id}`, () => api.online(project.id, 12), {
+    pollMs: 15_000,
+  })
+  const people = online.data ?? []
+  const total = count ?? people.length
+  return (
+    <section className="mc-panel mc-online" aria-labelledby="mc-online-title">
+      <div className="mc-panel-head">
+        <div>
+          <h2 id="mc-online-title">
+            <span className="mc-live-dot" aria-hidden="true" /> Online now
+          </h2>
+          <p>Active in the last 5 minutes</p>
+        </div>
+        <strong className="mc-online-count mc-num">
+          {online.data || count !== undefined ? (
+            formatCount(total)
+          ) : (
+            <Skeleton width={40} height={32} />
+          )}
+        </strong>
       </div>
-      <div
-        className="mc-progress"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={steps.length}
-        aria-valuenow={done}
-        aria-label="Setup progress"
-      >
-        <span style={{ width: `${(done / steps.length) * 100}%` }} />
-      </div>
-      <ol className="mc-steps">
-        {steps.map((step) => (
-          <li key={step.label} className={step.done ? 'is-done' : undefined}>
-            {step.done ? (
-              <Check size={16} aria-hidden="true" />
-            ) : (
-              <Circle size={16} aria-hidden="true" />
-            )}
-            <span>
-              <strong>{step.label}</strong>
-              <span className="mc-muted">{step.detail}</span>
-            </span>
-            <span className="sr-only">{step.done ? 'Done' : 'Not done yet'}</span>
-          </li>
-        ))}
-      </ol>
-      {!received && (
-        <a
-          className="mc-btn mc-btn-primary"
-          href={href({ name: 'install', projectId: project.id })}
-        >
-          Install the SDK
-          <ArrowRight size={16} aria-hidden="true" />
+      {online.error && !online.data ? (
+        <ErrorNote message={online.error} onRetry={() => void online.refresh()} />
+      ) : people.length ? (
+        <ul className="mc-online-list">
+          {people.map((person: OnlinePerson) => {
+            const device = deviceLabel(person)
+            return (
+              <li key={person.person_id}>
+                <PersonCell
+                  person={person}
+                  online
+                  href={href({ name: 'person', projectId: project.id, personId: person.person_id })}
+                />
+                <span className="mc-online-meta">
+                  <span className="mc-truncate">{person.screen ?? 'Just opened'}</span>
+                  <span className="mc-muted mc-truncate">
+                    {[person.city, countryName(person.country)].filter(Boolean).join(', ')} ·{' '}
+                    {device.primary}
+                  </span>
+                </span>
+                <a
+                  className="mc-online-session"
+                  href={href({
+                    name: 'session',
+                    projectId: project.id,
+                    sessionId: person.session_id,
+                  })}
+                >
+                  <Play size={14} aria-hidden="true" />
+                  <span>{formatDuration((now - Date.parse(person.started_at)) / 1000)}</span>
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+      ) : online.loading && !online.data ? (
+        <ul className="mc-online-list" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <li key={index}>
+              <Skeleton width={160} height={32} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Empty>Nobody is using {project.name} right now.</Empty>
+      )}
+      {total > people.length && (
+        <a className="mc-panel-foot mc-link" href={href({ name: 'users', projectId: project.id })}>
+          See all {formatCount(total)} people online
         </a>
       )}
     </section>
   )
 }
 
-function finding(project: Project, dataset: Dataset | null, events: TrackedEvent[]): string {
-  if (!dataset) {
-    return events.length
-      ? `${formatCount(events.length)} test ${events.length === 1 ? 'event' : 'events'} received. Send events from your app to fill this page.`
-      : 'No events yet. Install the SDK and send a first event to see data here.'
+function ActiveUsersChart({
+  data,
+  timezone,
+  range,
+}: {
+  data?: Overview
+  timezone: string
+  range: Range
+}) {
+  const time = timeIn(timezone)
+  if (!data) return <div className="mc-chart" style={{ height: 240 }} aria-hidden="true" />
+  const hourly = data.range.bucket === 'hour'
+  const points = data.series.map((point) => ({
+    time: Date.parse(point.start),
+    partial: point.partial,
+  }))
+  return (
+    <>
+      <div className="mc-legend" aria-hidden="true">
+        <span>
+          <i style={{ background: seriesColors[0] }} /> All users
+        </span>
+        <span>
+          <i style={{ background: seriesColors[1] }} /> New users
+        </span>
+      </div>
+      <LineChart
+        label={`Active users ${hourly ? 'per hour over the last 24 hours' : `per day ${rangePhrase[range]}`}`}
+        height={240}
+        area={false}
+        series={[
+          {
+            key: 'users',
+            label: 'All users',
+            color: seriesColors[0],
+            points: points.map((point, index) => ({ ...point, value: data.series[index].users })),
+          },
+          {
+            key: 'new',
+            label: 'New users',
+            color: seriesColors[1],
+            points: points.map((point, index) => ({
+              ...point,
+              value: data.series[index].new_users,
+            })),
+          },
+        ]}
+        formatX={hourly ? time.time : time.date}
+        formatTooltip={
+          hourly ? (value) => `${time.date(value)}, ${time.time(value)}` : time.weekday
+        }
+        empty={`No users ${rangePhrase[range]} yet`}
+      />
+    </>
+  )
+}
+
+type Ranking = { label: string; rows: BarRow[]; empty: string; note?: string }
+
+function RankedPanel({
+  title,
+  description,
+  rankings,
+  id,
+}: {
+  title: string
+  description?: string
+  rankings: Ranking[]
+  id: string
+}) {
+  const [tab, setTab] = useState(0)
+  const current = rankings[Math.min(tab, rankings.length - 1)]
+  return (
+    <Panel
+      title={title}
+      description={description}
+      id={id}
+      className="mc-span-6"
+      actions={
+        rankings.length > 1 ? (
+          <Segmented
+            label={`${title} by`}
+            value={String(tab)}
+            onChange={(value) => setTab(Number(value))}
+            options={rankings.map((ranking, index) => ({
+              value: String(index),
+              label: ranking.label,
+            }))}
+          />
+        ) : undefined
+      }
+    >
+      {current.rows.length ? <BarList rows={current.rows} /> : <Empty>{current.empty}</Empty>}
+      {current.note && <p className="mc-panel-note mc-muted">{current.note}</p>}
+    </Panel>
+  )
+}
+
+const usersRow =
+  (total: number, label: (row: Ranked) => string, link?: (row: Ranked) => string | undefined) =>
+  (row: Ranked): BarRow => ({
+    key: String(row.key),
+    label: label(row),
+    value: row.users,
+    display: `${formatCount(row.users)} · ${formatPercent(row.users, total)}`,
+    href: link?.(row),
+  })
+
+function Breakdowns({ data, project, range }: { data?: Overview; project: Project; range: Range }) {
+  if (!data) {
+    return (
+      <div className="mc-grid">
+        {[0, 1, 2, 3].map((index) => (
+          <section key={index} className="mc-panel mc-span-6" aria-hidden="true">
+            <Skeleton width="40%" height={18} />
+            <Skeleton width="90%" height={14} />
+            <Skeleton width="75%" height={14} />
+            <Skeleton width="60%" height={14} />
+          </section>
+        ))}
+      </div>
+    )
   }
-  const healthy = project.platforms
-    .filter((platform) => platform !== project.quietSource?.platform)
-    .map((platform) => platformLabels[platform])
-  if (project.quietSource) {
-    return `${platformLabels[project.quietSource.platform]} has sent nothing for ${project.quietSource.minutes} minutes. ${healthy.join(' and ')} are arriving as usual.`
-  }
-  return `Events are arriving from ${healthy.join(' and ')}.`
+  const b = data.breakdowns
+  const total = data.current.users
+  const scope = rangePhrase[range]
+  const usersLink = (country?: string) =>
+    href({ name: 'users', projectId: project.id }) + (country ? `?country=${country}` : '')
+  return (
+    <div className="mc-grid">
+      <RankedPanel
+        id="mc-where"
+        title="Where they are"
+        description={`Share of the ${plural(total, 'user')} ${scope}`}
+        rankings={[
+          {
+            label: 'Countries',
+            rows: b.countries.map(
+              usersRow(
+                total,
+                (row) => countryName(String(row.key)),
+                (row) => usersLink(String(row.key)),
+              ),
+            ),
+            empty: `No locations ${scope}.`,
+            note: b.unknown_country
+              ? `${plural(b.unknown_country, 'user')} without a known country.`
+              : undefined,
+          },
+          {
+            label: 'Cities',
+            rows: b.cities.map(
+              usersRow(total, (row) => `${row.key}, ${countryName(String(row.country))}`),
+            ),
+            empty:
+              'Cities appear when your traffic passes through a CDN that adds visitor locations.',
+          },
+          {
+            label: 'Languages',
+            rows: b.languages.map(usersRow(total, (row) => languageName(String(row.key)))),
+            empty: `No languages ${scope}.`,
+          },
+        ]}
+      />
+      <RankedPanel
+        id="mc-devices"
+        title="What they use"
+        description={`Share of the ${plural(total, 'user')} ${scope}`}
+        rankings={[
+          {
+            label: 'Platforms',
+            rows: b.platforms.map(
+              usersRow(
+                total,
+                (row) =>
+                  ({ ios: 'iOS app', android: 'Android app', web: 'Website', server: 'Server' })[
+                    String(row.key)
+                  ] ?? String(row.key),
+              ),
+            ),
+            empty: `No users ${scope}.`,
+          },
+          {
+            label: 'Devices',
+            rows: (b.devices.length ? b.devices : b.device_types).map(
+              usersRow(total, (row) =>
+                b.devices.length
+                  ? String(row.key)
+                  : (deviceTypeLabels[String(row.key)] ?? String(row.key)),
+              ),
+            ),
+            empty: `No devices ${scope}.`,
+            note: b.devices.length
+              ? `By type: ${b.device_types.map((row) => `${deviceTypeLabels[String(row.key)] ?? row.key} ${formatPercent(row.users, total)}`).join(', ')}`
+              : undefined,
+          },
+          {
+            label: 'OS',
+            rows: b.os.map(usersRow(total, (row) => String(row.key))),
+            empty: `No operating systems ${scope}.`,
+          },
+          {
+            label: 'Versions',
+            rows: [
+              ...b.app_versions.map(
+                usersRow(
+                  total,
+                  (row) => `${row.platform === 'ios' ? 'iOS' : 'Android'} app ${row.key}`,
+                ),
+              ),
+              ...b.browsers.map(usersRow(total, (row) => String(row.key))),
+            ],
+            empty: `No app versions or browsers ${scope}.`,
+          },
+        ]}
+      />
+      <RankedPanel
+        id="mc-actions"
+        title="What they do"
+        description="Share of users who did each action at least once"
+        rankings={[
+          {
+            label: 'Actions',
+            rows: b.actions.map((row) => ({
+              key: String(row.key),
+              label: <span className="mc-mono">{row.key}</span>,
+              value: row.users,
+              display: `${formatPercent(row.users, total)} · ${formatCount(row.events)}×`,
+              href: href({ name: 'event', projectId: project.id, eventName: String(row.key) }),
+            })),
+            empty: 'Actions appear here once your app tracks events beyond page and screen views.',
+          },
+          {
+            label: 'Screens',
+            rows: b.screens.map((row) => ({
+              key: String(row.key),
+              label: <span className="mc-mono">{row.key}</span>,
+              value: row.users,
+              display: `${formatPercent(row.users, total)} · ${formatCount(row.views)} views`,
+            })),
+            empty: `No page or screen views ${scope}.`,
+          },
+          {
+            label: 'Entry',
+            rows: b.entry_screens.map((row) => ({
+              key: row.key,
+              label: <span className="mc-mono">{row.key}</span>,
+              value: row.sessions,
+              display: plural(row.sessions, 'session'),
+            })),
+            empty: `No entry screens ${scope}.`,
+          },
+        ]}
+      />
+      <RankedPanel
+        id="mc-sources"
+        title="Where they came from"
+        description="Websites only: the referrer or UTM source of each visit"
+        rankings={[
+          {
+            label: 'Sources',
+            rows: b.referrers.map(usersRow(total, (row) => String(row.key))),
+            empty: `No website visits ${scope}.`,
+          },
+          {
+            label: 'Errors',
+            rows: b.errors.map((row) => ({
+              key: String(row.key),
+              label: <span className="mc-mono">{row.key}</span>,
+              value: row.users,
+              display: `${plural(row.users, 'user')} · ${formatCount(row.events)}×`,
+              href: href({ name: 'event', projectId: project.id, eventName: 'error_thrown' }),
+            })),
+            empty: `No errors ${scope}.`,
+          },
+        ]}
+      />
+    </div>
+  )
 }
 
 export function OverviewScreen({ project }: { project: Project }) {
-  const dataset = useDataset(project)
-  const events = useLiveEvents(project)
-  const now = useNow()
-  const [selectedRange, setRange] = useState<Range>('today')
-  // Until real events arrive there is only today to show.
-  const range = dataset ? selectedRange : 'today'
+  const { now } = useStore()
+  const [range, setRange] = useState<Range>('7d')
+  const overview = useRpc(
+    `overview:${project.id}:${range}`,
+    () => api.overview(project.id, range),
+    { pollMs: 60_000 },
+  )
+  const data = overview.data
+  const time = timeIn(project.timezone)
 
-  const totals = dataset ? rangeTotals(dataset, range) : null
-  const testCount = dataset ? 0 : events.length
-  const note = comparisonLabel(range)
-  const kpis: Kpi[] = totals
-    ? [
-        {
-          label: range === 'today' ? 'Events today' : `Events, ${rangeLabels[range].toLowerCase()}`,
-          value: formatCount(totals.events),
-          change: totals.comparable
-            ? formatChange(totals.events, totals.previousEvents)
-            : undefined,
-          lead: true,
-        },
-        {
-          label: 'Active people',
-          value: formatCount(totals.activeUsers),
-          change: totals.comparable
-            ? formatChange(totals.activeUsers, totals.previousActiveUsers)
-            : undefined,
-        },
-        {
-          label: 'New people',
-          value: formatCount(totals.newUsers),
-          change: totals.comparable
-            ? formatChange(totals.newUsers, totals.previousNewUsers)
-            : undefined,
-        },
-        {
-          label: 'Events per person',
-          value: formatDecimal(totals.events / Math.max(1, totals.activeUsers)),
-          change: totals.comparable
-            ? formatChange(
-                totals.events / Math.max(1, totals.activeUsers),
-                totals.previousEvents / Math.max(1, totals.previousActiveUsers),
-              )
-            : undefined,
-        },
-      ]
-    : [
-        { label: 'Events today', value: formatCount(testCount), lead: true },
-        { label: 'Active people', value: formatCount(testCount ? 1 : 0) },
-        { label: 'New people', value: formatCount(testCount ? 1 : 0) },
-        { label: 'Events per person', value: testCount ? formatDecimal(testCount) : '—' },
-      ]
+  if (data && !data.has_data) {
+    return (
+      <div className="mc-page">
+        <PageHeader
+          title="Overview"
+          description={`${project.name} has not sent anything yet. Install the SDK and your first users appear here within seconds.`}
+        />
+        <InstallGuide project={project} compact />
+      </div>
+    )
+  }
 
-  const series: Point[] = dataset
-    ? volumeSeries(dataset, range)
-    : lastHours(now).map((time) => ({
-        time,
-        value: events.filter((event) => event.time >= time && event.time < time + 3_600_000).length,
-      }))
-  const midnight = new Date(now).setHours(0, 0, 0, 0)
-  const annotations =
-    range === 'today'
-      ? new Date(now).getHours() < 23
-        ? [{ time: midnight, label: 'Today' }]
-        : []
-      : project.release && dataset
-        ? [
-            {
-              time: dataset.dayStarts[HISTORY_DAYS - 1 - project.release.daysAgo],
-              label: project.release.label,
-            },
-          ]
-        : []
-  const hourLabel = (time: number) =>
-    `${time < midnight ? 'Yesterday' : 'Today'}, ${formatTime(time)} to ${formatTime(time + 3_600_000)}`
-  const top = dataset
-    ? eventSummaries(dataset, range)
-        .filter((summary) => summary.total > 0)
-        .sort((a, b) => b.total - a.total)
-    : []
-
+  const bots = data?.bots
   return (
     <div className="mc-page">
       <PageHeader
         title="Overview"
-        description={finding(project, dataset, events)}
+        description={`Who used ${project.name} ${rangePhrase[range]}. Days run on ${project.timezone} time.`}
         actions={
           <>
-            {dataset && (
-              <Segmented
-                label="Period"
-                value={range}
-                onChange={setRange}
-                options={ranges.map((value) => ({ value, label: rangeLabels[value] }))}
-              />
-            )}
-            <a
-              className="mc-btn mc-btn-secondary"
-              href={href({ name: 'live', projectId: project.id })}
-            >
-              <Radio size={16} aria-hidden="true" />
-              Live events
-            </a>
+            <Segmented
+              label="Date range"
+              value={range}
+              onChange={setRange}
+              options={rangeOptions}
+            />
+            <Freshness
+              updatedAt={overview.updatedAt}
+              loading={overview.loading}
+              onRefresh={() => void overview.refresh()}
+              now={now}
+            />
           </>
         }
       />
+      {overview.error && (
+        <ErrorNote
+          message={`Couldn't load the overview. ${overview.error}`}
+          updatedAt={overview.updatedAt}
+          timezoneClock={time.time}
+          onRetry={() => void overview.refresh()}
+        />
+      )}
 
-      <KpiStrip items={kpis} note={note} />
-
-      <div className="mc-grid">
-        {!dataset && <SetupChecklist project={project} received={events.length > 0} />}
-        {!dataset && (
-          <div className="mc-span-4 mc-align-start">
-            <ArrivingNow project={project} dataset={dataset} events={events} now={now} />
-          </div>
-        )}
-        <section className="mc-panel mc-span-8" aria-labelledby="mc-volume-title">
-          <div className="mc-panel-head is-row">
-            <h2 id="mc-volume-title">
-              {range === 'today'
-                ? 'Events per hour, last 24 hours'
-                : `Events per day, last ${rangeLabels[range].toLowerCase()}`}
-            </h2>
-            <span className="mc-muted">
-              {dataset ? 'The dashed end is still filling' : 'Draws as events arrive'}
-            </span>
-          </div>
-          <LineChart
-            label={
-              range === 'today'
-                ? 'Events per hour over the last 24 hours'
-                : `Events per day over ${rangeLabels[range]}`
-            }
-            series={[{ key: 'events', label: 'Events', color: seriesColors[0], points: series }]}
-            height={232}
-            formatX={range === 'today' ? formatTime : formatDate}
-            formatTooltip={range === 'today' ? hourLabel : formatDate}
-            annotations={annotations}
-            empty="No events in the last 24 hours"
-          />
-        </section>
-        {dataset && (
-          <div className="mc-span-4">
-            <ArrivingNow project={project} dataset={dataset} events={events} now={now} />
-          </div>
-        )}
-        {dataset && (
-          <section className="mc-panel mc-span-6" aria-labelledby="mc-top-title">
-            <div className="mc-panel-head is-row">
-              <h2 id="mc-top-title">Most sent events</h2>
-              <a className="mc-link" href={href({ name: 'events', projectId: project.id })}>
-                All {top.length} events
-              </a>
+      <div className="mc-overview-top">
+        <OnlineNow project={project} count={data?.online_now} />
+        <section className="mc-panel mc-overview-main" aria-labelledby="mc-active-title">
+          <div className="mc-panel-head">
+            <div>
+              <h2 id="mc-active-title">Active users</h2>
+              <p>
+                {data?.range.bucket === 'hour'
+                  ? 'Per hour, last 24 hours'
+                  : `Per day, ${rangePhrase[range]}`}
+              </p>
             </div>
-            <BarList
-              rows={top.slice(0, 6).map((summary) => ({
-                key: summary.event.name,
-                label: <span className="mc-mono">{summary.event.name}</span>,
-                value: summary.total,
-                display: formatCount(summary.total),
-                href: href({ name: 'event', projectId: project.id, eventName: summary.event.name }),
-              }))}
-            />
-          </section>
-        )}
-        <div className={dataset ? 'mc-span-6' : 'mc-span-4'}>
-          <LatestEvents project={project} events={events} />
-        </div>
+          </div>
+          <KpiStrip data={data} range={range} />
+          <ActiveUsersChart data={data} timezone={project.timezone} range={range} />
+        </section>
       </div>
+
+      <Breakdowns data={data} project={project} range={range} />
+
+      {bots && bots.sessions > 0 && (
+        <a className="mc-bots-note" href={href({ name: 'bots', projectId: project.id })}>
+          <Bot size={16} aria-hidden="true" />
+          <span>
+            {bots.excluded_sessions
+              ? `${plural(bots.excluded_sessions, 'bot session')} (${formatPercent(bots.excluded_sessions, bots.sessions)} of traffic) left out of these numbers.`
+              : `No bot traffic found ${rangePhrase[range]}.`}
+          </span>
+          <span className="mc-link">Review bots</span>
+        </a>
+      )}
+      {data?.last_event_at && (
+        <p className="mc-muted mc-page-foot">
+          Last event received{' '}
+          {formatAgo(data.last_event_at, Math.max(now, Date.parse(data.last_event_at)))}.
+        </p>
+      )}
     </div>
   )
 }
