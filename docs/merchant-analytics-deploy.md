@@ -150,6 +150,20 @@ past visits show up straight away and nothing has to be backfilled.
 3. Smoke test: in the console, Analytics, Funnels, build a two-step funnel from a page and an
    event your test site sends, save it, and check the counts and the people behind a drop.
 
+### Retention
+
+Not deployed yet. Like funnels, retention is worked out from the stored events when it is
+read, so the cohorts fill in from past visits straight away.
+
+1. Apply `supabase/migrations/20261030150000_merchant_retention.sql` after the funnels
+   migration, which it builds on. It adds the `analytics_retention_report`,
+   `analytics_retention_people` and `analytics_retention_summary` functions and their
+   helpers, and changes nothing that exists.
+2. Release the dashboard as in step 6. No secrets, ingest function, DNS or Caddy changes.
+3. Smoke test: the Overview shows "Back on day 7" (a dash is right for a project younger
+   than eight days). Open it, check Days, Weeks and Months each draw a table, choose a
+   shaded cell and check the people listed, then group the rows by device.
+
 ## Not in this release
 
 - No native mobile SDKs: apps send events over the HTTP API (Install SDK shows how), and

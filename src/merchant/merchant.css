@@ -1054,6 +1054,37 @@
 .mc-kpis-5 {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+.mc-kpis-3,
+.mc-kpis-6 {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+/* Labels that wrap on a phone keep the three values on one line. */
+.mc-kpis-3 > .mc-kpi {
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+}
+@media (min-width: 901px) {
+  .mc-kpis-6 .mc-kpi:nth-child(4) {
+    border-left: 0;
+  }
+  .mc-kpis-6 .mc-kpi:nth-child(n + 4) {
+    border-top: 1px solid var(--mc-rule);
+  }
+}
+a.mc-kpi-link {
+  color: var(--mc-text);
+  text-decoration: none;
+  transition: background-color 150ms ease-out;
+}
+a.mc-kpi-link:hover {
+  background: var(--mc-row-hover);
+}
+a.mc-kpi-link:hover .mc-kpi-label {
+  color: var(--mc-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .mc-kpis-note {
   grid-column: 1 / -1;
   padding: 10px 20px;
@@ -3060,6 +3091,132 @@ button.mc-funnel-count[aria-pressed='true'] {
   color: var(--mc-negative);
 }
 
+/* Retention: a cohort table shaded in one hue, with the curve above it */
+.mc-retention-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-gap);
+  transition: opacity 150ms ease-out;
+}
+.mc-retention-body.is-stale {
+  opacity: 0.55;
+}
+.mc-retention-people {
+  scroll-margin-top: 72px;
+}
+.mc-panel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mc-cohorts-frame {
+  overflow-x: auto;
+  padding: 0 18px 4px;
+}
+.mc-cohorts-frame:focus-visible {
+  outline: 2px solid var(--mc-link);
+  outline-offset: -2px;
+}
+.mc-cohorts {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.mc-cohorts th {
+  padding: 6px 6px 8px;
+  color: var(--mc-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.mc-cohorts thead th:first-child,
+.mc-cohorts tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 0 14px 0 2px;
+  background: var(--mc-surface);
+  text-align: left;
+}
+.mc-cohorts tbody th {
+  color: var(--mc-text);
+  font-size: 13px;
+  font-weight: 400;
+}
+.mc-cohorts tr.is-everyone th {
+  font-weight: 600;
+}
+.mc-cohorts tr.is-everyone > * {
+  border-bottom: 1px solid var(--mc-rule);
+}
+.mc-cohorts td {
+  min-width: 60px;
+  height: 36px;
+  padding: 0;
+  text-align: center;
+}
+.mc-cohorts .mc-cohort-size {
+  min-width: 0;
+  padding: 0 14px 0 6px;
+  text-align: right;
+}
+.mc-cohort-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 34px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--mc-text);
+  font: inherit;
+  white-space: nowrap;
+}
+button.mc-cohort-cell {
+  cursor: pointer;
+}
+button.mc-cohort-cell:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+button.mc-cohort-cell[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 2px #ffffff;
+}
+.mc-cohort-cell.is-partial {
+  outline: 1px dashed rgba(255, 255, 255, 0.5);
+  outline-offset: -1px;
+}
+.mc-cohort-cell.is-zero,
+.mc-cohort-cell.is-none {
+  color: var(--mc-faint);
+}
+.mc-cohort-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 20px 16px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-cohort-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mc-muted);
+  font-size: 12px;
+}
+.mc-cohort-scale i {
+  display: block;
+  width: 96px;
+  height: 8px;
+  border-radius: 4px;
+}
+
 /* The funnel builder beside its preview */
 .mc-funnel-edit {
   display: grid;
@@ -3283,6 +3440,13 @@ button.mc-funnel-count[aria-pressed='true'] {
   }
   .mc-kpis-5 .mc-kpi:nth-child(5) {
     grid-column: 1 / -1;
+  }
+  .mc-kpis.mc-kpis-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mc-kpis-3 .mc-kpi + .mc-kpi {
+    border-top: 0;
+    border-left: 1px solid var(--mc-rule);
   }
   .mc-kpi.is-lead .mc-kpi-value {
     font-size: 30px;
