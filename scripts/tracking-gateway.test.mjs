@@ -75,7 +75,7 @@ test('Caddy preserves the legacy route first and never adds another upstream', (
   assert.equal(goThroughEvents(production), goThroughEvents(caddy))
 })
 
-test('Production edge keeps the shared BC Learn hosts and only a placeholder for the proxy secret', () => {
+test('Production edge keeps the shared BC Learn hosts', () => {
   for (const host of [
     'speaksix.com, admin.speaksix.com, bclearnenglish.com, admin.bclearnenglish.com {',
     'marathon.speaksix.com {',
@@ -83,8 +83,18 @@ test('Production edge keeps the shared BC Learn hosts and only a placeholder for
     'app.bclearnenglish.com {',
   ])
     assert.ok(production.includes(`\n${host}\n`), host)
-  for (const file of [production, caddy])
-    assert.match(file, /header_up X-Kma-Proxy \{env\.KMA_ANALYTICS_PROXY_SECRET\}\n/)
+})
+
+test('Events go through the geo relay, which alone holds the proxy secret', () => {
+  for (const file of [production, caddy]) {
+    const start = file.indexOf('events.kissmyapps.dev {')
+    const events = file.slice(start, file.indexOf('\n}\n', start) + 2)
+    assert.match(events, /@ingest path \/v1\/events \/v1\/replay\n/)
+    assert.match(events, /request_header -X-Kma-\*\n\t+reverse_proxy kissmyapps-geo:8787 \{/)
+    assert.match(events, /header_up X-Kma-Client-Ip \{client_ip\}\n/)
+    assert.equal((events.match(/reverse_proxy /g) ?? []).length, 1)
+    assert.doesNotMatch(file, /X-Kma-Proxy|KMA_ANALYTICS_PROXY_SECRET|analytics-ingest\{uri\}/)
+  }
 })
 
 function rewrite(path) {

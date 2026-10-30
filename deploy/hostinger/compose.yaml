@@ -50,6 +50,59 @@ services:
     networks:
       - application
 
+  # The events relay: the edge Caddy sends SDK traffic here, and it adds the visitor's
+  # place from DB-IP's city database before passing it on to analytics-ingest. It keeps
+  # that database in /data and refreshes it monthly. See deploy/geo-relay/server.mjs.
+  geo:
+    image: node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+    pull_policy: never
+    container_name: kissmyapps-geo
+    restart: unless-stopped
+    command:
+      - node
+      - /app/server.mjs
+    user: '1000:1000'
+    expose:
+      - '8787'
+    environment:
+      KMA_INGEST_URL: https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/analytics-ingest
+      KMA_GEO_DATABASE: /data/dbip-city-lite.mmdb
+      NODE_ENV: production
+    # Holds KMA_ANALYTICS_PROXY_SECRET only; root-owned, mode 600, never committed.
+    env_file:
+      - /srv/kissmyapps/geo-relay.env
+    volumes:
+      - /srv/kissmyapps/deploy/geo-relay:/app:ro
+      - /srv/kissmyapps/geo-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,mode=0700,size=16m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # The database is about 120 MB on disk and is held in memory, twice while a new
+    # month's file is checked before the swap.
+    mem_limit: 640m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - application
+
 networks:
   application:
     external: true

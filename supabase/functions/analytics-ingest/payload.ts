@@ -7,7 +7,8 @@ export interface Geo {
   country?: string;
   region?: string;
   city?: string;
-  source?: "edge" | "timezone";
+  /** edge: a CDN's headers; ip: our own lookup of the address; timezone: the device's zone. */
+  source?: "edge" | "ip" | "timezone";
 }
 
 export interface IngestPayload {
@@ -268,17 +269,21 @@ export function geoFromRequest(headers: Headers, timezone: unknown): Geo {
     country && /^[A-Z]{2}$/.test(country) && country !== "XX" &&
     country !== "T1"
   ) {
-    const geo: Geo = { country, source: "edge" };
-    const region = header(headers, [
+    // The relay's own lookup percent-encodes names, which headers cannot carry as UTF-8.
+    const lookedUp = headers.get("x-kma-place-source") === "ip";
+    const name = (value: string | undefined) =>
+      value && lookedUp ? decodeName(value) : value;
+    const geo: Geo = { country, source: lookedUp ? "ip" : "edge" };
+    const region = name(header(headers, [
       "cf-region",
       "x-vercel-ip-country-region",
       "cloudfront-viewer-country-region-name",
-    ]);
-    const city = header(headers, [
+    ]));
+    const city = name(header(headers, [
       "cf-ipcity",
       "x-vercel-ip-city",
       "cloudfront-viewer-city",
-    ]);
+    ]));
     if (region && region.length <= 80) geo.region = region;
     if (city && city.length <= 80) geo.city = city;
     return geo;
@@ -288,17 +293,27 @@ export function geoFromRequest(headers: Headers, timezone: unknown): Geo {
 }
 
 /**
- * The headers that describe the visitor. Behind the events.kissmyapps.dev proxy the hop
- * to this function carries the proxy's own address and CDN place, so the proxy marks the
+ * The headers that describe the visitor. Behind the events.kissmyapps.dev relay the hop
+ * to this function carries the relay's own address and CDN place, so the relay marks the
  * request (x-kma-via) and passes the visitor's under x-kma-* names with a shared secret.
+ * The relay looks the address up in its city database and percent-encodes the names it
+ * finds (x-kma-place-source: ip), which geoFromRequest decodes. For a server key it also
+ * looks up the address the merchant's server named for its user (x-kma-context-*).
  * A proxied request whose secret does not match says nothing reliable about the visitor,
- * so it gets no address and no CDN place (the time zone still gives the country).
+ * so it gets no address and no place (the time zone still gives the country).
  */
 export function visitorHeaders(
   headers: Headers,
   proxySecret: string | null,
 ): Headers {
-  if (!headers.has("x-kma-via") && !headers.has("x-kma-proxy")) return headers;
+  if (!headers.has("x-kma-via") && !headers.has("x-kma-proxy")) {
+    // Only the relay may use these names.
+    const direct = new Headers(headers);
+    for (const name of [...direct.keys()]) {
+      if (name.startsWith("x-kma-")) direct.delete(name);
+    }
+    return direct;
+  }
   const visitor = new Headers();
   const sent = headers.get("x-kma-proxy") ?? "";
   if (!proxySecret || !sameText(sent, proxySecret)) return visitor;
@@ -310,7 +325,34 @@ export function visitorHeaders(
   copy("x-kma-country", "cf-ipcountry");
   copy("x-kma-region", "cf-region");
   copy("x-kma-city", "cf-ipcity");
+  copy("x-kma-place-source", "x-kma-place-source");
+  copy("x-kma-context-country", "x-kma-context-country");
+  copy("x-kma-context-region", "x-kma-context-region");
+  copy("x-kma-context-city", "x-kma-context-city");
   return visitor;
+}
+
+function decodeName(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The place of the address a server key's request named in context.ip, as the relay
+ * looked it up, or null. Only ever from visitorHeaders, so only from the relay.
+ */
+export function contextPlace(visitor: Headers): Geo | null {
+  const country = visitor.get("x-kma-context-country")?.toUpperCase();
+  if (!country || !/^[A-Z]{2}$/.test(country)) return null;
+  const place: Geo = { country };
+  const region = decodeName(visitor.get("x-kma-context-region") ?? "");
+  const city = decodeName(visitor.get("x-kma-context-city") ?? "");
+  if (region && region.length <= 80) place.region = region;
+  if (city && city.length <= 80) place.city = city;
+  return place;
 }
 
 function sameText(a: string, b: string): boolean {

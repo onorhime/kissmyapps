@@ -435,6 +435,12 @@ export function Shell({
 
       <main id="mc-main" className="mc-main" tabIndex={-1}>
         {children}
+        {/* DB-IP's free city database asks for this credit (CC BY 4.0). */}
+        <footer className="mc-footer">
+          <a href="https://db-ip.com" target="_blank" rel="noreferrer">
+            IP geolocation by DB-IP
+          </a>
+        </footer>
       </main>
     </div>
   )

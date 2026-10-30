@@ -9,6 +9,8 @@ import type {
   FunnelStep,
   Overview,
   Person,
+  PersonDetail,
+  Places,
   Project,
   RetentionReport,
   Role,
@@ -18,6 +20,7 @@ import {
   formatChange,
   formatClockDuration,
   formatDuration,
+  fullPlace,
   personLabel,
   placeLabel,
   plural,
@@ -25,6 +28,7 @@ import {
 } from './format'
 import { isMerchantConsole } from './host'
 import { MerchantApp } from './MerchantApp'
+import { placeOptions } from './places'
 import { href, parseRoute } from './routes'
 import type { Route } from './routes'
 import { useRpc } from './ui/useRpc'
@@ -352,6 +356,9 @@ describe('formatting', () => {
   it('writes places, durations and counts for people', () => {
     expect(placeLabel(person())).toBe('Lagos, Nigeria')
     expect(placeLabel(person({ city: null, country: null }))).toBe('Unknown')
+    expect(fullPlace(person({ city: 'Ikeja' }))).toBe('Ikeja, Lagos, Nigeria')
+    expect(fullPlace(person())).toBe('Lagos, Nigeria')
+    expect(fullPlace(person({ region: null, city: null }))).toBe('Nigeria')
     expect(formatDuration(154)).toBe('2 m 34 s')
     expect(formatClockDuration(65_000)).toBe('1:05')
     expect(plural(1, 'person', 'people')).toBe('1 person')
@@ -418,10 +425,7 @@ describe('merchant console', () => {
     expect(await within(onlinePanel).findByText('Amaka Obi')).toBeInTheDocument()
     expect(within(onlinePanel).getByText(/Lagos, Nigeria/)).toBeInTheDocument()
     const where = screen.getByRole('heading', { name: 'Where they are' }).closest('section')!
-    expect(within(where).getByRole('link', { name: /Nigeria/ })).toHaveAttribute(
-      'href',
-      '#p/proj-1/users?country=NG',
-    )
+    expect(within(where).getByRole('button', { name: /Nigeria\s*700/ })).toBeInTheDocument()
     expect(screen.getByText(/12 bot sessions/)).toBeInTheDocument()
     expect(fake.state.calls.find((call) => call.name === 'analytics_overview')?.args).toEqual({
       p_project: 'proj-1',
@@ -945,5 +949,188 @@ describe('retention', () => {
     expect(link).toHaveAttribute('href', '#p/proj-1/retention')
     expect(await within(link).findByText('13%')).toBeInTheDocument()
     expect(within(link).getByText('of 64 people first seen Sep 23 to Oct 22')).toBeInTheDocument()
+  })
+})
+
+describe('city location', () => {
+  const range = { key: '7d' as const, from: overview.range.from, to: overview.range.to }
+  const nigeria: Places = {
+    range,
+    country: 'NG',
+    users: 700,
+    unknown_region: 20,
+    unknown_city: 40,
+    regions: [
+      { key: 'Lagos', users: 500 },
+      { key: 'Federal Capital Territory', users: 160 },
+    ],
+    cities: [
+      { key: 'Ikeja', region: 'Lagos', country: 'NG', users: 300 },
+      { key: 'Lagos', region: 'Lagos', country: 'NG', users: 200 },
+      { key: 'Abuja', region: 'Federal Capital Territory', country: 'NG', users: 160 },
+    ],
+  }
+  const everywhere: Places = {
+    ...nigeria,
+    country: null,
+    users: 1236,
+    unknown_city: 80,
+    regions: [],
+    cities: [
+      ...nigeria.cities,
+      { key: 'Springfield', region: 'Illinois', country: 'US', users: 5 },
+      { key: 'Springfield', region: 'Missouri', country: 'US', users: 3 },
+    ],
+  }
+
+  it('opens a country into its cities and regions, each leading to the people there', async () => {
+    signedInAs('owner')
+    fake.state.handlers.analytics_places = (args) => (args.p_country ? nigeria : everywhere)
+    window.location.hash = '#p/proj-1/overview'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    const where = (await screen.findByRole('heading', { name: 'Where they are' })).closest(
+      'section',
+    )!
+    // Places load only when asked for.
+    expect(fake.state.calls.some((call) => call.name === 'analytics_places')).toBe(false)
+    await user.click(within(where).getByRole('button', { name: /Nigeria\s*700/ }))
+
+    expect(await within(where).findByRole('heading', { name: 'Nigeria', level: 3 })).toHaveFocus()
+    expect(fake.state.calls.find((call) => call.name === 'analytics_places')?.args).toEqual({
+      p_project: 'proj-1',
+      p_range: '7d',
+      p_country: 'NG',
+    })
+    expect(await within(where).findByRole('link', { name: /^Ikeja\s*Lagos/ })).toHaveAttribute(
+      'href',
+      '#p/proj-1/users?range=7d&country=NG&region=Lagos&city=Ikeja',
+    )
+    // Shares are of the country's people; a city named like its region shows once.
+    expect(within(where).getByRole('link', { name: /^Ikeja/ })).toHaveTextContent('300 · 43%')
+    expect(within(where).getByRole('link', { name: /^Lagos200/ })).toBeInTheDocument()
+    expect(within(where).getByRole('link', { name: 'See 700 users' })).toHaveAttribute(
+      'href',
+      '#p/proj-1/users?range=7d&country=NG',
+    )
+    expect(within(where).getByText('40 users in Nigeria without a known city.')).toBeInTheDocument()
+
+    await user.click(within(where).getByRole('button', { name: 'Regions' }))
+    expect(within(where).getByRole('link', { name: /^Federal Capital Territory/ })).toHaveAttribute(
+      'href',
+      '#p/proj-1/users?range=7d&country=NG&region=Federal+Capital+Territory',
+    )
+
+    await user.click(within(where).getByRole('button', { name: 'All countries' }))
+    expect(within(where).getByRole('button', { name: /Nigeria\s*700/ })).toHaveFocus()
+
+    await user.click(within(where).getByRole('button', { name: 'Cities' }))
+    expect(await within(where).findByRole('link', { name: /^Ikeja, Nigeria/ })).toBeInTheDocument()
+    // Two cities of one name in a country are told apart by their regions.
+    expect(
+      within(where).getByRole('link', { name: /^Springfield, Illinois, United States/ }),
+    ).toBeInTheDocument()
+    expect(within(where).getByText('80 users without a known city.')).toBeInTheDocument()
+  })
+
+  it('filters the Users list by a region or city within the country', async () => {
+    signedInAs('owner')
+    fake.state.handlers.analytics_people_page = () => ({
+      total: 1,
+      range: overview.range,
+      facets: {
+        platforms: ['ios'],
+        countries: ['NG', 'GB'],
+        places: [
+          { region: 'Lagos', city: 'Ikeja' },
+          { region: 'Lagos', city: 'Lagos' },
+          { region: null, city: 'Ota' },
+        ],
+      },
+      rows: [person({ city: 'Ikeja' })],
+    })
+    window.location.hash = '#p/proj-1/users?range=7d&country=NG&region=Lagos&city=Ikeja'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    const choice = await screen.findByRole('combobox', { name: 'Region or city' })
+    expect(choice).toHaveValue(JSON.stringify(['Lagos', 'Ikeja']))
+    const first = fake.state.calls.find((call) => call.name === 'analytics_people_page')!
+    expect(first.args.p_query).toMatchObject({
+      range: '7d',
+      country: 'NG',
+      region: 'Lagos',
+      city: 'Ikeja',
+    })
+
+    await user.selectOptions(choice, 'All of Lagos')
+    await waitFor(() =>
+      expect(
+        fake.state.calls.filter((call) => call.name === 'analytics_people_page').at(-1)!.args
+          .p_query,
+      ).toMatchObject({ country: 'NG', region: 'Lagos', city: undefined }),
+    )
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Country' }), 'United Kingdom')
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Region or city' })).toHaveValue(''),
+    )
+    const last = fake.state.calls.filter((call) => call.name === 'analytics_people_page').at(-1)!
+    expect(last.args.p_query).toMatchObject({ country: 'GB', region: undefined, city: undefined })
+  })
+
+  it("lists a country's regions with their cities, then cities with no known region", () => {
+    const options = placeOptions(
+      'NG',
+      [
+        { region: 'Lagos', city: 'Lagos' },
+        { region: 'Lagos', city: 'Ikeja' },
+        { region: 'Federal Capital Territory', city: 'Abuja' },
+        { region: null, city: 'Ota' },
+      ],
+      [null, null],
+    )
+    expect(options.map((option) => [option.group ?? '', option.label])).toEqual([
+      ['', 'All of Nigeria'],
+      ['Federal Capital Territory', 'All of Federal Capital Territory'],
+      ['Federal Capital Territory', 'Abuja'],
+      ['Lagos', 'All of Lagos'],
+      ['Lagos', 'Ikeja'],
+      ['Lagos', 'Lagos'],
+      ['Region not known', 'Ota'],
+    ])
+    // A place chosen from a link stays listed before the page that names it arrives.
+    expect(placeOptions('NG', [], ['Kano', 'Kano']).map((option) => option.label)).toEqual([
+      'All of Nigeria',
+      'All of Kano',
+      'Kano',
+    ])
+  })
+
+  it('shows the whole place on a profile, and credits DB-IP', async () => {
+    signedInAs('owner')
+    const detail: PersonDetail = {
+      person: person({ city: 'Ikeja' }),
+      override: null,
+      stats: {
+        sessions: 0,
+        total_seconds: 0,
+        avg_seconds: 0,
+        replays: 0,
+        countries: ['NG'],
+        devices: [],
+        bot_sessions: 0,
+      },
+      sessions: [],
+      top_events: [],
+      recent_events: [],
+    }
+    fake.state.handlers.analytics_person = () => detail
+    window.location.hash = '#p/proj-1/users/person-1'
+    render(<MerchantApp />)
+    const where = (await screen.findByRole('heading', { name: 'Where' })).closest('section')!
+    expect(await within(where).findByText('Ikeja, Lagos, Nigeria')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'IP geolocation by DB-IP' })).toHaveAttribute(
+      'href',
+      'https://db-ip.com',
+    )
   })
 })

@@ -228,8 +228,24 @@ export interface SessionDetail {
 export interface Page<T> {
   total: number
   range: { key: Range; from: string; to: string }
-  facets: { platforms: Platform[]; countries: string[] }
+  facets: {
+    platforms: Platform[]
+    countries: string[]
+    /** The chosen country's regions and cities, on the Users list only. */
+    places?: { region: string | null; city: string | null }[]
+  }
   rows: T[]
+}
+
+/** Where the people in a range were: a country's regions and cities, or every city. */
+export interface Places {
+  range: { key: Range; from: string; to: string }
+  country: string | null
+  users: number
+  unknown_region: number
+  unknown_city: number
+  regions: Ranked[]
+  cities: { key: string; region: string | null; country: string; users: number }[]
 }
 
 export interface PeopleQuery {
@@ -238,6 +254,9 @@ export interface PeopleQuery {
   status?: 'all' | 'online' | 'new' | 'returning'
   platform?: string
   country?: string
+  /** Region and city need a country. */
+  region?: string
+  city?: string
   sort?: 'last_seen' | 'first_seen' | 'sessions' | 'events'
   direction?: 'asc' | 'desc'
   limit?: number
@@ -774,6 +793,8 @@ export const api = {
     }),
   retentionSummary: (project: string) =>
     rpc<RetentionSummary>('analytics_retention_summary', { p_project: project }),
+  places: (project: string, range: Range, country: string | null = null) =>
+    rpc<Places>('analytics_places', { p_project: project, p_range: range, p_country: country }),
 }
 
 export type Api = typeof api

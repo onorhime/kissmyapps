@@ -290,14 +290,28 @@ export function deviceLabel(item: {
   }
 }
 
-export function placeLabel(item: {
-  country?: string | null
-  region?: string | null
-  city?: string | null
-}): string {
+type Place = { country?: string | null; region?: string | null; city?: string | null }
+
+/** The short place for lists: "Ikeja, Nigeria". */
+export function placeLabel(item: Place): string {
   if (!item.country) return 'Unknown'
   const city = item.city && item.city !== item.region ? item.city : null
   return [city ?? item.region, countryName(item.country)].filter(Boolean).join(', ')
+}
+
+/** The whole place for a profile or session: "Ikeja, Lagos, Nigeria". */
+export function fullPlace(item: Place): string {
+  if (!item.country) return 'Unknown'
+  const region = item.region && item.region !== item.city ? item.region : null
+  return [item.city, region, countryName(item.country)].filter(Boolean).join(', ')
+}
+
+/** How a session's place was found, for the line under it. */
+export const placeSources: Record<string, string> = {
+  ip: 'From their internet address',
+  edge: 'From their internet address',
+  api: 'Sent by your server',
+  timezone: 'From the device time zone',
 }
 
 export function plural(count: number, one: string, many = `${one}s`): string {

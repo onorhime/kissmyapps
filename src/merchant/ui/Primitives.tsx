@@ -43,12 +43,25 @@ export function Select<T extends string>({
 }: {
   label: string
   value: T
-  options: Array<{ value: T; label: string }>
+  options: Array<{ value: T; label: string; group?: string }>
   onChange: (value: T) => void
   hideLabel?: boolean
   mono?: boolean
 }) {
   const id = useId()
+  // Neighbouring options with the same group go under one heading.
+  const runs: Array<{ group?: string; options: typeof options }> = []
+  for (const option of options) {
+    const last = runs.at(-1)
+    if (last && last.group === option.group) last.options.push(option)
+    else runs.push({ group: option.group, options: [option] })
+  }
+  const list = (items: typeof options) =>
+    items.map((option) => (
+      <option key={option.value} value={option.value}>
+        {option.label}
+      </option>
+    ))
   return (
     <span className={hideLabel ? 'mc-select is-bare' : 'mc-select'}>
       <label htmlFor={id} className={hideLabel ? 'sr-only' : undefined}>
@@ -61,11 +74,15 @@ export function Select<T extends string>({
           onChange={(event) => onChange(event.target.value as T)}
           className={mono ? 'mc-mono' : undefined}
         >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
+          {runs.map((run, index) =>
+            run.group ? (
+              <optgroup key={`${run.group}-${index}`} label={run.group}>
+                {list(run.options)}
+              </optgroup>
+            ) : (
+              list(run.options)
+            ),
+          )}
         </select>
         <ChevronDown size={16} aria-hidden="true" />
       </span>

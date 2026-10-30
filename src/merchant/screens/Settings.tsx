@@ -1287,6 +1287,15 @@ export function InstallGuide({
             ) : (
               <Skeleton width="100%" height={160} />
             )}
+            <p className="mc-muted">
+              Apps get each person&rsquo;s country, region and city from their internet address.
+              Events from your own server would look like they came from it, so a server key records
+              no place unless you name one: add your user&rsquo;s address as{' '}
+              <code className="mc-mono">context.ip</code> (looked up, never stored), or the place as{' '}
+              <code className="mc-mono">context.country</code> (two letters, such as NG),{' '}
+              <code className="mc-mono">context.region</code> and{' '}
+              <code className="mc-mono">context.city</code>.
+            </p>
           </section>
         )}
       </div>

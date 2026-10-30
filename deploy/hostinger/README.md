@@ -18,13 +18,19 @@ DramaPal Docker stack without publishing another host port.
   canonical path validation and existing attribution/readiness checks.
   It also serves the merchant analytics console on `merchant.kissmyapps.dev`
   and forwards only the SDK's `/v1/events` and `/v1/replay` on
-  `events.kissmyapps.dev` to the `analytics-ingest` function. That release has
-  its own steps, secrets and smoke test in
+  `events.kissmyapps.dev` to the `kissmyapps-geo` relay, which adds each
+  visitor's place and passes them on to the `analytics-ingest` function. That
+  release has its own steps, secrets and smoke test in
   [the merchant analytics deploy checklist](../../docs/merchant-analytics-deploy.md).
   The BC Learn block at the end belongs to another project on the same edge and
-  must stay in this file. The host's copy has the real proxy secret in place of
-  `{env.KMA_ANALYTICS_PROXY_SECRET}`, so merge into that copy instead of replacing
-  it with this file, and never commit the value.
+  must stay in this file. Until the City location release is deployed, the
+  host's copy sends events straight to Supabase with the real proxy secret in
+  its events block, so merge into that copy instead of replacing it with this
+  file, and never commit the value.
+- `compose.yaml` also defines `geo`, the `kissmyapps-geo` events relay
+  (`deploy/geo-relay`). It holds the proxy secret in the root-only
+  `/srv/kissmyapps/geo-relay.env` and keeps DB-IP's city database in
+  `/srv/kissmyapps/geo-data`.
 - `analytics-maintenance.sql` schedules the daily 30-day replay purge.
 
 The dashboard container is read-only, runs as an unprivileged UID with

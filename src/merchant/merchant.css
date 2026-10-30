@@ -438,6 +438,17 @@
   padding: 32px 32px 72px;
   outline: none;
 }
+.mc-footer {
+  margin-top: 40px;
+  color: var(--mc-faint);
+  font-size: 12px;
+}
+.mc-footer a {
+  color: inherit;
+}
+.mc-footer a:hover {
+  color: var(--mc-text);
+}
 
 .mc-page {
   display: flex;
@@ -972,6 +983,48 @@
   font-size: 13px;
   line-height: 18px;
 }
+/* Where they are: a country opened in place */
+.mc-where-head {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.mc-where-head .mc-back {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mc-where-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.mc-where-title h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  outline: none;
+}
+.mc-where-title a {
+  color: var(--mc-link);
+  font-size: 14px;
+}
+.mc-where-loading {
+  display: grid;
+  gap: 18px;
+  padding: 12px 0;
+}
+.mc-barlist-sub {
+  margin-left: 8px;
+  color: var(--mc-muted);
+}
+
 .mc-panel-note {
   font-size: 13px;
   line-height: 18px;
@@ -1439,11 +1492,20 @@ a.mc-project-cell:hover strong {
   list-style: none;
 }
 .mc-barlist li > a,
+.mc-barlist li > button,
 .mc-barlist li > div {
   display: grid;
   gap: 7px;
   padding: 8px 0;
   color: var(--mc-text);
+}
+.mc-barlist li > button {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .mc-barlist-line {
   display: flex;
@@ -1456,7 +1518,8 @@ a.mc-project-cell:hover strong {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mc-barlist li > a:hover .mc-barlist-label {
+.mc-barlist li > a:hover .mc-barlist-label,
+.mc-barlist li > button:hover .mc-barlist-label {
   text-decoration: underline;
   text-underline-offset: 3px;
 }

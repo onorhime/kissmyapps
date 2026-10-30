@@ -9,8 +9,9 @@ import {
   formatAgo,
   formatClockDuration,
   formatDuration,
+  fullPlace,
   languageName,
-  placeLabel,
+  placeSources,
   platformLabels,
   plural,
   referrerHost,
@@ -485,10 +486,12 @@ export function SessionDetailScreen({
         <div>
           <dt>Location</dt>
           <dd>
-            {placeLabel(session)}
-            {session.location_source === 'timezone' && (
-              <span className="mc-sub">From the device time zone</span>
-            )}
+            {fullPlace(session)}
+            {session.country &&
+              session.location_source &&
+              placeSources[session.location_source] && (
+                <span className="mc-sub">{placeSources[session.location_source]}</span>
+              )}
           </dd>
         </div>
         <div>
