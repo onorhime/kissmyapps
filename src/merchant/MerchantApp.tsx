@@ -22,6 +22,7 @@ const titles: Record<Route['name'], string> = {
   'sign-up': 'Create account',
   recover: 'Reset password',
   'new-password': 'Choose a new password',
+  'confirm-email': 'Confirm your email',
   home: 'Home',
   workspace: 'Settings',
   overview: 'Overview',
@@ -63,7 +64,13 @@ function Screens() {
 
   useEffect(() => {
     if (status === 'signed-out' && !isAuthRoute(route)) navigate({ name: 'sign-in' }, true)
-    if (status === 'ready' && isAuthRoute(route) && route.name !== 'new-password')
+    // Choosing a password and confirming an address finish on their own screens.
+    if (
+      status === 'ready' &&
+      isAuthRoute(route) &&
+      route.name !== 'new-password' &&
+      route.name !== 'confirm-email'
+    )
       navigate({ name: 'home' }, true)
     if (status === 'ready' && route.name === 'home') {
       const next = rememberedProject(projects)

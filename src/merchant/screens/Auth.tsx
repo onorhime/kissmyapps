@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { LoaderCircle, MailCheck, Play } from 'lucide-react'
+import { CircleAlert, LoaderCircle, MailCheck, Play } from 'lucide-react'
 import { href, navigate } from '../routes'
 import type { AuthRoute } from '../routes'
 import { useStore } from '../store'
@@ -91,6 +91,9 @@ function SignIn() {
           />
         )}
       </Field>
+      {error?.startsWith('Confirm your email first') && emailPattern.test(email.trim()) && (
+        <ResendConfirmation email={email.trim()} label="Send the confirmation email again" />
+      )}
       <a className="mc-link mc-auth-forgot" href={href({ name: 'recover' })}>
         Forgot your password?
       </a>
@@ -105,7 +108,53 @@ function SignIn() {
   )
 }
 
-function CheckInbox({ email, children }: { email: string; children: ReactNode }) {
+/** Sends the sign-up confirmation email again, for a link that expired or never arrived. */
+function ResendConfirmation({
+  email,
+  label = 'Send the email again',
+}: {
+  email: string
+  label?: string
+}) {
+  const { resendConfirmation } = useStore()
+  const [sent, setSent] = useState(false)
+  const { busy, error, run } = useSubmit()
+  return (
+    <div className="mc-auth-resend">
+      <FormError message={error} />
+      {sent ? (
+        <p className="mc-muted" role="status">
+          Sent again to <strong>{email}</strong>. The newest link is the one that works.
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="mc-btn mc-btn-secondary mc-btn-wide"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              await resendConfirmation(email)
+              setSent(true)
+            })
+          }
+        >
+          {busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
+          {busy ? 'Sending' : label}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function CheckInbox({
+  email,
+  children,
+  resend = false,
+}: {
+  email: string
+  children: ReactNode
+  resend?: boolean
+}) {
   return (
     <div className="mc-auth-form">
       <MailCheck size={28} className="mc-auth-icon" aria-hidden="true" />
@@ -117,6 +166,7 @@ function CheckInbox({ email, children }: { email: string; children: ReactNode })
           We sent an email to <strong>{email}</strong>. {children}
         </p>
       </div>
+      {resend && <ResendConfirmation email={email} label="Did not get it? Send it again" />}
       <a className="mc-btn mc-btn-secondary mc-btn-wide" href={href({ name: 'sign-in' })}>
         Back to sign in
       </a>
@@ -124,9 +174,14 @@ function CheckInbox({ email, children }: { email: string; children: ReactNode })
   )
 }
 
-function SignUp() {
+function SignUp({ email: invitedEmail, invited = false }: { email?: string; invited?: boolean }) {
   const { signUp } = useStore()
-  const [values, setValues] = useState({ name: '', company: '', email: '', password: '' })
+  const [values, setValues] = useState({
+    name: '',
+    company: '',
+    email: invitedEmail ?? '',
+    password: '',
+  })
   const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({})
   const [confirmTo, setConfirmTo] = useState<string>()
   const { busy, error, run } = useSubmit()
@@ -135,8 +190,9 @@ function SignUp() {
 
   if (confirmTo) {
     return (
-      <CheckInbox email={confirmTo}>
-        Open the link in it to confirm your address and open your workspace.
+      <CheckInbox email={confirmTo} resend>
+        Open the link in it to confirm your address and open your workspace. It works on any device
+        and for one hour.
       </CheckInbox>
     )
   }
@@ -145,7 +201,8 @@ function SignUp() {
     event.preventDefault()
     const next: typeof errors = {
       name: values.name.trim() ? undefined : 'Enter your name.',
-      company: values.company.trim() ? undefined : 'Enter your company or studio name.',
+      // Invited people join the inviter's workspace, so they do not name one.
+      company: invited || values.company.trim() ? undefined : 'Enter your company or studio name.',
       email: emailPattern.test(values.email.trim()) ? undefined : 'Enter a valid work email.',
       password: values.password.length >= 10 ? undefined : 'Use at least 10 characters.',
     }
@@ -165,8 +222,22 @@ function SignUp() {
   return (
     <form className="mc-auth-form" onSubmit={submit} noValidate>
       <div className="mc-auth-intro">
-        <h1>Create your merchant account</h1>
-        <p>Add a project for each app, get its key and see your first users in a few minutes.</p>
+        {invited ? (
+          <>
+            <h1>Join your team</h1>
+            <p>
+              Create your account with the invited email. You join the workspace as soon as you
+              confirm it.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1>Create your merchant account</h1>
+            <p>
+              Add a project for each app, get its key and see your first users in a few minutes.
+            </p>
+          </>
+        )}
       </div>
       <FormError message={error} />
       <Field label="Your name" error={errors.name}>
@@ -179,20 +250,22 @@ function SignUp() {
           />
         )}
       </Field>
-      <Field
-        label="Company or studio"
-        hint="Your workspace is named after it."
-        error={errors.company}
-      >
-        {(props) => (
-          <input
-            {...props}
-            autoComplete="organization"
-            value={values.company}
-            onChange={(event) => set('company', event.target.value)}
-          />
-        )}
-      </Field>
+      {!invited && (
+        <Field
+          label="Company or studio"
+          hint="Your workspace is named after it."
+          error={errors.company}
+        >
+          {(props) => (
+            <input
+              {...props}
+              autoComplete="organization"
+              value={values.company}
+              onChange={(event) => set('company', event.target.value)}
+            />
+          )}
+        </Field>
+      )}
       <Field label="Work email" error={errors.email}>
         {(props) => (
           <input
@@ -348,6 +421,115 @@ function NewPassword() {
   )
 }
 
+/** Where the sign-up confirmation email lands: confirms the address and opens the workspace. */
+function ConfirmEmail({ token }: { token?: string }) {
+  const { confirmEmail, resendConfirmation, status } = useStore()
+  const [state, setState] = useState<'checking' | 'failed'>(token ? 'checking' : 'failed')
+  const [message, setMessage] = useState<string>()
+  const [email, setEmail] = useState('')
+  const [invalid, setInvalid] = useState<string>()
+  const [resentTo, setResentTo] = useState<string>()
+  const resend = useSubmit()
+  const started = useRef(false)
+
+  useEffect(() => {
+    // A token works once, so a second render must not spend it again.
+    if (!token || started.current) return
+    started.current = true
+    confirmEmail(token)
+      .then(() => navigate({ name: 'home' }, true))
+      .catch((problem: unknown) => {
+        setMessage(problem instanceof Error ? problem.message : undefined)
+        setState('failed')
+      })
+  }, [confirmEmail, token])
+
+  if (state === 'checking') {
+    return (
+      <div className="mc-auth-form" role="status">
+        <LoaderCircle className="mc-spin mc-auth-icon" size={28} aria-hidden="true" />
+        <div className="mc-auth-intro">
+          <h1 tabIndex={-1} id="mc-page-title">
+            Confirming your email
+          </h1>
+          <p>Your workspace opens in a moment.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mc-auth-form">
+      <CircleAlert size={28} className="mc-auth-icon is-warning" aria-hidden="true" />
+      <div className="mc-auth-intro">
+        <h1 tabIndex={-1} id="mc-page-title">
+          This link did not work
+        </h1>
+        <p>
+          {message ?? 'This confirmation link has expired or was already used.'} If you already
+          confirmed your email, sign in. Otherwise we can send a new link.
+        </p>
+      </div>
+      {status === 'ready' ? (
+        <a className="mc-btn mc-btn-primary mc-btn-wide" href={href({ name: 'home' })}>
+          Open your workspace
+        </a>
+      ) : (
+        <>
+          <a className="mc-btn mc-btn-primary mc-btn-wide" href={href({ name: 'sign-in' })}>
+            Sign in
+          </a>
+          <form
+            className="mc-auth-resend-form"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!emailPattern.test(email.trim())) {
+                setInvalid('Enter the email you signed up with.')
+                return
+              }
+              setInvalid(undefined)
+              void resend.run(async () => {
+                await resendConfirmation(email.trim())
+                setResentTo(email.trim())
+              })
+            }}
+          >
+            <FormError message={resend.error} />
+            {resentTo ? (
+              <p className="mc-muted" role="status">
+                Sent a new link to <strong>{resentTo}</strong>.
+              </p>
+            ) : (
+              <>
+                <Field label="Email for a new link" error={invalid}>
+                  {(props) => (
+                    <input
+                      {...props}
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  )}
+                </Field>
+                <button
+                  type="submit"
+                  className="mc-btn mc-btn-secondary mc-btn-wide"
+                  disabled={resend.busy}
+                >
+                  {resend.busy && <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />}
+                  {resend.busy ? 'Sending' : 'Send a new link'}
+                </button>
+              </>
+            )}
+          </form>
+        </>
+      )}
+    </div>
+  )
+}
+
 /** What a merchant gets, drawn as the product draws it. Labelled as an example. */
 function ProfileExample() {
   return (
@@ -417,7 +599,9 @@ export function AuthScreen({ route }: { route: AuthRoute }) {
         </a>
         <main id="mc-main" className="mc-auth-main">
           {route.name === 'sign-up' ? (
-            <SignUp />
+            <SignUp email={route.email} invited={route.invited} />
+          ) : route.name === 'confirm-email' ? (
+            <ConfirmEmail key={route.token ?? 'none'} token={route.token} />
           ) : route.name === 'recover' ? (
             <Recover />
           ) : route.name === 'new-password' ? (

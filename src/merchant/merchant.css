@@ -2413,6 +2413,16 @@ button.mc-session-time:hover {
   display: grid;
   gap: 16px;
 }
+fieldset.mc-form-stack {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+fieldset.mc-form-stack:disabled select,
+fieldset.mc-form-stack:disabled .mc-choice {
+  cursor: not-allowed;
+}
 .mc-form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -2593,6 +2603,12 @@ button.mc-session-time:hover {
   border-radius: 999px;
   background: var(--mc-surface);
 }
+.mc-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
 
 /* Dialogs and toasts */
 .mc-dialog-overlay {
@@ -2725,6 +2741,25 @@ button.mc-session-time:hover {
 }
 .mc-auth-icon {
   color: #58d65e;
+}
+.mc-auth-icon.is-warning {
+  color: var(--mc-warning);
+}
+.mc-auth-resend,
+.mc-auth-resend-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mc-auth-resend-form {
+  margin-top: 6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-auth-resend p,
+.mc-auth-resend-form p {
+  font-size: 14px;
+  line-height: 20px;
 }
 .mc-auth-forgot {
   align-self: flex-start;

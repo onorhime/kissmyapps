@@ -1,5 +1,9 @@
 export type AuthRoute =
-  { name: 'sign-in' } | { name: 'sign-up' } | { name: 'recover' } | { name: 'new-password' }
+  | { name: 'sign-in' }
+  | { name: 'sign-up'; email?: string; invited?: boolean }
+  | { name: 'recover' }
+  | { name: 'new-password' }
+  | { name: 'confirm-email'; token?: string }
 
 export type ProjectSettingsSection = 'general' | 'keys' | 'install'
 export type WorkspaceSettingsSection = 'projects' | 'members'
@@ -37,10 +41,23 @@ export function parseRoute(hash: string): Route {
   const params = new URLSearchParams(query)
   switch (segments[0]) {
     case 'sign-in':
-    case 'sign-up':
     case 'recover':
     case 'new-password':
       return { name: segments[0] }
+    case 'sign-up': {
+      // An invite link names the invited address, so the form starts with it.
+      const email = params.get('email')?.trim()
+      return {
+        name: 'sign-up',
+        ...(email ? { email } : {}),
+        ...(params.get('invite') === '1' ? { invited: true } : {}),
+      }
+    }
+    case 'confirm-email': {
+      // The confirmation email links here with the token Supabase Auth issued for the address.
+      const token = params.get('token')?.trim()
+      return token ? { name: 'confirm-email', token } : { name: 'confirm-email' }
+    }
     case 'settings':
       return {
         name: 'workspace',
@@ -86,10 +103,20 @@ export function parseRoute(hash: string): Route {
 export function href(route: Route): string {
   switch (route.name) {
     case 'sign-in':
-    case 'sign-up':
     case 'recover':
     case 'new-password':
       return `#${route.name}`
+    case 'sign-up': {
+      const params = new URLSearchParams()
+      if (route.email) params.set('email', route.email)
+      if (route.invited) params.set('invite', '1')
+      const query = params.toString()
+      return `#sign-up${query ? `?${query}` : ''}`
+    }
+    case 'confirm-email':
+      return route.token
+        ? `#confirm-email?token=${encodeURIComponent(route.token)}`
+        : '#confirm-email'
     case 'home':
       return '#'
     case 'workspace': {
@@ -126,7 +153,7 @@ export function href(route: Route): string {
 }
 
 export function isAuthRoute(route: Route): route is AuthRoute {
-  return ['sign-in', 'sign-up', 'recover', 'new-password'].includes(route.name)
+  return ['sign-in', 'sign-up', 'recover', 'new-password', 'confirm-email'].includes(route.name)
 }
 
 export function navigate(route: Route, replace = false) {

@@ -7,6 +7,27 @@
 <p>This code verifies your email only. It does not connect a Stripe account, grant admin access, or enable payments.</p>
 <p>If you did not request this code, ignore this email. Never share the code with anyone.</p>
 </body></html>
+{{ else if eq .Data.registration_flow "analytics_v1" }}
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Confirm your KissMyApps Merchant email</title></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;color:#222222;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f4f5" style="width:100%;background-color:#f4f4f5">
+<tr><td align="center" style="padding:32px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden">
+<tr><td bgcolor="#111111" style="padding:26px 32px;color:#ffffff;font-size:22px;font-weight:bold">KissMyApps<span style="color:#ff80bf">.dev</span> <span style="color:#a9a9ae;font-size:13px;font-weight:normal;letter-spacing:1px">MERCHANT</span></td></tr>
+<tr><td style="padding:32px 32px 8px 32px">
+<h1 style="margin:0 0 16px 0;font-size:26px;line-height:32px;color:#111111">Confirm your email</h1>
+<p style="margin:0 0 14px 0;font-size:16px;line-height:24px;color:#4a4a4a">Hi {{ if .Data.full_name }}{{ .Data.full_name }}{{ else }}there{{ end }},</p>
+<p style="margin:0 0 24px 0;font-size:16px;line-height:24px;color:#4a4a4a">Confirm this address to open your KissMyApps Merchant workspace, where you see who uses your apps, what they do and replays of their sessions.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#111111" style="border-radius:999px">
+<a href="{{ .RedirectTo }}#confirm-email?token={{ .TokenHash }}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;border-radius:999px">Confirm and open my workspace</a>
+</td></tr></table>
+<p style="margin:24px 0 0 0;font-size:14px;line-height:21px;color:#6b6b70">The link works once, on any device, for one hour. If it has expired, the page it opens can send you a new one.</p>
+</td></tr>
+<tr><td style="padding:24px 32px 32px 32px;font-size:13px;line-height:20px;color:#6b6b70">If you did not create a KissMyApps Merchant account, ignore this email: nothing happens until the address is confirmed.</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>
 {{ else }}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" dir="ltr">
