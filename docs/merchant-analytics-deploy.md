@@ -164,15 +164,93 @@ read, so the cohorts fill in from past visits straight away.
    than eight days). Open it, check Days, Weeks and Months each draw a table, choose a
    shaded cell and check the people listed, then group the rows by device.
 
+### City location
+
+Not deployed yet. A small relay on the VPS, `kissmyapps-geo`, sits between the edge Caddy
+and the `analytics-ingest` function. It looks each visitor's address up in DB-IP's free
+city database (IP to City Lite, CC BY 4.0) and passes the request on with the country,
+region and city. It also takes over the proxy secret, so the live Caddyfile no longer
+holds it. Addresses are only looked up, never stored. The Overview's countries open into
+their regions and cities, and Users can be filtered by region or city.
+
+If the relay has no database, or does not know an address, events still go through and
+the country falls back to the device's time zone, as today. If the relay is down, Caddy
+retries for five seconds and then the SDK's request fails and is retried by the SDK.
+
+1. Disk. The database is about 120 MB and a new month's file is checked beside the old
+   one before the swap, so the relay will not download with less than 400 MB free. On
+   23 Oct the VPS disk was 97% full: run `df -h /srv` and free space first if needed.
+2. Apply `supabase/migrations/20261030160000_merchant_places.sql` after the retention
+   migration. It adds `analytics_places`, gives `analytics_people_page` region and city
+   filters (same signature, so the live console keeps working), and replaces two internal
+   ingest helpers so a session's or person's place is always stored whole.
+3. Deploy the ingest function as in step 3. It reads the relay's place headers, and still
+   reads today's Caddy headers the same way as before, so it can go out first.
+4. Relay files and secret, on the VPS:
+
+   ```sh
+   install -d -m 755 /srv/kissmyapps/deploy/geo-relay
+   cp deploy/geo-relay/mmdb.mjs deploy/geo-relay/relay.mjs deploy/geo-relay/server.mjs \
+     /srv/kissmyapps/deploy/geo-relay/
+   install -d -o 1000 -g 1000 -m 700 /srv/kissmyapps/geo-data
+   # The same value as the function's ANALYTICS_PROXY_SECRET (it is in the live
+   # Caddyfile's events block today). Root-owned, never committed.
+   install -m 600 /dev/null /srv/kissmyapps/geo-relay.env
+   printf 'KMA_ANALYTICS_PROXY_SECRET=%s\n' '...' > /srv/kissmyapps/geo-relay.env
+   docker pull node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+   ```
+
+5. Start only the relay from the updated `deploy/hostinger/compose.yaml` (its new `geo`
+   service): `docker compose -p kissmyapps-dashboard -f <host copy>/compose.yaml up -d geo`.
+   This does not touch `kissmyapps-dashboard`. Within a few seconds it downloads this
+   month's file from download.db-ip.com; `docker logs kissmyapps-geo` says "Loaded the
+   YYYY-MM database", and
+   `docker exec kissmyapps-geo node -e "fetch('http://127.0.0.1:8787/healthz').then(r => r.text()).then(console.log)"`
+   shows the database and no problem. If the VPS cannot reach DB-IP, download
+   `dbip-city-lite-YYYY-MM.mmdb.gz` from https://db-ip.com/db/download/ip-to-city-lite
+   elsewhere, gunzip it to `/srv/kissmyapps/geo-data/dbip-city-lite.mmdb` (owned by
+   1000:1000) and restart the container.
+6. Check the edge can reach it before switching:
+   `docker exec dramapal-caddy-1 wget -qO- http://kissmyapps-geo:8787/healthz`.
+7. Edge Caddy. Back up the live Caddyfile, then in its `events.kissmyapps.dev` block replace
+   the `rewrite` line and the `reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {...}`
+   block (the one with the plain-text secret) with the repo's:
+
+   ```caddyfile
+   reverse_proxy kissmyapps-geo:8787 {
+   	header_up X-Kma-Client-Ip {client_ip}
+   	lb_try_duration 5s
+   }
+   ```
+
+   Keep `request_header -X-Kma-*` above it. Validate the full candidate and restart only
+   `dramapal-caddy-1`, as the hosting README requires. The secret is now only in
+   `geo-relay.env` and the function's secrets.
+
+8. Release the dashboard as in step 6 (the drill-down, the Users filter, full places, and
+   the "IP geolocation by DB-IP" credit in the console's footer, which the licence needs).
+9. Smoke test: `curl -i -X POST -H 'content-type: application/json' -d '{}' https://events.kissmyapps.dev/v1/events`
+   still answers 401 `invalid_key`. Open a test page on your phone (on mobile data) and
+   laptop: in the Overview, Where they are, choose your country and find your city; your
+   session's Location reads "City, Region, Country" and "From their internet address".
+
+Rollback: put the previous events block back from the backup and restart only
+`dramapal-caddy-1`. The relay can keep running or be stopped with
+`docker compose -p kissmyapps-dashboard stop geo`; events flow either way.
+
+Monthly update: the relay checks once a day and swaps in the new month's file without a
+restart, once DB-IP publishes it (usually on the 1st or 2nd). In the first days of each
+month, check `healthz` shows the month's `built` date and no `problem` (a full disk or a
+failed download shows there and in the logs, and the old file keeps working).
+
 ## Not in this release
 
 - No native mobile SDKs: apps send events over the HTTP API (Install SDK shows how), and
   there are no replays for apps.
-- Location: as deployed on the VPS, nothing in front of the events host tells the
-  function where an address is, so a visitor's country comes from their device's time
-  zone (a VPN or a traveller shows their home zone's country) and there are no regions or
-  cities. Exact countries and cities need either a CDN that adds visitor location
-  headers (step 7) or an IP geolocation lookup in the function, which is not built.
+- Location: until the City location release above is deployed, nothing in front of the
+  events host tells the function where an address is, so a visitor's country comes from
+  their device's time zone (a VPN or a traveller shows their home zone's country) and
+  there are no regions or cities.
 - Invitations send no email: after inviting someone, a member copies their invite link
   from Settings, Members and sends it to them.
 - A replay ends at the last recorded change, so idle time at the end of a page is not shown.

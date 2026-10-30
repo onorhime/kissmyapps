@@ -11,6 +11,7 @@ import {
   formatAgo,
   formatCount,
   formatDuration,
+  fullPlace,
   languageName,
   localClock,
   personLabel,
@@ -20,6 +21,7 @@ import {
   referrerHost,
   timeIn,
 } from '../format'
+import { placeOptions } from '../places'
 import { rangeOptions, rangePhrase } from '../ranges'
 import { href } from '../routes'
 import { canDo, useStore } from '../store'
@@ -49,7 +51,9 @@ export function UsersScreen({ project }: { project: Project }) {
   const { now, notify } = useStore()
   const time = timeIn(project.timezone)
   const initial = hashParams()
-  const [range, setRange] = useState<Range>('30d')
+  const [range, setRange] = useState<Range>(
+    rangeOptions.find((option) => option.value === initial.get('range'))?.value ?? '30d',
+  )
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<NonNullable<PeopleQuery['status']>>(
@@ -58,6 +62,10 @@ export function UsersScreen({ project }: { project: Project }) {
   )
   const [platform, setPlatform] = useState('')
   const [country, setCountry] = useState(initial.get('country') ?? '')
+  // A region, or a city and its region, within the country: [region, city].
+  const [place, setPlace] = useState<[string | null, string | null]>(() =>
+    initial.get('country') ? [initial.get('region'), initial.get('city')] : [null, null],
+  )
   const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>('last_seen')
   const [limit, setLimit] = useState(PAGE)
   const params: PeopleQuery = {
@@ -66,6 +74,8 @@ export function UsersScreen({ project }: { project: Project }) {
     status,
     platform: platform || undefined,
     country: country || undefined,
+    region: (country && place[0]) || undefined,
+    city: (country && place[1]) || undefined,
     sort,
     limit,
   }
@@ -223,6 +233,7 @@ export function UsersScreen({ project }: { project: Project }) {
           value={country}
           onChange={(value) => {
             setCountry(value)
+            setPlace([null, null])
             reset()
           }}
           options={[
@@ -232,6 +243,18 @@ export function UsersScreen({ project }: { project: Project }) {
               .sort((a, b) => a.label.localeCompare(b.label)),
           ]}
         />
+        {country && (
+          <Select
+            label="Region or city"
+            hideLabel
+            value={place[0] || place[1] ? JSON.stringify(place) : ''}
+            onChange={(value) => {
+              setPlace(value ? JSON.parse(value) : [null, null])
+              reset()
+            }}
+            options={placeOptions(country, page?.facets.places ?? [], place)}
+          />
+        )}
         <Select
           label="Sort by"
           hideLabel
@@ -664,11 +687,7 @@ export function PersonScreen({ project, personId }: { project: Project; personId
         </Panel>
         <Panel title="Where" id="mc-where-person" className="mc-span-4">
           <dl className="mc-facts">
-            <Fact label="Country">
-              {person.country ? `${countryName(person.country)} (${person.country})` : null}
-            </Fact>
-            <Fact label="Region">{person.region}</Fact>
-            <Fact label="City">{person.city}</Fact>
+            <Fact label="Place">{person.country ? fullPlace(person) : null}</Fact>
             <Fact label="Time zone">{person.timezone}</Fact>
             <Fact label="Their time now">{localClock(person.timezone, now)}</Fact>
             <Fact label="Language">

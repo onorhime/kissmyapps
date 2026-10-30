@@ -269,6 +269,8 @@ export type BarRow = {
   value: number
   display: string
   href?: string
+  /** Opens the row in place, such as a country's regions and cities. */
+  onSelect?: () => void
 }
 
 /** A ranked list: each row's thin bar is its share of the largest row; the leader in ink. */
@@ -288,7 +290,19 @@ export function BarList({ rows }: { rows: BarRow[] }) {
             </span>
           </>
         )
-        return <li key={row.key}>{row.href ? <a href={row.href}>{body}</a> : <div>{body}</div>}</li>
+        return (
+          <li key={row.key} data-key={row.key}>
+            {row.onSelect ? (
+              <button type="button" onClick={row.onSelect}>
+                {body}
+              </button>
+            ) : row.href ? (
+              <a href={row.href}>{body}</a>
+            ) : (
+              <div>{body}</div>
+            )}
+          </li>
+        )
       })}
     </ol>
   )

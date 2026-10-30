@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Bot, Play, Timer } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Bot, Play, Timer } from 'lucide-react'
 import { api } from '../api'
 import type { Kpis, OnlinePerson, Overview, Project, Range, Ranked, RetentionSummary } from '../api'
 import {
@@ -389,6 +389,244 @@ const usersRow =
     href: link?.(row),
   })
 
+/** The Users list filtered to a place, over the same days as the counts that led there. */
+function placeLink(
+  project: Project,
+  range: Range,
+  country: string,
+  region?: string | null,
+  city?: string | null,
+) {
+  const query = new URLSearchParams({ range, country })
+  if (region) query.set('region', region)
+  if (city) query.set('city', city)
+  return `${href({ name: 'users', projectId: project.id })}?${query}`
+}
+
+type WhereTab = 'countries' | 'cities' | 'languages'
+
+/**
+ * Countries, cities and languages. A country opens in place into its cities or regions,
+ * each of which leads to the people there.
+ */
+function WherePanel({ data, project, range }: { data: Overview; project: Project; range: Range }) {
+  const b = data.breakdowns
+  const total = data.current.users
+  const scope = rangePhrase[range]
+  const [tab, setTab] = useState<WhereTab>('countries')
+  const [country, setCountry] = useState<string | null>(null)
+  const [inside, setInside] = useState<'cities' | 'regions'>('cities')
+  const listRef = useRef<HTMLDivElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const lastOpened = useRef<string | null>(null)
+  const places = useRpc(
+    `places:${project.id}:${range}:${country ?? 'all'}`,
+    () => api.places(project.id, range, country),
+    { enabled: country !== null || tab === 'cities' },
+  )
+
+  // Opening a country moves focus to its name; going back returns it to the country.
+  useEffect(() => {
+    if (country) headingRef.current?.focus()
+    else if (lastOpened.current)
+      listRef.current
+        ?.querySelector<HTMLButtonElement>(`[data-key="${lastOpened.current}"] button`)
+        ?.focus()
+  }, [country])
+
+  const open = (code: string) => {
+    lastOpened.current = code
+    setInside('cities')
+    setCountry(code)
+  }
+  const placesBody = (rows: (people: number) => BarRow[], empty: string, note?: string) => {
+    if (places.error)
+      return (
+        <ErrorNote
+          message={`Couldn't load places. ${places.error}`}
+          onRetry={() => void places.refresh()}
+        />
+      )
+    if (!places.data)
+      return (
+        <div className="mc-where-loading" aria-label="Loading places">
+          {[0, 1, 2, 3].map((index) => (
+            <Skeleton key={index} width={`${85 - index * 12}%`} height={14} />
+          ))}
+        </div>
+      )
+    const list = rows(places.data.users)
+    return (
+      <>
+        {list.length ? <BarList rows={list} /> : <Empty>{empty}</Empty>}
+        {note && <p className="mc-panel-note mc-muted">{note}</p>}
+      </>
+    )
+  }
+  const share = (people: number) => (users: number) =>
+    `${formatCount(users)} · ${formatPercent(users, people)}`
+
+  if (country) {
+    const name = countryName(country)
+    const known = places.data
+    return (
+      <Panel
+        id="mc-where"
+        title="Where they are"
+        description={
+          known ? `Share of the ${plural(known.users, 'user')} in ${name} ${scope}` : `In ${name}`
+        }
+        className="mc-span-6"
+        actions={
+          <Segmented
+            label={`${name} by`}
+            value={inside}
+            onChange={setInside}
+            options={[
+              { value: 'cities', label: 'Cities' },
+              { value: 'regions', label: 'Regions' },
+            ]}
+          />
+        }
+      >
+        <div className="mc-where-head">
+          <button type="button" className="mc-back" onClick={() => setCountry(null)}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            All countries
+          </button>
+          <div className="mc-where-title">
+            <h3 ref={headingRef} tabIndex={-1}>
+              {name}
+            </h3>
+            {known && known.users > 0 && (
+              <a href={placeLink(project, range, country)}>See {plural(known.users, 'user')}</a>
+            )}
+          </div>
+        </div>
+        {inside === 'cities'
+          ? placesBody(
+              (people) =>
+                (known?.cities ?? []).map((row) => ({
+                  key: `${row.region ?? ''}/${row.key}`,
+                  label: (
+                    <>
+                      {row.key}
+                      {row.region && row.region !== row.key && (
+                        <span className="mc-barlist-sub">{row.region}</span>
+                      )}
+                    </>
+                  ),
+                  value: row.users,
+                  display: share(people)(row.users),
+                  href: placeLink(project, range, country, row.region, row.key),
+                })),
+              `No cities known in ${name} ${scope}.`,
+              known?.unknown_city
+                ? `${plural(known.unknown_city, 'user')} in ${name} without a known city.`
+                : undefined,
+            )
+          : placesBody(
+              (people) =>
+                (known?.regions ?? []).map((row) => ({
+                  key: String(row.key),
+                  label: String(row.key),
+                  value: row.users,
+                  display: share(people)(row.users),
+                  href: placeLink(project, range, country, String(row.key)),
+                })),
+              `No regions known in ${name} ${scope}.`,
+              known?.unknown_region
+                ? `${plural(known.unknown_region, 'user')} in ${name} without a known region.`
+                : undefined,
+            )}
+      </Panel>
+    )
+  }
+
+  // The same city name in two regions of a country is told apart by its region.
+  const cities = places.data?.cities ?? []
+  const twins = new Set(
+    cities
+      .filter((row, index) =>
+        cities.some(
+          (other, at) => at !== index && other.key === row.key && other.country === row.country,
+        ),
+      )
+      .map((row) => `${row.country}/${row.key}`),
+  )
+  return (
+    <Panel
+      id="mc-where"
+      title="Where they are"
+      description={`Share of the ${plural(total, 'user')} ${scope}`}
+      className="mc-span-6"
+      actions={
+        <Segmented
+          label="Where they are by"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'countries', label: 'Countries' },
+            { value: 'cities', label: 'Cities' },
+            { value: 'languages', label: 'Languages' },
+          ]}
+        />
+      }
+    >
+      <div ref={listRef}>
+        {tab === 'countries' &&
+          (b.countries.length ? (
+            <BarList
+              rows={b.countries.map((row) => ({
+                ...usersRow(total, (item) => countryName(String(item.key)))(row),
+                onSelect: () => open(String(row.key)),
+              }))}
+            />
+          ) : (
+            <Empty>No locations {scope}.</Empty>
+          ))}
+        {tab === 'countries' && b.countries.length > 0 && (
+          <p className="mc-panel-note mc-muted">
+            Choose a country to see its cities and regions.
+            {b.unknown_country
+              ? ` ${plural(b.unknown_country, 'user')} without a known country.`
+              : ''}
+          </p>
+        )}
+        {tab === 'cities' &&
+          placesBody(
+            () =>
+              cities.map((row) => ({
+                key: `${row.country}/${row.region ?? ''}/${row.key}`,
+                label: [
+                  row.key,
+                  twins.has(`${row.country}/${row.key}`) ? row.region : null,
+                  countryName(row.country),
+                ]
+                  .filter(Boolean)
+                  .join(', '),
+                value: row.users,
+                display: share(total)(row.users),
+                href: placeLink(project, range, row.country, row.region, row.key),
+              })),
+            `No cities known ${scope}.`,
+            places.data?.unknown_city
+              ? `${plural(places.data.unknown_city, 'user')} without a known city.`
+              : undefined,
+          )}
+        {tab === 'languages' &&
+          (b.languages.length ? (
+            <BarList
+              rows={b.languages.map(usersRow(total, (row) => languageName(String(row.key))))}
+            />
+          ) : (
+            <Empty>No languages {scope}.</Empty>
+          ))}
+      </div>
+    </Panel>
+  )
+}
+
 function Breakdowns({ data, project, range }: { data?: Overview; project: Project; range: Range }) {
   if (!data) {
     return (
@@ -407,44 +645,9 @@ function Breakdowns({ data, project, range }: { data?: Overview; project: Projec
   const b = data.breakdowns
   const total = data.current.users
   const scope = rangePhrase[range]
-  const usersLink = (country?: string) =>
-    href({ name: 'users', projectId: project.id }) + (country ? `?country=${country}` : '')
   return (
     <div className="mc-grid">
-      <RankedPanel
-        id="mc-where"
-        title="Where they are"
-        description={`Share of the ${plural(total, 'user')} ${scope}`}
-        rankings={[
-          {
-            label: 'Countries',
-            rows: b.countries.map(
-              usersRow(
-                total,
-                (row) => countryName(String(row.key)),
-                (row) => usersLink(String(row.key)),
-              ),
-            ),
-            empty: `No locations ${scope}.`,
-            note: b.unknown_country
-              ? `${plural(b.unknown_country, 'user')} without a known country.`
-              : undefined,
-          },
-          {
-            label: 'Cities',
-            rows: b.cities.map(
-              usersRow(total, (row) => `${row.key}, ${countryName(String(row.country))}`),
-            ),
-            empty:
-              'Cities appear when your traffic passes through a CDN that adds visitor locations.',
-          },
-          {
-            label: 'Languages',
-            rows: b.languages.map(usersRow(total, (row) => languageName(String(row.key)))),
-            empty: `No languages ${scope}.`,
-          },
-        ]}
-      />
+      <WherePanel data={data} project={project} range={range} />
       <RankedPanel
         id="mc-devices"
         title="What they use"

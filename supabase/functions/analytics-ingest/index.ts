@@ -10,6 +10,7 @@ import { serviceClient } from "../_shared/supabase.ts";
 import {
   apiKey,
   clientIp,
+  contextPlace,
   geoFromRequest,
   type IngestKind,
   type IngestPayload,
@@ -147,6 +148,18 @@ export function createAnalyticsIngestHandler(deps: IngestDependencies) {
         request.headers,
         deps.proxySecret?.() ?? null,
       );
+      // A server key's request comes from the merchant's server, so its own place says
+      // nothing about the user; the place of the address it named does, unless it named a
+      // country itself.
+      const context = body.context as Record<string, unknown>;
+      const named = key.startsWith("kma_sk_") ? contextPlace(visitor) : null;
+      if (named && context.country === undefined) {
+        Object.assign(context, {
+          country: named.country,
+          region: named.region,
+          city: named.city,
+        });
+      }
       const ip = clientIp(visitor);
       const payload: IngestPayload = {
         key_hash: await sha256Hex(key),
@@ -154,10 +167,7 @@ export function createAnalyticsIngestHandler(deps: IngestDependencies) {
         origin,
         ip_sha: ip ? await sha256Hex(`${deps.ipSalt()}:${ip}`) : null,
         user_agent: request.headers.get("user-agent")?.slice(0, 400) ?? null,
-        geo: geoFromRequest(
-          visitor,
-          (body.context as Record<string, unknown>).timezone,
-        ),
+        geo: geoFromRequest(visitor, context.timezone),
         clock_skew_ms: skewMs,
         body,
       };

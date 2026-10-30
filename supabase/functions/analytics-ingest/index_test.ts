@@ -390,3 +390,103 @@ Deno.test("the events proxy passes the visitor's address and place with its secr
   );
   assertEquals(calls[2].geo, { country: "LT", source: "edge" });
 });
+
+Deno.test("the geo relay's own lookup is marked and its names decoded", async () => {
+  const calls: IngestPayload[] = [];
+  const handler = createAnalyticsIngestHandler({
+    ingest: (payload) => {
+      calls.push(payload);
+      return Promise.resolve({
+        data: { stored: 0, duplicates: 0, rejected: [] },
+        error: null,
+      });
+    },
+    ipSalt: () => "salt",
+    proxySecret: () => "proxy-secret",
+    now: () => now,
+  });
+  const relay = {
+    "x-kma-via": "geo-relay",
+    "x-kma-proxy": "proxy-secret",
+    "x-kma-client-ip": "83.4.1.2",
+    "x-kma-country": "PL",
+    "x-kma-region": encodeURIComponent("Łódź Voivodeship"),
+    "x-kma-city": encodeURIComponent("Łódź"),
+    "x-kma-place-source": "ip",
+  };
+  await handler(
+    post("/v1/events", { events: [] }, {
+      authorization: `Bearer ${key}`,
+      ...relay,
+    }),
+  );
+  assertEquals(calls[0].geo, {
+    country: "PL",
+    region: "Łódź Voivodeship",
+    city: "Łódź",
+    source: "ip",
+  });
+
+  // A merchant's server names its user's address: the relay's lookup of it becomes the
+  // place, unless the server named a country itself. Client keys never use it.
+  const serverKey = "kma_sk_live_" + "B".repeat(24);
+  const named = {
+    ...relay,
+    "x-kma-context-country": "NG",
+    "x-kma-context-region": "Lagos",
+    "x-kma-context-city": encodeURIComponent("Ikeja GRA"),
+  };
+  await handler(
+    post("/v1/events", { context: { ip: "102.89.1.1" }, events: [] }, {
+      authorization: `Bearer ${serverKey}`,
+      ...named,
+    }),
+  );
+  const context = calls[1].body.context as Record<string, unknown>;
+  assertEquals(
+    [context.country, context.region, context.city],
+    ["NG", "Lagos", "Ikeja GRA"],
+  );
+  assertEquals(context.ip, undefined);
+  await handler(
+    post("/v1/events", { context: { country: "gh" }, events: [] }, {
+      authorization: `Bearer ${serverKey}`,
+      ...named,
+    }),
+  );
+  assertEquals(
+    (calls[2].body.context as Record<string, unknown>).city,
+    undefined,
+  );
+  await handler(
+    post("/v1/events", { events: [] }, {
+      authorization: `Bearer ${key}`,
+      ...named,
+    }),
+  );
+  assertEquals(
+    (calls[3].body.context as Record<string, unknown>).country,
+    undefined,
+  );
+  // Without the relay's secret, or straight to the function, those names are ignored.
+  for (
+    const headers of [
+      { ...named, "x-kma-proxy": "guess" },
+      {
+        "x-kma-context-country": "NG",
+        "x-kma-context-city": "Lagos",
+      },
+    ]
+  ) {
+    await handler(
+      post("/v1/events", { events: [] }, {
+        authorization: `Bearer ${serverKey}`,
+        ...headers,
+      }),
+    );
+    assertEquals(
+      (calls.at(-1)!.body.context as Record<string, unknown>).country,
+      undefined,
+    );
+  }
+});

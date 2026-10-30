@@ -71,10 +71,11 @@ go.kissmyapps.dev {
 	}
 }
 
-# The analytics SDK posts events and replay chunks here. The hop to Supabase would
-# otherwise make every visitor look like this server, so the proxy names the visitor in
-# X-Kma-* headers and proves it with the secret that analytics-ingest also holds as
-# ANALYTICS_PROXY_SECRET. Without the secret the function ignores those headers.
+# The analytics SDK posts events and replay chunks here. Caddy hands them to the
+# kissmyapps-geo relay (deploy/geo-relay) with the visitor's address. The relay looks the
+# address up in DB-IP's city database and passes each request on to analytics-ingest with
+# the place and the proxy secret, so this file holds no secret. The address itself is
+# only looked up, never stored.
 events.kissmyapps.dev {
 	import compressed
 
@@ -93,17 +94,10 @@ events.kissmyapps.dev {
 			}
 			# Only this proxy may describe the visitor: drop whatever the browser sent.
 			request_header -X-Kma-*
-			rewrite * /functions/v1/analytics-ingest{uri}
-			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
-				header_up Host {upstream_hostport}
-				header_up X-Kma-Via events-proxy
-				header_up X-Kma-Proxy {env.KMA_ANALYTICS_PROXY_SECRET}
+			reverse_proxy kissmyapps-geo:8787 {
 				header_up X-Kma-Client-Ip {client_ip}
-				# With Cloudflare in front of this host and its visitor location headers on,
-				# also pass the place so that the console can show regions and cities:
-				# header_up X-Kma-Country {http.request.header.Cf-Ipcountry}
-				# header_up X-Kma-Region {http.request.header.Cf-Region}
-				# header_up X-Kma-City {http.request.header.Cf-Ipcity}
+				# Ride out a relay restart rather than fail the SDK's request.
+				lb_try_duration 5s
 			}
 		}
 
