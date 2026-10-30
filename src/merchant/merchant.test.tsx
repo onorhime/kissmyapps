@@ -10,6 +10,7 @@ import type {
   Overview,
   Person,
   Project,
+  RetentionReport,
   Role,
 } from './api'
 import { csvText, toCsv } from './csv'
@@ -258,6 +259,13 @@ beforeEach(() => {
     analytics_online: () => online,
     analytics_project_settings: () => ({ project, role: 'owner', keys: [clientKey] }),
     analytics_project_status: () => ({ events_total: 0, last_event_at: null, sources: [] }),
+    analytics_retention_summary: () => ({
+      day: 7,
+      from: '2026-09-23',
+      to: '2026-10-22',
+      people: 64,
+      returned: 8,
+    }),
   }
   localStorage.clear()
   window.history.replaceState(null, '', '/?app=merchant')
@@ -303,6 +311,7 @@ describe('merchant routes', () => {
       { name: 'funnels', projectId: 'p1' },
       { name: 'funnel', projectId: 'p1', funnelId: 'new' },
       { name: 'funnel', projectId: 'p1', funnelId: 'f-1' },
+      { name: 'retention', projectId: 'p1' },
       { name: 'events', projectId: 'p1' },
       { name: 'live', projectId: 'p1' },
       { name: 'event', projectId: 'p1', eventName: 'plan:selected' },
@@ -749,5 +758,192 @@ describe('funnels', () => {
       'href',
       '#p/proj-1/funnels/new',
     )
+  })
+})
+
+describe('retention', () => {
+  const cohort = (start: string, people: number, values: Array<number | null>, partial = -1) => ({
+    start,
+    people,
+    values: values.map((count, at) => ({
+      period: at + 1,
+      state: (count === null ? 'future' : at === partial ? 'partial' : 'complete') as
+        'future' | 'partial' | 'complete',
+      people: count,
+    })),
+  })
+  const report = (interval: 'day' | 'week' = 'day'): RetentionReport => ({
+    definition: { interval, start: { kind: 'first_seen' }, return: { kind: 'any' } },
+    timezone: 'Africa/Lagos',
+    today: '2026-10-30',
+    periods: 3,
+    started: 18,
+    headline: [
+      { day: 1, people: 15, returned: 4 },
+      { day: 7, people: 0, returned: 0 },
+      { day: 30, people: 0, returned: 0 },
+    ],
+    cohorts: [
+      // Before anyone started: left off the table.
+      cohort('2026-10-26', 0, [0, 0, 0]),
+      cohort('2026-10-27', 10, [4, 2, 1], 2),
+      cohort('2026-10-28', 5, [0, 1, null], 1),
+      cohort('2026-10-29', 0, [0, null, null], 0),
+      cohort('2026-10-30', 3, [null, null, null]),
+    ],
+    curve: [
+      { period: 1, people: 15, returned: 4 },
+      { period: 2, people: 10, returned: 2 },
+      { period: 3, people: 0, returned: 0 },
+    ],
+    breakdown: [
+      {
+        key: 'mobile',
+        people: 12,
+        values: [
+          { period: 1, people: 10, returned: 3 },
+          { period: 2, people: 6, returned: 2 },
+          { period: 3, people: 0, returned: 0 },
+        ],
+      },
+    ],
+    other_groups: 1,
+  })
+  const lastCall = (name: string) =>
+    fake.state.calls.filter((call) => call.name === name).at(-1)?.args
+
+  it('shows who comes back, lists the people behind a number, and regroups', async () => {
+    signedInAs('analyst')
+    fake.state.handlers.analytics_funnel_options = () => ({
+      events: [{ name: 'signed_up', description: null, last_seen: '2026-10-30T09:00:00Z' }],
+      screens: [],
+      properties: {},
+    })
+    fake.state.handlers.analytics_retention_report = (args) =>
+      report((args.p_definition as RetentionReport['definition']).interval as 'day' | 'week')
+    fake.state.handlers.analytics_retention_people = () => ({
+      total: 1,
+      people: [
+        {
+          id: 'person-1',
+          distinct_id: 'amaka@example.com',
+          user_id: 'amaka@example.com',
+          traits: { name: 'Amaka Obi' },
+          country: 'NG',
+          city: 'Lagos',
+          platform: 'ios',
+          device_type: 'mobile',
+          started_at: '2026-10-27T08:00:00Z',
+          last_seen: '2026-10-30T09:00:00Z',
+          days_back: 3,
+        },
+      ],
+    })
+    window.location.hash = '#p/proj-1/retention'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'Retention', level: 1 })
+    const headline = await screen.findByRole('group', { name: 'Back after 1, 7 and 30 days' })
+    expect(await within(headline).findByText('27%')).toBeInTheDocument()
+    expect(within(headline).getByText('4 of 15 people')).toBeInTheDocument()
+    expect(within(headline).getByText('Nobody has reached day 7 yet')).toBeInTheDocument()
+    expect(lastCall('analytics_retention_report')).toEqual({
+      p_project: 'proj-1',
+      p_definition: { interval: 'day', start: { kind: 'first_seen' }, return: { kind: 'any' } },
+      p_breakdown: 'none',
+    })
+
+    const table = screen.getByRole('region', { name: 'Who came back' })
+    expect(within(table).getByRole('rowheader', { name: 'Tue, Oct 27' })).toBeInTheDocument()
+    expect(within(table).queryByRole('rowheader', { name: 'Mon, Oct 26' })).toBeNull()
+    expect(
+      within(table).getByRole('button', { name: '10%: 1 of 10 people back on day 3 so far' }),
+    ).toBeInTheDocument()
+    expect(
+      within(table).getByRole('button', { name: '27%: 4 of 15 people back on day 1' }),
+    ).toBeInTheDocument()
+
+    await user.click(
+      within(table).getByRole('button', { name: '40%: 4 of 10 people back on day 1' }),
+    )
+    const people = (
+      await screen.findByRole('heading', {
+        name: '1 person who started on Tue, Oct 27 and came back on day 1',
+      })
+    ).closest('section')!
+    expect(await within(people).findByText('Amaka Obi')).toBeInTheDocument()
+    expect(within(people).getByText('3 days')).toBeInTheDocument()
+    expect(lastCall('analytics_retention_people')).toEqual({
+      p_project: 'proj-1',
+      p_definition: { interval: 'day', start: { kind: 'first_seen' }, return: { kind: 'any' } },
+      p_cohort: '2026-10-27',
+      p_period: 1,
+      p_breakdown: 'none',
+      p_group: null,
+      p_offset: 0,
+    })
+
+    await user.selectOptions(screen.getByLabelText('Rows'), 'device')
+    await screen.findByRole('heading', { name: 'Who came back, by device' })
+    expect(screen.queryByText('Amaka Obi')).toBeNull()
+    const grouped = screen.getByRole('region', { name: 'Who came back' })
+    expect(within(grouped).getByRole('rowheader', { name: 'Phone' })).toBeInTheDocument()
+    expect(screen.getByText(/1 smaller group not shown/)).toBeInTheDocument()
+    await user.click(
+      within(grouped).getByRole('button', { name: '30%: 3 of 10 people back on day 1' }),
+    )
+    await waitFor(() =>
+      expect(lastCall('analytics_retention_people')).toMatchObject({
+        p_cohort: null,
+        p_period: 1,
+        p_breakdown: 'device',
+        p_group: 'mobile',
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Weeks' }))
+    await user.selectOptions(screen.getByLabelText('When people start'), 'signed_up')
+    await waitFor(() =>
+      expect(lastCall('analytics_retention_report')).toEqual({
+        p_project: 'proj-1',
+        p_definition: {
+          interval: 'week',
+          start: { kind: 'event', event: 'signed_up' },
+          return: { kind: 'any' },
+        },
+        p_breakdown: 'device',
+      }),
+    )
+  })
+
+  it('says so when nobody has started yet', async () => {
+    signedInAs('owner')
+    fake.state.handlers.analytics_funnel_options = () => ({
+      events: [],
+      screens: [],
+      properties: {},
+    })
+    fake.state.handlers.analytics_retention_report = () => ({
+      ...report(),
+      started: 0,
+      cohorts: [cohort('2026-10-30', 0, [null, null, null])],
+      curve: [],
+      breakdown: [],
+      other_groups: 0,
+    })
+    window.location.hash = '#p/proj-1/retention'
+    render(<MerchantApp />)
+    expect(await screen.findByText(/Nobody was first seen in this window yet/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Who came back' })).toBeNull()
+  })
+
+  it('puts day 7 on the overview, linked to the retention page', async () => {
+    signedInAs('owner')
+    window.location.hash = '#p/proj-1/overview'
+    render(<MerchantApp />)
+    const link = await screen.findByRole('link', { name: /Back on day 7/ })
+    expect(link).toHaveAttribute('href', '#p/proj-1/retention')
+    expect(await within(link).findByText('13%')).toBeInTheDocument()
+    expect(within(link).getByText('of 64 people first seen Sep 23 to Oct 22')).toBeInTheDocument()
   })
 })

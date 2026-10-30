@@ -8,6 +8,7 @@ import { AuthScreen } from './screens/Auth'
 import { BotsScreen } from './screens/Bots'
 import { EventDetailScreen, EventsScreen } from './screens/Events'
 import { FunnelScreen, FunnelsScreen } from './screens/Funnels'
+import { RetentionScreen } from './screens/Retention'
 import { OverviewScreen } from './screens/Overview'
 import { SessionDetailScreen, SessionsScreen } from './screens/Sessions'
 import { MembersScreen, ProjectSettingsScreen, ProjectsScreen } from './screens/Settings'
@@ -33,6 +34,7 @@ const titles: Record<Route['name'], string> = {
   session: 'Session',
   funnels: 'Funnels',
   funnel: 'Funnel',
+  retention: 'Retention',
   events: 'Events',
   live: 'Live events',
   event: 'Event',
@@ -191,6 +193,9 @@ function Screens() {
         break
       case 'funnel':
         content = <FunnelScreen key={route.funnelId} project={project} funnelId={route.funnelId} />
+        break
+      case 'retention':
+        content = <RetentionScreen key={project.id} project={project} />
         break
       case 'events':
       case 'live':

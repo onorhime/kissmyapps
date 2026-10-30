@@ -3,7 +3,6 @@ import { ArrowDown, ArrowLeft, ArrowUp, ListFilter, Plus, Trash2, X } from 'luci
 import { api } from '../api'
 import type {
   Funnel,
-  FunnelBreakdown,
   FunnelDefinition,
   FunnelMatch,
   FunnelOptions,
@@ -11,12 +10,10 @@ import type {
   FunnelReport,
   FunnelStep,
   FunnelWindow,
-  Platform,
   Project,
   Range,
 } from '../api'
 import {
-  countryName,
   deviceTypeLabels,
   formatAgo,
   formatCount,
@@ -27,6 +24,8 @@ import {
   plural,
   timeIn,
 } from '../format'
+import { groupLabel, groupNouns, groupOptions } from '../groups'
+import type { GroupBy } from '../groups'
 import { rangeOptions, rangePhrase } from '../ranges'
 import { href, navigate } from '../routes'
 import { useStore } from '../store'
@@ -67,32 +66,6 @@ const matchOptions: Array<{ value: FunnelMatch; label: string }> = [
   { value: 'starts_with', label: 'starts with' },
   { value: 'contains', label: 'contains' },
 ]
-
-type GroupBy = Exclude<FunnelBreakdown, 'none'>
-
-const groupOptions: Array<{ value: GroupBy; label: string }> = [
-  { value: 'device', label: 'By device' },
-  { value: 'platform', label: 'By platform' },
-  { value: 'country', label: 'By country' },
-  { value: 'browser', label: 'By browser' },
-  { value: 'source', label: 'By source' },
-]
-
-const groupNouns: Record<GroupBy, string> = {
-  device: 'Device',
-  platform: 'Platform',
-  country: 'Country',
-  browser: 'Browser',
-  source: 'Source',
-}
-
-function groupLabel(groupBy: GroupBy, key: string): string {
-  if (key === 'Unknown') return 'Unknown'
-  if (groupBy === 'country') return countryName(key)
-  if (groupBy === 'device') return deviceTypeLabels[key] ?? key
-  if (groupBy === 'platform') return platformLabels[key as Platform] ?? key
-  return key
-}
 
 /** What a page step is called here: web projects have pages, apps have screens. */
 function pageNoun(project: Project): string {

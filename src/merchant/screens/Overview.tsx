@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Bot, Play, Timer } from 'lucide-react'
 import { api } from '../api'
-import type { Kpis, OnlinePerson, Overview, Project, Range, Ranked } from '../api'
+import type { Kpis, OnlinePerson, Overview, Project, Range, Ranked, RetentionSummary } from '../api'
 import {
   countryName,
   deviceLabel,
@@ -52,7 +52,72 @@ function Delta({
   return <span className={`mc-kpi-change is-${change.tone}`}>{change.text}</span>
 }
 
-function KpiStrip({ data, range }: { data?: Overview; range: Range }) {
+// The summary's dates are calendar days in the project's time zone.
+const summaryDate = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+/** Day 7 retention, which looks back further than the range: it needs a week to pass. */
+function BackOnDaySeven({
+  summary,
+  failed,
+  link,
+}: {
+  summary?: RetentionSummary
+  failed: boolean
+  link: string
+}) {
+  return (
+    <a className="mc-kpi mc-kpi-link" href={link}>
+      <span className="mc-kpi-label">Back on day 7</span>
+      {summary ? (
+        summary.people ? (
+          <>
+            <strong className="mc-kpi-value mc-num">
+              {formatPercent(summary.returned, summary.people)}
+            </strong>
+            <span className="mc-sub">
+              of {plural(summary.people, 'person', 'people')} first seen{' '}
+              {summaryDate.format(Date.parse(summary.from))} to{' '}
+              {summaryDate.format(Date.parse(summary.to))}
+            </span>
+          </>
+        ) : (
+          <>
+            <strong className="mc-kpi-value mc-num mc-muted">—</strong>
+            <span className="mc-sub">Needs people first seen over a week ago</span>
+          </>
+        )
+      ) : failed ? (
+        <>
+          <strong className="mc-kpi-value mc-num mc-muted">—</strong>
+          <span className="mc-sub">Couldn't load this. Open retention to try again.</span>
+        </>
+      ) : (
+        <>
+          <Skeleton width={72} height={28} />
+          <Skeleton width={120} height={14} />
+        </>
+      )}
+    </a>
+  )
+}
+
+function KpiStrip({
+  data,
+  range,
+  retention,
+  retentionFailed,
+  retentionLink,
+}: {
+  data?: Overview
+  range: Range
+  retention?: RetentionSummary
+  retentionFailed: boolean
+  retentionLink: string
+}) {
   const items: Array<{
     key: keyof Kpis
     label: string
@@ -95,7 +160,7 @@ function KpiStrip({ data, range }: { data?: Overview; range: Range }) {
     },
   ]
   return (
-    <div className="mc-kpis mc-kpis-5" role="group" aria-label={`Users ${rangePhrase[range]}`}>
+    <div className="mc-kpis mc-kpis-6" role="group" aria-label={`Users ${rangePhrase[range]}`}>
       {items.map((item) => (
         <div key={item.key} className="mc-kpi">
           <span className="mc-kpi-label">{item.label}</span>
@@ -118,6 +183,7 @@ function KpiStrip({ data, range }: { data?: Overview; range: Range }) {
           )}
         </div>
       ))}
+      <BackOnDaySeven summary={retention} failed={retentionFailed} link={retentionLink} />
       {data && (
         <p className="mc-kpis-note mc-muted">
           {data.comparable
@@ -505,6 +571,9 @@ export function OverviewScreen({ project }: { project: Project }) {
     { pollMs: 60_000 },
   )
   const data = overview.data
+  const retention = useRpc(`retention-summary:${project.id}`, () =>
+    api.retentionSummary(project.id),
+  )
   const time = timeIn(project.timezone)
 
   if (data && !data.has_data) {
@@ -564,7 +633,13 @@ export function OverviewScreen({ project }: { project: Project }) {
               </p>
             </div>
           </div>
-          <KpiStrip data={data} range={range} />
+          <KpiStrip
+            data={data}
+            range={range}
+            retention={retention.data}
+            retentionFailed={Boolean(retention.error)}
+            retentionLink={href({ name: 'retention', projectId: project.id })}
+          />
           <ActiveUsersChart data={data} timezone={project.timezone} range={range} />
         </section>
       </div>

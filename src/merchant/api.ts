@@ -488,6 +488,63 @@ export interface FunnelPerson {
   replay: boolean
 }
 
+export type RetentionInterval = 'day' | 'week' | 'month'
+
+export interface RetentionDefinition {
+  interval: RetentionInterval
+  /** When people start: their first visit, or the first time they do a step. */
+  start: { kind: 'first_seen' } | FunnelStep
+  /** What counts as coming back: any activity, or doing a step. */
+  return: { kind: 'any' } | FunnelStep
+}
+
+export interface RetentionReport {
+  definition: RetentionDefinition
+  timezone: string
+  today: string
+  periods: number
+  started: number
+  /** Day 1, 7 and 30, over everyone who started in the last 90 days and has reached that day. */
+  headline: { day: number; people: number; returned: number }[]
+  cohorts: {
+    start: string
+    people: number
+    /** Future periods have no count; the period in progress is partial. */
+    values: { period: number; state: 'complete' | 'partial' | 'future'; people: number | null }[]
+  }[]
+  /** Per period, across the cohorts that have finished it. */
+  curve: { period: number; people: number; returned: number }[]
+  breakdown: {
+    key: string
+    people: number
+    values: { period: number; people: number; returned: number }[]
+  }[]
+  other_groups: number
+}
+
+export interface RetentionPerson {
+  id: string
+  distinct_id: string
+  user_id: string | null
+  traits: Traits
+  country: string | null
+  city: string | null
+  platform: Platform | null
+  device_type: string | null
+  started_at: string
+  last_seen: string
+  /** Days they came back on, after the day they started. */
+  days_back: number
+}
+
+export interface RetentionSummary {
+  day: number
+  from: string
+  to: string
+  people: number
+  returned: number
+}
+
 export class ApiError extends Error {
   readonly code?: string
 
@@ -690,6 +747,33 @@ export const api = {
       p_group: group?.key ?? null,
       p_offset: offset,
     }),
+  retention: (project: string, definition: RetentionDefinition, breakdown: FunnelBreakdown) =>
+    rpc<RetentionReport>('analytics_retention_report', {
+      p_project: project,
+      p_definition: definition,
+      p_breakdown: breakdown,
+    }),
+  retentionPeople: (
+    project: string,
+    definition: RetentionDefinition,
+    cell: {
+      cohort: string | null
+      period: number
+      group: { breakdown: FunnelBreakdown; key: string } | null
+    },
+    offset = 0,
+  ) =>
+    rpc<{ total: number; people: RetentionPerson[] }>('analytics_retention_people', {
+      p_project: project,
+      p_definition: definition,
+      p_cohort: cell.cohort,
+      p_period: cell.period,
+      p_breakdown: cell.group?.breakdown ?? 'none',
+      p_group: cell.group?.key ?? null,
+      p_offset: offset,
+    }),
+  retentionSummary: (project: string) =>
+    rpc<RetentionSummary>('analytics_retention_summary', { p_project: project }),
 }
 
 export type Api = typeof api

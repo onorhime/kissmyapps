@@ -13,6 +13,10 @@ type LineChartProps = {
   formatX: (time: number) => string
   formatTooltip?: (time: number) => string
   formatValue?: (value: number) => string
+  /** The y-axis labels; compact counts unless given. */
+  formatTick?: (value: number) => string
+  /** The most a value can be, such as 100 for percentages: no tick goes above it. */
+  ceiling?: number
   annotations?: Array<{ time: number; label: string }>
   area?: boolean
   integers?: boolean
@@ -27,6 +31,8 @@ export function LineChart({
   formatX,
   formatTooltip = formatX,
   formatValue = formatCount,
+  formatTick = formatCompact,
+  ceiling,
   annotations = [],
   area = series.length === 1,
   integers = true,
@@ -37,15 +43,15 @@ export function LineChart({
   const count = series[0]?.points.length ?? 0
   const max = Math.max(0, ...series.flatMap((line) => line.points.map((point) => point.value)))
   const ticks = useMemo(() => {
-    const raw = niceTicks(max)
+    const raw = niceTicks(max).filter((tick) => ceiling === undefined || tick <= ceiling)
     return integers ? raw.filter((tick, index) => index === 0 || Number.isInteger(tick)) : raw
-  }, [max, integers])
+  }, [max, integers, ceiling])
   const top = ticks[ticks.length - 1] || 1
   const visibleNotes = annotations.filter((note) =>
     series[0]?.points.some((point) => point.time === note.time),
   )
   const pad = {
-    left: Math.max(...ticks.map((tick) => formatCompact(tick).length)) * 7 + 14,
+    left: Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7 + 14,
     right: 12,
     top: visibleNotes.length ? 30 : 10,
     bottom: 26,
@@ -105,7 +111,7 @@ export function LineChart({
               dy="0.32em"
               textAnchor="end"
             >
-              {formatCompact(tick)}
+              {formatTick(tick)}
             </text>
           </g>
         ))}
