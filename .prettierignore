@@ -3,3 +3,8 @@ node_modules
 pnpm-lock.yaml
 supabase/.temp
 supabase/.branches
+integrations/analytics-mobile/.build
+integrations/analytics-mobile/.swiftpm
+integrations/analytics-mobile/android/**/build
+integrations/analytics-mobile/android/**/.gradle
+integrations/analytics-react-native/lib

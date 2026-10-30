@@ -78,7 +78,9 @@ then stops recording for a day. Replays are kept for 30 days.
 
 ## Apps and servers: HTTP API
 
-iOS, Android, React Native, Flutter and servers send JSON to the same
+iOS, Android and React Native apps can use the SDKs in
+`integrations/analytics-mobile` and `integrations/analytics-react-native`,
+which send this for you. Flutter, games and servers send JSON to the same
 endpoint. Client keys (`kma_pk_`) can be shipped inside apps; server keys
 (`kma_sk_`) must stay on servers.
 

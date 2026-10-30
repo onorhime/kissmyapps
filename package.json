@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/build-analytics-sdk.mjs && node scripts/strip-production-preview-artifacts.mjs",
     "lint": "oxlint",
-    "format": "prettier --write src integrations/funnel integrations/analytics-web deploy/tracking-gateway index.html demo-funnel.html",
-    "format:check": "prettier --check src integrations/funnel integrations/analytics-web deploy/tracking-gateway index.html demo-funnel.html",
+    "format": "prettier --write src integrations/funnel integrations/analytics-web deploy/tracking-gateway integrations/analytics-react-native integrations/analytics-mobile index.html demo-funnel.html",
+    "format:check": "prettier --check src integrations/funnel integrations/analytics-web deploy/tracking-gateway integrations/analytics-react-native integrations/analytics-mobile index.html demo-funnel.html",
     "funnel:check": "tsc -p integrations/funnel/tsconfig.json && oxlint integrations/funnel --deny-warnings",
     "statements:generate": "node --experimental-strip-types scripts/generate-preview-statements.mjs",
     "test": "vitest run src integrations --maxWorkers=1 && node --experimental-vm-modules --test scripts/*.test.mjs",
@@ -17,11 +17,12 @@
     "test:db:audit": "node scripts/check-audit-migrations.mjs",
     "test:funnel:ui": "vitest run --config integrations/funnel/ui-check/vitest.config.ts",
     "validate:all": "pnpm validate && pnpm test:edge",
-    "validate": "pnpm format:check && pnpm lint && pnpm funnel:check && pnpm analytics-sdk:check && pnpm test && pnpm build",
+    "validate": "pnpm format:check && pnpm lint && pnpm funnel:check && pnpm analytics-sdk:check && pnpm mobile-sdk:check && pnpm test && pnpm build",
     "preview": "vite preview",
     "preview:metrics": "node scripts/funnel-metrics-local.mjs",
     "test:managed:crossapp": "node --conditions=react-server scripts/test-managed-checkout-crossapp.mjs",
-    "analytics-sdk:check": "tsc -p integrations/analytics-web/tsconfig.json && oxlint integrations/analytics-web --deny-warnings"
+    "analytics-sdk:check": "tsc -p integrations/analytics-web/tsconfig.json && oxlint integrations/analytics-web --deny-warnings",
+    "mobile-sdk:check": "tsc -p integrations/analytics-react-native/tsconfig.json && oxlint integrations/analytics-react-native --deny-warnings"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.3.0",

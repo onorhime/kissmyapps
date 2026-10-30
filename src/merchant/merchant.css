@@ -2320,6 +2320,14 @@ button.mc-session-time:hover {
 }
 .mc-install-steps > .mc-segmented {
   justify-self: start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+@media (max-width: 480px) {
+  .mc-install-steps > .mc-segmented button {
+    padding: 0 9px;
+  }
 }
 .mc-install-steps section {
   display: grid;
