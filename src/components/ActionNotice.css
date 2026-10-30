@@ -9,47 +9,118 @@
   pointer-events: none;
 }
 .action-notice {
+  --notice-accent: #58d65e;
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid #606066;
-  border-left: 4px solid #58d65e;
+  overflow: hidden;
+  padding: 14px 12px 16px 14px;
+  border: 1px solid color-mix(in srgb, var(--notice-accent) 35%, #4a4a4a);
   border-radius: 14px;
-  background: #222;
+  background: #262626;
   color: #fff;
-  box-shadow: 0 8px 32px #0006;
+  box-shadow: 0 12px 36px #0007;
   pointer-events: auto;
   overflow-wrap: anywhere;
+  animation: action-notice-in 0.18s ease-out;
 }
 .action-notice-error {
-  border-left-color: #ff6767;
+  --notice-accent: #ff6767;
 }
-.action-notice > svg {
+.action-notice-icon {
   flex-shrink: 0;
-  color: #58d65e;
-}
-.action-notice-error > svg {
-  color: #ff6767;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--notice-accent);
+  background: color-mix(in srgb, var(--notice-accent) 16%, transparent);
 }
 .action-notice p {
   flex: 1;
+  display: grid;
+  gap: 2px;
   margin: 0;
+  padding-top: 1px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
 }
+.action-notice p strong {
+  font-size: 14px;
+  font-weight: 750;
+}
+.action-notice p > span {
+  color: #e6e6e8;
+}
+.action-notice p .action-notice-hint {
+  color: #a9a9ae;
+  font-size: 12px;
+}
 .action-notice button {
+  flex-shrink: 0;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: #fff;
-  padding: 3px;
+  color: #a9a9ae;
+  padding: 4px;
   cursor: pointer;
+}
+.action-notice button:hover {
+  color: #fff;
+  background: #ffffff14;
 }
 .action-notice button:focus-visible {
   outline: 3px solid #66ccff;
   outline-offset: 3px;
+}
+/* Time left before a success notice closes; it pauses while hovered or focused. */
+.action-notice-timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--notice-accent);
+  transform-origin: left;
+  animation-name: action-notice-countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.action-notice-timer-paused {
+  animation: none;
+  opacity: 0.5;
+}
+@keyframes action-notice-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes action-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-notice {
+    animation: none;
+  }
+  .action-notice-timer {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 body:has(.dialog-content[data-state='open']) .action-notice-stack {
   visibility: hidden;

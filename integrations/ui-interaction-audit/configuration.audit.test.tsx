@@ -1,5 +1,5 @@
 // Regression acceptance tests for the interaction audit fixes. Synthetic records only.
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ProductConfigurationPage } from '../../src/features/admin/configuration/ProductConfigurationPage'
@@ -13,6 +13,25 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+type User = ReturnType<typeof userEvent.setup>
+
+async function openStep(user: User, title: string) {
+  const steps = screen.getByRole('navigation', { name: 'Setup steps' })
+  await user.click(within(steps).getByRole('button', { name: new RegExp(`^${title}`) }))
+}
+
+/** Fill a draft on the Funnel step, then return to Payments where the billing actions live. */
+async function typeFunnelDraft(user: User, name: string, key?: string) {
+  await openStep(user, 'Funnel')
+  const input = screen.getByRole('textbox', { name: 'Funnel name' })
+  await user.type(input, name)
+  if (key) await user.type(screen.getByRole('textbox', { name: 'Funnel key' }), key)
+  await openStep(user, 'Payments')
+  return input
+}
+
+const funnelName = () => screen.getByRole('textbox', { name: 'Funnel name', hidden: true })
+
 async function mount(gateway = auditGateway()) {
   const user = userEvent.setup()
   render(
@@ -24,7 +43,7 @@ async function mount(gateway = auditGateway()) {
     />,
   )
   await screen.findByRole('heading', { name: configuration.product.name, level: 1 })
-  await user.click(screen.getByRole('button', { name: 'Expand billing offers' }))
+  await openStep(user, 'Payments')
   return { user, gateway }
 }
 
@@ -33,8 +52,7 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
     const { user, gateway } = await mount()
     const refresh = deferred<ReturnType<typeof ready<typeof configuration>>>()
     gateway.getProductConfiguration = vi.fn(() => refresh.promise)
-    const originalInput = screen.getByRole('textbox', { name: 'Funnel name' })
-    await user.type(originalInput, 'Unsaved work that must survive')
+    const originalInput = await typeFunnelDraft(user, 'Unsaved work that must survive')
     await user.click(screen.getByRole('button', { name: 'Review activation' }))
     await user.click(screen.getByRole('button', { name: 'Confirm active' }))
     expect(await screen.findByText(/Refreshing configuration/)).toBeInTheDocument()
@@ -43,10 +61,14 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
     await act(async () => {
       refresh.resolve(ready(configuration))
     })
-    expect(await screen.findByRole('textbox', { name: 'Funnel name' })).toBe(originalInput)
-    expect(screen.getByRole('button', { name: 'Collapse billing offers' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
+    await waitFor(() =>
+      expect(screen.queryByText(/Refreshing configuration/)).not.toBeInTheDocument(),
+    )
+    expect(funnelName()).toBe(originalInput)
+    const steps = screen.getByRole('navigation', { name: 'Setup steps' })
+    expect(within(steps).getByRole('button', { name: /^Payments/ })).toHaveAttribute(
+      'aria-current',
+      'step',
     )
   })
 
@@ -63,14 +85,12 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
   it('UI-03: a successful write followed by a failed refresh retains the draft and offers a read-only retry', async () => {
     const { user, gateway } = await mount()
     gateway.getProductConfiguration = vi.fn(async () => unavailable())
-    await user.type(screen.getByRole('textbox', { name: 'Funnel name' }), 'Unrelated unsaved draft')
+    await typeFunnelDraft(user, 'Unrelated unsaved draft')
     await user.click(screen.getByRole('button', { name: 'Review activation' }))
     await user.click(screen.getByRole('button', { name: 'Confirm active' }))
     expect(await screen.findByRole('button', { name: 'Retry refresh' })).toBeEnabled()
     expect(await screen.findByText('Audit monthly offer is now active.')).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Funnel name' })).toHaveValue(
-      'Unrelated unsaved draft',
-    )
+    expect(funnelName()).toHaveValue('Unrelated unsaved draft')
     expect(screen.getByRole('button', { name: 'Review activation' })).toBeDisabled()
     const write = vi.spyOn(gateway, 'setBillingOfferStatus')
     gateway.getProductConfiguration = vi.fn(async () => ready(configuration))
@@ -79,9 +99,7 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
       expect(screen.getByRole('button', { name: 'Review activation' })).toBeEnabled(),
     )
     expect(write).not.toHaveBeenCalled()
-    expect(screen.getByRole('textbox', { name: 'Funnel name' })).toHaveValue(
-      'Unrelated unsaved draft',
-    )
+    expect(funnelName()).toHaveValue('Unrelated unsaved draft')
   })
 
   it('UI-04: conflicting sections and modal dismissal are visibly disabled during a write', async () => {
@@ -89,8 +107,7 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
     const save = deferred<ReturnType<typeof ready<(typeof configuration.billingOffers)[number]>>>()
     gateway.setBillingOfferStatus = vi.fn(() => save.promise)
     const create = vi.spyOn(gateway, 'createFunnel')
-    await user.type(screen.getByRole('textbox', { name: 'Funnel name' }), 'Another draft')
-    await user.type(screen.getByRole('textbox', { name: 'Funnel key' }), 'another-draft')
+    await typeFunnelDraft(user, 'Another draft', 'another-draft')
     await user.click(screen.getByRole('button', { name: 'Review activation' }))
     await user.click(screen.getByRole('button', { name: 'Confirm active' }))
     const otherAction = screen.getByRole('button', { name: 'Create draft funnel', hidden: true })
@@ -138,10 +155,12 @@ describe('2026-09-05 UI audit - preservation and feedback', () => {
       data: null,
       error: { code: 'not_authorized' as const, message: 'Access was removed.', retryable: false },
     }))
-    await user.type(screen.getByRole('textbox', { name: 'Funnel name' }), 'Private draft')
+    await typeFunnelDraft(user, 'Private draft')
     await user.click(screen.getByRole('button', { name: 'Review activation' }))
     await user.click(screen.getByRole('button', { name: 'Confirm active' }))
     expect(await screen.findByText('Access was removed.')).toBeVisible()
-    expect(screen.queryByRole('textbox', { name: 'Funnel name' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('textbox', { name: 'Funnel name', hidden: true }),
+    ).not.toBeInTheDocument()
   })
 })

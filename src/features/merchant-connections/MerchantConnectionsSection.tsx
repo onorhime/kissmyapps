@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link2, LoaderCircle, Mail } from 'lucide-react'
 import {
+  MerchantGatewayError,
   merchantGateway,
   type MerchantGateway,
   type MerchantInvitation,
@@ -22,6 +23,7 @@ export function MerchantConnectionsSection({
   const [status, setStatus] = useState<MerchantStatus | null>(null)
   const [reload, setReload] = useState(0)
   const [error, setError] = useState('')
+  const [unconfigured, setUnconfigured] = useState(false)
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
@@ -58,12 +60,16 @@ export function MerchantConnectionsSection({
             if (!latest) return current
             return latest.can_copy === false ? null : { ...current, ...latest }
           })
+          setUnconfigured(false)
           setError('')
         }
       })
       .catch((reason) => {
         if (active) {
           setStatus(null)
+          setUnconfigured(
+            reason instanceof MerchantGatewayError && reason.code === 'not_configured',
+          )
           setError(
             reason instanceof Error ? reason.message : 'Merchant connections could not be loaded.',
           )
@@ -258,7 +264,12 @@ export function MerchantConnectionsSection({
           </p>
         </div>
       </div>
-      {error && (
+      {error && unconfigured && !status && (
+        <p role="status" className="merchant-notice">
+          {error}
+        </p>
+      )}
+      {error && !(unconfigured && !status) && (
         <div role="alert" className="merchant-notice merchant-notice-error">
           {error}
           <button

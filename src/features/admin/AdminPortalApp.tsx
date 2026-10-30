@@ -28,6 +28,7 @@ import { FunnelsLinksPage } from './funnels/FunnelsLinksPage'
 import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
+import { ProductStatsPage } from './products/ProductStatsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
 import { PayoutsPage } from './payouts/PayoutsPage'
@@ -44,7 +45,8 @@ export type AdminPrimaryRoute =
   | 'payouts'
   | 'data-health'
   | 'settings'
-export type AdminRoute = AdminPrimaryRoute | 'product-configuration' | 'affiliate-detail'
+export type AdminRoute =
+  AdminPrimaryRoute | 'product-configuration' | 'product-stats' | 'affiliate-detail'
 
 export type AdminIdentity = Readonly<{
   name?: string | null
@@ -60,6 +62,7 @@ export type AdminPortalAppProps = Readonly<{
   affiliateId?: string | null
   onNavigate: (route: AdminRoute) => void
   onOpenProductConfiguration: (productId: string) => void
+  onOpenProductStats?: (productId: string) => void
   onOpenAffiliate?: (affiliateId: string) => void
   onSignOut: () => void | Promise<void>
   onSwitchToPartner: () => void | Promise<void>
@@ -93,14 +96,16 @@ const routeLabels: Record<AdminRoute, string> = {
   payouts: 'Payouts',
   'data-health': 'Data Health',
   settings: 'Settings',
-  'product-configuration': 'Product configuration',
+  'product-configuration': 'Product setup',
+  'product-stats': 'Product stats',
   'affiliate-detail': 'Affiliate details',
 }
 
 function routeIsActive(route: AdminRoute, navigationRoute: AdminPrimaryRoute): boolean {
   return (
     route === navigationRoute ||
-    (route === 'product-configuration' && navigationRoute === 'products') ||
+    ((route === 'product-configuration' || route === 'product-stats') &&
+      navigationRoute === 'products') ||
     (route === 'affiliate-detail' && navigationRoute === 'affiliates')
   )
 }
@@ -175,6 +180,7 @@ export function AdminPortalApp({
   affiliateId,
   onNavigate,
   onOpenProductConfiguration,
+  onOpenProductStats,
   onOpenAffiliate,
   onSignOut,
   onSwitchToPartner,
@@ -428,6 +434,12 @@ export function AdminPortalApp({
                     gateway={effectiveGateway}
                     onBack={() => navigate('products')}
                     onProductRead={replaceProduct}
+                    onOpenSettings={settingsRestricted ? undefined : () => navigate('settings')}
+                    onOpenStats={
+                      onOpenProductStats
+                        ? () => guard.request(() => onOpenProductStats(productId))
+                        : undefined
+                    }
                   />
                 ) : (
                   <section
@@ -449,12 +461,29 @@ export function AdminPortalApp({
                     </button>
                   </section>
                 )
-              ) : route === 'products' ? (
+              ) : route === 'product-stats' && productId ? (
+                <ProductStatsPage
+                  key={`${context.userId}:${productId}`}
+                  productId={productId}
+                  context={context}
+                  gateway={effectiveGateway}
+                  onBack={() => navigate('products')}
+                  onOpenSetup={() => onOpenProductConfiguration(productId)}
+                  onOpenSubscriptions={
+                    context.role === 'support' ? undefined : () => navigate('subscriptions')
+                  }
+                />
+              ) : route === 'products' || route === 'product-stats' ? (
                 <ProductsPage
                   context={context}
                   products={state.products}
                   onCreate={createProduct}
                   onConfigure={(id) => guard.request(() => onOpenProductConfiguration(id))}
+                  onViewStats={
+                    onOpenProductStats
+                      ? (id) => guard.request(() => onOpenProductStats(id))
+                      : undefined
+                  }
                 />
               ) : route === 'funnels-links' ? (
                 funnelsLinksRestricted ? (

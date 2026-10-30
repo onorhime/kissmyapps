@@ -282,6 +282,7 @@ it('shows verified commercial traffic without turning unavailable financial tota
   expect(within(tiktok).getAllByText('2')).toHaveLength(3)
   expect(within(tiktok).getByText('—')).toBeVisible()
   expect(within(summary).queryByText('$0.00')).not.toBeInTheDocument()
+  await userEvent.setup().click(screen.getByText('How these numbers work'))
   expect(
     screen.getByText(/Verified traffic can appear before financial totals are complete/),
   ).toBeVisible()
@@ -319,9 +320,96 @@ it('separates confirmed zero revenue from active free subscriptions without clai
   )
   expect(within(cards).queryByText('—')).not.toBeInTheDocument()
   expect(screen.getByText('Recorded totals · preliminary.')).toBeVisible()
+  await userEvent.setup().click(screen.getByText('How these numbers work'))
   expect(screen.getByText(/not money available for payout/)).toBeVisible()
   expect(screen.getByText(/a free checkout is not a paid purchase/)).toBeVisible()
   expect(screen.getByText(/Links & Sources shows all-time raw clicks/)).toBeVisible()
+})
+
+it('shows rates, a day-by-day chart, and the conversion path for the selected period', async () => {
+  const user = userEvent.setup()
+  const { dataGateway } = gateway()
+  dataGateway.getProducts = async () =>
+    result([{ ...product, trackingMode: 'commercial' }], 'ready')
+  dataGateway.getDashboardSummary = async () =>
+    result(
+      {
+        ...emptyPartnerDashboardSummary(),
+        startsOn: '2026-08-30',
+        endsOn: '2026-08-31',
+        hasData: true,
+        currency: 'USD',
+        reconciliationStage: 'reconciled',
+        metrics: {
+          ...emptyPartnerDashboardSummary().metrics,
+          clicks: 200,
+          funnelStarts: 100,
+          paymentViews: 40,
+          purchases: 10,
+          earningsMinor: 12500,
+          activeSubscriptions: 8,
+        },
+      },
+      'ready',
+    )
+  dataGateway.getDashboardTrends = async () =>
+    result(
+      [
+        trendPoint({ key: 'tiktok', label: 'TikTok' }, '2026-08-30', {
+          clicks: 150,
+          funnelStarts: 80,
+          paymentViews: 30,
+          appStoreClicks: 0,
+        }),
+        trendPoint({ key: 'instagram', label: 'Instagram' }, '2026-08-31', {
+          clicks: 50,
+          funnelStarts: 20,
+          paymentViews: 10,
+          appStoreClicks: 0,
+        }),
+      ],
+      'ready',
+    )
+  const onReportingDaysChange = vi.fn()
+  render(
+    <PartnerLiveWorkspaceProvider
+      gateway={dataGateway}
+      client={null}
+      sessionUserId="user-1"
+      reporting={{
+        startsOn: '2026-08-30',
+        endsOn: '2026-08-31',
+        timezone: 'UTC',
+        grain: 'day',
+        breakdown: 'source',
+      }}
+    >
+      <LivePartnerPortal
+        page="performance"
+        reportingDays={30}
+        onReportingDaysChange={onReportingDaysChange}
+      />
+    </PartnerLiveWorkspaceProvider>,
+  )
+
+  expect(await screen.findByText('5% of clicks became a purchase')).toBeVisible()
+  expect(screen.getByText('$125.00')).toBeVisible()
+  expect(screen.getByText('Recorded totals.')).toBeVisible()
+  expect(
+    screen.getByRole('img', { name: /Clicks per day from Aug 30 to Aug 31\. Total 200\./ }),
+  ).toBeInTheDocument()
+  const path = screen.getByRole('region', { name: 'Your conversion path' })
+  expect(within(path).getByText('50% of previous')).toBeVisible()
+  expect(within(path).getByText('25% of previous')).toBeVisible()
+  expect(within(screen.getByRole('row', { name: /TikTok/ })).getByText('75%')).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: 'Paid purchases' }))
+  expect(screen.getByRole('button', { name: 'Paid purchases' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await user.click(screen.getByRole('button', { name: '7 days' }))
+  expect(onReportingDaysChange).toHaveBeenCalledWith(7)
 })
 
 it('explains that link counts include bot-classified visits and are all-time', async () => {

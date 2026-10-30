@@ -15,8 +15,8 @@ VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= VITE_SUPABASE_PUBLISHABLE_KEY= pnpm e
 Open `http://127.0.0.1:5191/integrations/ui-interaction-audit/index.html`.
 
 1. Enter an unsaved Funnel name.
-2. Expand Billing offers; click Review activation. A focused modal opens within the viewport on desktop and mobile. Cancel returns focus to the opener.
-3. Confirm the synthetic activation. During the 1.5-second read delay, the page, unrelated funnel draft, and expanded Billing section stay mounted. A top-right success notification appears; the write is not repeated during the read.
-4. Reload this isolated page to reset its in-memory data. Expand Billing, enter a separate create-offer draft, and click Edit draft. The actual editing field receives focus. Cancel edit restores the separate create draft.
+2. Open the Payments step; click Review activation. A focused modal opens within the viewport on desktop and mobile. Cancel returns focus to the opener.
+3. Confirm the synthetic activation. During the 1.5-second read delay, the page, unrelated funnel draft (on the Funnel step), and the open Payments step stay mounted. A top-right success notification appears; the write is not repeated during the read.
+4. Reload this isolated page to reset its in-memory data. Open the Payments step, enter a separate create-offer draft, and click Edit draft. The actual editing field receives focus. Cancel edit restores the separate create draft.
 
 All records and mutations here are fake. Do not use real partner data, passwords, legal evidence, or checkout identifiers in this fixture.
