@@ -1,6 +1,6 @@
 /** Merchant analytics SQL suite on a disposable local Postgres cluster.
- * Applies the bootstrap and every migration, then runs
- * supabase/tests/database/63_merchant_analytics.sql in one rolled-back transaction.
+ * Applies the bootstrap and every migration, then runs each merchant analytics suite in
+ * supabase/tests/database, each in its own rolled-back transaction.
  * Skips when no Postgres binaries are installed. PG_BIN picks the binaries; when
  * running as root, PG_RUN_AS names the user that runs the cluster.
  */
@@ -26,6 +26,12 @@ function postgresBin() {
   ].filter(Boolean)
   return candidates.find((dir) => existsSync(join(dir, 'initdb')) && existsSync(join(dir, 'psql')))
 }
+
+// Each suite runs in its own rolled-back transaction and ends by printing its count.
+const suites = [
+  ['63_merchant_analytics.sql', /^ok \d+ merchant analytics assertions$/m],
+  ['64_merchant_funnels.sql', /^ok \d+ merchant funnel assertions$/m],
+]
 
 const bin = postgresBin()
 const runAs = process.getuid?.() === 0 ? process.env.PG_RUN_AS : undefined
@@ -86,15 +92,15 @@ test('merchant analytics database suite', { skip, timeout: 300_000 }, () => {
         ),
       )
     }
-    let output
-    try {
-      output = sql(
-        readFileSync(join(root, 'supabase/tests/database/63_merchant_analytics.sql'), 'utf8'),
-      )
-    } catch (error) {
-      assert.fail(error.stderr?.toString() || error.message)
+    for (const [file, done] of suites) {
+      let output
+      try {
+        output = sql(readFileSync(join(root, 'supabase/tests/database', file), 'utf8'))
+      } catch (error) {
+        assert.fail(`${file}: ${error.stderr?.toString() || error.message}`)
+      }
+      assert.match(output, done)
     }
-    assert.match(output, /^ok \d+ merchant analytics assertions$/m)
   } finally {
     if (started) run('pg_ctl', ['-D', join(dir, 'data'), 'stop', '-m', 'fast'])
     rmSync(dir, { recursive: true, force: true })

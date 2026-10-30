@@ -14,6 +14,9 @@ export type ProjectRoute =
   | { name: 'person'; projectId: string; personId: string }
   | { name: 'sessions'; projectId: string }
   | { name: 'session'; projectId: string; sessionId: string }
+  | { name: 'funnels'; projectId: string }
+  /** A saved funnel by its id, or 'new' for the builder. */
+  | { name: 'funnel'; projectId: string; funnelId: string }
   | { name: 'events'; projectId: string }
   | { name: 'live'; projectId: string }
   | { name: 'event'; projectId: string; eventName: string }
@@ -80,6 +83,10 @@ export function parseRoute(hash: string): Route {
       return detail
         ? { name: 'session', projectId, sessionId: detail }
         : { name: 'sessions', projectId }
+    case 'funnels':
+      return detail
+        ? { name: 'funnel', projectId, funnelId: detail }
+        : { name: 'funnels', projectId }
     case 'live':
       return { name: 'live', projectId }
     case 'events':
@@ -139,6 +146,10 @@ export function href(route: Route): string {
       return `${base}/sessions`
     case 'session':
       return `${base}/sessions/${encodeURIComponent(route.sessionId)}`
+    case 'funnels':
+      return `${base}/funnels`
+    case 'funnel':
+      return `${base}/funnels/${encodeURIComponent(route.funnelId)}`
     case 'events':
       return `${base}/events`
     case 'live':

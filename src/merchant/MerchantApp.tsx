@@ -7,6 +7,7 @@ import { MerchantStoreProvider, useStore } from './store'
 import { AuthScreen } from './screens/Auth'
 import { BotsScreen } from './screens/Bots'
 import { EventDetailScreen, EventsScreen } from './screens/Events'
+import { FunnelScreen, FunnelsScreen } from './screens/Funnels'
 import { OverviewScreen } from './screens/Overview'
 import { SessionDetailScreen, SessionsScreen } from './screens/Sessions'
 import { MembersScreen, ProjectSettingsScreen, ProjectsScreen } from './screens/Settings'
@@ -30,6 +31,8 @@ const titles: Record<Route['name'], string> = {
   person: 'User',
   sessions: 'Sessions',
   session: 'Session',
+  funnels: 'Funnels',
+  funnel: 'Funnel',
   events: 'Events',
   live: 'Live events',
   event: 'Event',
@@ -182,6 +185,12 @@ function Screens() {
             sessionId={route.sessionId}
           />
         )
+        break
+      case 'funnels':
+        content = <FunnelsScreen key={project.id} project={project} />
+        break
+      case 'funnel':
+        content = <FunnelScreen key={route.funnelId} project={project} funnelId={route.funnelId} />
         break
       case 'events':
       case 'live':
