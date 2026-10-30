@@ -513,3 +513,8 @@ verify_jwt = false
 # Signed Connect account status/revocation events, separate from payments.
 [functions.merchant-connect-webhook]
 verify_jwt = false
+
+# Merchant analytics: apps and websites send events and session replays with a
+# project API key, checked in the database. No Supabase session is involved.
+[functions.analytics-ingest]
+verify_jwt = false
