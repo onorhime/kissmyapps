@@ -258,15 +258,20 @@ accept them: there is nothing to migrate or redeploy for them. The ingest functi
    `integrations/analytics-mobile` is published as its own public repository. The console
    assumes `https://github.com/onorhime/kissmyapps-mobile`; for another name, change
    `MOBILE_SDK.repository` in `src/merchant/config.ts` (or set
-   `VITE_MOBILE_SDK_REPOSITORY` for the dashboard build). Then:
+   `VITE_MOBILE_SDK_REPOSITORY` for the dashboard build). The public repository gets the
+   folder as one clean commit per release, not the monorepo's history:
 
    ```sh
-   git subtree split --prefix integrations/analytics-mobile -b mobile-sdk
-   git push https://github.com/onorhime/kissmyapps-mobile.git mobile-sdk:main
+   git fetch https://github.com/onorhime/kissmyapps.git main
+   # First release; for later ones add -p <the public repository's current main>.
+   C=$(git commit-tree FETCH_HEAD:integrations/analytics-mobile -m "KissMyApps mobile SDK 1.0.0")
+   git push https://github.com/onorhime/kissmyapps-mobile.git "$C:refs/heads/main"
    ```
 
-   Tag `1.0.0` in that repository and open https://jitpack.io/#onorhime/kissmyapps-mobile/1.0.0
-   once, so JitPack builds it before the first app asks for it.
+   Tag `1.0.0` in that repository (add the release to `CHANGELOG.md` first) and open
+   https://jitpack.io/#onorhime/kissmyapps-mobile/1.0.0 once, so JitPack builds it before
+   the first app asks for it. The folder's `.github/workflows/ci.yml` only runs there, where
+   it tests both SDKs on every push and tag and feeds the README's CI badge.
 2. npm. Create the `kissmyapps` organization on npmjs.com, then
    `cd integrations/analytics-react-native && npm publish` (it builds `lib/` first and
    publishes `@kissmyapps/react-native` publicly).
