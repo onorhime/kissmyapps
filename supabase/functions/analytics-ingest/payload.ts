@@ -199,7 +199,7 @@ export function normalizeBody(
     if (
       !replay || !Array.isArray(replay.events) ||
       !Number.isInteger(replay.seq) || (replay.seq as number) < 0 ||
-      (replay.seq as number) > 9999 ||
+      (replay.seq as number) > 2_000_000_000 ||
       typeof replay.first_ts !== "number" || typeof replay.last_ts !== "number"
     ) {
       throw new RequestError(

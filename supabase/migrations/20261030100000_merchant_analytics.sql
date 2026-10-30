@@ -197,7 +197,9 @@ create table public.analytics_event_definitions (
 
 create table public.analytics_replay_chunks (
   session_id uuid not null references public.analytics_sessions(id) on delete cascade,
-  seq integer not null check (seq between 0 and 9999),
+  -- Milliseconds from the session start to the chunk's first event, so chunks from
+  -- separate page loads of one session never collide and sort in time order.
+  seq integer not null check (seq >= 0),
   first_ts timestamptz not null,
   last_ts timestamptz not null,
   events jsonb not null check (jsonb_typeof(events) = 'array'),
@@ -733,7 +735,7 @@ begin
     v_chunk := v_body->'replay';
     if jsonb_typeof(v_chunk->'events') is distinct from 'array' or jsonb_typeof(v_chunk->'first_ts') is distinct from 'number'
        or jsonb_typeof(v_chunk->'last_ts') is distinct from 'number' or jsonb_typeof(v_chunk->'seq') is distinct from 'number'
-       or (v_chunk->>'seq')::numeric not between 0 and 9999 then
+       or (v_chunk->>'seq')::numeric not between 0 and 2000000000 then
       raise exception 'Replay chunk is malformed' using errcode = '22023';
     end if;
     v_bytes := length((v_chunk->'events')::text);
