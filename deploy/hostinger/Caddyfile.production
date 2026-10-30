@@ -150,3 +150,31 @@ events.kissmyapps.dev {
 		respond "Not found" 404
 	}
 }
+
+# BC Learn block for the existing shared proxy; not a standalone proxy config.
+# Preserve all other project routes when installing or updating this block.
+# BEGIN BC LEARN - stable marker for the existing deployment
+speaksix.com, admin.speaksix.com, bclearnenglish.com, admin.bclearnenglish.com {
+    # The original origins remain compatible with existing sessions and emails.
+    encode zstd gzip
+    reverse_proxy bclearn-web:3100
+}
+marathon.speaksix.com {
+    encode zstd gzip
+    header Referrer-Policy no-referrer
+    reverse_proxy bclearn-web:3100
+}
+www.speaksix.com, www.bclearnenglish.com {
+    redir https://speaksix.com{uri} 308
+}
+app.bclearnenglish.com {
+    # Provider deliveries must never depend on a browser redirect.
+    @webhooks path /api/stripe/webhook /api/zoom/webhook
+    handle @webhooks {
+        reverse_proxy bclearn-web:3100
+    }
+    handle {
+        redir https://speaksix.com{uri} 308
+    }
+}
+# END BC LEARN

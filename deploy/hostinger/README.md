@@ -21,6 +21,10 @@ DramaPal Docker stack without publishing another host port.
   `events.kissmyapps.dev` to the `analytics-ingest` function. That release has
   its own steps, secrets and smoke test in
   [the merchant analytics deploy checklist](../../docs/merchant-analytics-deploy.md).
+  The BC Learn block at the end belongs to another project on the same edge and
+  must stay in this file. The host's copy has the real proxy secret in place of
+  `{env.KMA_ANALYTICS_PROXY_SECRET}`, so merge into that copy instead of replacing
+  it with this file, and never commit the value.
 - `analytics-maintenance.sql` schedules the daily 30-day replay purge.
 
 The dashboard container is read-only, runs as an unprivileged UID with

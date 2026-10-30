@@ -11,6 +11,16 @@ const route = new RegExp(pretty, 'u')
 // The tracking host's own block: other hosts (events) have their own upstreams.
 const goStart = caddy.indexOf('go.kissmyapps.dev {')
 const goBlock = caddy.slice(goStart, caddy.indexOf('\n}\n', goStart) + 2)
+const production = read('deploy/hostinger/Caddyfile.production')
+// The production file also carries other projects' hosts after these, which the standalone
+// snippet leaves out.
+const goThroughEvents = (file) => {
+  const start = file.indexOf('go.kissmyapps.dev {')
+  return file.slice(
+    start,
+    file.indexOf('\n}\n', file.indexOf('events.kissmyapps.dev {', start)) + 2,
+  )
+}
 
 test('Caddy routes readable Unicode aliases and rejects malformed path structure', () => {
   assert.ok(pretty)
@@ -62,11 +72,19 @@ test('Caddy preserves the legacy route first and never adds another upstream', (
   )
   assert.match(caddy, /respond "Not found" 404/)
   assert.match(caddy, /Cache-Control "no-store, max-age=0"/)
-  const production = read('deploy/hostinger/Caddyfile.production')
-  assert.equal(
-    production.slice(production.indexOf('go.kissmyapps.dev {')).trim(),
-    caddy.slice(caddy.indexOf('go.kissmyapps.dev {')).trim(),
-  )
+  assert.equal(goThroughEvents(production), goThroughEvents(caddy))
+})
+
+test('Production edge keeps the shared BC Learn hosts and only a placeholder for the proxy secret', () => {
+  for (const host of [
+    'speaksix.com, admin.speaksix.com, bclearnenglish.com, admin.bclearnenglish.com {',
+    'marathon.speaksix.com {',
+    'www.speaksix.com, www.bclearnenglish.com {',
+    'app.bclearnenglish.com {',
+  ])
+    assert.ok(production.includes(`\n${host}\n`), host)
+  for (const file of [production, caddy])
+    assert.match(file, /header_up X-Kma-Proxy \{env\.KMA_ANALYTICS_PROXY_SECRET\}\n/)
 })
 
 function rewrite(path) {
