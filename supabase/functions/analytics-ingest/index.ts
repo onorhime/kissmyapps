@@ -15,6 +15,7 @@ import {
   type IngestPayload,
   normalizeBody,
   sha256Hex,
+  visitorHeaders,
 } from "./payload.ts";
 
 export interface IngestResult {
@@ -34,6 +35,8 @@ export interface IngestDependencies {
     payload: IngestPayload,
   ): Promise<{ data: IngestResult | null; error: IngestError | null }>;
   ipSalt(): string;
+  /** Shared with the events.kissmyapps.dev proxy; see visitorHeaders. */
+  proxySecret?(): string | null;
   now(): Date;
 }
 
@@ -140,7 +143,11 @@ export function createAnalyticsIngestHandler(deps: IngestDependencies) {
       const key = apiKey(request, rawBody);
       const now = deps.now();
       const { body, skewMs } = normalizeBody(raw, kind, origin !== null, now);
-      const ip = clientIp(request.headers);
+      const visitor = visitorHeaders(
+        request.headers,
+        deps.proxySecret?.() ?? null,
+      );
+      const ip = clientIp(visitor);
       const payload: IngestPayload = {
         key_hash: await sha256Hex(key),
         kind,
@@ -148,7 +155,7 @@ export function createAnalyticsIngestHandler(deps: IngestDependencies) {
         ip_sha: ip ? await sha256Hex(`${deps.ipSalt()}:${ip}`) : null,
         user_agent: request.headers.get("user-agent")?.slice(0, 400) ?? null,
         geo: geoFromRequest(
-          request.headers,
+          visitor,
           (body.context as Record<string, unknown>).timezone,
         ),
         clock_skew_ms: skewMs,
@@ -172,6 +179,7 @@ export const handleAnalyticsIngest = createAnalyticsIngestHandler({
     return { data: data as IngestResult | null, error };
   },
   ipSalt: () => Deno.env.get("ANALYTICS_IP_SALT") ?? "kma-analytics",
+  proxySecret: () => Deno.env.get("ANALYTICS_PROXY_SECRET") || null,
   now: () => new Date(),
 });
 

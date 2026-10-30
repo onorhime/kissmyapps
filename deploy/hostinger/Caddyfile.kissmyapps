@@ -14,6 +14,10 @@ admin.kissmyapps.dev {
 	import kissmyapps_dashboard
 }
 
+merchant.kissmyapps.dev {
+	import kissmyapps_dashboard
+}
+
 go.kissmyapps.dev {
 	import compressed
 
@@ -60,6 +64,46 @@ go.kissmyapps.dev {
 			rewrite * /functions/v1/tracking-redirect{uri}
 			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
 				header_up Host {upstream_hostport}
+			}
+		}
+
+		respond "Not found" 404
+	}
+}
+
+# The analytics SDK posts events and replay chunks here. The hop to Supabase would
+# otherwise make every visitor look like this server, so the proxy names the visitor in
+# X-Kma-* headers and proves it with the secret that analytics-ingest also holds as
+# ANALYTICS_PROXY_SECRET. Without the secret the function ignores those headers.
+events.kissmyapps.dev {
+	import compressed
+
+	header {
+		Cache-Control "no-store, max-age=0"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+
+	route {
+		@ingest path /v1/events /v1/replay
+
+		handle @ingest {
+			request_body {
+				max_size 5MB
+			}
+			# Only this proxy may describe the visitor: drop whatever the browser sent.
+			request_header -X-Kma-*
+			rewrite * /functions/v1/analytics-ingest{uri}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				header_up Host {upstream_hostport}
+				header_up X-Kma-Via events-proxy
+				header_up X-Kma-Proxy {env.KMA_ANALYTICS_PROXY_SECRET}
+				header_up X-Kma-Client-Ip {client_ip}
+				# With Cloudflare in front of this host and its visitor location headers on,
+				# also pass the place so that the console can show regions and cities:
+				# header_up X-Kma-Country {http.request.header.Cf-Ipcountry}
+				# header_up X-Kma-Region {http.request.header.Cf-Region}
+				# header_up X-Kma-City {http.request.header.Cf-Ipcity}
 			}
 		}
 

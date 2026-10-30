@@ -16,6 +16,12 @@ DramaPal Docker stack without publishing another host port.
   on `go.kissmyapps.dev` to the same production Supabase redirect function.
   Readable paths preserve Unicode letters/numbers; the Edge function owns
   canonical path validation and existing attribution/readiness checks.
+  It also serves the merchant analytics console on `merchant.kissmyapps.dev`
+  and forwards only the SDK's `/v1/events` and `/v1/replay` on
+  `events.kissmyapps.dev` to the `analytics-ingest` function. That release has
+  its own steps, secrets and smoke test in
+  [the merchant analytics deploy checklist](../../docs/merchant-analytics-deploy.md).
+- `analytics-maintenance.sql` schedules the daily 30-day replay purge.
 
 The dashboard container is read-only, runs as an unprivileged UID with
 `no-new-privileges`, has no host port, and stores no secrets. The frontend build

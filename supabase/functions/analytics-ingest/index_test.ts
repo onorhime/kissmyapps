@@ -337,3 +337,56 @@ Deno.test("without CDN headers the time zone gives the country", () => {
     "edge",
   );
 });
+
+Deno.test("the events proxy passes the visitor's address and place with its secret", async () => {
+  const calls: IngestPayload[] = [];
+  const handler = createAnalyticsIngestHandler({
+    ingest: (payload) => {
+      calls.push(payload);
+      return Promise.resolve({
+        data: { stored: 0, duplicates: 0, rejected: [] },
+        error: null,
+      });
+    },
+    ipSalt: () => "salt",
+    proxySecret: () => "proxy-secret",
+    now: () => now,
+  });
+  const proxyHop = {
+    authorization: `Bearer ${key}`,
+    "cf-connecting-ip": "203.0.113.10",
+    "cf-ipcountry": "LT",
+    "x-kma-client-ip": "102.89.34.10",
+    "x-kma-country": "NG",
+    "x-kma-city": "Lagos",
+  };
+  await handler(
+    post("/v1/events", { events: [] }, {
+      ...proxyHop,
+      "x-kma-proxy": "proxy-secret",
+    }),
+  );
+  assertEquals(calls[0].geo, { country: "NG", city: "Lagos", source: "edge" });
+  assertEquals(calls[0].ip_sha, await sha256Hex("salt:102.89.34.10"));
+
+  // Through a proxy without the right secret nothing about the place can be trusted:
+  // neither the visitor headers nor the hop's own, which describe the proxy.
+  await handler(
+    post("/v1/events", {
+      context: { timezone: "Africa/Lagos" },
+      events: [],
+    }, { ...proxyHop, "x-kma-via": "events-proxy", "x-kma-proxy": "guess" }),
+  );
+  assertEquals(calls[1].geo, { country: "NG", source: "timezone" });
+  assertEquals(calls[1].ip_sha, null);
+
+  // A direct call keeps its own CDN headers.
+  await handler(
+    post("/v1/events", { events: [] }, {
+      authorization: `Bearer ${key}`,
+      "cf-connecting-ip": "203.0.113.10",
+      "cf-ipcountry": "LT",
+    }),
+  );
+  assertEquals(calls[2].geo, { country: "LT", source: "edge" });
+});

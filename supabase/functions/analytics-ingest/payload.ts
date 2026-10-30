@@ -287,6 +287,41 @@ export function geoFromRequest(headers: Headers, timezone: unknown): Geo {
   return fromZone ? { country: fromZone, source: "timezone" } : {};
 }
 
+/**
+ * The headers that describe the visitor. Behind the events.kissmyapps.dev proxy the hop
+ * to this function carries the proxy's own address and CDN place, so the proxy marks the
+ * request (x-kma-via) and passes the visitor's under x-kma-* names with a shared secret.
+ * A proxied request whose secret does not match says nothing reliable about the visitor,
+ * so it gets no address and no CDN place (the time zone still gives the country).
+ */
+export function visitorHeaders(
+  headers: Headers,
+  proxySecret: string | null,
+): Headers {
+  if (!headers.has("x-kma-via") && !headers.has("x-kma-proxy")) return headers;
+  const visitor = new Headers();
+  const sent = headers.get("x-kma-proxy") ?? "";
+  if (!proxySecret || !sameText(sent, proxySecret)) return visitor;
+  const copy = (from: string, to: string) => {
+    const value = headers.get(from)?.trim();
+    if (value) visitor.set(to, value);
+  };
+  copy("x-kma-client-ip", "x-real-ip");
+  copy("x-kma-country", "cf-ipcountry");
+  copy("x-kma-region", "cf-region");
+  copy("x-kma-city", "cf-ipcity");
+  return visitor;
+}
+
+function sameText(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let difference = 0;
+  for (let index = 0; index < a.length; index++) {
+    difference |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
 export function clientIp(headers: Headers): string | null {
   const direct = headers.get("cf-connecting-ip")?.trim() ??
     headers.get("x-real-ip")?.trim();
