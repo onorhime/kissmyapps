@@ -25,7 +25,12 @@ http://:8080 {
 		@immutable path /assets/*
 		header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-		@applicationShell not path /assets/*
+		# Customer sites load the analytics SDK on every page; its names are not hashed,
+		# so a short cache keeps releases quick to reach them.
+		@analyticsSdk path /sdk/*
+		header @analyticsSdk Cache-Control "public, max-age=300"
+
+		@applicationShell not path /assets/* /sdk/*
 		header @applicationShell Cache-Control "no-store, max-age=0"
 
 		root * /srv

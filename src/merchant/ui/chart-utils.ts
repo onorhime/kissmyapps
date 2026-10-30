@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 
+export type Point = { time: number; value: number; partial?: boolean }
+
 /** Validated on #222222 with the dataviz palette check: in band, CVD-safe in this order. */
 export const seriesColors = ['#279fd7', '#c28621', '#dc6499', '#48ac51']
 

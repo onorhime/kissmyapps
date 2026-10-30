@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react'
-import type { Point } from '../data/model'
-import { formatCompact, formatCount, formatTime } from '../format'
-import { niceTicks, seriesColors, useWidth } from './chart-utils'
+import { formatCompact, formatCount } from '../format'
+import { niceTicks, useWidth } from './chart-utils'
+import type { Point } from './chart-utils'
 
 export type ChartSeries = { key: string; label: string; color: string; points: Point[] }
 
@@ -253,44 +253,6 @@ export function LineChart({
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-export function MinuteStrip({
-  points,
-  color = seriesColors[0],
-  label,
-}: {
-  points: Point[]
-  color?: string
-  label: string
-}) {
-  const [ref, width] = useWidth<HTMLDivElement>(240)
-  const height = 30
-  const gap = 1
-  const barWidth = Math.max(1, (width - gap * (points.length - 1)) / points.length)
-  const max = Math.max(1, ...points.map((point) => point.value))
-  return (
-    <div ref={ref} className="mc-strip" role="img" aria-label={label}>
-      <svg width={width} height={height} aria-hidden="true">
-        <line className="mc-chart-base" x1={0} x2={width} y1={height - 0.5} y2={height - 0.5} />
-        {points.map((point, index) =>
-          point.value > 0 ? (
-            <rect
-              key={point.time}
-              x={index * (barWidth + gap)}
-              y={height - 1 - Math.max(2, (point.value / max) * (height - 2))}
-              width={barWidth}
-              height={Math.max(2, (point.value / max) * (height - 2))}
-              fill={color}
-              opacity={point.partial ? 0.55 : 1}
-            >
-              <title>{`${formatTime(point.time)} · ${formatCount(point.value)} events`}</title>
-            </rect>
-          ) : null,
-        )}
-      </svg>
     </div>
   )
 }
