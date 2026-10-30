@@ -1323,8 +1323,13 @@ export function InstallGuide({
             </ul>
           ) : (
             <p className="mc-arriving-wait">
-              <LoaderCircle className="mc-spin" size={16} aria-hidden="true" /> Waiting for the
-              first event from {project.name}
+              <LoaderCircle className="mc-spin" size={16} aria-hidden="true" />
+              {/* A test event or a server import has no session, so it is not a source yet. */}
+              {!status.data?.events_total
+                ? ` Waiting for the first event from ${project.name}`
+                : tab === 'web'
+                  ? ` Events are getting through. Waiting for the first visit from ${project.name}: open a page that has the script.`
+                  : ` Events are getting through. Waiting for the first app session from ${project.name}.`}
             </p>
           )}
           {status.data && status.data.events_total > 0 && (
