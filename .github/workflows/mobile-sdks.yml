@@ -49,7 +49,7 @@ jobs:
         run: ./gradlew :kissmyapps:assembleRelease :kissmyapps:publishReleasePublicationToMavenLocal
 
   ios:
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: integrations/analytics-mobile
