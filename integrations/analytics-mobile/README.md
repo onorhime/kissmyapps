@@ -400,7 +400,7 @@ lists under [What gets recorded](#what-gets-recorded) are everything this SDK se
 
 ## React Native and other platforms
 
-- **React Native and Expo:** [`@kissmyapps/react-native`](https://www.npmjs.com/package/@kissmyapps/react-native),
+- **React Native and Expo:** [`@kissmyappss/react-native`](https://www.npmjs.com/package/@kissmyappss/react-native),
   plain JavaScript with no native code to link.
 - **Websites:** the console's Install SDK page has the one-line script tag.
 - **Anything else:** send the same JSON over HTTP; the format is in

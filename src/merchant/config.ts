@@ -16,7 +16,7 @@ export const MOBILE_SDK = {
   repository:
     import.meta.env.VITE_MOBILE_SDK_REPOSITORY?.trim() ||
     'https://github.com/onorhime/kissmyapps-mobile',
-  npmPackage: '@kissmyapps/react-native',
+  npmPackage: '@kissmyappss/react-native',
 }
 
 /** JitPack's coordinates for a single-library repository: com.github.<owner>:<repository>. */

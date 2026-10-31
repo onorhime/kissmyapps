@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@kissmyapps/react-native"><img src="https://img.shields.io/npm/v/@kissmyapps/react-native?color=ff80bf&labelColor=222222" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@kissmyappss/react-native"><img src="https://img.shields.io/npm/v/@kissmyappss/react-native?color=ff80bf&labelColor=222222" alt="npm"></a>
   <img src="https://img.shields.io/badge/React%20Native-0.70%2B-ff80bf?logo=react&logoColor=white&labelColor=222222" alt="React Native 0.70+">
   <img src="https://img.shields.io/badge/Expo-ready-ff80bf?logo=expo&logoColor=white&labelColor=222222" alt="Expo">
   <img src="https://img.shields.io/badge/TypeScript-included-ff80bf?logo=typescript&logoColor=white&labelColor=222222" alt="TypeScript">
@@ -37,10 +37,10 @@
 ## Install
 
 ```sh
-npm install @kissmyapps/react-native @react-native-async-storage/async-storage
+npm install @kissmyappss/react-native @react-native-async-storage/async-storage
 ```
 
-With Expo, `npx expo install @kissmyapps/react-native @react-native-async-storage/async-storage`.
+With Expo, `npx expo install @kissmyappss/react-native @react-native-async-storage/async-storage`.
 
 You need React Native 0.70 or later, and a **client key** from your project in the
 KissMyApps console under **Settings → API keys**. Keys starting `kma_pk_live_` count as
@@ -52,7 +52,7 @@ Start the SDK once, as early as possible, for example at the top of `App.tsx`:
 
 ```tsx
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { KissMyApps } from '@kissmyapps/react-native'
+import { KissMyApps } from '@kissmyappss/react-native'
 
 KissMyApps.init({
   key: 'kma_pk_live_…',
@@ -90,7 +90,7 @@ its route name:
 
 ```tsx
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
-import { trackNavigation } from '@kissmyapps/react-native'
+import { trackNavigation } from '@kissmyappss/react-native'
 
 export function App() {
   const navigation = useNavigationContainerRef()

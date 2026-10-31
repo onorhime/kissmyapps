@@ -279,9 +279,10 @@ accept them: there is nothing to migrate or redeploy for them. The ingest functi
    https://jitpack.io/#onorhime/kissmyapps-mobile/1.0.0 once, so JitPack builds it before
    the first app asks for it. The folder's `.github/workflows/ci.yml` only runs there, where
    it tests both SDKs on every push and tag and feeds the README's CI badge.
-2. npm. Create the `kissmyapps` organization on npmjs.com, then
+2. npm. The scope belongs to the `kissmyappss` organization on npmjs.com (`kissmyapps` was
+   taken). From a machine logged in to an account in that organization, run
    `cd integrations/analytics-react-native && npm publish` (it builds `lib/` first and
-   publishes `@kissmyapps/react-native` publicly).
+   publishes `@kissmyappss/react-native` publicly).
 3. Licence. Both SDK folders say MIT; change their `LICENSE` files and the React Native
    `package.json` first if you want another licence.
 4. Release the dashboard as in step 6: Install SDK gains iOS, Android, React Native and
@@ -296,12 +297,10 @@ and the iOS package whenever they change.
 
 ## Not in this release
 
-- Mobile SDKs: until the release above, apps send events over the HTTP API (Install SDK
-  shows how). There are no replays for apps.
-- Location: until the City location release above is deployed, nothing in front of the
-  events host tells the function where an address is, so a visitor's country comes from
-  their device's time zone (a VPN or a traveller shows their home zone's country) and
-  there are no regions or cities.
+- Replays for apps: the mobile SDKs record events, sessions and screens, not replays.
+- Location: when the relay has no database or does not know an address, a visitor's
+  country comes from their device's time zone (a VPN or a traveller shows their home
+  zone's country) and there is no region or city.
 - Invitations send no email: after inviting someone, a member copies their invite link
   from Settings, Members and sends it to them.
 - A replay ends at the last recorded change, so idle time at the end of a page is not shown.

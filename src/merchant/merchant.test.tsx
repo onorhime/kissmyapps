@@ -562,7 +562,7 @@ describe('merchant console', () => {
     )
 
     await user.click(within(tabs).getByRole('button', { name: 'React Native' }))
-    expect(code('Terminal')).toContain('npm install @kissmyapps/react-native')
+    expect(code('Terminal')).toContain('npm install @kissmyappss/react-native')
     expect(code('TypeScript')).toContain("key: 'kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8'")
     expect(code('TypeScript')).toContain('{...trackNavigation(navigation)}')
     expect(screen.getByText(/Waiting for the first event from SpeakSix/)).toBeInTheDocument()
