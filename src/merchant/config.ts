@@ -9,7 +9,8 @@ export const SDK_URL =
 /**
  * Where the app SDKs are published (see integrations/analytics-mobile/README.md). The iOS
  * and Android SDKs share one public repository: Swift Package Manager reads it directly and
- * JitPack builds the Android library from its tags.
+ * JitPack builds the Android library from its tags. React Native comes from npm and
+ * Flutter from pub.dev.
  */
 export const MOBILE_SDK = {
   version: '1.0.0',
@@ -17,6 +18,7 @@ export const MOBILE_SDK = {
     import.meta.env.VITE_MOBILE_SDK_REPOSITORY?.trim() ||
     'https://github.com/onorhime/kissmyapps-mobile',
   npmPackage: '@kissmyappss/react-native',
+  pubPackage: 'kissmyapps',
 }
 
 /** JitPack's coordinates for a single-library repository: com.github.<owner>:<repository>. */

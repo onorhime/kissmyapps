@@ -27,7 +27,7 @@
   <a href="#what-gets-recorded">What gets recorded</a> ·
   <a href="#options">Options</a> ·
   <a href="#privacy">Privacy</a> ·
-  <a href="#react-native-and-other-platforms">React Native</a>
+  <a href="#react-native-flutter-and-other-platforms">React Native and Flutter</a>
 </p>
 
 ---
@@ -42,8 +42,8 @@
   third-party libraries, no code generation, no ProGuard rules.
 - **Respectful by default.** A random ID per install, no advertising ID, no fingerprinting,
   and an opt-out that is remembered across launches.
-- **One dashboard for every platform.** iOS, Android, React Native and the web send the
-  same events, so the dashboard compares them side by side.
+- **One dashboard for every platform.** iOS, Android, React Native, Flutter and the web send
+  the same events, so the dashboard compares them side by side.
 
 ## Requirements
 
@@ -398,10 +398,12 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
 When you fill in the App Store privacy details or the Google Play Data safety form, the
 lists under [What gets recorded](#what-gets-recorded) are everything this SDK sends.
 
-## React Native and other platforms
+## React Native, Flutter and other platforms
 
 - **React Native and Expo:** [`@kissmyappss/react-native`](https://www.npmjs.com/package/@kissmyappss/react-native),
   plain JavaScript with no native code to link.
+- **Flutter:** [`kissmyapps`](https://pub.dev/packages/kissmyapps) on pub.dev, for Android
+  and iOS, with a navigator observer for screens. Its source is in [`flutter/`](flutter).
 - **Websites:** the console's Install SDK page has the one-line script tag.
 - **Anything else:** send the same JSON over HTTP; the format is in
   [`contract/app-events.json`](contract/app-events.json).
@@ -409,7 +411,8 @@ lists under [What gets recorded](#what-gets-recorded) are everything this SDK se
 ## How it is built
 
 Each platform has a small, platform-free core (`Client` in [`ios/Sources`](ios/Sources/KissMyApps),
-`KmaClient` in [`android/core`](android/core)) that holds every rule: sessions, the queue,
+`KmaClient` in [`android/core`](android/core) and in
+[`flutter/lib/src`](flutter/lib/src/client.dart)) that holds every rule: sessions, the queue,
 retries and the request format. Storage, HTTP, the clock and the device are passed in, so
 the tests drive the core with a clock they control and check every request against
 [`contract/app-events.json`](contract/app-events.json), the same file the server's tests use.
@@ -418,6 +421,7 @@ the tests drive the core with a clock they control and check every request again
 swift test                                   # iOS core, on macOS or Linux
 cd android && ./gradlew -p core test         # Android core, on any JVM
 cd android && ./gradlew :kissmyapps:assembleRelease
+cd flutter && flutter test                   # Flutter, on any machine with Flutter
 ```
 
 Set `KMA_CONTRACT_ENDPOINT` and `KMA_CONTRACT_KEY` to also run a test that sends a real launch
@@ -430,6 +434,7 @@ to a KissMyApps ingest and checks every event arrived.
 ├── android/
 │   ├── core/              Kotlin core and its JVM tests
 │   └── kissmyapps/        The Android library JitPack builds
+├── flutter/               The Flutter package published to pub.dev
 ├── contract/              The request format every SDK is tested against
 └── jitpack.yml
 ```

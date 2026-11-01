@@ -1,0 +1,17 @@
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    - always_declare_return_types
+    - prefer_final_locals
+    - prefer_single_quotes
+    - public_member_api_docs
+    - unawaited_futures
+
+formatter:
+  page_width: 100

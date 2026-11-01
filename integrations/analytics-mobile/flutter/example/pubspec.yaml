@@ -1,0 +1,20 @@
+name: kissmyapps_example
+description: A small app that shows the KissMyApps Flutter SDK at work.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  kissmyapps:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

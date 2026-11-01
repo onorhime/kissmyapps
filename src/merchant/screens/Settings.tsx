@@ -1252,6 +1252,35 @@ KissMyApps.track('lesson_completed', { lesson: 3 })
 
 // When they sign out
 KissMyApps.reset()`,
+    flutterInstall: `flutter pub add ${MOBILE_SDK.pubPackage}`,
+    flutterStart: `import 'package:flutter/material.dart';
+import 'package:kissmyapps/kissmyapps.dart';
+
+void main() {
+  KissMyApps.start(${custom ? `\n    '${key}',\n    options: const KissMyAppsOptions(endpoint: '${ANALYTICS_ENDPOINT}'),\n  ` : `'${key}'`});
+  runApp(const App());
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      // Records each page under its route name
+      navigatorObservers: [KissMyAppsObserver()],
+      home: const HomeScreen(),
+    );
+  }
+}`,
+    flutterEvents: `// After someone signs in
+KissMyApps.identify('user-42', traits: {'email': 'amaka@example.com', 'plan': 'annual'});
+
+// Anything they do
+KissMyApps.track('lesson_completed', properties: {'lesson': 3});
+
+// When they sign out
+KissMyApps.reset();`,
     http: `curl ${ANALYTICS_ENDPOINT}/v1/events \\
   -H "Authorization: Bearer ${key}" \\
   -H "Content-Type: application/json" \\
@@ -1267,13 +1296,14 @@ KissMyApps.reset()`,
   }
 }
 
-type InstallTab = 'web' | 'ios' | 'android' | 'react-native' | 'http'
+type InstallTab = 'web' | 'ios' | 'android' | 'react-native' | 'flutter' | 'http'
 
 const installTabs: Array<{ value: InstallTab; label: string }> = [
   { value: 'web', label: 'Website' },
   { value: 'ios', label: 'iOS' },
   { value: 'android', label: 'Android' },
   { value: 'react-native', label: 'React Native' },
+  { value: 'flutter', label: 'Flutter' },
   { value: 'http', label: 'HTTP' },
 ]
 
@@ -1466,13 +1496,38 @@ export function InstallGuide({
             </section>
           </>
         )}
+        {tab === 'flutter' && (
+          <>
+            <section aria-labelledby="mc-step-flutter-1">
+              <h2 id="mc-step-flutter-1">1. Add the package</h2>
+              <p className="mc-muted">
+                From pub.dev, with nothing else to set up. Flutter 3.24 or later, for Android 5.0
+                and iOS 12 or later.
+              </p>
+              <CodeBlock code={code.flutterInstall} label="Terminal" />
+            </section>
+            <section aria-labelledby="mc-step-flutter-2">
+              <h2 id="mc-step-flutter-2">2. Start it and follow your screens</h2>
+              <p className="mc-muted">{appsAutomatically}</p>
+              {settings.data ? (
+                <CodeBlock code={code.flutterStart} label="Dart" />
+              ) : (
+                <Skeleton width="100%" height={160} />
+              )}
+            </section>
+            <section aria-labelledby="mc-step-flutter-3">
+              <h2 id="mc-step-flutter-3">3. Name your users and their actions</h2>
+              <CodeBlock code={code.flutterEvents} label="Dart" />
+            </section>
+          </>
+        )}
         {tab === 'http' && (
           <section aria-labelledby="mc-step-http">
             <h2 id="mc-step-http">Send events over HTTP</h2>
             <p className="mc-muted">
-              Flutter, games and servers post JSON to the events endpoint. Keep one anonymous ID per
-              install, start a new session ID after 30 idle minutes, and send your user ID once
-              people sign in. Server keys may import history up to 400 days back.
+              Games, servers and other platforms post JSON to the events endpoint. Keep one
+              anonymous ID per install, start a new session ID after 30 idle minutes, and send your
+              user ID once people sign in. Server keys may import history up to 400 days back.
             </p>
             {settings.data ? (
               <CodeBlock code={code.http} label="HTTP" />
