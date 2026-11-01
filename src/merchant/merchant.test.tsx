@@ -535,7 +535,7 @@ describe('merchant console', () => {
     expect(screen.queryByText(/Waiting for the first event/)).not.toBeInTheDocument()
   })
 
-  it('gives app install steps with the project key for iOS, Android and React Native', async () => {
+  it('gives app install steps with the project key for iOS, Android, React Native and Flutter', async () => {
     signedInAs('owner')
     window.location.hash = '#p/proj-1/settings/install'
     const user = userEvent.setup()
@@ -566,6 +566,11 @@ describe('merchant console', () => {
     expect(code('TypeScript')).toContain("key: 'kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8'")
     expect(code('TypeScript')).toContain('{...trackNavigation(navigation)}')
     expect(screen.getByText(/Waiting for the first event from SpeakSix/)).toBeInTheDocument()
+
+    await user.click(within(tabs).getByRole('button', { name: 'Flutter' }))
+    expect(code('Terminal')).toContain('flutter pub add kissmyapps')
+    expect(code('Dart')).toContain("KissMyApps.start('kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8')")
+    expect(code('Dart')).toContain('navigatorObservers: [KissMyAppsObserver()]')
 
     await user.click(within(tabs).getByRole('button', { name: 'HTTP' }))
     expect(screen.getByRole('heading', { name: 'Send events over HTTP' })).toBeInTheDocument()

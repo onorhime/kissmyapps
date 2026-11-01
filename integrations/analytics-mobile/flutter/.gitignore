@@ -1,0 +1,15 @@
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+.idea/
+# The example's platform folders are made with `flutter create .`; see example/README.md.
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/web/
+example/windows/
+example/.metadata
+example/test/

@@ -250,11 +250,13 @@ failed download shows there and in the logs, and the old file keeps working).
 
 ### Mobile SDKs
 
-Released 2026-10-30 as 1.0.0 at https://github.com/onorhime/kissmyapps-mobile, built by
-JitPack. The npm package is not published yet.
+iOS and Android released 2026-10-30 as 1.0.0 at https://github.com/onorhime/kissmyapps-mobile,
+built by JitPack. React Native published to npm as `@kissmyappss/react-native` 1.0.0 the
+same day. Flutter (`kissmyapps` on pub.dev) is in the repository but not published yet: see
+step 3.
 
-SDKs for iOS (Swift package), Android (Kotlin, built by JitPack) and React Native (npm)
-record installs, updates, opens, time in the app, sessions and screens on their own, and keep events on the phone while it is offline. They send the same
+SDKs for iOS (Swift package), Android (Kotlin, built by JitPack), React Native (npm) and
+Flutter (pub.dev) record installs, updates, opens, time in the app, sessions and screens on their own, and keep events on the phone while it is offline. They send the same
 `/v1/events` requests as the HTTP API, so the live ingest function and database already
 accept them: there is nothing to migrate or redeploy for them. The ingest function's
 `contract_test.ts` and each SDK's tests check the same file,
@@ -283,17 +285,28 @@ accept them: there is nothing to migrate or redeploy for them. The ingest functi
    taken). From a machine logged in to an account in that organization, run
    `cd integrations/analytics-react-native && npm publish` (it builds `lib/` first and
    publishes `@kissmyappss/react-native` publicly).
-3. Licence. Both SDK folders say MIT; change their `LICENSE` files and the React Native
+3. pub.dev. The Flutter package is `integrations/analytics-mobile/flutter`, so it is also
+   `flutter/` in the public repository, which its `repository` link in `pubspec.yaml`
+   points at. Publish from that folder in either repository with a Google account:
+   `cd flutter && flutter pub publish`. The first publish asks to sign in in the browser
+   and makes that account the package's uploader; afterwards, move the package to a
+   verified publisher (for example kissmyapps.dev, verified with a DNS record) under the
+   package's Admin tab on pub.dev if you want one. A later version needs `version` in
+   `pubspec.yaml`, `sdkVersion` in `lib/src/client.dart` and `s.version` in the podspec
+   raised together, and an entry in its `CHANGELOG.md`.
+4. Licence. Every SDK folder says MIT; change their `LICENSE` files and the React Native
    `package.json` first if you want another licence.
-4. Release the dashboard as in step 6: Install SDK gains iOS, Android, React Native and
-   HTTP tabs with the project's key filled in.
-5. Smoke test: in a test app, start the SDK with a development client key and open the app.
+5. Release the dashboard as in step 6: Install SDK gains iOS, Android, React Native,
+   Flutter and HTTP tabs with the project's key filled in.
+6. Smoke test: in a test app, start the SDK with a development client key and open the app.
    Within a minute Install SDK's "Check your setup" lists "iOS app (development)" or
    "Android app (development)". With a live key, Sessions shows the session with its
    device model, OS, app version and first screen.
 
-`.github/workflows/mobile-sdks.yml` tests all three SDKs and builds the Android library
-and the iOS package whenever they change.
+`.github/workflows/mobile-sdks.yml` tests every SDK and builds the Android library, the iOS
+package and the Flutter example app (for Android, and for iOS with both CocoaPods and Swift
+Package Manager) whenever they change. The Flutter tests also run on Flutter 3.24, the
+oldest version the package supports.
 
 ## Not in this release
 
