@@ -104,3 +104,29 @@ events.kissmyapps.dev {
 		respond "Not found" 404
 	}
 }
+
+# Merchant link domains (attribution). Every host without a block of its own lands here:
+# each merchant's subdomain of go.kissmyapps.dev (DNS: A *.go -> this server) and any
+# domain of their own (a CNAME to cname.go.kissmyapps.dev). Caddy gets a certificate for a
+# host on its first visit, and only when the link service says it is a link domain. That
+# check is the on_demand_tls option in the global options block at the top of the file:
+#
+#	on_demand_tls {
+#		ask http://kissmyapps-links:8789/check
+#	}
+https:// {
+	tls {
+		on_demand
+	}
+	import compressed
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Robots-Tag "noindex, nofollow, noarchive"
+	}
+
+	reverse_proxy kissmyapps-links:8788 {
+		# Ride out a restart rather than fail someone's link.
+		lb_try_duration 5s
+	}
+}

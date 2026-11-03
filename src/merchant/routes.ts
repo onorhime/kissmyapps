@@ -7,6 +7,7 @@ export type AuthRoute =
 
 export type ProjectSettingsSection = 'general' | 'keys' | 'install'
 export type WorkspaceSettingsSection = 'projects' | 'members'
+export type AttributionSection = 'setup' | 'settings'
 
 export type ProjectRoute =
   | { name: 'overview'; projectId: string }
@@ -22,6 +23,7 @@ export type ProjectRoute =
   | { name: 'live'; projectId: string }
   | { name: 'event'; projectId: string; eventName: string }
   | { name: 'bots'; projectId: string }
+  | { name: 'attribution'; projectId: string; section: AttributionSection }
   | { name: 'settings'; projectId: string; section: ProjectSettingsSection }
 
 export type Route =
@@ -98,6 +100,12 @@ export function parseRoute(hash: string): Route {
         : { name: 'events', projectId }
     case 'bots':
       return { name: 'bots', projectId }
+    case 'attribution':
+      return {
+        name: 'attribution',
+        projectId,
+        section: segments[3] === 'settings' ? 'settings' : 'setup',
+      }
     case 'settings':
       return {
         name: 'settings',
@@ -163,6 +171,8 @@ export function href(route: Route): string {
       return `${base}/events/${encodeURIComponent(route.eventName)}`
     case 'bots':
       return `${base}/bots`
+    case 'attribution':
+      return `${base}/attribution${route.section === 'settings' ? '/settings' : ''}`
     case 'settings':
       return `${base}/settings/${route.section}`
   }

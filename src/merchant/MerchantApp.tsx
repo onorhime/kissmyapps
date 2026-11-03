@@ -4,6 +4,7 @@ import type { Project } from './api'
 import { href, isAuthRoute, navigate, parseRoute } from './routes'
 import type { Route } from './routes'
 import { MerchantStoreProvider, useStore } from './store'
+import { AttributionScreen } from './screens/Attribution'
 import { AuthScreen } from './screens/Auth'
 import { BotsScreen } from './screens/Bots'
 import { EventDetailScreen, EventsScreen } from './screens/Events'
@@ -39,6 +40,7 @@ const titles: Record<Route['name'], string> = {
   live: 'Live events',
   event: 'Event',
   bots: 'Bots',
+  attribution: 'Attribution',
   settings: 'Project settings',
 }
 
@@ -102,7 +104,9 @@ function Screens() {
     ? 'Project not found'
     : route.name === 'event'
       ? route.eventName
-      : titles[route.name]
+      : route.name === 'attribution' && route.section === 'settings'
+        ? 'Attribution settings'
+        : titles[route.name]
   useEffect(() => {
     document.title = `${project ? `${pageTitle} · ${project.name}` : pageTitle} · KissMyApps Merchant`
   }, [pageTitle, project])
@@ -212,6 +216,15 @@ function Screens() {
         break
       case 'bots':
         content = <BotsScreen key={project.id} project={project} />
+        break
+      case 'attribution':
+        content = (
+          <AttributionScreen
+            key={`${project.id}:${route.section}`}
+            project={project}
+            section={route.section}
+          />
+        )
         break
       case 'settings':
         content = (

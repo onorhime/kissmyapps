@@ -103,6 +103,59 @@ services:
     networks:
       - application
 
+  # Merchant link domains (attribution): the edge Caddy sends every request for a
+  # merchant's link domain here, and asks it on port 8789 before getting a certificate
+  # for one. It reads each host's settings from the attribution-links function with the
+  # shared secret. See deploy/link-service/links.mjs.
+  links:
+    image: node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
+    pull_policy: never
+    container_name: kissmyapps-links
+    restart: unless-stopped
+    command:
+      - node
+      - /app/server.mjs
+    user: '1000:1000'
+    expose:
+      - '8788'
+      - '8789'
+    environment:
+      KMA_LINKS_URL: https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/attribution-links
+      PORT: '8788'
+      ASK_PORT: '8789'
+      NODE_ENV: production
+    # Holds KMA_ATTRIBUTION_LINK_SECRET only; root-owned, mode 600, never committed.
+    env_file:
+      - /srv/kissmyapps/link-service.env
+    volumes:
+      - /srv/kissmyapps/deploy/link-service:/app:ro
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,mode=0700,size=16m,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 128m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8788/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - application
+
 networks:
   application:
     external: true

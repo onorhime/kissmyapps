@@ -3814,3 +3814,318 @@ button.mc-cohort-cell[aria-pressed='true'] {
     min-height: 40px;
   }
 }
+
+/* Attribution */
+.mc-attr-main {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+}
+.mc-attr-progress {
+  display: grid;
+  gap: 10px;
+}
+.mc-attr-progress p {
+  font-size: 15px;
+  line-height: 22px;
+}
+.mc-attr-progress strong {
+  font-weight: 600;
+}
+.mc-meter {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mc-raised);
+  overflow: hidden;
+}
+.mc-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mc-positive);
+}
+.mc-attr-step {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.mc-attr-step-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc-attr-step-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 24px;
+}
+.mc-attr-step-head .mc-pill {
+  margin-left: auto;
+}
+.mc-attr-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--mc-control);
+  border-radius: 50%;
+  color: var(--mc-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mc-attr-mark.is-done {
+  border-color: transparent;
+  background: var(--mc-positive);
+  color: #111111;
+}
+.mc-attr-group {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mc-attr-group + .mc-attr-group {
+  padding-top: 20px;
+  border-top: 1px solid var(--mc-rule);
+}
+/* A floated legend is laid out like a heading, so the rule above the group stays whole. */
+.mc-attr-group legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+fieldset.mc-form-grid {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mc-field textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 14px;
+  border: 1px solid var(--mc-control);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  color: var(--mc-text);
+  font-size: 13px;
+  line-height: 20px;
+  resize: vertical;
+  transition: border-color 150ms ease-out;
+}
+.mc-field textarea::placeholder {
+  color: #8a8a90;
+}
+.mc-field textarea:hover {
+  border-color: #55555b;
+}
+.mc-field textarea:focus {
+  border-color: var(--mc-link);
+}
+.mc-field.has-error textarea {
+  border-color: #ff6767;
+}
+/* An input with the rest of the address after it */
+.mc-affix {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--mc-control);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  transition: border-color 150ms ease-out;
+}
+.mc-affix:hover {
+  border-color: #55555b;
+}
+.mc-affix:focus-within {
+  border-color: var(--mc-link);
+}
+.mc-field.has-error .mc-affix {
+  border-color: #ff6767;
+}
+.mc-field .mc-affix input,
+.mc-field .mc-affix input:hover,
+.mc-field .mc-affix input:focus {
+  flex: 1;
+  min-width: 0;
+  padding-right: 2px;
+  border: 0;
+  background: transparent;
+  outline: none;
+}
+.mc-affix > span {
+  flex: none;
+  padding-right: 14px;
+  color: var(--mc-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.mc-affix:has(input:disabled) {
+  opacity: 0.6;
+}
+.mc-attr-available {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin-top: -8px;
+  color: var(--mc-positive);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-attr-available:empty {
+  display: none;
+}
+.mc-form-actions.is-start {
+  justify-content: flex-start;
+}
+.mc-attr-how {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: how;
+}
+.mc-attr-how li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 2px 10px;
+  counter-increment: how;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-attr-how li::before {
+  content: counter(how);
+  display: inline-flex;
+  grid-row: span 2;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mc-raised);
+  font-size: 12px;
+  font-weight: 600;
+}
+.mc-attr-how strong {
+  font-weight: 600;
+}
+.mc-attr-plan li {
+  flex-wrap: nowrap;
+}
+.mc-attr-plan-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.mc-check-list .mc-attr-plan-text .mc-muted {
+  margin-left: 0;
+  line-height: 18px;
+}
+.mc-attr-plan li > .mc-muted {
+  flex: none;
+}
+.mc-attr-domains {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-attr-domains > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 10px 0;
+}
+.mc-attr-domains > li:first-child {
+  padding-top: 0;
+}
+.mc-attr-domains > li + li {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-attr-domain {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.mc-attr-dns {
+  display: grid;
+  flex-basis: 100%;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-well);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-attr-dns .mc-key-row {
+  flex-wrap: wrap;
+}
+.mc-attr-dns .mc-key-value {
+  flex: 1 1 200px;
+}
+.mc-attr-dns .mc-btn {
+  height: 32px;
+  font-size: 13px;
+}
+.mc-attr-snippets {
+  display: grid;
+  gap: 14px;
+  padding-top: 20px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-attr-snippets h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-attr-snippets > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.mc-attr-snippets p {
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-attr-form-error {
+  margin-right: auto;
+}
+.mc-attr-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-attr-warning > svg {
+  flex: none;
+  margin-top: 1px;
+}
+.mc-install-rail .mc-panel > .mc-link > svg,
+.mc-attr-dns .mc-btn > svg {
+  flex: none;
+}
+.mc-attr-off {
+  max-width: 760px;
+}
+@media (max-width: 900px) {
+  /* The step to take comes first on a phone; what the address answers follows it. */
+  .mc-attr-layout > .mc-install-rail {
+    order: 0;
+  }
+}

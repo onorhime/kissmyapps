@@ -100,7 +100,7 @@ export function PlatformChoices({
   )
 }
 
-function SettingsRow({
+export function SettingsRow({
   title,
   description,
   children,

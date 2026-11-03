@@ -519,3 +519,8 @@ verify_jwt = false
 # project API key, checked in the database. No Supabase session is involved.
 [functions.analytics-ingest]
 verify_jwt = false
+
+# Merchant attribution: the link service on the VPS asks what each link domain serves,
+# with the shared ATTRIBUTION_LINK_SECRET. No Supabase session is involved.
+[functions.attribution-links]
+verify_jwt = false

@@ -9,6 +9,7 @@ import {
   Menu,
   Plus,
   Settings,
+  Waypoints,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -65,6 +66,24 @@ function groups(project: Project | undefined): NavGroup[] {
         { label: 'Bots', route: { name: 'bots', projectId }, match: (r) => r.name === 'bots' },
       ]
     : []
+  const attribution: NavItem[] = projectId
+    ? [
+        {
+          label: 'Setup',
+          route: { name: 'attribution', projectId, section: 'setup' },
+          match: (r) => r.name === 'attribution' && r.section === 'setup',
+        },
+        ...(project?.attribution_enabled
+          ? ([
+              {
+                label: 'Settings',
+                route: { name: 'attribution', projectId, section: 'settings' },
+                match: (r) => r.name === 'attribution' && r.section === 'settings',
+              },
+            ] satisfies NavItem[])
+          : []),
+      ]
+    : []
   const settings: NavItem[] = [
     {
       label: 'Projects',
@@ -98,6 +117,7 @@ function groups(project: Project | undefined): NavGroup[] {
   ]
   return [
     ...(analytics.length ? [{ label: 'Analytics', icon: ChartLine, items: analytics }] : []),
+    ...(attribution.length ? [{ label: 'Attribution', icon: Waypoints, items: attribution }] : []),
     { label: 'Settings', icon: Settings, items: settings },
   ]
 }
@@ -166,6 +186,8 @@ function ProjectSwitcher({
         return { name: 'events', projectId: project.id }
       case 'settings':
         return { name: 'settings', projectId: project.id, section: route.section }
+      case 'attribution':
+        return { name: 'attribution', projectId: project.id, section: route.section }
       case 'workspace':
         return { ...route, projectId: project.id }
       default:

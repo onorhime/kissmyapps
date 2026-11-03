@@ -308,6 +308,86 @@ package and the Flutter example app (for Android, and for iOS with both CocoaPod
 Package Manager) whenever they change. The Flutter tests also run on Flutter 3.24, the
 oldest version the package supports.
 
+### Attribution, foundation
+
+Not deployed yet. Merchants can turn attribution on for a project in the console
+(Attribution in the sidebar), pick a subdomain of the link root, describe their iOS app,
+Android app and website, and connect domains of their own. The link service answers on
+those domains with the files Apple and Android read before they let links open an app.
+Links, matching and reports come in later phases; nothing here changes events or
+existing reports.
+
+While the module is tested, the link root is `go.kissmyapps.dev`, so merchants get
+`<name>.go.kissmyapps.dev`. The existing `go.kissmyapps.dev` creator links are untouched:
+it keeps its own Caddy block. Moving everyone to a short domain later is one row in
+`attribution_config` plus DNS and Caddy for the new root; existing hosts keep working.
+
+1. DNS at Fozzy, for `kissmyapps.dev`: an A record `*.go` pointing at `72.60.125.99` (the
+   VPS). This covers every merchant subdomain and `cname.go.kissmyapps.dev`, the name
+   merchants point their own domains at. Check with `dig +short anything.go.kissmyapps.dev`.
+2. Apply `supabase/migrations/20261103100000_merchant_attribution.sql`. It adds the
+   `attribution_*` tables and functions, and adds `attribution_enabled` to each project
+   the console lists (a replaced internal helper; nothing else changes).
+3. A secret for the link service, generated once, for example with
+   `openssl rand -hex 32`, set as an Edge Function secret, then the function:
+
+   ```sh
+   supabase secrets set --project-ref mmyruzjemjecqyivhrgr ATTRIBUTION_LINK_SECRET=...
+   supabase functions deploy attribution-links --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   ```
+
+   Check it refuses strangers:
+   `curl -s -X POST -H 'content-type: application/json' -d '{"action":"host","host":"x.example"}' https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/attribution-links`
+   answers 401 `unauthorized`.
+
+4. Link service files and secret, on the VPS:
+
+   ```sh
+   install -d -m 755 /srv/kissmyapps/deploy/link-service
+   cp deploy/link-service/links.mjs deploy/link-service/server.mjs /srv/kissmyapps/deploy/link-service/
+   # The same value as ATTRIBUTION_LINK_SECRET. Root-owned, never committed.
+   install -m 600 /dev/null /srv/kissmyapps/link-service.env
+   printf 'KMA_ATTRIBUTION_LINK_SECRET=%s\n' '...' > /srv/kissmyapps/link-service.env
+   ```
+
+5. Start only the link service from the updated `deploy/hostinger/compose.yaml` (its new
+   `links` service): `docker compose -p kissmyapps-dashboard -f <host copy>/compose.yaml up -d links`.
+   It uses the same Node image as `geo`, already on the VPS. Check the edge reaches both
+   ports: `docker exec dramapal-caddy-1 wget -qO- http://kissmyapps-links:8788/healthz` and
+   `docker exec dramapal-caddy-1 wget -qO- 'http://kissmyapps-links:8789/check?domain=nobody.example'`
+   (a 404 "unknown" is the right answer for that one).
+6. Edge Caddy. Back up the live Caddyfile, then merge, never replace:
+   - in the global options block at the top (today only `admin off`), add
+
+     ```caddyfile
+     on_demand_tls {
+     	ask http://kissmyapps-links:8789/check
+     }
+     ```
+
+   - and add the `https:// { ... }` block from `deploy/hostinger/Caddyfile.kissmyapps`.
+     It catches only hosts without a block of their own, so DramaPal, BC Learn and the
+     other KissMyApps hosts are unaffected. If the live file already has a catch-all
+     (`https://`, `:443` or `*`), stop: the two have to be combined by hand.
+
+   Validate the full candidate with the installed Caddy, write it into the bind-mounted
+   file's inode, and restart only `dramapal-caddy-1`, as the hosting README requires.
+7. Release the dashboard as in step 6: the console gains Attribution in the sidebar.
+8. Smoke test: turn attribution on for a test project with a name such as `kmatest`, fill
+   in an iOS Team ID and bundle ID, then
+   `curl -s https://kmatest.go.kissmyapps.dev/.well-known/apple-app-site-association`
+   shows that app (the first request takes a few seconds while Caddy gets the
+   certificate), `curl -sI https://kmatest.go.kissmyapps.dev/` redirects to the website,
+   and `curl -sI https://nobody.go.kissmyapps.dev/` fails the TLS handshake: no
+   certificate is issued for names nobody uses. Apple's CDN copy is at
+   `https://app-site-association.cdn-apple.com/a/v1/kmatest.go.kissmyapps.dev` once it
+   has fetched it, which can take a while.
+
+Rollback: remove the `https://` block and the `on_demand_tls` option from the live
+Caddyfile and restart only `dramapal-caddy-1`, then
+`docker compose -p kissmyapps-dashboard stop links`. The migration only adds; the console
+keeps working without the link service, and custom domains stay "waiting".
+
 ## Not in this release
 
 - Replays for apps: the mobile SDKs record events, sessions and screens, not replays.
