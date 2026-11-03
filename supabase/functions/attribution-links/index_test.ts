@@ -1,9 +1,11 @@
 import { assertEquals } from "@std/assert";
 import { ConfigurationError } from "../_shared/errors.ts";
 import {
+  type Click,
   createAttributionLinksHandler,
   type LinkDependencies,
   type LinkHost,
+  type LinkTarget,
 } from "./index.ts";
 
 const secret = "s".repeat(40);
@@ -17,8 +19,41 @@ const speaksix: LinkHost = {
   web_url: "https://speaksix.app/",
 };
 
+const launch: LinkTarget = {
+  id: "0b6d3c8e-7a4f-4e21-9d6b-2f1c5e8a9b70",
+  project_id: speaksix.project_id,
+  project_name: "SpeakSix",
+  path: "october-launch",
+  status: "active",
+  source: "tiktok_ads",
+  campaign: "october_launch",
+  channel: null,
+  adset: null,
+  ad: null,
+  deep_link_value: "lesson",
+  deep_link_params: { id: "4" },
+  web_url: "https://speaksix.app/start",
+  ios_url: "https://apps.apple.com/app/id1612345678",
+  ios_custom: false,
+  android_url: null,
+  android_package: "app.speaksix",
+  social: null,
+};
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return Array.from(
+    new Uint8Array(digest),
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 function setup(overrides: Partial<LinkDependencies> = {}) {
   const calls: string[] = [];
+  const recorded: Click[][] = [];
   const handler = createAttributionLinksHandler({
     secret: () => secret,
     host: (host) => {
@@ -32,9 +67,23 @@ function setup(overrides: Partial<LinkDependencies> = {}) {
       calls.push(`seen ${host}`);
       return Promise.resolve({ data: true, error: null });
     },
+    link: (host, path) => {
+      calls.push(`link ${host} ${path}`);
+      return Promise.resolve({
+        data: host === speaksix.host && path === "october-launch"
+          ? launch
+          : null,
+        error: null,
+      });
+    },
+    clicks: (clicks) => {
+      recorded.push(clicks);
+      return Promise.resolve({ data: clicks.length, error: null });
+    },
+    ipSalt: () => "salt",
     ...overrides,
   });
-  return { calls, handler };
+  return { calls, handler, recorded };
 }
 
 function post(body: unknown, headers: Record<string, string> = {}): Request {
@@ -75,6 +124,62 @@ Deno.test("a reached host is marked seen", async () => {
   );
   assertEquals(await response.json(), { seen: true });
   assertEquals(calls, ["seen go.speaksix.app"]);
+});
+
+Deno.test("a link on a known host gives where it leads", async () => {
+  const { calls, handler } = setup();
+  const response = await handler(
+    post({ action: "link", host: speaksix.host, path: "october-launch" }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { link: launch });
+  assertEquals(calls, [`link ${speaksix.host} october-launch`]);
+  const unknown = await handler(
+    post({ action: "link", host: speaksix.host, path: "nothing" }),
+  );
+  assertEquals(await unknown.json(), { link: null });
+  for (const path of ["", "a/b", "../x", "a".repeat(70), 7]) {
+    const bad = await handler(
+      post({ action: "link", host: speaksix.host, path }),
+    );
+    assertEquals(bad.status, 400, String(path));
+  }
+});
+
+Deno.test("clicks are stored with the address hashed, never raw", async () => {
+  const { handler, recorded } = setup();
+  const response = await handler(post({
+    action: "clicks",
+    clicks: [
+      { id: "a".repeat(22), link_id: launch.id, ip: "102.89.1.2" },
+      { id: "b".repeat(22), link_id: launch.id, ip: "not an address" },
+      { id: "c".repeat(22), link_id: launch.id },
+      "junk",
+    ],
+  }));
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { stored: 3 });
+  assertEquals(recorded, [[
+    {
+      id: "a".repeat(22),
+      link_id: launch.id,
+      ip_sha: await sha256("salt:102.89.1.2"),
+    },
+    { id: "b".repeat(22), link_id: launch.id },
+    { id: "c".repeat(22), link_id: launch.id },
+  ]]);
+  for (const clicks of [[], "x", Array.from({ length: 501 }, () => ({}))]) {
+    const bad = await handler(post({ action: "clicks", clicks }));
+    assertEquals(bad.status, 400);
+  }
+  const failing = setup({
+    clicks: () =>
+      Promise.resolve({ data: null, error: { message: "timeout" } }),
+  });
+  const down = await failing.handler(
+    post({ action: "clicks", clicks: [{ id: "d".repeat(22) }] }),
+  );
+  assertEquals(down.status, 503);
 });
 
 Deno.test("only the link service's secret is let in", async () => {

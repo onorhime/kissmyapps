@@ -81,3 +81,87 @@ export const CURRENCIES: Array<{ value: string; label: string }> = [
   ['IDR', 'Indonesian rupiah'],
   ['PHP', 'Philippine peso'],
 ].map(([value, name]) => ({ value, label: `${value}, ${name}` }))
+
+/** Media sources people often use, offered while typing one. */
+export const SOURCE_SUGGESTIONS = [
+  'facebook',
+  'instagram',
+  'tiktok',
+  'google',
+  'youtube',
+  'x',
+  'snapchat',
+  'whatsapp',
+  'telegram',
+  'email',
+  'sms',
+  'qr',
+  'influencer',
+  'website',
+]
+
+const SOURCE_NAMES: Record<string, string> = {
+  google_ads: 'Google Ads',
+  meta: 'Meta',
+  microsoft_ads: 'Microsoft Ads',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  google: 'Google',
+  youtube: 'YouTube',
+  whatsapp: 'WhatsApp',
+  snapchat: 'Snapchat',
+  telegram: 'Telegram',
+  email: 'Email',
+  sms: 'SMS',
+  qr: 'QR code',
+  x: 'X',
+}
+
+/** A source's name for people: known ones by name, others as sent. */
+export function sourceLabel(key: string | null): string {
+  if (key === null) return 'Direct or unknown'
+  return SOURCE_NAMES[key] ?? key
+}
+
+/** How a source was recognised, for the report's notes. */
+export function sourceHint(key: string | null): string | null {
+  if (key === null) return 'No link, ad or referring site'
+  if (key === 'google_ads') return 'From a gclid on the landing page'
+  if (key === 'meta') return 'From an fbclid: a Facebook or Instagram ad or post'
+  if (key === 'microsoft_ads') return 'From an msclkid on the landing page'
+  if (key.includes('.')) return 'Referring site'
+  return null
+}
+
+/** A link's address made from its name, such as october-launch. */
+export function suggestedPath(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64)
+    .replace(/-+$/, '')
+}
+
+/** A link with the address settings that change its source for one ad. */
+export function linkWithOverrides(url: string, overrides: Record<string, string>): string {
+  const link = new URL(url)
+  for (const [key, value] of Object.entries(overrides))
+    if (value.trim()) link.searchParams.set(key, value.trim())
+  return link.toString()
+}
+
+/** A QR code for a link, made in the browser: no outside service sees the link. */
+export async function qrDataUrl(value: string): Promise<string> {
+  const { default: QRCode } = await import('qrcode')
+  return QRCode.toDataURL(value, {
+    type: 'image/png',
+    errorCorrectionLevel: 'M',
+    margin: 4,
+    scale: 10,
+    color: { dark: '#111111', light: '#ffffff' },
+  })
+}

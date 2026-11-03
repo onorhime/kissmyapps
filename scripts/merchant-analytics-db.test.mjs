@@ -34,6 +34,7 @@ const suites = [
   ['65_merchant_retention.sql', /^ok \d+ merchant retention assertions$/m],
   ['66_merchant_places.sql', /^ok \d+ merchant places assertions$/m],
   ['67_merchant_attribution.sql', /^ok \d+ merchant attribution assertions$/m],
+  ['68_merchant_attribution_links.sql', /^ok \d+ merchant attribution link assertions$/m],
 ]
 
 const bin = postgresBin()

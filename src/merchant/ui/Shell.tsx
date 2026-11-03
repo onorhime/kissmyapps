@@ -76,6 +76,16 @@ function groups(project: Project | undefined): NavGroup[] {
         ...(project?.attribution_enabled
           ? ([
               {
+                label: 'Links',
+                route: { name: 'attribution', projectId, section: 'links' },
+                match: (r) => r.name === 'attribution' && r.section === 'links',
+              },
+              {
+                label: 'Sources',
+                route: { name: 'attribution', projectId, section: 'sources' },
+                match: (r) => r.name === 'attribution' && r.section === 'sources',
+              },
+              {
                 label: 'Settings',
                 route: { name: 'attribution', projectId, section: 'settings' },
                 match: (r) => r.name === 'attribution' && r.section === 'settings',

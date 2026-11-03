@@ -5,7 +5,9 @@ import type {
   ApiKey,
   Attribution,
   AttributionDomain,
+  AttributionLink,
   AttributionSettings,
+  AttributionSources,
   Context,
   Funnel,
   FunnelReport,
@@ -18,7 +20,15 @@ import type {
   RetentionReport,
   Role,
 } from './api'
-import { androidIntentFilter, fingerprintList, suggestedSubdomain } from './attribution'
+import {
+  androidIntentFilter,
+  fingerprintList,
+  linkWithOverrides,
+  qrDataUrl,
+  sourceLabel,
+  suggestedPath,
+  suggestedSubdomain,
+} from './attribution'
 import { csvText, toCsv } from './csv'
 import {
   formatChange,
@@ -325,6 +335,8 @@ describe('merchant routes', () => {
       { name: 'event', projectId: 'p1', eventName: 'plan:selected' },
       { name: 'bots', projectId: 'p1' },
       { name: 'attribution', projectId: 'p1', section: 'setup' },
+      { name: 'attribution', projectId: 'p1', section: 'links' },
+      { name: 'attribution', projectId: 'p1', section: 'sources' },
       { name: 'attribution', projectId: 'p1', section: 'settings' },
       { name: 'settings', projectId: 'p1', section: 'keys' },
     ]
@@ -1226,6 +1238,8 @@ describe('attribution', () => {
     reengagement_days: 30,
     reattribution_days: 90,
     currency: 'USD',
+    conversion_events: [],
+    web_lookback_days: 30,
     enabled_at: '2026-11-03T09:00:00Z',
     disabled_at: null,
     updated_at: '2026-11-03T09:00:00Z',
@@ -1243,19 +1257,21 @@ describe('attribution', () => {
   })
   // What the database answers, worked out from the settings the way it does.
   const viewOf = (
-    current: Pick<Attribution, 'enabled' | 'ever_enabled' | 'settings' | 'domains'>,
+    current: Pick<Attribution, 'enabled' | 'ever_enabled' | 'settings' | 'domains'> &
+      Partial<Pick<Attribution, 'events'>>,
   ): Attribution => {
     const s = current.settings
     return {
       project_id: 'proj-1',
       link_root: root,
       cname_target: `cname.${root}`,
+      events: [],
       ...current,
       setup: {
         apps: Boolean(s?.ios_app_store_id && s.ios_bundle_id && s.ios_team_id && s.web_url),
         domain: Boolean(s),
         sdk: false,
-        conversions: false,
+        conversions: Boolean(s?.conversion_events.length),
         partners: false,
         skan: false,
       },
@@ -1365,7 +1381,7 @@ describe('attribution', () => {
     await screen.findByRole('heading', { name: 'Your apps and website' })
     // The project lists web and iOS, so there is nothing to fill in for Android.
     expect(screen.queryByText('Android app')).not.toBeInTheDocument()
-    expect(screen.getByText('1 of 2 steps done')).toBeInTheDocument()
+    expect(screen.getByText('1 of 3 steps done')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('App Store ID'), 'id1234567890')
     await user.type(screen.getByLabelText('Bundle ID'), 'app.speaksix.ios')
@@ -1392,7 +1408,7 @@ describe('attribution', () => {
       'href',
       `https://speaksix.${root}/.well-known/apple-app-site-association`,
     )
-    expect(screen.getByText('2 of 2 steps done')).toBeInTheDocument()
+    expect(screen.getByText('2 of 3 steps done')).toBeInTheDocument()
   })
 
   it('adds a domain of its own and says how to point it here', async () => {
@@ -1497,5 +1513,324 @@ describe('attribution', () => {
     await user.click(screen.getByRole('button', { name: 'Turn attribution on again' }))
     expect(await screen.findByLabelText('Click window, in days')).toHaveValue(14)
     expect(calls('attribution_enable').at(-1)?.args.p_subdomain).toBeNull()
+  })
+
+  it('names sources, suggests link addresses and adds one-off settings to a link', async () => {
+    expect(suggestedPath('October launch on TikTok!')).toBe('october-launch-on-tiktok')
+    expect(suggestedPath('Café — Lagos')).toBe('cafe-lagos')
+    expect(sourceLabel(null)).toBe('Direct or unknown')
+    expect(sourceLabel('google_ads')).toBe('Google Ads')
+    expect(sourceLabel('newsletter')).toBe('newsletter')
+    expect(
+      linkWithOverrides(`https://speaksix.${root}/tiktok`, { cmp: 'oct launch', ad: ' ' }),
+    ).toBe(`https://speaksix.${root}/tiktok?cmp=oct+launch`)
+    expect(await qrDataUrl(`https://speaksix.${root}/tiktok`)).toMatch(/^data:image\/png;base64,/)
+  })
+
+  describe('links', () => {
+    let links: AttributionLink[]
+    const linkOf = (fields: Partial<AttributionLink>): AttributionLink => ({
+      id: `link-${links.length + 1}`,
+      path: 'k3x9p2a',
+      url: null,
+      name: '',
+      source: '',
+      campaign: null,
+      channel: null,
+      adset: null,
+      ad: null,
+      deep_link_value: null,
+      deep_link_params: {},
+      web_url: null,
+      ios_url: null,
+      android_url: null,
+      social_title: null,
+      social_description: null,
+      social_image: null,
+      status: 'active',
+      created_at: '2026-11-03T09:00:00Z',
+      updated_at: '2026-11-03T09:00:00Z',
+      clicks: 0,
+      visits: 0,
+      conversions: 0,
+      ...fields,
+    })
+
+    beforeEach(() => {
+      links = []
+      fake.state.handlers.attribution_links = ({ p_range }) => ({
+        range: p_range,
+        host: `speaksix.${root}`,
+        hosts: [`speaksix.${root}`],
+        links,
+      })
+      fake.state.handlers.attribution_save_link = ({ p_link, p_fields }) => {
+        const fields = p_fields as Record<string, string>
+        const empty = (value: string | undefined) => (value ? value : null)
+        if (p_link) {
+          links = links.map((link) => (link.id === p_link ? { ...link, ...fields } : link))
+          return links.find((link) => link.id === p_link)
+        }
+        const path = fields.path || 'k3x9p2a'
+        const link = linkOf({
+          path,
+          url: `https://speaksix.${root}/${path}`,
+          name: fields.name,
+          source: fields.source.toLowerCase(),
+          campaign: empty(fields.campaign),
+          ad: empty(fields.ad),
+        })
+        links = [link, ...links]
+        return link
+      }
+      fake.state.handlers.attribution_set_link_status = ({ p_link, p_status }) => {
+        links = links.map((link) =>
+          link.id === p_link ? { ...link, status: p_status as AttributionLink['status'] } : link,
+        )
+        return links.find((link) => link.id === p_link)
+      }
+    })
+
+    it('makes a link, checks it first, and opens it for sharing', async () => {
+      signedInAs('developer')
+      turnedOn({ ios_app_store_id: '1234567890' })
+      window.location.hash = '#p/proj-1/attribution/links'
+      const user = userEvent.setup()
+      render(<MerchantApp />)
+      await screen.findByRole('heading', { name: 'Links', level: 1 })
+      expect(await screen.findByText(/No links yet/)).toBeInTheDocument()
+      expect(calls('attribution_links')[0].args).toEqual({ p_project: 'proj-1', p_range: '30d' })
+
+      await user.click(screen.getByRole('button', { name: 'New link' }))
+      await screen.findByRole('heading', { name: 'New link' })
+      await user.type(screen.getByLabelText('Name'), 'October launch on TikTok')
+      // The address follows the name until it is changed by hand.
+      expect(screen.getByLabelText('Address')).toHaveValue('october-launch-on-tiktok')
+      expect(screen.getByLabelText('iPhone')).toHaveAttribute(
+        'placeholder',
+        'https://apps.apple.com/app/id1234567890',
+      )
+      // The project has no Android app, so there is nowhere to send Android phones.
+      expect(screen.queryByLabelText('Android')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Make link' }))
+      expect(
+        screen.getByText('Name the source in letters, numbers and _ . -, such as tiktok.'),
+      ).toBeInTheDocument()
+      expect(calls('attribution_save_link')).toHaveLength(0)
+
+      await user.type(screen.getByLabelText('Media source'), 'TikTok')
+      await user.type(screen.getByLabelText('Campaign'), 'october_launch')
+      await user.type(screen.getByLabelText('Website page'), 'http://speaksix.app/start')
+      await user.click(screen.getByRole('button', { name: 'Make link' }))
+      expect(screen.getByText('Use an address that starts with https://.')).toBeInTheDocument()
+      await user.clear(screen.getByLabelText('Website page'))
+      await user.click(screen.getByRole('button', { name: 'Make link' }))
+
+      const dialog = await screen.findByRole('dialog', { name: 'Share October launch on TikTok' })
+      const fields = calls('attribution_save_link')[0].args
+      expect(fields.p_link).toBeNull()
+      expect(fields.p_fields).toMatchObject({
+        name: 'October launch on TikTok',
+        path: 'october-launch-on-tiktok',
+        source: 'TikTok',
+        campaign: 'october_launch',
+        web_url: '',
+      })
+      const url = `https://speaksix.${root}/october-launch-on-tiktok`
+      expect(within(dialog).getByText(url)).toBeInTheDocument()
+      expect(
+        await within(dialog).findByRole('img', { name: `QR code for ${url}` }),
+      ).toHaveAttribute('src', expect.stringMatching(/^data:image\/png;base64,/))
+      expect(within(dialog).getByRole('link', { name: /Download QR code/ })).toHaveAttribute(
+        'download',
+        'october-launch-on-tiktok-qr.png',
+      )
+      await user.click(within(dialog).getByText('Set the campaign or ad for one use'))
+      await user.type(within(dialog).getByLabelText('Ad'), 'video_2')
+      expect(within(dialog).getByText(`${url}?ad=video_2`)).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+      const row = screen.getByText('October launch on TikTok').closest('tr')!
+      expect(within(row).getByText('TikTok')).toBeInTheDocument()
+      expect(within(row).getByText('october_launch')).toBeInTheDocument()
+      await user.click(within(row).getByRole('button', { name: 'Pause October launch on TikTok' }))
+      expect(await within(row).findByText('Paused')).toBeInTheDocument()
+      expect(calls('attribution_set_link_status')[0].args).toEqual({
+        p_link: 'link-1',
+        p_status: 'paused',
+      })
+    })
+
+    it('shows links to analysts without ways to change them', async () => {
+      signedInAs('analyst')
+      turnedOn()
+      links = [
+        linkOf({ name: 'Bio link', source: 'instagram', url: `https://speaksix.${root}/bio` }),
+      ]
+      window.location.hash = '#p/proj-1/attribution/links'
+      render(<MerchantApp />)
+      const row = (await screen.findByText('Bio link')).closest('tr')!
+      expect(within(row).getByText('Instagram')).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'QR code for Bio link' })).toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: 'Edit Bio link' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'New link' })).toBeNull()
+    })
+  })
+
+  describe('sources', () => {
+    const report = (
+      source: string | null,
+      model: string,
+      rows: AttributionSources['rows'],
+      events = ['sign_up'],
+    ): AttributionSources => ({
+      range: '30d',
+      model: model as AttributionSources['model'],
+      source,
+      conversion_events: events,
+      web_lookback_days: 30,
+      totals: {
+        clicks: rows.reduce((sum, row) => sum + row.clicks, 0),
+        visits: rows.reduce((sum, row) => sum + row.visits, 0),
+        people: 40,
+        conversions: rows.reduce((sum, row) => sum + row.conversions, 0),
+        converters: 10,
+      },
+      rows,
+    })
+    const row = (key: string | null, visits: number, conversions: number) => ({
+      key,
+      clicks: key === 'tiktok' ? 30 : 0,
+      visits,
+      people: visits,
+      conversions,
+      converters: conversions,
+    })
+
+    it('credits sources, opens one to see its campaigns, and switches the model', async () => {
+      signedInAs('owner')
+      turnedOn({ conversion_events: ['sign_up'] })
+      fake.state.handlers.attribution_sources = ({ p_source, p_model }) =>
+        p_source === 'tiktok'
+          ? report('tiktok', p_model as string, [row('october_launch', 20, 4), row(null, 2, 1)])
+          : report(null, p_model as string, [
+              row('tiktok', 22, 5),
+              row('google_ads', 8, 2),
+              row(null, 10, 3),
+            ])
+      window.location.hash = '#p/proj-1/attribution/sources'
+      const user = userEvent.setup()
+      render(<MerchantApp />)
+      const tiktok = await screen.findByRole('button', { name: 'TikTok: see its campaigns' })
+      expect(calls('attribution_sources')[0].args).toEqual({
+        p_project: 'proj-1',
+        p_range: '30d',
+        p_model: 'last',
+        p_source: null,
+      })
+      const totals = screen.getByRole('group', { name: 'Totals' })
+      expect(within(totals).getByText('25%')).toBeInTheDocument()
+      expect(within(totals).getByText('by 10 people')).toBeInTheDocument()
+      const google = screen.getByText('Google Ads').closest('tr')!
+      expect(within(google).getByText('From a gclid on the landing page')).toBeInTheDocument()
+      // Direct visits have no campaigns to open.
+      const direct = screen.getByText('Direct or unknown', { selector: 'td span' }).closest('tr')!
+      expect(within(direct).queryByRole('button')).toBeNull()
+      expect(screen.queryByText(/No event counts as a conversion/)).toBeNull()
+
+      await user.click(screen.getByRole('button', { name: 'First touch' }))
+      await waitFor(() => expect(calls('attribution_sources').at(-1)?.args.p_model).toBe('first'))
+      expect(screen.getByText(/the first source the person ever came from/)).toBeInTheDocument()
+
+      await user.click(await screen.findByRole('button', { name: 'TikTok: see its campaigns' }))
+      await screen.findByRole('heading', { name: 'Campaigns from TikTok' })
+      expect(calls('attribution_sources').at(-1)?.args).toMatchObject({
+        p_model: 'first',
+        p_source: 'tiktok',
+      })
+      expect(await screen.findByText('october_launch')).toBeInTheDocument()
+      expect(screen.getByText('No campaign')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'All sources' }))
+      expect(await screen.findByRole('heading', { name: 'Sources', level: 2 })).toBeInTheDocument()
+      expect(tiktok).not.toBeInTheDocument()
+    })
+
+    it('says where to choose conversions when none count yet', async () => {
+      signedInAs('owner')
+      turnedOn()
+      fake.state.handlers.attribution_sources = () =>
+        report(null, 'last', [row('instagram', 12, 0)], [])
+      window.location.hash = '#p/proj-1/attribution/sources'
+      render(<MerchantApp />)
+      expect(
+        await screen.findByRole('link', { name: 'Choose your conversion events in Settings' }),
+      ).toHaveAttribute('href', '#p/proj-1/attribution/settings')
+      const instagram = screen.getByText('Instagram').closest('tr')!
+      expect(within(instagram).getAllByText('—')).toHaveLength(1)
+    })
+  })
+
+  it('chooses conversion events, including one not seen yet, and the website window', async () => {
+    signedInAs('developer')
+    turnedOn()
+    view = {
+      ...view,
+      events: [
+        { name: 'sign_up', last_seen: '2026-11-03T08:00:00Z' },
+        { name: 'purchase', last_seen: '2026-11-02T08:00:00Z' },
+      ],
+    }
+    fake.state.handlers.attribution_set_conversions = ({ p_events, p_web_lookback_days }) => {
+      view = viewOf({
+        ...view,
+        settings: {
+          ...view.settings!,
+          conversion_events: [...(p_events as string[])].sort(),
+          web_lookback_days: p_web_lookback_days as number,
+        },
+      })
+      return view
+    }
+    window.location.hash = '#p/proj-1/attribution/settings'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await user.click(await screen.findByRole('checkbox', { name: /sign_up/ }))
+    expect(screen.getByText('1 of 20 chosen')).toBeInTheDocument()
+
+    const other = screen.getByLabelText('An event not seen yet')
+    await user.type(other, '1bad')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    expect(
+      screen.getByText('Event names use letters, numbers and _ . : -, starting with a letter.'),
+    ).toBeInTheDocument()
+    await user.clear(other)
+    await user.type(other, 'trial_started{Enter}')
+    expect(screen.getByRole('checkbox', { name: /trial_started/ })).toBeChecked()
+    expect(screen.getByText('2 of 20 chosen')).toBeInTheDocument()
+
+    const days = screen.getByLabelText('Website window, in days')
+    await user.clear(days)
+    await user.type(days, '120')
+    await user.click(screen.getByRole('button', { name: 'Save conversions' }))
+    expect(screen.getByText('The website window is 1 to 90 days.')).toBeInTheDocument()
+    expect(calls('attribution_set_conversions')).toHaveLength(0)
+    await user.clear(days)
+    await user.type(days, '14')
+    await user.click(screen.getByRole('button', { name: 'Save conversions' }))
+    await screen.findByText('2 conversion events saved')
+    expect(calls('attribution_set_conversions')[0].args).toEqual({
+      p_project: 'proj-1',
+      p_events: ['sign_up', 'trial_started'],
+      p_web_lookback_days: 14,
+    })
+    // An event chosen before it arrives stays listed, marked as not seen.
+    const trial = screen.getByRole('checkbox', { name: /trial_started/ }).closest('label')!
+    expect(within(trial).getByText('Not seen yet')).toBeInTheDocument()
+
+    window.location.hash = '#p/proj-1/attribution'
+    await screen.findByText('2 of 3 steps done')
+    const step = screen.getByRole('heading', { name: 'Conversions', level: 2 }).closest('section')!
+    expect(within(step).getByText('Done')).toBeInTheDocument()
+    expect(within(step).getByRole('checkbox', { name: /sign_up/ })).toBeChecked()
   })
 })

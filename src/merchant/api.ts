@@ -593,13 +593,20 @@ export interface AttributionSettings {
   reengagement_days: number
   reattribution_days: number
   currency: string
+  /** The events that count as conversions in the attribution reports. */
+  conversion_events: string[]
+  /** How many days a website visit's source counts for a later conversion. */
+  web_lookback_days: number
   enabled_at: string
   disabled_at: string | null
   updated_at: string
 }
 
 export type AttributionPatch = Partial<
-  Omit<AttributionSettings, 'enabled_at' | 'disabled_at' | 'updated_at'>
+  Omit<
+    AttributionSettings,
+    'enabled_at' | 'disabled_at' | 'updated_at' | 'conversion_events' | 'web_lookback_days'
+  >
 >
 
 export interface Attribution {
@@ -613,7 +620,97 @@ export interface Attribution {
   cname_target: string
   settings: AttributionSettings | null
   domains: AttributionDomain[]
+  /** The project's events, newest first, to choose conversions from. */
+  events: Array<{ name: string; last_seen: string }>
   setup: Record<AttributionStep, boolean>
+}
+
+export interface AttributionLink {
+  id: string
+  /** The part after the domain. */
+  path: string
+  /** The link on the project's main link domain; null when it has none live. */
+  url: string | null
+  name: string
+  source: string
+  campaign: string | null
+  channel: string | null
+  adset: string | null
+  ad: string | null
+  deep_link_value: string | null
+  deep_link_params: Record<string, string>
+  web_url: string | null
+  ios_url: string | null
+  android_url: string | null
+  social_title: string | null
+  social_description: string | null
+  social_image: string | null
+  status: 'active' | 'paused'
+  created_at: string
+  updated_at: string
+  /** In the report's range. */
+  clicks?: number
+  visits?: number
+  conversions?: number
+}
+
+export type AttributionLinkFields = Partial<
+  Pick<
+    AttributionLink,
+    | 'path'
+    | 'name'
+    | 'source'
+    | 'campaign'
+    | 'channel'
+    | 'adset'
+    | 'ad'
+    | 'deep_link_value'
+    | 'deep_link_params'
+    | 'web_url'
+    | 'ios_url'
+    | 'android_url'
+    | 'social_title'
+    | 'social_description'
+    | 'social_image'
+  >
+>
+
+export interface AttributionLinks {
+  range: Range
+  /** The domain links are shown on. */
+  host: string | null
+  /** Every live domain the links work on. */
+  hosts: string[]
+  links: AttributionLink[]
+}
+
+/** last: the latest visit with a source before the conversion. first: the person's first. */
+export type AttributionModel = 'last' | 'first'
+
+export interface SourceRow {
+  /** A media source, or a campaign within one; null for direct visits and conversions. */
+  key: string | null
+  clicks: number
+  visits: number
+  people: number
+  conversions: number
+  converters: number
+}
+
+export interface AttributionSources {
+  range: Range
+  model: AttributionModel
+  source: string | null
+  conversion_events: string[]
+  web_lookback_days: number
+  totals: {
+    clicks: number
+    visits: number
+    people: number
+    conversions: number
+    converters: number
+  }
+  rows: SourceRow[]
 }
 
 export interface SubdomainCheck {
@@ -871,6 +968,36 @@ export const api = {
     rpc<Attribution>('attribution_set_subdomain', { p_project: project, p_subdomain: subdomain }),
   addDomain: (project: string, host: string) =>
     rpc<Attribution>('attribution_add_domain', { p_project: project, p_host: host }),
+  setConversions: (project: string, events: string[], webLookbackDays: number) =>
+    rpc<Attribution>('attribution_set_conversions', {
+      p_project: project,
+      p_events: events,
+      p_web_lookback_days: webLookbackDays,
+    }),
+  attributionLinks: (project: string, range: Range) =>
+    rpc<AttributionLinks>('attribution_links', { p_project: project, p_range: range }),
+  saveLink: (project: string, link: string | null, fields: AttributionLinkFields) =>
+    rpc<AttributionLink>('attribution_save_link', {
+      p_project: project,
+      p_link: link,
+      p_fields: fields,
+    }),
+  setLinkStatus: (link: string, status: AttributionLink['status']) =>
+    rpc<AttributionLink>('attribution_set_link_status', { p_link: link, p_status: status }),
+  deleteLink: (link: string) =>
+    rpc<{ deleted: boolean }>('attribution_delete_link', { p_link: link }),
+  attributionSources: (
+    project: string,
+    range: Range,
+    model: AttributionModel,
+    source: string | null,
+  ) =>
+    rpc<AttributionSources>('attribution_sources', {
+      p_project: project,
+      p_range: range,
+      p_model: model,
+      p_source: source,
+    }),
   removeDomain: (domain: string) =>
     rpc<Attribution>('attribution_remove_domain', { p_domain: domain }),
 }

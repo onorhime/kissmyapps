@@ -1,4 +1,4 @@
-import { Kma, type KmaOptions, type Properties } from './kma'
+import { Kma, type Attribution, type KmaOptions, type Properties } from './kma'
 
 type Call = [method: string, ...args: unknown[]]
 type Stub = ((...args: unknown[]) => void) & { q?: IArguments[] | Call[] }
@@ -14,6 +14,10 @@ interface Global {
   optOut(): void
   optIn(): void
   flush(): Promise<void>
+  /** Undefined until the script has loaded. */
+  attribution(): Attribution | null | undefined
+  /** Before the script has loaded, the link as given. */
+  appLink(url: string): string
   instance: Kma | null
 }
 
@@ -33,11 +37,16 @@ const methods = [
   'optOut',
   'optIn',
   'flush',
+  'attribution',
+  'appLink',
 ] as const
 
 function call(method: string, ...args: unknown[]): unknown {
   if (method === 'init') return init(args[0] as string, args[1] as Omit<KmaOptions, 'key'>)
   if (!instance) {
+    // Reading calls answer at once: there is nothing to read yet.
+    if (method === 'appLink') return args[0]
+    if (method === 'attribution') return undefined
     // Kept until init; a page whose key is wrong never grows this without bound.
     if (pending.length < 200) pending.push([method, ...args])
     return undefined
@@ -70,6 +79,9 @@ for (const method of methods) {
   ;(api as unknown as Record<string, unknown>)[method] = (...args: unknown[]) =>
     call(method, ...args)
 }
+// <script … data-attribution="session"> keeps sources for the visit only; "off" reads none.
+const attributionMode = (value?: string) =>
+  value === 'session' || value === 'off' || value === 'full' ? value : undefined
 ;(window as unknown as { kma: Global }).kma = api
 
 // A wrong key is reported in the console instead of throwing on the merchant's page.
@@ -88,6 +100,7 @@ if (key) {
     endpoint: script?.dataset.endpoint || undefined,
     replay: script?.dataset.replay !== 'false',
     appVersion: script?.dataset.appVersion || undefined,
+    attribution: attributionMode(script?.dataset.attribution),
   })
 } else if (pending.some(([method]) => method === 'init')) {
   const index = pending.findIndex(([method]) => method === 'init')

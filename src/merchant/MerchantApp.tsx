@@ -44,6 +44,12 @@ const titles: Record<Route['name'], string> = {
   settings: 'Project settings',
 }
 
+const attributionTitles = {
+  links: 'Links',
+  sources: 'Sources',
+  settings: 'Attribution settings',
+} as const
+
 function useRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(window.location.hash))
   useEffect(() => {
@@ -104,8 +110,8 @@ function Screens() {
     ? 'Project not found'
     : route.name === 'event'
       ? route.eventName
-      : route.name === 'attribution' && route.section === 'settings'
-        ? 'Attribution settings'
+      : route.name === 'attribution' && route.section !== 'setup'
+        ? attributionTitles[route.section]
         : titles[route.name]
   useEffect(() => {
     document.title = `${project ? `${pageTitle} · ${project.name}` : pageTitle} · KissMyApps Merchant`

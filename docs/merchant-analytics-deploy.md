@@ -388,6 +388,61 @@ Caddyfile and restart only `dramapal-caddy-1`, then
 `docker compose -p kissmyapps-dashboard stop links`. The migration only adds; the console
 keeps working without the link service, and custom domains stay "waiting".
 
+### Attribution, smart links and web sources
+
+Not deployed yet; it goes out together with the foundation above, in one session: do the
+foundation's steps with the files from this release, then these. Merchants make links in
+the console (Attribution, Links) with a source, campaign and ad, share them or their QR
+code, and see in Attribution, Sources where visitors came from and which sources earned
+their conversions. A tap on a phone goes to the App Store or Google Play, a computer goes
+to the website, an in-app browser (Instagram, TikTok) offers both, and robots get the
+link's preview without being counted. The website then records the click on the visit, so
+a sign-up is credited to the link, or to `utm_source`, an ad click ID or the referring
+site when there was no link.
+
+1. Apply `supabase/migrations/20261103120000_merchant_attribution_links.sql` after the
+   foundation's migration. It adds `attribution_links` and `attribution_clicks`, the
+   conversion events and website window to `attribution_settings`, and click fields to
+   `analytics_sessions` (replacing `kma_internal.analytics_touch_session` and
+   `kma_internal.attribution_view`; existing sessions and reports are unchanged).
+2. Deploy both functions again. `attribution-links` now also looks links up and records
+   clicks; it hashes each clicker's address with `ANALYTICS_IP_SALT`, the secret the
+   ingest function already has. `analytics-ingest` now keeps a page's click IDs.
+
+   ```sh
+   supabase functions deploy attribution-links --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   supabase functions deploy analytics-ingest --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   ```
+
+3. Copy the new `links.mjs` and `server.mjs` to `/srv/kissmyapps/deploy/link-service/`
+   (foundation step 4) before starting `links`; if it already runs, restart it with
+   `docker compose -p kissmyapps-dashboard -f <host copy>/compose.yaml restart links`.
+   Clicks are sent in batches every two seconds, and once more when it stops.
+4. Edge Caddy: the `https:// { ... }` block in `deploy/hostinger/Caddyfile.kissmyapps`
+   now drops any `X-Kma-*` header the browser sent and passes the visitor's address as
+   `X-Kma-Client-Ip`. Merge it as in foundation step 6 (the two new lines are in that
+   block), validate with the installed Caddy and restart only `dramapal-caddy-1`.
+5. Release the dashboard (step 6 above). It serves `kma.js` 1.1.0, which keeps a visit's
+   source for 30 days, records the click ID from a link on the visit, and adds
+   `kma.attribution()` and `kma.appLink(url)`; sites that load `/sdk/kma.js` get it at
+   once. The console gains Links and Sources.
+6. Smoke test, with the `kmatest` project from the foundation's smoke test and its
+   website loading `kma.js`:
+   - In the console, choose `sign_up` (or the project's sign-up event) under Attribution,
+     Settings, Conversions, then make a link with source `tiktok` and campaign `test`.
+   - `curl -s -o /dev/null -w '%{redirect_url}\n' -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' https://kmatest.go.kissmyapps.dev/<path>`
+     prints the website with `kma_lc=` and `utm_source=tiktok` on the address (use GET:
+     a `HEAD` request, like a robot's, goes to the website without a click). An iPhone
+     user agent goes to the App Store; `-A 'facebookexternalhit/1.1'` goes to the
+     website with no `kma_lc` and no click counted.
+   - Open the link in a browser and sign up. Within a minute the link shows one click,
+     one visit and one conversion under Links, and Sources shows TikTok with campaign
+     `test`.
+
+Rollback: pause the links in the console (people go to the website, uncounted), or
+restore the previous `links.mjs`, `server.mjs` and functions. The migration only adds
+columns and tables; the previous console and SDK ignore them.
+
 ## Not in this release
 
 - Replays for apps: the mobile SDKs record events, sessions and screens, not replays.

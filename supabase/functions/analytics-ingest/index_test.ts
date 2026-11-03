@@ -111,6 +111,12 @@ Deno.test("events are normalised, hashed and placed before ingest", async () => 
       interactions: -3,
       webdriver: false,
       utm: { source: "newsletter", junk: "x" },
+      click: {
+        kma_lc: "Lk9x2mQ4rT7vW1yZ3bC5dE",
+        fbclid: "IwAR0abc",
+        junk: "dropped",
+        gclid: "",
+      },
       secret: "dropped",
     },
     events: [
@@ -169,6 +175,7 @@ Deno.test("events are normalised, hashed and placed before ingest", async () => 
     screen_width: 1440,
     webdriver: false,
     utm: { source: "newsletter" },
+    click: { kma_lc: "Lk9x2mQ4rT7vW1yZ3bC5dE", fbclid: "IwAR0abc" },
   });
   const events = payload.body.events as Record<string, unknown>[];
   assertEquals(events[0].time, "2026-10-30T10:00:00.000Z");

@@ -127,6 +127,25 @@ function normalizeContext(
     }
     out.utm = utm;
   }
+  // The landing page's click IDs: a smart link's (kma_lc) and the ad platforms'.
+  if (isObject(context.click)) {
+    const click: Record<string, string> = {};
+    for (
+      const key of [
+        "kma_lc",
+        "gclid",
+        "gbraid",
+        "wbraid",
+        "fbclid",
+        "ttclid",
+        "msclkid",
+      ]
+    ) {
+      const value = text(context.click[key], 300);
+      if (value !== undefined) click[key] = value;
+    }
+    if (Object.keys(click).length) out.click = click;
+  }
   return out;
 }
 
