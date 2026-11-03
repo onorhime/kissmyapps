@@ -31,6 +31,12 @@ DramaPal Docker stack without publishing another host port.
   (`deploy/geo-relay`). It holds the proxy secret in the root-only
   `/srv/kissmyapps/geo-relay.env` and keeps DB-IP's city database in
   `/srv/kissmyapps/geo-data`.
+- `compose.yaml` also defines `links`, the `kissmyapps-links` link service
+  (`deploy/link-service`) for merchant attribution. The edge sends it every host
+  without a block of its own, through the `https://` block with on-demand
+  certificates, which needs the `on_demand_tls` global option. It holds its
+  secret in the root-only `/srv/kissmyapps/link-service.env`. Steps under
+  "Attribution" in the merchant analytics deploy checklist.
 - `analytics-maintenance.sql` schedules the daily 30-day replay purge.
 
 The dashboard container is read-only, runs as an unprivileged UID with

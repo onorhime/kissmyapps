@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ApiKey,
+  Attribution,
+  AttributionDomain,
+  AttributionSettings,
   Context,
   Funnel,
   FunnelReport,
@@ -15,6 +18,7 @@ import type {
   RetentionReport,
   Role,
 } from './api'
+import { androidIntentFilter, fingerprintList, suggestedSubdomain } from './attribution'
 import { csvText, toCsv } from './csv'
 import {
   formatChange,
@@ -320,6 +324,8 @@ describe('merchant routes', () => {
       { name: 'live', projectId: 'p1' },
       { name: 'event', projectId: 'p1', eventName: 'plan:selected' },
       { name: 'bots', projectId: 'p1' },
+      { name: 'attribution', projectId: 'p1', section: 'setup' },
+      { name: 'attribution', projectId: 'p1', section: 'settings' },
       { name: 'settings', projectId: 'p1', section: 'keys' },
     ]
     for (const route of routes) expect(parseRoute(href(route))).toEqual(route)
@@ -1202,5 +1208,294 @@ describe('city location', () => {
       'href',
       'https://db-ip.com',
     )
+  })
+})
+
+describe('attribution', () => {
+  const root = 'go.kissmyapps.dev'
+  const settings = (overrides: Partial<AttributionSettings> = {}): AttributionSettings => ({
+    ios_app_store_id: null,
+    ios_bundle_id: null,
+    ios_team_id: null,
+    android_package: null,
+    android_sha256: [],
+    web_url: 'https://speaksix.app/',
+    click_lookback_days: 7,
+    view_through_enabled: false,
+    view_lookback_hours: 24,
+    reengagement_days: 30,
+    reattribution_days: 90,
+    currency: 'USD',
+    enabled_at: '2026-11-03T09:00:00Z',
+    disabled_at: null,
+    updated_at: '2026-11-03T09:00:00Z',
+    ...overrides,
+  })
+  const domain = (host: string, overrides: Partial<AttributionDomain> = {}): AttributionDomain => ({
+    id: `domain-${host}`,
+    host,
+    kind: host.endsWith(`.${root}`) ? 'kma' : 'custom',
+    status: host.endsWith(`.${root}`) ? 'live' : 'waiting',
+    verified_at: null,
+    last_seen_at: null,
+    created_at: '2026-11-03T09:00:00Z',
+    ...overrides,
+  })
+  // What the database answers, worked out from the settings the way it does.
+  const viewOf = (
+    current: Pick<Attribution, 'enabled' | 'ever_enabled' | 'settings' | 'domains'>,
+  ): Attribution => {
+    const s = current.settings
+    return {
+      project_id: 'proj-1',
+      link_root: root,
+      cname_target: `cname.${root}`,
+      ...current,
+      setup: {
+        apps: Boolean(s?.ios_app_store_id && s.ios_bundle_id && s.ios_team_id && s.web_url),
+        domain: Boolean(s),
+        sdk: false,
+        conversions: false,
+        partners: false,
+        skan: false,
+      },
+    }
+  }
+  let view: Attribution
+  const calls = (name: string) => fake.state.calls.filter((call) => call.name === name)
+
+  beforeEach(() => {
+    view = viewOf({ enabled: false, ever_enabled: false, settings: null, domains: [] })
+    fake.state.handlers.attribution_get = () => view
+    fake.state.handlers.attribution_check_subdomain = ({ p_subdomain }) => ({
+      subdomain: p_subdomain,
+      host: `${p_subdomain}.${root}`,
+      available: p_subdomain !== 'taken',
+      reason:
+        p_subdomain === 'taken' ? 'Another project already uses that name. Try another.' : null,
+    })
+    fake.state.handlers.attribution_enable = ({ p_subdomain }) => {
+      view = viewOf({
+        enabled: true,
+        ever_enabled: true,
+        settings: view.settings ?? settings(),
+        domains: view.domains.length ? view.domains : [domain(`${p_subdomain}.${root}`)],
+      })
+      return view
+    }
+    fake.state.handlers.attribution_disable = () => {
+      view = viewOf({ ...view, enabled: false })
+      return view
+    }
+    fake.state.handlers.attribution_update = ({ p_patch }) => {
+      const patch = { ...(p_patch as Partial<AttributionSettings>) }
+      if (patch.ios_app_store_id) patch.ios_app_store_id = patch.ios_app_store_id.replace(/^id/, '')
+      if (patch.ios_team_id) patch.ios_team_id = patch.ios_team_id.toUpperCase()
+      view = viewOf({ ...view, settings: { ...view.settings!, ...patch } })
+      return view
+    }
+    fake.state.handlers.attribution_add_domain = ({ p_host }) => {
+      view = viewOf({ ...view, domains: [...view.domains, domain(p_host as string)] })
+      return view
+    }
+    fake.state.handlers.attribution_remove_domain = ({ p_domain }) => {
+      view = viewOf({ ...view, domains: view.domains.filter((item) => item.id !== p_domain) })
+      return view
+    }
+  })
+
+  const turnedOn = (overrides: Partial<AttributionSettings> = {}) => {
+    view = viewOf({
+      enabled: true,
+      ever_enabled: true,
+      settings: settings(overrides),
+      domains: [domain(`speaksix.${root}`)],
+    })
+  }
+
+  it('makes a link address from the project name, and app snippets from its domains', () => {
+    expect(suggestedSubdomain('SpeakSix')).toBe('speaksix')
+    expect(suggestedSubdomain('Café Olé!  Lagos')).toBe('cafe-ole-lagos')
+    expect(suggestedSubdomain('AB')).toBe('')
+    expect(fingerprintList('AB:CD\n\n ef01 , 23')).toEqual(['AB:CD', 'ef01', '23'])
+    expect(androidIntentFilter(['a.example', 'b.example'])).toContain(
+      '<data android:host="b.example" />',
+    )
+  })
+
+  it('turns attribution on with a free link address', async () => {
+    signedInAs('owner')
+    window.location.hash = '#p/proj-1/attribution'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'Turn on attribution for SpeakSix' })
+    const address = screen.getByLabelText('Link address')
+    expect(address).toHaveValue('speaksix')
+    expect(await screen.findByText(/is free/)).toHaveTextContent(`speaksix.${root} is free.`)
+
+    await user.clear(address)
+    await user.type(address, 'taken')
+    expect(
+      await screen.findByText('Another project already uses that name. Try another.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Turn on attribution' })).toBeDisabled()
+
+    await user.clear(address)
+    await user.type(address, 'speaksix')
+    await screen.findByText(/is free/)
+    await user.click(screen.getByRole('button', { name: 'Turn on attribution' }))
+    await screen.findByRole('heading', { name: 'Your apps and website' })
+    expect(calls('attribution_enable').at(-1)?.args).toEqual({
+      p_project: 'proj-1',
+      p_subdomain: 'speaksix',
+    })
+    expect(screen.getByText('Attribution is on')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings', current: false })).toHaveAttribute(
+      'href',
+      '#p/proj-1/attribution/settings',
+    )
+  })
+
+  it('describes the apps, checks them first, and shows what the address answers', async () => {
+    signedInAs('owner')
+    turnedOn()
+    window.location.hash = '#p/proj-1/attribution'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'Your apps and website' })
+    // The project lists web and iOS, so there is nothing to fill in for Android.
+    expect(screen.queryByText('Android app')).not.toBeInTheDocument()
+    expect(screen.getByText('1 of 2 steps done')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('App Store ID'), 'id1234567890')
+    await user.type(screen.getByLabelText('Bundle ID'), 'app.speaksix.ios')
+    await user.type(screen.getByLabelText('Team ID'), 'ABC')
+    await user.click(screen.getByRole('button', { name: 'Save apps and website' }))
+    expect(screen.getByText('A Team ID is 10 letters and numbers.')).toBeInTheDocument()
+    expect(calls('attribution_update')).toHaveLength(0)
+
+    await user.clear(screen.getByLabelText('Team ID'))
+    await user.type(screen.getByLabelText('Team ID'), 'abcde12345')
+    await user.click(screen.getByRole('button', { name: 'Save apps and website' }))
+    await screen.findByText('Apps and website saved')
+    expect(calls('attribution_update')[0].args.p_patch).toEqual({
+      ios_app_store_id: 'id1234567890',
+      ios_bundle_id: 'app.speaksix.ios',
+      ios_team_id: 'abcde12345',
+    })
+    expect(await screen.findByLabelText('Associated Domains')).toHaveTextContent(
+      `applinks:speaksix.${root}`,
+    )
+    const rail = screen.getByRole('complementary', { name: 'What your link domain answers' })
+    expect(within(rail).getByText('ABCDE12345.app.speaksix.ios')).toBeInTheDocument()
+    expect(within(rail).getByRole('link', { name: /View the Apple file/ })).toHaveAttribute(
+      'href',
+      `https://speaksix.${root}/.well-known/apple-app-site-association`,
+    )
+    expect(screen.getByText('2 of 2 steps done')).toBeInTheDocument()
+  })
+
+  it('adds a domain of its own and says how to point it here', async () => {
+    signedInAs('developer')
+    turnedOn()
+    window.location.hash = '#p/proj-1/attribution'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    const field = await screen.findByLabelText('Your own domain')
+    await user.type(field, 'speaksix')
+    await user.click(screen.getByRole('button', { name: 'Add domain' }))
+    expect(screen.getByText('Enter a domain such as go.yourbrand.com.')).toBeInTheDocument()
+    expect(calls('attribution_add_domain')).toHaveLength(0)
+
+    await user.clear(field)
+    await user.type(field, 'https://Go.SpeakSix.app/start')
+    await user.click(screen.getByRole('button', { name: 'Add domain' }))
+    const row = (await screen.findByText('go.speaksix.app', { selector: '.mc-truncate' })).closest(
+      'li',
+    )!
+    expect(calls('attribution_add_domain')[0].args).toEqual({
+      p_project: 'proj-1',
+      p_host: 'go.speaksix.app',
+    })
+    expect(within(row).getByText('Waiting')).toBeInTheDocument()
+    expect(within(row).getByText(/add a CNAME record for/)).toBeInTheDocument()
+    expect(
+      within(row).getByText(`cname.${root}`, { selector: '.mc-key-value' }),
+    ).toBeInTheDocument()
+    expect(within(row).getByRole('link', { name: /Open go.speaksix.app/ })).toHaveAttribute(
+      'href',
+      'https://go.speaksix.app/',
+    )
+
+    await user.click(within(row).getByRole('button', { name: 'Remove go.speaksix.app' }))
+    await waitFor(() =>
+      expect(screen.queryByText('go.speaksix.app', { selector: '.mc-truncate' })).toBeNull(),
+    )
+    // The KissMyApps address cannot be removed.
+    expect(
+      screen.queryByRole('button', { name: `Remove speaksix.${root}` }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('lets analysts look but not change anything', async () => {
+    signedInAs('analyst')
+    window.location.hash = '#p/proj-1/attribution'
+    const { unmount } = render(<MerchantApp />)
+    expect(
+      await screen.findByText('Only a workspace owner or admin can turn attribution on.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Turn on attribution' })).not.toBeInTheDocument()
+    unmount()
+
+    turnedOn()
+    render(<MerchantApp />)
+    expect(await screen.findByLabelText('Bundle ID')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save apps and website' })).toBeNull()
+    expect(screen.queryByLabelText('Your own domain')).toBeNull()
+    window.location.hash = '#p/proj-1/attribution/settings'
+    expect(await screen.findByLabelText('Click window, in days')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Turn off attribution' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Rename address' })).toBeNull()
+  })
+
+  it('saves the windows, then turns attribution off and on again with everything kept', async () => {
+    signedInAs('owner')
+    turnedOn()
+    window.location.hash = '#p/proj-1/attribution/settings'
+    const user = userEvent.setup()
+    render(<MerchantApp />)
+    await screen.findByRole('heading', { name: 'Attribution settings', level: 1 })
+    const clicks = screen.getByLabelText('Click window, in days')
+    await user.clear(clicks)
+    await user.type(clicks, '40')
+    await user.click(screen.getByRole('button', { name: 'Save windows' }))
+    expect(screen.getByText('The click window is 1 to 30 days.')).toBeInTheDocument()
+    await user.clear(clicks)
+    await user.type(clicks, '14')
+    await user.click(screen.getByRole('checkbox', { name: /Count ad views/ }))
+    await user.click(screen.getByRole('button', { name: 'Save windows' }))
+    await screen.findByText('Attribution windows saved')
+    expect(calls('attribution_update')[0].args.p_patch).toEqual({
+      view_through_enabled: true,
+      click_lookback_days: 14,
+      view_lookback_hours: 24,
+      reengagement_days: 30,
+      reattribution_days: 90,
+    })
+
+    const rename = screen.getByLabelText('Link address')
+    await user.clear(rename)
+    await user.type(rename, 'speak6')
+    expect(
+      screen.getByText(new RegExp(`Links on speaksix.${root} stop working`)),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Turn off attribution' }))
+    await user.click(screen.getByRole('button', { name: 'Turn off' }))
+    await screen.findByRole('heading', { name: 'Attribution is off for SpeakSix' })
+    expect(calls('attribution_disable')).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Turn attribution on again' }))
+    expect(await screen.findByLabelText('Click window, in days')).toHaveValue(14)
+    expect(calls('attribution_enable').at(-1)?.args.p_subdomain).toBeNull()
   })
 })

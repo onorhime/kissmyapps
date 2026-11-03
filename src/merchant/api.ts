@@ -21,6 +21,8 @@ export interface Project {
   last_event_at?: string | null
   online_now?: number
   users_today?: number
+  /** Whether attribution is on for the project. */
+  attribution_enabled?: boolean
 }
 
 export interface Workspace {
@@ -564,6 +566,63 @@ export interface RetentionSummary {
   returned: number
 }
 
+export type AttributionStep = 'apps' | 'domain' | 'sdk' | 'conversions' | 'partners' | 'skan'
+
+export interface AttributionDomain {
+  id: string
+  host: string
+  /** kma: the project's subdomain of the link root. custom: a domain of the merchant's own. */
+  kind: 'kma' | 'custom'
+  /** A custom domain is live once a request for it has reached KissMyApps over HTTPS. */
+  status: 'live' | 'waiting'
+  verified_at: string | null
+  last_seen_at: string | null
+  created_at: string
+}
+
+export interface AttributionSettings {
+  ios_app_store_id: string | null
+  ios_bundle_id: string | null
+  ios_team_id: string | null
+  android_package: string | null
+  android_sha256: string[]
+  web_url: string | null
+  click_lookback_days: number
+  view_through_enabled: boolean
+  view_lookback_hours: number
+  reengagement_days: number
+  reattribution_days: number
+  currency: string
+  enabled_at: string
+  disabled_at: string | null
+  updated_at: string
+}
+
+export type AttributionPatch = Partial<
+  Omit<AttributionSettings, 'enabled_at' | 'disabled_at' | 'updated_at'>
+>
+
+export interface Attribution {
+  project_id: string
+  enabled: boolean
+  /** Turned on at some point: settings and domains are kept while it is off. */
+  ever_enabled: boolean
+  /** The domain project subdomains are made under, such as go.kissmyapps.dev. */
+  link_root: string
+  /** Where a merchant's own domain points its CNAME record. */
+  cname_target: string
+  settings: AttributionSettings | null
+  domains: AttributionDomain[]
+  setup: Record<AttributionStep, boolean>
+}
+
+export interface SubdomainCheck {
+  subdomain: string
+  host: string
+  available: boolean
+  reason: string | null
+}
+
 export class ApiError extends Error {
   readonly code?: string
 
@@ -795,6 +854,25 @@ export const api = {
     rpc<RetentionSummary>('analytics_retention_summary', { p_project: project }),
   places: (project: string, range: Range, country: string | null = null) =>
     rpc<Places>('analytics_places', { p_project: project, p_range: range, p_country: country }),
+  attribution: (project: string) => rpc<Attribution>('attribution_get', { p_project: project }),
+  checkSubdomain: (project: string, subdomain: string) =>
+    rpc<SubdomainCheck>('attribution_check_subdomain', {
+      p_project: project,
+      p_subdomain: subdomain,
+    }),
+  /** The subdomain is only needed the first time; turning on again keeps the one it had. */
+  enableAttribution: (project: string, subdomain: string | null) =>
+    rpc<Attribution>('attribution_enable', { p_project: project, p_subdomain: subdomain }),
+  disableAttribution: (project: string) =>
+    rpc<Attribution>('attribution_disable', { p_project: project }),
+  updateAttribution: (project: string, patch: AttributionPatch) =>
+    rpc<Attribution>('attribution_update', { p_project: project, p_patch: patch }),
+  setSubdomain: (project: string, subdomain: string) =>
+    rpc<Attribution>('attribution_set_subdomain', { p_project: project, p_subdomain: subdomain }),
+  addDomain: (project: string, host: string) =>
+    rpc<Attribution>('attribution_add_domain', { p_project: project, p_host: host }),
+  removeDomain: (domain: string) =>
+    rpc<Attribution>('attribution_remove_domain', { p_domain: domain }),
 }
 
 export type Api = typeof api
