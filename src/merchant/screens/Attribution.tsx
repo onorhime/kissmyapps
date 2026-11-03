@@ -14,7 +14,7 @@ import {
   suggestedSubdomain,
   validFingerprint,
 } from '../attribution'
-import { formatAgo } from '../format'
+import { formatAgo, plural } from '../format'
 import { href } from '../routes'
 import type { AttributionSection } from '../routes'
 import { canDo, useStore } from '../store'
@@ -29,9 +29,20 @@ import {
   Skeleton,
 } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
+import { LinksScreen } from './AttributionLinks'
+import { SourcesScreen } from './AttributionSources'
 import { SettingsRow } from './Settings'
 
 const MAX_CUSTOM_DOMAINS = 5
+const MAX_CONVERSIONS = 20
+const EVENT_NAME = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/
+
+const SECTION_TITLES: Record<AttributionSection, string> = {
+  setup: 'Attribution',
+  links: 'Links',
+  sources: 'Sources',
+  settings: 'Attribution settings',
+}
 
 function useAction() {
   const { notify } = useStore()
@@ -76,14 +87,22 @@ export function AttributionScreen({
   return (
     <div className="mc-page">
       <PageHeader
-        title={section === 'settings' && on ? 'Attribution settings' : 'Attribution'}
-        description={`Which links, ads and partners bring the people who install ${project.name} and sign up.`}
+        title={on ? SECTION_TITLES[section] : 'Attribution'}
+        description={
+          on && section === 'links'
+            ? `One link for each place you share ${project.name}. Each sends people to the right store or page and says where they came from.`
+            : on && section === 'sources'
+              ? `Where the people who visit ${project.name} came from, and which sources bring conversions.`
+              : `Which links, ads and partners bring the people who install ${project.name} and sign up.`
+        }
       />
       {on && (
         <nav className="mc-tabs" aria-label="Attribution">
           {(
             [
               ['setup', 'Setup'],
+              ['links', 'Links'],
+              ['sources', 'Sources'],
               ['settings', 'Settings'],
             ] as const
           ).map(([value, label]) => (
@@ -108,6 +127,10 @@ export function AttributionScreen({
         <TurnOn project={project} view={view} role={role} onChange={state.refresh} />
       ) : section === 'settings' ? (
         <AttributionSettings project={project} view={view} role={role} onChange={state.refresh} />
+      ) : section === 'links' ? (
+        <LinksScreen project={project} view={view} role={role} />
+      ) : section === 'sources' ? (
+        <SourcesScreen project={project} />
       ) : (
         <Setup project={project} view={view} role={role} onChange={state.refresh} />
       )}
@@ -295,9 +318,9 @@ const LATER_STEPS: Array<{ key: string; title: string; text: string; ios?: boole
     text: 'Update the SDK, tap a test link on your phone, and watch the install arrive.',
   },
   {
-    key: 'conversions',
-    title: 'Conversions and revenue',
-    text: 'Choose the events that count, such as a sign-up or a purchase, and their revenue.',
+    key: 'revenue',
+    title: 'Revenue and ad spend',
+    text: 'Add revenue to conversions and what each campaign cost, to see what it earned back.',
   },
   {
     key: 'partners',
@@ -319,28 +342,20 @@ function StepList({ project, view }: { project: Project; view: Attribution | nul
       <div className="mc-panel-head">
         <div>
           <h2 id="mc-attr-plan">{view ? 'Coming next' : 'What you will set up'}</h2>
-          {!view && <p>The first two steps are ready now; the rest arrive with links.</p>}
+          {!view && <p>The first three steps are ready now; the rest arrive in later releases.</p>}
         </div>
       </div>
       <ol className="mc-check-list mc-attr-plan">
-        {!view && (
-          <>
-            <li>
+        {!view &&
+          ['Your apps and website', 'Link domain', 'Conversions'].map((title) => (
+            <li key={title}>
               <span className="mc-status-dot is-on" aria-hidden="true" />
               <span className="mc-attr-plan-text">
-                <strong>Your apps and website</strong>
+                <strong>{title}</strong>
               </span>
               <span className="mc-muted">Ready now</span>
             </li>
-            <li>
-              <span className="mc-status-dot is-on" aria-hidden="true" />
-              <span className="mc-attr-plan-text">
-                <strong>Link domain</strong>
-              </span>
-              <span className="mc-muted">Ready now</span>
-            </li>
-          </>
-        )}
+          ))}
         {later.map((step) => (
           <li key={step.key}>
             <span className="mc-status-dot" aria-hidden="true" />
@@ -357,21 +372,35 @@ function StepList({ project, view }: { project: Project; view: Attribution | nul
 }
 
 function Setup({ project, view, role, onChange }: Props) {
-  const done = [view.setup.apps, view.setup.domain].filter(Boolean).length
+  const steps = [view.setup.apps, view.setup.domain, view.setup.conversions]
+  const done = steps.filter(Boolean).length
   return (
     <div className="mc-install mc-attr-layout">
       <div className="mc-attr-main">
         <div className="mc-attr-progress">
           <p>
-            <strong>{done} of 2 steps done</strong>
+            <strong>
+              {done} of {steps.length} steps done
+            </strong>
             <span className="mc-muted">
-              {done === 2
-                ? ' · Your link domain is ready for the next release.'
-                : ' · Both can be set up now.'}
+              {done === steps.length ? (
+                <>
+                  {' · '}
+                  <a
+                    className="mc-link"
+                    href={href({ name: 'attribution', projectId: project.id, section: 'links' })}
+                  >
+                    Make a link
+                  </a>{' '}
+                  and share it to see where people come from.
+                </>
+              ) : (
+                ' · All three can be set up now.'
+              )}
             </span>
           </p>
           <span className="mc-meter" aria-hidden="true">
-            <span style={{ width: `${(done / 2) * 100}%` }} />
+            <span style={{ width: `${(done / steps.length) * 100}%` }} />
           </span>
         </div>
         <Step number={1} title="Your apps and website" done={view.setup.apps}>
@@ -379,6 +408,9 @@ function Setup({ project, view, role, onChange }: Props) {
         </Step>
         <Step number={2} title="Link domain" done={view.setup.domain}>
           <Domains project={project} view={view} role={role} onChange={onChange} />
+        </Step>
+        <Step number={3} title="Conversions" done={view.setup.conversions}>
+          <ConversionsForm project={project} view={view} role={role} onChange={onChange} />
         </Step>
         <StepList project={project} view={view} />
       </div>
@@ -853,6 +885,223 @@ function Answers({ view }: { view: Attribution }) {
   )
 }
 
+// Conversions ------------------------------------------------------------------------------------
+
+function ConversionsForm({
+  project,
+  view,
+  role,
+  onChange,
+  withWindow = false,
+}: Props & { withWindow?: boolean }) {
+  const { notify, now } = useStore()
+  const canEdit = canDo(role, 'developer')
+  const saved = view.settings?.conversion_events ?? []
+  const savedDays = String(view.settings?.web_lookback_days ?? 30)
+  const [chosen, setChosen] = useState<string[]>(saved)
+  const [days, setDays] = useState(savedDays)
+  const [find, setFind] = useState('')
+  const [extra, setExtra] = useState<string[]>([])
+  const [adding, setAdding] = useState('')
+  const [errors, setErrors] = useState<{ add?: string; days?: string }>({})
+  const action = useAction()
+  const seen = new Map(view.events.map((event) => [event.name, event.last_seen]))
+  // Chosen events not seen yet are listed first, so they can be unticked.
+  const names = [
+    ...new Set([...saved, ...extra].filter((name) => !seen.has(name))),
+    ...view.events.map((event) => event.name),
+  ]
+  const query = find.trim().toLowerCase()
+  const shown = query ? names.filter((name) => name.toLowerCase().includes(query)) : names
+  const changed =
+    chosen.length !== saved.length ||
+    chosen.some((name) => !saved.includes(name)) ||
+    (withWindow && days.trim() !== savedDays)
+  const full = chosen.length >= MAX_CONVERSIONS
+  const fieldId = useId()
+
+  const toggle = (name: string, on: boolean) =>
+    setChosen((current) =>
+      on
+        ? [...current.filter((item) => item !== name), name]
+        : current.filter((item) => item !== name),
+    )
+
+  const add = () => {
+    const name = adding.trim()
+    if (!EVENT_NAME.test(name)) {
+      setErrors({ add: 'Event names use letters, numbers and _ . : -, starting with a letter.' })
+      return
+    }
+    if (!chosen.includes(name) && full) {
+      setErrors({ add: `Choose up to ${MAX_CONVERSIONS} events.` })
+      return
+    }
+    setErrors({})
+    if (!names.includes(name)) setExtra((current) => [...current, name])
+    toggle(name, true)
+    setAdding('')
+  }
+
+  const save = (event: FormEvent) => {
+    event.preventDefault()
+    const value = Number(days)
+    if (withWindow && (!/^\d+$/.test(days.trim()) || value < 1 || value > 90)) {
+      setErrors({ days: 'The website window is 1 to 90 days.' })
+      return
+    }
+    setErrors({})
+    void action.run(async () => {
+      const next = await api.setConversions(
+        project.id,
+        chosen,
+        withWindow ? value : Number(savedDays),
+      )
+      setChosen(next.settings?.conversion_events ?? chosen)
+      setExtra([])
+      await onChange()
+      notify(
+        chosen.length ? `${plural(chosen.length, 'conversion event')} saved` : 'Conversions saved',
+      )
+    })
+  }
+
+  return (
+    <form className="mc-panel" onSubmit={save} noValidate>
+      <fieldset className="mc-form-stack" disabled={!canEdit}>
+        <legend className="mc-attr-legend">
+          <span>Events that count as a conversion</span>
+          <span className="mc-muted mc-num">
+            {chosen.length} of {MAX_CONVERSIONS} chosen
+          </span>
+        </legend>
+        {names.length > 10 && (
+          <div className="mc-field">
+            <label htmlFor={`${fieldId}-find`} className="sr-only">
+              Find an event
+            </label>
+            <input
+              id={`${fieldId}-find`}
+              type="search"
+              value={find}
+              placeholder="Find an event"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => setFind(event.target.value)}
+            />
+          </div>
+        )}
+        {names.length === 0 ? (
+          <p className="mc-muted">
+            No events have arrived from {project.name} yet. Add the name of the one your app or site
+            will send, such as sign_up, or come back once events arrive.
+          </p>
+        ) : shown.length === 0 ? (
+          <p className="mc-muted">No event matches “{find.trim()}”.</p>
+        ) : (
+          <ul className="mc-attr-events">
+            {shown.map((name) => {
+              const on = chosen.includes(name)
+              const last = seen.get(name)
+              return (
+                <li key={name}>
+                  <label className="mc-check">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={!on && full}
+                      onChange={(event) => toggle(name, event.target.checked)}
+                    />
+                    <span>
+                      <span className="mc-mono">{name}</span>
+                      <span className="mc-sub">
+                        {last ? `Last seen ${formatAgo(last, now)}` : 'Not seen yet'}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        <div>
+          <div className="mc-inline-add">
+            <label htmlFor={`${fieldId}-add`} className="sr-only">
+              An event not seen yet
+            </label>
+            <input
+              id={`${fieldId}-add`}
+              value={adding}
+              placeholder="An event not seen yet, such as sign_up"
+              maxLength={80}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={errors.add ? true : undefined}
+              aria-describedby={errors.add ? `${fieldId}-add-error` : undefined}
+              onChange={(event) => setAdding(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  add()
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="mc-btn mc-btn-secondary"
+              disabled={!adding.trim()}
+              onClick={add}
+            >
+              <Plus size={16} aria-hidden="true" /> Add
+            </button>
+          </div>
+          {errors.add && (
+            <p id={`${fieldId}-add-error`} className="mc-field-error" role="alert">
+              {errors.add}
+            </p>
+          )}
+        </div>
+        {withWindow && (
+          <Field
+            label="Website window, in days"
+            hint="How long a visit's source still earns the conversions that follow. The usual is 30."
+            error={errors.days}
+          >
+            {(props) => (
+              <input
+                {...props}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={90}
+                value={days}
+                className="mc-attr-days"
+                onChange={(event) => setDays(event.target.value)}
+              />
+            )}
+          </Field>
+        )}
+      </fieldset>
+      {canEdit && (
+        <div className="mc-form-actions">
+          {action.error && (
+            <p className="mc-field-error mc-attr-form-error" role="alert">
+              {action.error}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="mc-btn mc-btn-primary"
+            disabled={!changed || action.busy}
+          >
+            Save conversions
+          </button>
+        </div>
+      )}
+    </form>
+  )
+}
+
 // Settings ---------------------------------------------------------------------------------------
 
 type Windows = {
@@ -945,7 +1194,10 @@ function AttributionSettings({ project, view, role, onChange }: Props) {
             <p>
               How long after someone taps a link, or sees an ad, an install still counts for it.
             </p>
-            <p>They apply once links and matching arrive in the next release.</p>
+            <p>
+              They apply to app installs, which arrive in the next release. Website visits use the
+              website window under Conversions.
+            </p>
           </>
         }
       >
@@ -995,6 +1247,18 @@ function AttributionSettings({ project, view, role, onChange }: Props) {
             </div>
           )}
         </form>
+      </SettingsRow>
+
+      <SettingsRow
+        title="Conversions"
+        description={
+          <>
+            <p>The events that count as a conversion in Sources and Links.</p>
+            <p>A visit's source earns the conversions that follow within the website window.</p>
+          </>
+        }
+      >
+        <ConversionsForm project={project} view={view} role={role} onChange={onChange} withWindow />
       </SettingsRow>
 
       <SettingsRow

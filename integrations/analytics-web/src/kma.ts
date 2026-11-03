@@ -1,6 +1,6 @@
 import { parseUserAgent, type DeviceInfo, type HighEntropyHints } from './device'
 
-export const SDK_VERSION = '1.0.0'
+export const SDK_VERSION = '1.1.0'
 export const DEFAULT_ENDPOINT = 'https://events.kissmyapps.dev'
 
 export type Properties = Record<string, unknown>
@@ -31,6 +31,34 @@ export interface KmaOptions {
   loadReplay?: () => Promise<ReplayModule>
   fetch?: typeof fetch
   debug?: boolean
+  /**
+   * Where visitors came from. full (default): keep the first and last source for 30 days.
+   * session: read sources but keep them only for the visit (for visitors who have not
+   * consented to storage). off: read no ad click IDs and keep no sources.
+   */
+  attribution?: AttributionMode
+}
+
+export type AttributionMode = 'full' | 'session' | 'off'
+
+/** Where a visit came from: its landing page's UTM tags, click IDs and referring site. */
+export interface Touch {
+  source?: string
+  medium?: string
+  campaign?: string
+  content?: string
+  term?: string
+  /** kma_lc (a KissMyApps link click) and the ad platforms' gclid, fbclid, ttclid and others. */
+  click?: Record<string, string>
+  referrer?: string
+  landing: string
+  /** When, in epoch milliseconds. */
+  at: number
+}
+
+export interface Attribution {
+  first: Touch
+  last: Touch
 }
 
 interface Session {
@@ -41,6 +69,7 @@ interface Session {
   landing: string
   referrer?: string
   utm?: Record<string, string>
+  click?: Record<string, string>
   replay: boolean
 }
 
@@ -78,6 +107,8 @@ const BEACON_BYTES = 60_000
 const REPLAY_CHUNK_BYTES = 300_000
 const REPLAY_MAX_BYTES = 3_500_000
 const MAX_ERRORS_PER_PAGE = 20
+const CLICK_KEYS = ['kma_lc', 'gclid', 'gbraid', 'wbraid', 'fbclid', 'ttclid', 'msclkid']
+const TOUCH_MS = 30 * 24 * 60 * 60_000
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
@@ -93,6 +124,14 @@ function storageGet<T>(key: string): T | null {
     return raw ? (JSON.parse(raw) as T) : null
   } catch {
     return null
+  }
+}
+
+function storageRemove(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Blocked storage has nothing to remove.
   }
 }
 
@@ -129,6 +168,19 @@ function utmFromUrl(): Record<string, string> | undefined {
   return Object.keys(utm).length ? utm : undefined
 }
 
+function clickFromUrl(): Record<string, string> | undefined {
+  const params = new URLSearchParams(window.location.search)
+  const click: Record<string, string> = {}
+  for (const key of CLICK_KEYS) {
+    const value = params.get(key)
+    if (value) click[key] = value.slice(0, 300)
+  }
+  return Object.keys(click).length ? click : undefined
+}
+
+const sameSource = (a?: Record<string, string>, b?: Record<string, string>) =>
+  JSON.stringify(a ?? {}) === JSON.stringify(b ?? {})
+
 export class Kma {
   readonly options: Required<Pick<KmaOptions, 'key' | 'endpoint'>> & KmaOptions
   private state: State
@@ -153,6 +205,7 @@ export class Kma {
   private replayKickoff: ReturnType<typeof setTimeout> | null = null
   private stopped = false
   private readonly cleanup: (() => void)[] = []
+  private touches: Attribution | null = null
 
   constructor(options: KmaOptions) {
     if (!/^kma_pk_(live|test)_[A-Za-z0-9]{20,64}$/.test(options.key ?? '')) {
@@ -174,6 +227,18 @@ export class Kma {
     }
     this.queue = storageGet<QueuedEvent[]>(`${this.storageKey}:queue`) ?? []
     this.device = parseUserAgent(navigator.userAgent, navigator.maxTouchPoints ?? 0)
+    if (this.attributionMode() === 'full')
+      this.touches = this.freshTouches(storageGet<Attribution>(this.touchKey()))
+    else storageRemove(this.touchKey())
+    // Arriving from a new ad or link starts a new visit, so the visit has that source.
+    const session = this.state.session
+    if (
+      session &&
+      this.attributionMode() !== 'off' &&
+      (utmFromUrl() || clickFromUrl()) &&
+      !(sameSource(session.utm, utmFromUrl()) && sameSource(session.click, clickFromUrl()))
+    )
+      this.state.session = null
     this.persist()
     this.readClientHints()
     this.listen()
@@ -247,6 +312,8 @@ export class Kma {
   optOut(): void {
     this.state.optedOut = true
     this.queue = []
+    this.touches = null
+    storageRemove(this.touchKey())
     this.stopRecorder()
     this.persist()
   }
@@ -267,6 +334,40 @@ export class Kma {
 
   getSessionId(): string | null {
     return this.state.session?.id ?? null
+  }
+
+  /** The first and last place this visitor came from in the last 30 days, or null. */
+  attribution(): Attribution | null {
+    this.touches = this.freshTouches(this.touches)
+    return this.touches ? JSON.parse(JSON.stringify(this.touches)) : null
+  }
+
+  /**
+   * A "Get the app" link that carries where this visitor came from. Pass a KissMyApps link;
+   * it gains src, cmp, chn and ad from the visitor's last source (unless it sets them), the
+   * link click that brought them (kma_from) and, with full attribution, their anonymous ID
+   * (kma_aid), so the app install can be credited to the same ad.
+   */
+  appLink(url: string): string {
+    let link: URL
+    try {
+      link = new URL(url, window.location.href)
+    } catch {
+      return url
+    }
+    const mode = this.attributionMode()
+    if (mode === 'off' || this.state.optedOut) return link.toString()
+    const last = this.attribution()?.last
+    const set = (name: string, value?: string) => {
+      if (value && !link.searchParams.has(name)) link.searchParams.set(name, value.slice(0, 200))
+    }
+    set('src', last?.source)
+    set('cmp', last?.campaign)
+    set('chn', last?.medium)
+    set('ad', last?.content)
+    set('kma_from', last?.click?.kma_lc)
+    if (mode === 'full') set('kma_aid', this.state.anonymousId)
+    return link.toString()
   }
 
   /** Sends everything queued now. */
@@ -302,9 +403,11 @@ export class Kma {
         landing: currentScreen(),
         referrer: externalReferrer(),
         utm: utmFromUrl(),
+        click: this.attributionMode() === 'off' ? undefined : clickFromUrl(),
         replay: sampled,
       }
       this.state.session = session
+      this.noteTouch(session)
       this.persist()
       this.enqueue(
         'session_started',
@@ -357,6 +460,41 @@ export class Kma {
     }
   }
 
+  // Sources ------------------------------------------------------------------------------
+
+  private attributionMode(): AttributionMode {
+    const mode = this.options.attribution
+    return mode === 'session' || mode === 'off' ? mode : 'full'
+  }
+
+  private touchKey(): string {
+    return `${this.storageKey}:touch`
+  }
+
+  /** Drops sources older than 30 days; a first source outlives the last only in its window. */
+  private freshTouches(touches: Attribution | null): Attribution | null {
+    if (!touches?.last?.at || Date.now() - touches.last.at > TOUCH_MS) return null
+    const first =
+      touches.first?.at && Date.now() - touches.first.at <= TOUCH_MS ? touches.first : touches.last
+    return { first, last: touches.last }
+  }
+
+  /** A visit with a source becomes the last source, and the first when there is none. */
+  private noteTouch(session: Session): void {
+    const mode = this.attributionMode()
+    if (mode === 'off' || (!session.utm && !session.click && !session.referrer)) return
+    const touch: Touch = {
+      ...(session.utm ?? {}),
+      click: session.click,
+      referrer: session.referrer,
+      landing: session.landing,
+      at: session.started,
+    }
+    const current = this.freshTouches(this.touches)
+    this.touches = { first: current?.first ?? touch, last: touch }
+    if (mode === 'full') storageSet(this.touchKey(), this.touches)
+  }
+
   // Sending ------------------------------------------------------------------------------
 
   private context(session: Session | null): Properties {
@@ -373,6 +511,7 @@ export class Kma {
       page_path: session?.landing ?? currentScreen(),
       referrer: session?.referrer,
       utm: session?.utm,
+      click: session?.click,
       interactions: session?.interactions ?? 0,
       webdriver: navigator.webdriver === true,
     }
@@ -549,6 +688,14 @@ export class Kma {
       this.state.session!.interactions += 1
     }
     on('pointerdown', interacted, { capture: true, passive: true })
+    // <a data-kma-app-link href="https://brand.go.kissmyapps.dev/app"> carries the source.
+    const appLinks = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null
+      const anchor = target?.closest?.('a[data-kma-app-link]') as HTMLAnchorElement | null
+      if (anchor?.href) anchor.href = this.appLink(anchor.href)
+    }
+    on('click', appLinks, { capture: true })
+    on('auxclick', appLinks, { capture: true })
     on('keydown', interacted, { capture: true, passive: true })
     on(
       'scroll',

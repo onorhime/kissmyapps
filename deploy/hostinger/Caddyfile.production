@@ -165,7 +165,10 @@ https:// {
 		X-Robots-Tag "noindex, nofollow, noarchive"
 	}
 
+	# Only this proxy may name the visitor's address: drop whatever the browser sent.
+	request_header -X-Kma-*
 	reverse_proxy kissmyapps-links:8788 {
+		header_up X-Kma-Client-Ip {client_ip}
 		# Ride out a restart rather than fail someone's link.
 		lb_try_duration 5s
 	}

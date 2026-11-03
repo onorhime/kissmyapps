@@ -59,6 +59,37 @@ to turn replays off, `data-app-version`. To pass other options, leave out
 - **Events**: batched every 2 seconds, retried with backoff while offline,
   handed to `sendBeacon` when the page closes.
 
+### Where visitors came from (attribution)
+
+Each visit keeps its landing page's UTM tags, the click ID of a KissMyApps link
+(`kma_lc`) and the ad platforms' click IDs (`gclid`, `gbraid`, `wbraid`,
+`fbclid`, `ttclid`, `msclkid`). Arriving from a new ad or link starts a new
+visit, so each visit has one source. When the project has attribution on, the
+console's **Attribution > Sources** report credits each conversion to the last
+visit with a source in the website window (30 days by default), or to the
+person's first.
+
+The SDK also keeps the visitor's first and last source in `localStorage` for
+30 days:
+
+```js
+kma.attribution() // { first: { source, campaign, click, landing, at, … }, last: { … } } or null
+
+// A "Get the app" link that carries the source into the app install:
+kma.appLink('https://speaksix.go.kissmyapps.dev/app')
+// or mark the link and the SDK adds it on click:
+// <a data-kma-app-link href="https://speaksix.go.kissmyapps.dev/app">Get the app</a>
+```
+
+`appLink` adds `src`, `cmp`, `chn` and `ad` from the last source (unless the
+link sets them), the link click that brought the visitor (`kma_from`) and their
+anonymous ID (`kma_aid`).
+
+Keeping a visitor's ad source in their browser needs consent in the EU and UK.
+`data-attribution="session"` (or `attribution: 'session'` in `init`) reads
+sources but keeps them only for the visit and leaves out `kma_aid`;
+`data-attribution="off"` reads no click IDs at all. `optOut()` forgets them.
+
 ### Session replay
 
 Recorded with rrweb in a separate file (`kma-replay.js`) loaded on demand.

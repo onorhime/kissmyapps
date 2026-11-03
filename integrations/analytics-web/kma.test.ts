@@ -82,7 +82,7 @@ describe('web SDK', () => {
     expect(body.events[1]).toMatchObject({ screen: '/', user_id: null })
     expect(body.context).toMatchObject({
       platform: 'web',
-      sdk: 'kma-web/1.0.0',
+      sdk: 'kma-web/1.1.0',
       app_version: '3.1.0',
       page_path: '/',
       utm: { source: 'newsletter', campaign: 'autumn' },
@@ -313,6 +313,98 @@ describe('web SDK', () => {
     expect(() => new Kma({ key: 'kma_sk_live_ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpq' })).toThrow(
       /client key/,
     )
+  })
+})
+
+describe('attribution', () => {
+  it("sends the landing page's link click and ad click IDs with the visit", async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/start?kma_lc=Lk9x2mQ4rT7vW1yZ3bC5dE&fbclid=IwAR1&utm_source=tiktok',
+    )
+    const kma = start({ autoPageViews: false })
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sent[0].body.context).toMatchObject({
+      utm: { source: 'tiktok' },
+      click: { kma_lc: 'Lk9x2mQ4rT7vW1yZ3bC5dE', fbclid: 'IwAR1' },
+    })
+    expect(kma.attribution()).toMatchObject({
+      first: { source: 'tiktok', click: { kma_lc: 'Lk9x2mQ4rT7vW1yZ3bC5dE' }, landing: '/start' },
+      last: { source: 'tiktok' },
+    })
+  })
+
+  it('keeps the first source, moves the last, and starts a new visit for a new ad', async () => {
+    const first = start({ autoPageViews: false })
+    const firstSession = first.getSessionId()
+    first.shutdown()
+    // Same tags again within the visit: the same visit.
+    expect(start({ autoPageViews: false }).getSessionId()).toBe(firstSession)
+    vi.advanceTimersByTime(60_000)
+    window.history.replaceState(null, '', '/?utm_source=facebook&utm_campaign=launch&gclid=Cj0')
+    const second = start({ autoPageViews: false })
+    expect(second.getSessionId()).not.toBe(firstSession)
+    expect(second.attribution()).toMatchObject({
+      first: { source: 'newsletter', campaign: 'autumn' },
+      last: { source: 'facebook', campaign: 'launch', click: { gclid: 'Cj0' } },
+    })
+  })
+
+  it('forgets sources after 30 days', () => {
+    start({ autoPageViews: false }).shutdown()
+    vi.advanceTimersByTime(31 * 24 * 60 * 60_000)
+    window.history.replaceState(null, '', '/')
+    expect(start({ autoPageViews: false }).attribution()).toBeNull()
+  })
+
+  it('builds app links that carry the source, and rewrites marked links on click', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?utm_source=facebook&utm_campaign=launch&utm_content=video&kma_lc=Lk9x2mQ4rT7vW1yZ3bC5dE',
+    )
+    const kma = start({ autoPageViews: false })
+    const url = new URL(kma.appLink('https://speaksix.go.kissmyapps.dev/app?cmp=keep'))
+    expect(url.searchParams.get('src')).toBe('facebook')
+    expect(url.searchParams.get('cmp')).toBe('keep')
+    expect(url.searchParams.get('ad')).toBe('video')
+    expect(url.searchParams.get('kma_from')).toBe('Lk9x2mQ4rT7vW1yZ3bC5dE')
+    expect(url.searchParams.get('kma_aid')).toBe(kma.getAnonymousId())
+    expect(kma.appLink('not a url ::')).toContain('not')
+    const anchor = document.createElement('a')
+    anchor.href = 'https://speaksix.go.kissmyapps.dev/app'
+    anchor.dataset.kmaAppLink = ''
+    anchor.addEventListener('click', (event) => event.preventDefault())
+    document.body.appendChild(anchor)
+    anchor.click()
+    expect(new URL(anchor.href).searchParams.get('src')).toBe('facebook')
+    anchor.click()
+    expect(anchor.href.match(/src=/g)).toHaveLength(1)
+    anchor.remove()
+  })
+
+  it('keeps sources for the visit only in session mode, and reads none when off', async () => {
+    window.history.replaceState(null, '', '/?utm_source=tiktok&gclid=Cj0')
+    const session = start({ autoPageViews: false, attribution: 'session' })
+    expect(session.attribution()?.last.source).toBe('tiktok')
+    expect(new URL(session.appLink('https://l.example/x')).searchParams.get('kma_aid')).toBeNull()
+    expect(Object.keys(localStorage).some((k) => k.endsWith(':touch'))).toBe(false)
+    session.shutdown()
+    localStorage.clear()
+    const off = start({ autoPageViews: false, attribution: 'off' })
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sent.at(-1)?.body.context.click).toBeUndefined()
+    expect(off.attribution()).toBeNull()
+    expect(off.appLink('https://l.example/x')).toBe('https://l.example/x')
+  })
+
+  it('forgets sources on opt out', () => {
+    const kma = start({ autoPageViews: false })
+    expect(kma.attribution()).not.toBeNull()
+    kma.optOut()
+    expect(kma.attribution()).toBeNull()
+    expect(Object.keys(localStorage).some((k) => k.endsWith(':touch'))).toBe(false)
   })
 })
 
