@@ -234,6 +234,15 @@ export class ManagedCheckoutService {
     }
     return updated;
   }
+  /** Custom-mode sessions are paid on the caller's page, so an open session
+   * returns its client secret. Hosted sessions return nothing extra. */
+  presentation(order: ManagedOrder, session?: Json): Json {
+    if (
+      order.request.ui_mode !== "custom" || order.session_status !== "open" ||
+      !session
+    ) return {};
+    return { client_secret: this.provider.clientSecret(session, order) };
+  }
   async execute(input: ManagedInput): Promise<Json> {
     if (input.action === "quote" || input.action === "create") {
       if (!this.enabled) {
@@ -258,9 +267,14 @@ export class ManagedCheckoutService {
         p_attribution_sha256: await attributionHash(input.attribution ?? {}),
       });
       if (order.checkout_session_id) {
+        const session = order.request.ui_mode === "custom"
+          ? await this.provider.recover(order) ?? undefined
+          : undefined;
+        order = await this.reconcile(order, session);
         return {
           accepted: true,
-          order: publicOrder(await this.reconcile(order)),
+          order: publicOrder(order),
+          ...this.presentation(order, session),
         };
       }
       const op = await this.store.rpc<Json>(
@@ -282,9 +296,22 @@ export class ManagedCheckoutService {
         p_request_id: input.request_id,
         p_provider_id: order.checkout_session_id,
       });
-      return { accepted: true, order: publicOrder(order) };
+      return {
+        accepted: true,
+        order: publicOrder(order),
+        ...this.presentation(order, session),
+      };
     }
     order = await this.order(input.attempt_id!, input.order_id);
+    if (input.action === "status" && order.request.ui_mode === "custom") {
+      const session = await this.provider.recover(order) ?? undefined;
+      order = await this.reconcile(order, session);
+      return {
+        accepted: true,
+        order: publicOrder(order),
+        ...this.presentation(order, session),
+      };
+    }
     order = await this.reconcile(order);
     if (input.action === "status") {
       return { accepted: true, order: publicOrder(order) };
