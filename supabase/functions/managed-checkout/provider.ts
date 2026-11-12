@@ -302,8 +302,12 @@ export class ManagedProvider {
       mode: "payment",
       "line_items[0][price]": order.stripe_price_id,
       "line_items[0][quantity]": "1",
-      success_url: order.request.success_url!,
-      cancel_url: order.request.cancel_url!,
+      ...(order.request.ui_mode === "custom"
+        ? { ui_mode: "custom", return_url: order.request.return_url! }
+        : {
+          success_url: order.request.success_url!,
+          cancel_url: order.request.cancel_url!,
+        }),
       client_reference_id: order.external_order_id,
       expires_at: String(Math.floor(Date.parse(order.expires_at) / 1000)),
       "payment_method_types[0]": "card",
@@ -388,6 +392,23 @@ export class ManagedProvider {
     return refund;
   }
 
+  /** The browser credential for a custom-mode session. It is returned to the
+   * signed caller only and never persisted or forwarded in callbacks. */
+  clientSecret(s: Json | null, order: ManagedOrder): string {
+    if (!s) {
+      reject("checkout_pending", "The checkout is not ready yet.", 409);
+    }
+    this.checkMetadata(s, order);
+    const sessionId = id(s.id, "cs");
+    if (
+      order.request.ui_mode !== "custom" || s.ui_mode !== "custom" ||
+      s.status !== "open" || sessionId !== order.checkout_session_id ||
+      typeof s.client_secret !== "string" ||
+      !s.client_secret.startsWith(`${sessionId}_secret_`) ||
+      !/^[A-Za-z0-9_]+$/.test(s.client_secret) || s.client_secret.length > 500
+    ) mismatch();
+    return s.client_secret;
+  }
   checkPayment(p: Json, order: ManagedOrder) {
     this.checkMetadata(p, order);
     const fee = this.expectedFee(order);
@@ -425,8 +446,16 @@ export class ManagedProvider {
     if (Date.parse(expires) > Date.parse(order.reservation_expires_at)) {
       mismatch();
     }
+    const custom = order.request.ui_mode === "custom";
+    if (
+      custom
+        ? s.ui_mode !== "custom"
+        : s.ui_mode != null && s.ui_mode !== "hosted"
+    ) {
+      mismatch();
+    }
     let url: string | null = null;
-    if (s.status === "open") {
+    if (s.status === "open" && !custom) {
       try {
         const u = new URL(String(s.url));
         if (

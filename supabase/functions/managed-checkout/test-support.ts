@@ -247,7 +247,16 @@ export class FakeManagedStripe {
         currency: this.priceCurrency,
         livemode: this.livemode,
         expires_at: Number(form.expires_at),
-        url: `https://checkout.stripe.com/c/pay/${id}`,
+        ui_mode: form.ui_mode ?? "hosted",
+        url: form.ui_mode === "custom"
+          ? null
+          : `https://checkout.stripe.com/c/pay/${id}`,
+        ...(form.ui_mode === "custom"
+          ? {
+            client_secret: `${id}_secret_fixtureOnly`,
+            return_url: form.return_url,
+          }
+          : {}),
         metadata,
         application_fee_amount:
           form["payment_intent_data[application_fee_amount]"] === undefined

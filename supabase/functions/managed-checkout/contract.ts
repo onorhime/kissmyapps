@@ -37,6 +37,10 @@ export interface ManagedInput extends Json {
   currency?: string;
   success_url?: string;
   cancel_url?: string;
+  /** "custom" renders the session's wallet button on the caller's own page
+   * (Stripe Checkout custom UI); it returns to return_url, never a hosted URL. */
+  ui_mode?: "custom";
+  return_url?: string;
   customer_email?: string;
   click_id?: string;
   attribution?: Record<string, string>;
@@ -160,6 +164,8 @@ export function validateInput(
     "currency",
     "success_url",
     "cancel_url",
+    "ui_mode",
+    "return_url",
     "customer_email",
     "click_id",
     "attribution",
@@ -205,7 +211,18 @@ export function validateInput(
       !UUID.test(String(v.context.cohort_id))
     ) reject();
   }
-  for (const key of ["success_url", "cancel_url"] as const) {
+  if (v.ui_mode !== undefined && v.ui_mode !== "custom") reject();
+  // Hosted sessions redirect to success/cancel. Custom sessions stay on the
+  // caller's page and only use return_url for a redirect-based confirmation.
+  const urls = v.ui_mode === "custom"
+    ? ["return_url"] as const
+    : ["success_url", "cancel_url"] as const;
+  if (
+    v.ui_mode === "custom"
+      ? v.success_url !== undefined || v.cancel_url !== undefined
+      : v.return_url !== undefined
+  ) reject();
+  for (const key of urls) {
     let u: URL;
     try {
       u = new URL(v[key]!);
