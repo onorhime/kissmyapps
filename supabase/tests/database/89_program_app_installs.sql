@@ -9,9 +9,8 @@
 -- creator. A reinstall of the same phone and an install rejected as fraud earn nothing.
 --
 -- Until Piece A (attribution_install, suite 88) is merged, the install call is played by
--- pg_temp.attribution_install below, in the block marked PIECE A STAND-IN: it writes the
--- install row the way the contract says attribution_install does and calls
--- kma_internal.attribution_install_matched. Everything else is the real thing.
+-- pg_temp.attribution_install below, which calls the real attribution_install as the edge
+-- function does. Everything is the real thing.
 begin;
 set local time zone 'UTC';
 create temporary table app_install_assertions(label text);
@@ -215,94 +214,13 @@ exception when others then
   raise;
 end $$;
 
--- PIECE A STAND-IN ---------------------------------------------------------------------------------
--- The install call of the app's first launch. Swap the body of this function for the real call
--- once attribution_install (Piece A) is merged:
---   return pg_temp.svc('attribution_install', jsonb_build_object(
---     'key_hash', encode(extensions.digest(pg_temp.t('ingest_key'), 'sha256'), 'hex'), 'body', body,
---     'geo', '{}'::jsonb, 'clock_skew_ms', 0));
--- Until then it does what the contract says attribution_install does for the cases this suite
--- uses (reinstall by device, install referrer, organic): it resolves the person as the ingest
--- does, writes the install row, sets the person's acquisition and calls
--- kma_internal.attribution_install_matched. Answers {matched, method}.
-create function pg_temp.attribution_install(body jsonb) returns jsonb language plpgsql as $$
-declare
-  v_project uuid := pg_temp.q('project');
-  s public.attribution_settings;
-  i public.attribution_installs;
-  v_first public.attribution_installs;
-  k public.attribution_clicks;
-  v_at timestamptz := (body->>'installed_at')::timestamptz;
-begin
-  select * into s from public.attribution_settings where project_id = v_project;
-  i.id := gen_random_uuid();
-  i.project_id := v_project;
-  i.person_id := kma_internal.analytics_resolve_person(v_project, 'production', body->>'user_id', body->>'anonymous_id',
-    v_at, jsonb_build_object('platform', body->>'platform', 'sdk', body->>'sdk'), '{}'::jsonb, null);
-  if exists (select 1 from public.attribution_installs x where x.project_id = v_project and x.person_id = i.person_id) then
-    select * into i from public.attribution_installs x where x.project_id = v_project and x.person_id = i.person_id;
-    return jsonb_build_object('matched', i.method <> 'organic', 'method', i.method);
-  end if;
-  i.environment := 'production';
-  i.platform := body->>'platform';
-  i.installed_at := v_at;
-  i.session_key := body->>'session_id';
-  i.app_version := body->>'app_version';
-  i.device_hash := encode(extensions.digest(v_project::text || ':' || (body->>'device_key'), 'sha256'), 'hex');
-  i.verdict := 'counted';
-  i.deep_link_params := '{}'::jsonb;
-  i.received_at := clock_timestamp();
-  i.matched_at := clock_timestamp();
-  select * into v_first from public.attribution_installs x
-  where x.project_id = v_project and x.device_hash = i.device_hash and x.reinstall_of is null
-    and x.installed_at >= v_at - make_interval(days => s.reattribution_days)
-  order by x.installed_at limit 1;
-  select * into k from public.attribution_clicks c
-  where c.project_id = v_project and c.id = substring(body->>'referrer' from '(?:^|&)kma_lc=([A-Za-z0-9_-]{16,40})')
-    and c.clicked_at between v_at - make_interval(days => s.click_lookback_days) and v_at;
-  if v_first.id is not null then
-    -- 1. The same phone inside the reattribution window: a reinstall of the first install.
-    i.method := 'reinstall';
-    i.reinstall_of := v_first.id;
-    i.exact := v_first.exact;
-    i.click_id := v_first.click_id;
-    i.link_id := v_first.link_id;
-    i.source := v_first.source;
-    i.campaign := v_first.campaign;
-    i.channel := v_first.channel;
-    i.creator_click := v_first.creator_click;
-  elsif k.id is not null then
-    -- 3. The install referrer names a click of the project inside the click window.
-    i.method := 'install_referrer';
-    i.exact := true;
-    i.click_id := k.id;
-    if (body->>'install_begin_ts') is not null and to_timestamp((body->>'install_begin_ts')::numeric) < k.clicked_at then
-      -- The click came after the install began: stored, credits nobody.
-      i.verdict := 'rejected';
-      i.fraud_reason := 'click_after_install';
-    else
-      i.link_id := k.link_id;
-      i.source := k.source;
-      i.campaign := k.campaign;
-      i.channel := k.channel;
-      i.creator_click := case when k.params->>'creator_click' ~ '^[0-9a-f]{48}$' then k.params->>'creator_click' end;
-      if k.clicked_at > v_at - interval '10 seconds' then
-        i.verdict := 'flagged';
-        i.fraud_reason := 'too_fast';
-      end if;
-    end if;
-  else
-    i.method := 'organic';
-    i.exact := false;
-  end if;
-  insert into public.attribution_installs values (i.*);
-  update public.analytics_people set acquisition_source = i.source, acquisition_campaign = i.campaign,
-    acquisition_method = i.method, installed_at = i.installed_at
-  where id = i.person_id and installed_at is null;
-  perform kma_internal.attribution_install_matched(i.id);
-  return jsonb_build_object('matched', i.method <> 'organic', 'method', i.method);
-end $$;
--- END PIECE A STAND-IN ----------------------------------------------------------------------------
+-- The install call of the app's first launch, through the real attribution_install (Piece A),
+-- with the envelope the ingest edge function builds.
+create function pg_temp.attribution_install(body jsonb) returns jsonb language sql as $$
+  select pg_temp.svc('attribution_install', jsonb_build_object(
+    'key_hash', encode(extensions.digest(pg_temp.t('ingest_key'), 'sha256'), 'hex'), 'body', body,
+    'geo', '{}'::jsonb, 'clock_skew_ms', 0))
+$$;
 
 -- The Android SDK's install call on first launch (the contract's install body).
 create function pg_temp.install(anon text, user_id text, session text, at timestamptz, device text, referrer text,
