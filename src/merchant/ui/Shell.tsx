@@ -96,6 +96,11 @@ function groups(project: Project | undefined): NavGroup[] {
     : []
   const settings: NavItem[] = [
     {
+      label: 'Connections',
+      route: { name: 'connections' },
+      match: (r) => r.name === 'connections',
+    },
+    {
       label: 'Projects',
       route: { name: 'workspace', section: 'projects', projectId },
       match: (r) => r.name === 'workspace' && r.section === 'projects',
