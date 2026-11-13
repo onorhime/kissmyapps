@@ -48,6 +48,13 @@ final class MemoryStore: Store {
     var data: [String: String] = [:]
     func read(_ name: String) -> String? { data[name] }
     func write(_ name: String, _ value: String) { data[name] = value }
+
+    /// A phone that ran the app with SDK 1.0 before: not an install, so no install call.
+    static func returning() -> MemoryStore {
+        let store = MemoryStore()
+        store.data["kma-\(key.suffix(8))"] = #"{"anonymousId":"5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f","version":"2.4.0","build":"120"}"#
+        return store
+    }
 }
 
 let iphone = DeviceInfo(
@@ -62,7 +69,8 @@ let iphone = DeviceInfo(
     language: "en-NG"
 )
 
-private let contract: [String: Any] = {
+/// integrations/analytics-mobile/contract/app-events.json, the rules every app SDK is held to.
+let contract: [String: Any] = {
     let url = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent() // KissMyAppsTests
         .deletingLastPathComponent() // Tests
@@ -79,7 +87,7 @@ private func rules(_ name: String) -> (required: [String], allowed: [String]) {
     return (required, required + (rule["optional"] as? [String] ?? []))
 }
 
-private func matchesPattern(_ pattern: String, _ text: String) -> Bool {
+func matchesPattern(_ pattern: String, _ text: String) -> Bool {
     text.range(of: pattern, options: .regularExpression) != nil
 }
 
@@ -109,15 +117,31 @@ func expectContract(_ body: [String: Any], file: StaticString = #filePath, line:
 
 struct Offline: Error {}
 
+/// What /v1/attribution/install and /open answer while attribution is off for the project.
+let attributionOff = #"{"matched":false,"method":"off","deep_link":null}"#
+
 final class FakeTransport: Transport {
+    /// The /v1/events bodies.
     var sent: [[String: Any]] = []
+    /// Every request, events and attribution calls, in order.
+    var calls: [(path: String, body: [String: Any])] = []
     var answer: () throws -> Response = { Response(status: 200, text: "{}") }
+    var attributionAnswer: (String) throws -> Response = { _ in Response(status: 200, text: attributionOff) }
 
     func post(url: URL, key postedKey: String, body: Data) throws -> Response {
-        XCTAssertEqual(url.absoluteString, "https://events.kissmyapps.dev/v1/events")
         XCTAssertEqual(postedKey, key)
-        sent.append(try JSONSerialization.jsonObject(with: body) as! [String: Any])
-        return try answer()
+        let json = try JSONSerialization.jsonObject(with: body) as! [String: Any]
+        calls.append((url.path, json))
+        if url.path == "/v1/events" {
+            XCTAssertEqual(url.absoluteString, "https://events.kissmyapps.dev/v1/events")
+            sent.append(json)
+            return try answer()
+        }
+        XCTAssertTrue([
+            "https://events.kissmyapps.dev/v1/attribution/install",
+            "https://events.kissmyapps.dev/v1/attribution/open",
+        ].contains(url.absoluteString), url.absoluteString)
+        return try attributionAnswer(url.path)
     }
 }
 
@@ -149,7 +173,7 @@ final class ClientTests: XCTestCase {
             transport: transport,
             scheduler: scheduler,
             device: { iphone },
-            sdk: "kma-ios/1.0.0",
+            sdk: "kma-ios/\(sdkVersion)",
             now: { scheduler.now },
             log: { [weak self] in self?.logs.append($0) }
         )
@@ -206,7 +230,7 @@ final class ClientTests: XCTestCase {
             XCTAssertEqual((body["session"] as? [String: Any])?["id"] as? String, client.getSessionId())
             let context = body["context"] as! [String: Any]
             XCTAssertEqual(context["platform"] as? String, "ios")
-            XCTAssertEqual(context["sdk"] as? String, "kma-ios/1.0.0")
+            XCTAssertEqual(context["sdk"] as? String, "kma-ios/1.1.0")
             XCTAssertEqual(context["app_version"] as? String, "2.4.0")
             XCTAssertEqual(context["page_path"] as? String, "Home")
             XCTAssertEqual(context["device_model"] as? String, "iPhone15,4")
@@ -290,7 +314,8 @@ final class ClientTests: XCTestCase {
     }
 
     func testDropsABatchTheServerRefusesButRetriesWhenItIsBusy() throws {
-        let client = try start(MemoryStore())
+        // A later launch: on the first, the install call sends the queue early.
+        let client = try start(MemoryStore.returning())
         transport.answer = { Response(status: 503, text: "busy") }
         client.foreground()
         settle(10_000)

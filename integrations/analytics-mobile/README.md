@@ -75,7 +75,7 @@ Or, in a `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/onorhime/kissmyapps-mobile", from: "1.0.0"),
+    .package(url: "https://github.com/onorhime/kissmyapps-mobile", from: "1.1.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -296,11 +296,132 @@ Apart from the SwiftUI modifier, every call is on `KissMyApps`, such as `KissMyA
 | `reset()`               | `reset()`                      | Forgets the person and starts a new anonymous one.    |
 | `optOut()` / `optIn()`  | `optOut()` / `optIn()`         | Stops or resumes sending. Remembered across launches. |
 | `flush()`               | `flush()`                      | Sends what is queued now.                             |
+| `handleDeepLink(_:)`    | `handleDeepLink(intent)`       | Passes a link that opened the app.                    |
+| `onDeepLink { }`        | `onDeepLink { }`               | Where to take the person for a link.                  |
 | `anonymousId`           | `getAnonymousId()`             | This install's random ID, for support tickets.        |
 | `sessionId`             | `getSessionId()`               | The current session's ID.                             |
 
 Every call is safe from any thread and returns at once; the work happens on the SDK's own
 serial queue. Calls made before `start` are kept and run as soon as it is called.
+
+## Attribution and deep links
+
+Turn attribution on for your project in the console (**Attribution**) and the SDK tells
+KissMyApps which smart link brought each install, then hands your app the link's deep link,
+also when the person had to install the app first (a deferred deep link).
+
+### iOS
+
+Installs need nothing from you: on the first launch, right after `app_installed`, the SDK
+makes one call that KissMyApps matches to the link the person tapped. Links that open the
+app need the steps below.
+
+**1. Let your links open the app.** In the console, under **Attribution → Setup**, fill in
+your app's App Store ID, Bundle ID and Team ID. Then in Xcode, open your app target's
+**Signing & Capabilities**, add **Associated Domains** and enter your link domain (the
+console shows it):
+
+```text
+applinks:<your-name>.go.kissmyapps.dev
+```
+
+Add an `applinks:` line for your own link domain too if you use one.
+
+**2. Pass the links to the SDK.** In SwiftUI:
+
+```swift
+WindowGroup {
+    ContentView()
+        .onOpenURL { url in KissMyApps.handleDeepLink(url) }
+}
+```
+
+<details>
+<summary>Using a UIKit scene delegate</summary>
+
+```swift
+func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions
+) {
+    // The app was not running: the link that started it.
+    if let url = connectionOptions.userActivities
+        .first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb })?.webpageURL {
+        KissMyApps.handleDeepLink(url)
+    }
+}
+
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        KissMyApps.handleDeepLink(url)
+    }
+}
+```
+
+Without scenes, do the same in your app delegate's
+`application(_:continue:restorationHandler:)`.
+
+</details>
+
+`handleDeepLink` sends any `https` link to KissMyApps, which records the click when it is
+one of your links. It returns `false` for anything else, such as your own URL scheme, so
+you can route those yourself.
+
+**3. Take people where the link points.** Set the callback once, right after `start`:
+
+```swift
+KissMyApps.onDeepLink { link in
+    // link.value: "lesson", link.params: ["id": "4"], from the link's deep link in the console
+    // link.deferred: true when the person installed the app first
+    // link.url: the link that opened the app, or nil after an install from the App Store
+    if link.value == "lesson", let id = link.params["id"] {
+        router.openLesson(id)
+    }
+}
+```
+
+It runs on the main thread, once for each deep link. A deep link that arrives before you set
+the callback waits for it. When the phone is offline the link cannot be looked up and the
+callback is not called; route from the address you passed to `handleDeepLink` if you need a
+fallback.
+
+How an install is matched on iPhone, first match wins:
+
+- **Reinstall**: the same iPhone installed the app before, within your reattribution window;
+  it keeps the first install's source. iOS gives the phone a new `identifierForVendor` once
+  the last of your apps is deleted, so a reinstall then counts as a new install.
+- **The link opened the app** on its first launch: the SDK waits a moment (1.5 seconds) for
+  the link and sends it with the install call. Later links, and links on later launches
+  before the install call is answered, wait for that answer and then go on their own.
+- **Apple Ads**: the SDK passes Apple's attribution token (iOS 14.3 and later) and
+  KissMyApps asks Apple which campaign it was. No prompt and no advertising ID.
+- **Clipboard handoff**, if you turn it on (below).
+- **Sign-in**: the person signs in (`identify`) and had come to your website from a link.
+- Otherwise the install counts as **organic**.
+
+When the phone is offline on the first launch, the SDK tries again on up to three more
+launches, once on each, with the first launch's details. While the person is opted out
+nothing is sent; the install call goes when you call `optIn()`.
+
+#### Clipboard handoff for iPhone (optional)
+
+The App Store does not tell an app which link someone tapped before installing it. Clipboard
+handoff fills that gap: on an iPhone, your link shows a small page whose **Get the app**
+button copies a short code (`kma:` and the click) before it opens the App Store. On the
+first launch the SDK reads the clipboard once and sends that code.
+
+iOS shows the person that your app pasted from the clipboard, and from iOS 16 asks them to
+allow it first. Turn it on only if that suits your app. It takes two switches:
+
+1. In the console: **Attribution → Setup → Clipboard handoff for iPhone**.
+2. In the app:
+
+   ```swift
+   KissMyApps.start(key: "kma_pk_live_…", options: KissMyAppsOptions(clipboardHandoff: true))
+   ```
+
+Without the option the SDK never reads the clipboard. With it, the clipboard is read only on
+the first launch, only once, and only text starting with `kma:` is used; anything else is
+left alone and never sent.
 
 ## What gets recorded
 
@@ -329,10 +450,25 @@ open, a light heartbeat every minute keeps the person counted as online in the d
 | Screen size            | `393 × 852`                         |
 | Language and time zone | `en-NG`, `Africa/Lagos`             |
 | App version            | `2.4.0`                             |
-| SDK version            | `kma-ios/1.0.0`                     |
+| SDK version            | `kma-ios/1.1.0`                     |
 
 Country, region and city are worked out by the KissMyApps server from the request's
 address, which is only ever kept as a salted hash.
+
+### Sent for install attribution (iOS)
+
+The install call on the first launch, and a call each time a link opens the app. Besides the
+anonymous ID, the session, your user ID (after `identify`) and the app version:
+
+| Field                 | When                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| Device key            | Each call: the SHA-256 of `identifierForVendor`, never the ID    |
+| Apple Ads attribution | The install call, iOS 14.3 and later, when iOS has one           |
+| Opening link          | When a link opened the app                                       |
+| Clipboard click       | The install call, only with `clipboardHandoff` and a `kma:` code |
+
+KissMyApps answers with the link's deep link. While attribution is off for the project, the
+calls store nothing.
 
 ### Delivery and offline
 
@@ -380,6 +516,7 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
 | `maxQueue`              | `1000`                           | The most events kept while offline.                                   |
 | `trackLifecycle`        | `true`                           | Record installs, updates, opens and backgrounding.                    |
 | `debug`                 | `false`                          | Log refused events and other problems to the Xcode console or Logcat. |
+| `clipboardHandoff`      | `false`                          | iOS: read the clipboard once on the first launch, see above.          |
 
 ## Privacy
 
@@ -397,6 +534,15 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
 
 When you fill in the App Store privacy details or the Google Play Data safety form, the
 lists under [What gets recorded](#what-gets-recorded) are everything this SDK sends.
+
+On iOS, install attribution uses the SHA-256 of `identifierForVendor` (the ID itself never
+leaves the phone) and Apple Ads' attribution token, which needs no prompt. The iOS package
+includes a privacy manifest (`PrivacyInfo.xcprivacy`), which Xcode adds to your app's
+privacy report: no tracking and no tracking domains; it collects a device ID, product
+interaction and coarse location (the country, region and city the server works out from the
+address); and it uses none of the APIs Apple asks a reason for. The manifest says the data
+is not linked to the person, which is true until you call `identify`: if you do, answer
+"linked to the user" for that data in App Store Connect.
 
 ## React Native, Flutter and other platforms
 
