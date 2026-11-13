@@ -34,6 +34,14 @@ import {
   programMoneyRefusal,
 } from './programMoney'
 import type { AdminProgramMoney } from './programMoney'
+import {
+  PROGRAM_PAYOUT_FAILURES,
+  mapAdminProgramPayouts,
+  programPayoutActionInput,
+  programPayoutRefusal,
+  programPayoutSettingsInput,
+} from '../program-payouts/api'
+import type { AdminProgramPayouts } from '../program-payouts/api'
 import { mapAdminProcessingHealth, type AdminProcessingHealth } from './processingHealth'
 import { mapAdminSubscriptionPage, type AdminSubscriptionPage } from './subscriptions'
 import {
@@ -128,6 +136,9 @@ export const ADMIN_RPCS = Object.freeze({
   setProgramStatus: 'set_admin_program_status',
   programMoney: 'get_admin_program_money',
   configureProgramMoney: 'configure_admin_program_money',
+  programPayouts: 'get_admin_program_payouts',
+  performProgramPayout: 'perform_admin_program_payout',
+  configureProgramPayouts: 'configure_admin_program_payouts',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
@@ -394,6 +405,34 @@ async function programCall<T>(
     return result<T | null>(mapper(response.data), 'ready')
   } catch {
     return invalidResponse<T | null>(() => null)
+  }
+}
+
+type ProgramPayoutsResult = AdminDataResult<AdminProgramPayouts | null>
+
+/** The three program payout functions answer the same object and refuse the same way. */
+async function programPayoutsCall(
+  client: AdminSupabaseClient,
+  functionName: string,
+  input?: Record<string, unknown>,
+): Promise<ProgramPayoutsResult> {
+  const called = await call(client, functionName, input ? { p_input: input } : undefined)
+  if (!called.ok) return temporaryFailure<AdminProgramPayouts | null>(() => null)
+  const response = called.response
+  if (response.error) {
+    // Access failures keep their own mapping whatever the detail says.
+    const code = response.error.code ?? ''
+    const access = code === '42501' || code === '28000' || code === 'PGRST301'
+    const refusal = access
+      ? null
+      : programPayoutRefusal(response.error.details, response.error.message)
+    if (refusal) return result<AdminProgramPayouts | null>(null, 'error', refusal)
+    return backendFailure<AdminProgramPayouts | null>(response, () => null, PROGRAM_PAYOUT_FAILURES)
+  }
+  try {
+    return result<AdminProgramPayouts | null>(mapAdminProgramPayouts(response.data), 'ready')
+  } catch {
+    return invalidResponse<AdminProgramPayouts | null>(() => null)
   }
 }
 
@@ -767,6 +806,37 @@ export function createAdminGateway(
       } catch {
         return invalidResponse<AdminProgramMoney | null>(() => null)
       }
+    },
+
+    async getProgramPayouts() {
+      if (!client) return notConfigured<AdminProgramPayouts | null>(() => null)
+      return programPayoutsCall(client, ADMIN_RPCS.programPayouts)
+    },
+
+    async performProgramPayout(action) {
+      if (!client) return notConfigured<AdminProgramPayouts | null>(() => null)
+      const input = programPayoutActionInput(action)
+      if (!input) {
+        return result<AdminProgramPayouts | null>(null, 'error', {
+          code: 'invalid_input',
+          message: PROGRAM_PAYOUT_FAILURES.invalidInput,
+          retryable: false,
+        })
+      }
+      return programPayoutsCall(client, ADMIN_RPCS.performProgramPayout, input)
+    },
+
+    async configureProgramPayouts(settings) {
+      if (!client) return notConfigured<AdminProgramPayouts | null>(() => null)
+      const checked = programPayoutSettingsInput(settings)
+      if ('refused' in checked) {
+        return result<AdminProgramPayouts | null>(null, 'error', {
+          code: 'invalid_input',
+          message: checked.refused,
+          retryable: false,
+        })
+      }
+      return programPayoutsCall(client, ADMIN_RPCS.configureProgramPayouts, checked.input)
     },
 
     async getProductConfiguration(productId) {
