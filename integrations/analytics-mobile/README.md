@@ -574,17 +574,18 @@ open, a light heartbeat every minute keeps the person counted as online in the d
 Country, region and city are worked out by the KissMyApps server from the request's
 address, which is only ever kept as a salted hash.
 
-### Sent for install attribution (iOS)
+### Sent for install attribution
 
 The install call on the first launch, and a call each time a link opens the app. Besides the
 anonymous ID, the session, your user ID (after `identify`) and the app version:
 
-| Field                 | When                                                             |
-| --------------------- | ---------------------------------------------------------------- |
-| Device key            | Each call: the SHA-256 of `identifierForVendor`, never the ID    |
-| Apple Ads attribution | The install call, iOS 14.3 and later, when iOS has one           |
-| Opening link          | When a link opened the app                                       |
-| Clipboard click       | The install call, only with `clipboardHandoff` and a `kma:` code |
+| Field                 | When                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| Device key            | Each call: the SHA-256 of `identifierForVendor` (iOS) or `ANDROID_ID` (Android), never the ID |
+| Apple Ads attribution | iOS, the install call, iOS 14.3 and later, when iOS has one                                   |
+| Clipboard click       | iOS, the install call, only with `clipboardHandoff` and a `kma:` code                         |
+| Install referrer      | Android, the install call: Google Play's referrer and its two times                           |
+| Opening link          | When a link opened the app                                                                    |
 
 KissMyApps answers with the link's deep link. While attribution is off for the project, the
 calls store nothing.
