@@ -140,7 +140,8 @@ const panel = () => screen.getByRole('region', { name: 'Program earnings' })
 describe('reading what partner_program_earnings answers', () => {
   it('reads the programs and the recent commissions with database timestamps', () => {
     const read = earnings()
-    expect(read.programs[0]).toEqual(speaksixRow)
+    // This answer is from before payouts: nothing is in a payout.
+    expect(read.programs[0]).toEqual({ ...speaksixRow, paying_minor: 0 })
     expect(read.recent[0]).toEqual(commissionRow())
     expect(read.recent.map((commission) => commission.status)).toEqual([
       'held',
@@ -412,8 +413,12 @@ describe('the Program earnings panel', () => {
       expect(fieldnote).toHaveTextContent('1 sale')
       expect(fieldnote).toHaveTextContent('Pending15.00 EURFirst hold ends 25 Nov')
       expect(fieldnote).toHaveTextContent('Approved0.00 EUR')
-      // Nothing has been paid out, so no "Paid out" figure is shown.
-      expect(panel()).not.toHaveTextContent('Paid out')
+      // Payouts are not on and nothing was paid, so there are no payout figures.
+      expect(
+        within(speaksix)
+          .getAllByRole('term')
+          .map((term) => term.textContent),
+      ).toEqual(['Pending', 'Approved'])
     } finally {
       vi.useRealTimers()
     }
@@ -481,13 +486,14 @@ describe('the Program earnings panel', () => {
     expect(screen.queryByRole('button', { name: /Show all/ })).not.toBeInTheDocument()
   })
 
-  it('shows a paid-out figure only once something was paid', async () => {
+  it('shows a paid figure only once something was paid', async () => {
     const { gateway } = gatewayAnswering(
       ok(earnings({ programs: [{ ...speaksixRow, paid_minor: 2000 }], recent: [] })),
     )
     render(<ProgramEarningsPanel gateway={gateway} />)
-    expect(await screen.findByText('Paid out')).toBeInTheDocument()
-    expect(panel()).toHaveTextContent('Paid out$20.00')
+    expect(await screen.findByText('Paid')).toBeInTheDocument()
+    expect(panel()).toHaveTextContent('Paid$20.00')
+    expect(panel()).not.toHaveTextContent('On its way')
   })
 
   it('leaves out the hold date when it has passed or nothing is pending', async () => {

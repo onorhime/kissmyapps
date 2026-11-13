@@ -4,11 +4,20 @@
  */
 
 .pe-panel {
+  /* The space between the panel's blocks, and the width of the column that names a row. */
+  --pe-gap: 22px;
+  --pe-lead: 360px;
+  --pe-status: 320px;
   display: grid;
-  gap: 22px;
+  gap: var(--pe-gap);
   min-width: 0;
   margin-bottom: 18px;
   padding: 24px;
+}
+
+/* With payouts on a program has four figures, so the names give them room. */
+.pe-paying {
+  --pe-lead: 300px;
 }
 
 .pe-sr {
@@ -62,6 +71,209 @@
   background: var(--brand-line);
 }
 
+/* The one thing to do next. The same blue as the Marketplace's main button. */
+.pe-btn-primary {
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
+  color: var(--brand-bg-deep);
+}
+
+.pe-btn-primary:hover:not(:disabled) {
+  border-color: #8b9fff;
+  background: #8b9fff;
+}
+
+.pe-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pe-field label {
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pe-field input,
+.pe-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-control);
+  color: var(--brand-text);
+  font-size: 14px;
+}
+
+/* The payout account: a row like a program's, with where it stands and what to do */
+.pe-account {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--brand-line);
+  border-bottom: 1px solid var(--brand-line);
+}
+
+/* The programs start straight under the row, at the one rule between them. */
+.pe-account + .pe-programs,
+.pe-account + .pe-skeleton {
+  margin-top: calc(-1 * var(--pe-gap));
+}
+
+.pe-account + .pe-programs,
+.pe-account + .pe-skeleton .pe-program {
+  border-top: 0;
+}
+
+.pe-account-row {
+  display: grid;
+  grid-template-columns: minmax(0, var(--pe-lead)) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px 40px;
+}
+
+.pe-account-name {
+  display: grid;
+  gap: 4px;
+}
+
+.pe-account-name h3 {
+  color: var(--brand-text);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.pe-account-standing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pe-account-standing::before {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-subtle);
+  content: '';
+}
+
+.pe-account-ready::before {
+  background: var(--brand-green);
+}
+
+.pe-account-needs_details::before,
+.pe-account-paused::before {
+  background: var(--brand-orange);
+}
+
+.pe-account-detail {
+  max-width: 46ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pe-account-actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.pe-account-actions .pe-field {
+  width: 220px;
+}
+
+.pe-account-error,
+.pe-confirm {
+  margin-left: calc(var(--pe-lead) + 40px);
+}
+
+.pe-account-error {
+  max-width: 60ch;
+  color: var(--brand-red);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pe-confirm {
+  display: grid;
+  gap: 14px;
+  max-width: 340px;
+}
+
+.pe-confirm h4 {
+  margin: 0;
+  color: var(--brand-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.pe-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Stripe's form, drawn by the older payout setup on its own white sheet */
+.pe-setup {
+  min-width: 0;
+}
+
+.pe-setup .embedded-payout-setup {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pe-setup .embedded-payout-setup > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.pe-setup .embedded-payout-setup > header > div {
+  display: grid;
+  flex: 1 1 320px;
+  gap: 4px;
+  max-width: 60ch;
+}
+
+.pe-setup .embedded-payout-setup h3 {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.pe-setup .embedded-payout-setup [role='alert'] {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.pe-setup .embedded-payout-setup button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid #c3ccc8;
+  border-radius: 12px;
+  background: #fff;
+  color: #172a25;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pe-setup .embedded-payout-setup button:hover {
+  background: #eef2f0;
+}
+
 /* Per program: the name, then what is pending and what is approved */
 .pe-programs {
   display: grid;
@@ -73,7 +285,7 @@
 
 .pe-program {
   display: grid;
-  grid-template-columns: minmax(0, 360px) auto;
+  grid-template-columns: minmax(0, var(--pe-lead)) minmax(0, 1fr);
   justify-content: start;
   align-items: start;
   gap: 16px 40px;
@@ -104,7 +316,8 @@
 
 .pe-program dl {
   display: flex;
-  gap: 40px;
+  flex-wrap: wrap;
+  gap: 16px 40px;
   margin: 0;
 }
 
@@ -136,21 +349,27 @@
   line-height: 1.4;
 }
 
-/* Recent commissions */
-.pe-recent {
+/* Nothing in a payout yet: printed, and quiet beside the money that is there. */
+.pe-program dd.pe-zero {
+  color: var(--brand-subtle);
+  font-weight: 500;
+}
+
+/* Payouts and recent commissions: a short heading over a table of rules and alignment */
+.pe-list {
   display: grid;
   gap: 10px;
   min-width: 0;
 }
 
-.pe-recent h3,
+.pe-list h3,
 .pe-state h3 {
   color: var(--brand-text);
   font-size: 15px;
   font-weight: 650;
 }
 
-.pe-recent table {
+.pe-list table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
@@ -160,16 +379,16 @@
 
 /* The dashboard's tables carry a dark header bar and a row hover; this list is read, not
    clicked, and sits inside a panel, so it keeps neither. */
-.pe-recent thead {
+.pe-list thead {
   border: 0;
   background: none;
 }
 
-.pe-recent tbody tr:hover {
+.pe-list tbody tr:hover {
   background: none;
 }
 
-.pe-recent thead th {
+.pe-list thead th {
   padding: 8px 16px 8px 0;
   border-bottom: 1px solid var(--brand-line);
   color: var(--brand-muted);
@@ -179,15 +398,15 @@
   white-space: nowrap;
 }
 
-.pe-recent thead th:first-child {
+.pe-list thead th:first-child {
   padding-left: 0;
 }
 
-/* Fixed widths for the short columns, so the program's name takes what is left. */
-.pe-recent thead th:nth-child(1) {
+.pe-list thead th:first-child {
   width: 110px;
 }
 
+/* Fixed widths for the short columns, so the program's name takes what is left. */
 .pe-recent thead th:nth-child(3) {
   width: 150px;
 }
@@ -197,7 +416,7 @@
 }
 
 .pe-recent thead th:nth-child(5) {
-  width: 320px;
+  width: var(--pe-status);
   padding-left: 24px;
 }
 
@@ -205,8 +424,8 @@
   padding-left: 24px;
 }
 
-.pe-recent tbody th,
-.pe-recent tbody td {
+.pe-list tbody th,
+.pe-list tbody td {
   padding: 12px 16px 12px 0;
   border-bottom: 1px solid var(--brand-line);
   color: var(--brand-text);
@@ -215,27 +434,46 @@
   vertical-align: top;
 }
 
-.pe-recent tbody th {
+.pe-list tbody th {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.pe-recent tbody td:first-child {
+.pe-list tbody td:first-child {
   color: var(--brand-muted);
   white-space: nowrap;
 }
 
-.pe-recent tr > :last-child {
+.pe-list tr > :last-child {
   padding-right: 0;
 }
 
-.pe-recent .pe-num {
+.pe-list .pe-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
 }
 
-.pe-recent td small {
+/* Payouts: the amount ends where "Your commission" does, the status starts where "Status" does. */
+.pe-payouts thead th:nth-child(3) {
+  width: var(--pe-status);
+  padding-left: 24px;
+}
+
+.pe-payouts tbody td:nth-child(3) {
+  padding-left: 24px;
+}
+
+.pe-empty {
+  padding: 12px 0;
+  border-top: 1px solid var(--brand-line);
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.pe-list td small {
   display: block;
   color: var(--brand-muted);
   font-size: 13px;
@@ -245,7 +483,8 @@
   font-weight: 600;
 }
 
-.pe-status-approved {
+.pe-status-approved,
+.pe-status-paid {
   color: var(--brand-green);
 }
 
@@ -254,7 +493,7 @@
   color: var(--brand-muted);
 }
 
-.pe-recent .pe-btn {
+.pe-list .pe-btn {
   margin-top: 6px;
 }
 
@@ -283,7 +522,7 @@
 }
 
 .pe-skeleton .pe-program {
-  grid-template-columns: minmax(0, 360px) auto auto;
+  grid-template-columns: minmax(0, var(--pe-lead)) auto auto;
   align-items: center;
   border-top: 1px solid var(--brand-line);
 }
@@ -303,10 +542,65 @@
   line-height: 1.55;
 }
 
+/* A narrow panel beside the sidebar: the short columns give way, so a program's name is not cut. */
+@media (max-width: 1180px) {
+  .pe-panel {
+    --pe-status: 230px;
+  }
+
+  .pe-list thead th:first-child {
+    width: 96px;
+  }
+
+  .pe-recent thead th:nth-child(3) {
+    width: 110px;
+  }
+
+  .pe-recent thead th:nth-child(4) {
+    width: 140px;
+  }
+}
+
 @media (max-width: 700px) {
   .pe-panel {
-    gap: 18px;
+    --pe-gap: 18px;
     padding: 18px;
+  }
+
+  .pe-account-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pe-account-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pe-account-actions .pe-field {
+    width: auto;
+  }
+
+  .pe-account-error,
+  .pe-confirm {
+    margin-left: 0;
+  }
+
+  .pe-confirm {
+    max-width: none;
+  }
+
+  /* 16px keeps a phone from zooming into the field. */
+  .pe-field input,
+  .pe-field select {
+    font-size: 16px;
+  }
+
+  .pe-setup .embedded-payout-setup {
+    padding: 16px;
+  }
+
+  .pe-setup .embedded-payout-setup button {
+    width: 100%;
   }
 
   .pe-program {
@@ -318,17 +612,19 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Two figures to a line, so four make a square and none is squeezed. */
   .pe-program dl {
-    flex-wrap: wrap;
-    gap: 12px 28px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 20px;
   }
 
   .pe-program dl > div {
-    min-width: 120px;
+    min-width: 0;
   }
 
   /* Each commission becomes a short block: program and amount, the sale, then its status. */
-  .pe-recent thead {
+  .pe-list thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -337,31 +633,56 @@
     white-space: nowrap;
   }
 
-  .pe-recent table,
-  .pe-recent tbody {
+  .pe-list table,
+  .pe-list tbody {
     display: block;
   }
 
-  .pe-recent tbody tr {
+  .pe-list tbody tr {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      'program amount'
-      'date sale'
-      'status status';
     gap: 2px 16px;
     padding: 12px 0;
     border-bottom: 1px solid var(--brand-line);
   }
 
-  .pe-recent tbody tr:first-child {
+  .pe-recent tbody tr {
+    grid-template-areas:
+      'program amount'
+      'date sale'
+      'status status';
+  }
+
+  /* A payout: its date and amount, then where it stands. */
+  .pe-payouts tbody tr {
+    grid-template-areas:
+      'date amount'
+      'status status';
+  }
+
+  .pe-list tbody tr:first-child {
     border-top: 1px solid var(--brand-line);
   }
 
-  .pe-recent tbody th,
-  .pe-recent tbody td {
+  .pe-list tbody th,
+  .pe-list tbody td {
     padding: 0;
     border: 0;
+  }
+
+  .pe-payouts tbody td:nth-child(1) {
+    grid-area: date;
+    color: var(--brand-text);
+  }
+
+  .pe-payouts tbody td:nth-child(2) {
+    grid-area: amount;
+  }
+
+  .pe-payouts tbody td:nth-child(3) {
+    grid-area: status;
+    margin-top: 2px;
+    padding-left: 0;
   }
 
   .pe-recent tbody th {

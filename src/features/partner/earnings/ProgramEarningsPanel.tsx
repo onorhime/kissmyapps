@@ -1,35 +1,64 @@
 import { useState } from 'react'
 import { formatMoney } from '../../../merchant/programs'
 import { marketplaceHash } from '../../marketplace/routing'
+import type { ConnectClient, ConnectGateway } from '../../creator-settlements/connect'
 import type { PartnerDataGateway } from '../api'
 import {
   commissionAmount,
   commissionStatusLine,
   earningsErrorMessage,
   hasEarnings,
+  payableNow,
+  payoutRuleLine,
+  payoutStatusLine,
+  payoutTone,
+  payoutsOn,
+  programHasEarnings,
   salesCount,
   shortDay,
 } from './earnings'
-import type { ProgramEarnings, ProgramEarningsRow, RecentCommission } from './earnings'
+import type {
+  ProgramEarnings,
+  ProgramEarningsRow,
+  ProgramPayout,
+  RecentCommission,
+} from './earnings'
+import { PayoutAccountCard } from './PayoutAccountCard'
 import { useProgramEarnings } from './useProgramEarnings'
 import './ProgramEarnings.css'
 
 /**
  * What a creator has earned through the programs they joined: per program, the commission
- * still inside its hold and the commission that has passed it, then the latest commissions.
- * It only shows money. Paying approved earnings out is not part of this panel.
+ * still inside its hold, the commission that has passed it, what is in a payout on its way and
+ * what was paid; then the payouts and the latest commissions.
+ *
+ * While payouts are switched on it also holds the creator's payout account. While they are
+ * off, or on a database from before payouts, it shows money only: no payout account, no
+ * payouts, and nothing about when a payout happens.
  */
 
 /** Rows shown before "Show all". */
 const RECENT_SHOWN = 8
+const PAYOUTS_SHOWN = 5
 
-export function ProgramEarningsPanel({ gateway }: { gateway: PartnerDataGateway }) {
+export function ProgramEarningsPanel({
+  gateway,
+  client,
+  accountGateway,
+}: {
+  gateway: PartnerDataGateway
+  /** The connection the payout account is set up through. Left out: the app's own. */
+  client?: ConnectClient | null
+  /** Test and composition seam for the payout account. */
+  accountGateway?: ConnectGateway
+}) {
   const { state, retry } = useProgramEarnings(gateway)
   if (state.status === 'hidden') return null
+  const terms = state.status === 'ready' ? payoutsOn(state.earnings) : null
 
   return (
     <section
-      className="panel pe-panel"
+      className={terms ? 'panel pe-panel pe-paying' : 'panel pe-panel'}
       aria-labelledby="pe-title"
       aria-busy={state.status === 'loading'}
     >
@@ -53,6 +82,15 @@ export function ProgramEarningsPanel({ gateway }: { gateway: PartnerDataGateway 
             </button>
           )}
         </div>
+      )}
+
+      {terms && (
+        <PayoutAccountCard
+          platformAccountId={terms.platform_account_id}
+          waiting={payableNow(terms)}
+          client={client}
+          gateway={accountGateway}
+        />
       )}
 
       {state.status === 'ready' &&
@@ -91,24 +129,32 @@ function EarningsSkeleton() {
 function Earnings({ earnings }: { earnings: ProgramEarnings }) {
   const [showAll, setShowAll] = useState(false)
   const now = new Date()
-  const programs = earnings.programs.filter(
-    (row) =>
-      row.pending_minor !== 0 || row.approved_minor !== 0 || row.paid_minor !== 0 || row.sales > 0,
-  )
+  const paying = payoutsOn(earnings) !== null
+  const rule = payoutRuleLine(earnings)
+  const programs = earnings.programs.filter(programHasEarnings)
   const recent = showAll ? earnings.recent : earnings.recent.slice(0, RECENT_SHOWN)
+  // Payouts were never made here: the line from before payouts still holds.
+  const payoutsToCome =
+    !paying &&
+    (earnings.payouts?.length ?? 0) === 0 &&
+    earnings.programs.every((row) => row.paying_minor === 0 && row.paid_minor === 0)
 
   return (
     <>
       {programs.length > 0 && (
         <ul className="pe-programs" aria-label="Earnings by program">
           {programs.map((row) => (
-            <ProgramRow key={row.program_id} row={row} now={now} />
+            <ProgramRow key={row.program_id} row={row} now={now} paying={paying} />
           ))}
         </ul>
       )}
 
+      {rule && <p className="pe-note">{rule}</p>}
+
+      {paying && <Payouts payouts={earnings.payouts ?? []} now={now} />}
+
       {earnings.recent.length > 0 && (
-        <div className="pe-recent">
+        <div className="pe-list pe-recent">
           <h3 id="pe-recent-title">Recent commissions</h3>
           <table aria-labelledby="pe-recent-title">
             <thead>
@@ -138,15 +184,54 @@ function Earnings({ earnings }: { earnings: ProgramEarnings }) {
         </div>
       )}
 
-      <p className="pe-note">
-        Payouts of approved earnings are coming. Approved money has already been collected from the
-        brand.
-      </p>
+      {payoutsToCome && (
+        <p className="pe-note">
+          Payouts of approved earnings are coming. Approved money has already been collected from
+          the brand.
+        </p>
+      )}
     </>
   )
 }
 
-function ProgramRow({ row, now }: { row: ProgramEarningsRow; now: Date }) {
+/**
+ * One figure of a program. With four of them in a row, one that is nothing yet is printed in
+ * grey, so the money that is there stands out.
+ */
+function Figure({
+  label,
+  minor,
+  currency,
+  quietZero,
+  note,
+}: {
+  label: string
+  minor: number
+  currency: string
+  quietZero: boolean
+  note?: string | null
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd className={quietZero && minor === 0 ? 'pe-zero' : undefined}>
+        {formatMoney(minor, currency)}
+      </dd>
+      {note && <dd className="pe-sub">{note}</dd>}
+    </div>
+  )
+}
+
+function ProgramRow({
+  row,
+  now,
+  paying,
+}: {
+  row: ProgramEarningsRow
+  now: Date
+  /** Payouts are on: the payout figures are shown even while they are nothing. */
+  paying: boolean
+}) {
   const holdEnds =
     row.pending_minor > 0 && row.next_release_at && Date.parse(row.next_release_at) > now.getTime()
       ? shortDay(row.next_release_at, now)
@@ -158,23 +243,82 @@ function ProgramRow({ row, now }: { row: ProgramEarningsRow; now: Date }) {
         <small>{salesCount(row.sales)}</small>
       </div>
       <dl>
-        <div>
-          <dt>Pending</dt>
-          <dd>{formatMoney(row.pending_minor, row.currency)}</dd>
-          {holdEnds && <dd className="pe-sub">First hold ends {holdEnds}</dd>}
-        </div>
-        <div>
-          <dt>Approved</dt>
-          <dd>{formatMoney(row.approved_minor, row.currency)}</dd>
-        </div>
-        {row.paid_minor > 0 && (
-          <div>
-            <dt>Paid out</dt>
-            <dd>{formatMoney(row.paid_minor, row.currency)}</dd>
-          </div>
+        <Figure
+          label="Pending"
+          minor={row.pending_minor}
+          currency={row.currency}
+          quietZero={paying}
+          note={holdEnds && `First hold ends ${holdEnds}`}
+        />
+        <Figure
+          label="Approved"
+          minor={row.approved_minor}
+          currency={row.currency}
+          quietZero={paying}
+        />
+        {(paying || row.paying_minor !== 0) && (
+          <Figure
+            label="On its way"
+            minor={row.paying_minor}
+            currency={row.currency}
+            quietZero={paying}
+          />
+        )}
+        {(paying || row.paid_minor !== 0) && (
+          <Figure label="Paid" minor={row.paid_minor} currency={row.currency} quietZero={paying} />
         )}
       </dl>
     </li>
+  )
+}
+
+function Payouts({ payouts, now }: { payouts: ProgramPayout[]; now: Date }) {
+  const [showAll, setShowAll] = useState(false)
+  const shown = showAll ? payouts : payouts.slice(0, PAYOUTS_SHOWN)
+  return (
+    <div className="pe-list pe-payouts">
+      <h3 id="pe-payouts-title">Payouts</h3>
+      {payouts.length === 0 ? (
+        <p className="pe-empty">No payouts yet.</p>
+      ) : (
+        <table aria-labelledby="pe-payouts-title">
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col" className="pe-num">
+                Amount
+              </th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((payout) => {
+              const tone = payoutTone(payout.status)
+              return (
+                <tr key={payout.id} className={tone === 'returned' ? 'pe-returned' : undefined}>
+                  <td>{payout.created_at ? shortDay(payout.created_at, now) : '—'}</td>
+                  <td className="pe-num">
+                    <span className="pe-amount">
+                      {formatMoney(payout.amount_minor, payout.currency)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`pe-status pe-status-${tone}`}>
+                      {payoutStatusLine(payout, now)}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+      {payouts.length > PAYOUTS_SHOWN && !showAll && (
+        <button type="button" className="pe-btn" onClick={() => setShowAll(true)}>
+          Show all {payouts.length} payouts
+        </button>
+      )}
+    </div>
   )
 }
 
