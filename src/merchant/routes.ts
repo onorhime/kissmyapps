@@ -30,6 +30,8 @@ export type Route =
   | AuthRoute
   | { name: 'home' }
   | { name: 'workspace'; section: WorkspaceSettingsSection; projectId?: string; create?: boolean }
+  /** The workspace's links to outside tools, Stripe first. */
+  | { name: 'connections' }
   | ProjectRoute
 
 function decode(segment: string | undefined): string | undefined {
@@ -71,6 +73,8 @@ export function parseRoute(hash: string): Route {
         projectId: params.get('project') ?? undefined,
         ...(params.get('new') === '1' ? { create: true } : {}),
       }
+    case 'connections':
+      return { name: 'connections' }
     case 'p':
       break
     default:
@@ -147,6 +151,8 @@ export function href(route: Route): string {
       const query = params.toString()
       return `#settings/${route.section}${query ? `?${query}` : ''}`
     }
+    case 'connections':
+      return '#connections'
   }
   const base = `#p/${encodeURIComponent(route.projectId)}`
   switch (route.name) {

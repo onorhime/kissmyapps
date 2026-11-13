@@ -35,8 +35,12 @@ export const supabase: SupabaseClient | null = hasSupabaseConfig
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        // Stripe's OAuth code belongs to merchant-connect, not Supabase Auth.
-        detectSessionInUrl: window.location.pathname !== '/merchant/callback',
+        // Stripe's OAuth code belongs to the Stripe connect functions, not Supabase Auth.
+        // Stripe returns to /merchant/callback (admin invitations) or to the console root
+        // with ?state=; Supabase Auth's own returns never carry a state parameter.
+        detectSessionInUrl:
+          window.location.pathname !== '/merchant/callback' &&
+          !new URLSearchParams(window.location.search).has('state'),
         flowType: 'pkce',
       },
     })

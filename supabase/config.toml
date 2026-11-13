@@ -490,6 +490,10 @@ verify_jwt = false
 # disabled unless EXTERNAL_COMMERCE_WEBHOOK_ENABLED=true and binding is explicit.
 [functions.external-commerce-webhook]
 verify_jwt = false
+# Connected-merchant payment/refund/dispute receipts (live Connect events). Handler
+# verifies Stripe HMAC; disabled unless CONNECT_PAYMENTS_WEBHOOK_ENABLED=true.
+[functions.connect-payments-webhook]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false
@@ -513,6 +517,11 @@ verify_jwt = false
 verify_jwt = false
 # Signed Connect account status/revocation events, separate from payments.
 [functions.merchant-connect-webhook]
+verify_jwt = false
+# The merchant console connects a workspace's own live Stripe account. The handler checks
+# the Supabase user itself and answers only the console origin. Off until
+# CONSOLE_CONNECT_ENABLED is "true".
+[functions.workspace-stripe-connect]
 verify_jwt = false
 
 # Merchant analytics: apps and websites send events and session replays with a
