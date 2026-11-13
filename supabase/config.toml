@@ -513,6 +513,17 @@ verify_jwt = false
 # schedule with its own credential; disabled unless PROGRAM_BALANCE_ENABLED=true.
 [functions.program-balance-worker]
 verify_jwt = false
+# A creator's payout account for affiliate programs: the creator-connect handler with the
+# program gate, limited to the console platform's live binding. The handler checks the
+# Supabase user itself and answers only that binding's origin. Off until
+# PROGRAM_PAYOUTS_ENABLED is "true".
+[functions.program-payout-account]
+verify_jwt = false
+# Sends the payouts an admin made: one Stripe transfer each, from the platform account to
+# the creator's account. Called by a database schedule with its own credential; disabled
+# unless PROGRAM_PAYOUTS_ENABLED=true.
+[functions.program-payout-worker]
+verify_jwt = false
 # Public marketplace: the live affiliate programs and one program by its address, read
 # signed out by kissmyapps.dev/marketplace. GET only, no session, no credential read;
 # disabled unless MARKETPLACE_ENABLED=true.
