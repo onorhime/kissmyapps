@@ -424,6 +424,20 @@
   padding-left: 24px;
 }
 
+/* Rewards only: no row has a sale amount, so the list has one column fewer. */
+.pe-recent.pe-recent-rewards thead th:nth-child(3) {
+  width: 200px;
+}
+
+.pe-recent.pe-recent-rewards thead th:nth-child(4) {
+  width: var(--pe-status);
+  padding-left: 24px;
+}
+
+.pe-recent.pe-recent-rewards tbody td:nth-child(4) {
+  padding-left: 24px;
+}
+
 .pe-list tbody th,
 .pe-list tbody td {
   padding: 12px 16px 12px 0;
@@ -473,10 +487,16 @@
   line-height: 1.45;
 }
 
-.pe-list td small {
+.pe-list td small,
+.pe-list tbody th small {
   display: block;
   color: var(--brand-muted);
   font-size: 13px;
+}
+
+/* "Reward: Account created" under the program's name. */
+.pe-list tbody th small {
+  font-weight: 400;
 }
 
 .pe-amount {
@@ -558,6 +578,14 @@
 
   .pe-recent thead th:nth-child(4) {
     width: 140px;
+  }
+
+  .pe-recent.pe-recent-rewards thead th:nth-child(3) {
+    width: 140px;
+  }
+
+  .pe-recent.pe-recent-rewards thead th:nth-child(4) {
+    width: var(--pe-status);
   }
 }
 
@@ -707,6 +735,34 @@
   }
 
   .pe-recent tbody td:nth-child(5) {
+    grid-area: status;
+    margin-top: 4px;
+    padding-left: 0;
+  }
+
+  /* A reward among sales has no sale amount to print. */
+  .pe-recent:not(.pe-recent-rewards) tbody .pe-reward td:nth-child(3) {
+    display: none;
+  }
+
+  /* Rewards only: program and amount, the date, then the status. */
+  .pe-recent.pe-recent-rewards tbody tr {
+    grid-template-areas:
+      'program amount'
+      'date date'
+      'status status';
+  }
+
+  .pe-recent.pe-recent-rewards tbody td:nth-child(3) {
+    grid-area: amount;
+    color: var(--brand-text);
+  }
+
+  .pe-recent.pe-recent-rewards tbody td:nth-child(3)::before {
+    content: none;
+  }
+
+  .pe-recent.pe-recent-rewards tbody td:nth-child(4) {
     grid-area: status;
     margin-top: 4px;
     padding-left: 0;

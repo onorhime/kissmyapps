@@ -81,6 +81,13 @@ export function commissionLine(program: AdminProgramReview): string | null {
   )
 }
 
+/** What creators earn from, in the words of the merchant's form. Null for sales only. */
+export function earnFromLabel(earnFrom: AdminProgramReview['earnFrom']): string | null {
+  if (earnFrom === 'events') return 'Events'
+  if (earnFrom === 'both') return 'Sales and events'
+  return null
+}
+
 /** A landing page as a safe link: https only, shown without the scheme. */
 export function landingLink(url: string | null): { href: string; label: string } | null {
   if (!url) return null

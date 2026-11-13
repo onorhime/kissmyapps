@@ -293,7 +293,7 @@ describe('sales route', () => {
     expect(parseRoute('#sales/m-ada')).toEqual({ name: 'sales' })
   })
 
-  it('is in the Affiliates group between Creators and Balance', async () => {
+  it('is in the Affiliates group between Creators and Rewards', async () => {
     signedInAs('owner')
     await openSales()
     const nav = screen.getByRole('navigation', { name: 'Sections' })
@@ -306,7 +306,7 @@ describe('sales route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators', 'Sales', 'Balance'])
+    ).toEqual(['Program', 'Creators', 'Sales', 'Rewards', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -1262,5 +1262,36 @@ describe('sales page: staying current', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('sales of a program that pays for events only', () => {
+  const unrewarded = sale({
+    sale_id: 's-ada-events',
+    status: 'not_earned',
+    reason: 'sales_not_rewarded',
+    commission_minor: 0,
+    fee_minor: 0,
+    hold_until: null,
+  })
+
+  it('has words for a sale that earns nothing because only events do', () => {
+    const said = saleStatus(readSales(answer([unrewarded])).sales[0])
+    expect(said).toEqual({
+      label: 'No commission',
+      tone: 'neutral',
+      detail: 'Your program pays for events, not sales',
+    })
+    expect(said.detail).not.toMatch(/_|\btest\b|sandbox|\bminor\b/i)
+  })
+
+  it('says so on the page, with no commission figure', async () => {
+    signedInAs('owner')
+    await openSales(answer([unrewarded]))
+    expect(cells('s-ada-events').slice(4)).toEqual([
+      '—None',
+      'No commission' + 'Your program pays for events, not sales',
+    ])
+    expect(page()).not.toHaveTextContent('sales_not_rewarded')
   })
 })

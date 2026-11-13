@@ -623,7 +623,7 @@ select pg_temp.check((select d->'account' = '{"currency":"USD","available_minor"
           and bool_and(e ? 'note' and e->>'note' is null and e->>'id' is not null and e->>'created_at' is not null)
         from jsonb_array_elements(d->'activity') with ordinality x(e, i))
       and (select bool_and(k = any(array['id', 'kind', 'amount_minor', 'available_after_minor', 'created_at', 'creator_name',
-          'sale_amount_minor', 'topup_kind', 'note'])) and count(*) = 45
+          'sale_amount_minor', 'reward_label', 'topup_kind', 'note'])) and count(*) = 50
         from jsonb_array_elements(d->'activity') e, jsonb_object_keys(e) k)
     from pg_temp.page('owner', 'acme') d)
   and pg_temp.page('analyst', 'acme') - 'can_manage' = pg_temp.page('owner', 'acme') - 'can_manage',

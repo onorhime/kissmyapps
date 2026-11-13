@@ -45,6 +45,8 @@ export interface BalanceEntry {
   sale_amount_minor: number | null
   topup_kind: 'deposit' | 'auto' | null
   note: string | null
+  /** Set when the line is about a reward for an event: what creators read as its name. */
+  reward_label?: string
 }
 
 export interface BalanceCard {
@@ -239,6 +241,7 @@ function entryFrom(value: unknown): BalanceEntry | null {
   const amount = minor(row?.amount_minor)
   if (!row || typeof row.id !== 'string' || !row.id || typeof row.kind !== 'string') return null
   if (amount === null) return null
+  const reward = text(row.reward_label)
   return {
     id: row.id,
     kind: ENTRY_KINDS.find((item) => item === row.kind) ?? 'other',
@@ -250,6 +253,8 @@ function entryFrom(value: unknown): BalanceEntry | null {
     topup_kind:
       row.topup_kind === 'auto' ? 'auto' : row.topup_kind === 'deposit' ? 'deposit' : null,
     note: text(row.note),
+    // A line about a sale, and every line from before rewards existed, carries none.
+    ...(reward ? { reward_label: reward } : {}),
   }
 }
 
@@ -673,9 +678,15 @@ export function entryLabel(entry: Pick<BalanceEntry, 'kind' | 'topup_kind'>): st
   return entryLabels[entry.kind]
 }
 
-/** Who and what a line is about: "Ada Okafor · $49.00 sale". Null when there is nothing to add. */
+/**
+ * Who and what a line is about: "Ada Okafor · $49.00 sale", or for a reward
+ * "Reward for Mira Maker: Account created". Null when there is nothing to add.
+ */
 export function entryDetail(
-  entry: Pick<BalanceEntry, 'kind' | 'creator_name' | 'sale_amount_minor' | 'note'>,
+  entry: Pick<
+    BalanceEntry,
+    'kind' | 'creator_name' | 'sale_amount_minor' | 'note' | 'reward_label'
+  >,
   currency: string,
 ): string | null {
   const about =
@@ -683,6 +694,10 @@ export function entryDetail(
     entry.kind === 'commission_returned' ||
     entry.kind === 'fee_reserved' ||
     entry.kind === 'fee_returned'
+  if (about && entry.reward_label)
+    return entry.creator_name
+      ? `Reward for ${entry.creator_name}: ${entry.reward_label}`
+      : `Reward: ${entry.reward_label}`
   const parts = about
     ? [
         entry.creator_name,

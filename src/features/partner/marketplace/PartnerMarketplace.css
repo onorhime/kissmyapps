@@ -216,6 +216,29 @@
   border-top: 1px solid var(--brand-line);
 }
 
+/* What a program that pays for events pays: the commission, then a line for each reward. */
+.pmk-earn {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pmk-earn ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pmk-earn li {
+  color: var(--brand-text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .pmk-actions {
   display: flex;
   flex-wrap: wrap;

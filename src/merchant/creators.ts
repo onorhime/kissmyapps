@@ -12,6 +12,9 @@ import type { ApprovalMode, ProgramStatus } from './programs'
 /** Where anyone can read the program and join it. */
 export const MARKETPLACE_ORIGIN = 'https://kissmyapps.dev'
 
+/** What the program pays creators for. Answers from before events existed mean `sales`. */
+export type EarnFrom = 'sales' | 'events' | 'both'
+
 export type CreatorStatus = 'pending' | 'active' | 'declined' | 'removed' | 'left'
 export type CreatorAction = 'approve' | 'decline' | 'remove'
 
@@ -33,6 +36,8 @@ export interface Creator {
   needs_new_terms: boolean
   clicks: number
   sales: number
+  /** Events that earned this creator a reward. Only set when the database sends it. */
+  events?: number
   last_click_at: string | null
   /** What this creator's sales came to. Null when the database does not send money yet. */
   sales_amount_minor: number | null
@@ -45,6 +50,8 @@ export interface Creator {
 export interface CreatorTotals {
   clicks: number
   sales: number
+  /** Only set when the database sends it. */
+  events?: number
   sales_amount_minor: number
   commission_minor: number
   pending_minor: number
@@ -74,6 +81,8 @@ export interface CreatorsState {
   currency: string | null
   /** Null when the database does not send money yet: the page is then drawn without it. */
   totals: CreatorTotals | null
+  /** What the program pays for. Left out, or not said by the answer, it is `sales`. */
+  earn_from?: EarnFrom
 }
 
 // Reading answers ---------------------------------------------------------------------------
@@ -103,6 +112,7 @@ const CREATOR_STATUSES: readonly CreatorStatus[] = [
   'removed',
   'left',
 ]
+const EARN_FROM: readonly EarnFrom[] = ['sales', 'events', 'both']
 const PROGRAM_STATUSES: ReadonlyArray<CreatorsProgram['status']> = [
   'draft',
   'in_review',
@@ -139,6 +149,8 @@ function creatorFrom(value: unknown): Creator | null {
     needs_new_terms: row.needs_new_terms === true,
     clicks: count(row.clicks),
     sales: count(row.sales),
+    // An answer from before events existed has no such key, and reads exactly as it did.
+    ...(row.events === undefined ? {} : { events: count(row.events) }),
     last_click_at: moment(row.last_click_at),
     sales_amount_minor: minor(row.sales_amount_minor),
     commission_minor: minor(row.commission_minor),
@@ -156,6 +168,7 @@ function totalsFrom(value: unknown): CreatorTotals | null {
   return {
     clicks: count(row.clicks),
     sales: count(row.sales),
+    ...(row.events === undefined ? {} : { events: count(row.events) }),
     sales_amount_minor: amount,
     commission_minor: commission,
     pending_minor: pending,
@@ -211,6 +224,7 @@ export function readCreators(value: unknown): CreatorsState {
     currency: program ? currencyCode(body.currency) : null,
     // A database from before these figures existed sends none: the page then shows no money.
     totals: program ? totalsFrom(body.totals) : null,
+    earn_from: (program && EARN_FROM.find((item) => item === body.earn_from)) || 'sales',
   }
 }
 
@@ -277,6 +291,8 @@ export function withDecision(state: CreatorsState, decided: Creator): CreatorsSt
     commission_minor: decided.commission_minor ?? before?.commission_minor ?? null,
     pending_minor: decided.pending_minor ?? before?.pending_minor ?? null,
   }
+  const events = decided.events ?? before?.events
+  if (events !== undefined) moved.events = events
   return {
     ...state,
     counts,
@@ -298,6 +314,31 @@ export function groupCreators(list: Creator[]): CreatorGroups {
   return groups
 }
 
+/** Whether the program pays creators for events, on their own or beside sales. */
+export function paysForEvents(earnFrom: EarnFrom | undefined): boolean {
+  return earnFrom === 'events' || earnFrom === 'both'
+}
+
+/** Whether the program pays creators for sales, on their own or beside events. */
+export function paysForSales(earnFrom: EarnFrom | undefined): boolean {
+  return earnFrom !== 'events'
+}
+
+/**
+ * Which counts the table shows: what the program pays for, and any count it still has from
+ * before it changed (a sale made before it moved to events, rewards from before it moved to
+ * sales), so the money in the Earned column is never there without what earned it.
+ */
+export function countsShown(state: Pick<CreatorsState, 'totals'> & { earn_from?: EarnFrom }): {
+  sales: boolean
+  events: boolean
+} {
+  return {
+    sales: paysForSales(state.earn_from) || (state.totals?.sales ?? 0) > 0,
+    events: paysForEvents(state.earn_from) || (state.totals?.events ?? 0) > 0,
+  }
+}
+
 /** The currency the money on the page is in, once the database sends money at all. */
 export function moneyCurrency(state: Pick<CreatorsState, 'currency' | 'totals'>): string | null {
   return state.totals ? (state.currency ?? 'USD') : null
@@ -308,7 +349,7 @@ export function moneyCurrency(state: Pick<CreatorsState, 'currency' | 'totals'>)
  * the totals line says who else is in it.
  */
 export function totalsNote(
-  state: Pick<CreatorsState, 'totals' | 'counts'>,
+  state: Pick<CreatorsState, 'totals' | 'counts'> & { earn_from?: EarnFrom },
   active: Creator[],
 ): string | null {
   const totals = state.totals
@@ -318,6 +359,9 @@ export function totalsNote(
   const same =
     sum((creator) => creator.clicks) === totals.clicks &&
     sum((creator) => creator.sales) === totals.sales &&
+    // Events only count where the table shows them.
+    (!countsShown(state).events ||
+      sum((creator) => creator.events ?? 0) === (totals.events ?? 0)) &&
     sum((creator) => creator.sales_amount_minor) === totals.sales_amount_minor &&
     sum((creator) => creator.commission_minor) === totals.commission_minor
   if (same) return null

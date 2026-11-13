@@ -5,6 +5,14 @@ import { marketplaceHash } from '../../marketplace/routing'
 import '../../marketplace/marketplace.css'
 import type { PartnerDataGateway } from '../api'
 import {
+  COUNT_LABELS,
+  conversionOf,
+  countKinds,
+  countOf,
+  creditedFor,
+  earnFromOf,
+} from './earnFrom'
+import {
   LINK_NAME_MAX,
   addedLink,
   conversionRate,
@@ -27,7 +35,8 @@ import './ProgramLinks.css'
 /**
  * The Links page of the partner dashboard: for each program the creator joined, the one main
  * link, the same link ready-made for each channel, the custom links they added, and what each
- * of them brought in over the last 30 days.
+ * of them brought in over the last 30 days: sales, or events such as sign-ups in a program
+ * that pays for those.
  */
 
 /** Up to this many programs are picked from buttons side by side; more are picked from a list. */
@@ -287,7 +296,10 @@ function ProgramLinksView({
 
         <div className="pl-channels">
           <h3 id={`${id}-channels`}>Copy for a channel</h3>
-          <p>Same link, tagged so you can compare where your sales come from.</p>
+          <p>
+            Same link, tagged so you can compare where your {creditedFor(earnFromOf(program))} come
+            from.
+          </p>
           <ul className="pl-chips" aria-labelledby={`${id}-channels`}>
             {others.map((link) => {
               const done = copied?.how === 'copied' && copied.link.link_id === link.link_id
@@ -518,8 +530,19 @@ function Results({
     onRemoved(link)
   }
 
+  const counts = countKinds(earnFromOf(program))
+  /** What a click turns into for the Conversion column: a sale, or an event. */
+  const turnsInto = conversionOf(earnFromOf(program))
+
   return (
-    <section className="panel pl-panel pl-results" aria-labelledby={`${id}-results`}>
+    <section
+      className={
+        counts.length > 1
+          ? 'panel pl-panel pl-results pl-results-wide'
+          : 'panel pl-panel pl-results'
+      }
+      aria-labelledby={`${id}-results`}
+    >
       <header className="pl-head">
         <h2 id={`${id}-results`} ref={titleRef} tabIndex={-1}>
           Results by channel
@@ -535,9 +558,11 @@ function Results({
             <th scope="col" className="pl-num">
               Clicks
             </th>
-            <th scope="col" className="pl-num">
-              Sales
-            </th>
+            {counts.map((column) => (
+              <th key={column} scope="col" className="pl-num">
+                {COUNT_LABELS[column]}
+              </th>
+            ))}
             <th scope="col" className="pl-num">
               Conversion
             </th>
@@ -612,11 +637,16 @@ function Results({
               <td className={quiet('pl-num pl-clicks', link.clicks === 0)}>
                 {formatCount(link.clicks)}
               </td>
-              <td className={quiet('pl-num pl-sales', link.sales === 0)}>
-                {formatCount(link.sales)}
-              </td>
-              <td className={quiet('pl-num pl-rate', link.sales === 0)}>
-                {conversionRate(link.clicks, link.sales)}
+              {counts.map((column) => (
+                <td
+                  key={column}
+                  className={quiet(`pl-num pl-${column}`, countOf(link, column) === 0)}
+                >
+                  {formatCount(countOf(link, column))}
+                </td>
+              ))}
+              <td className={quiet('pl-num pl-rate', countOf(link, turnsInto) === 0)}>
+                {conversionRate(link.clicks, countOf(link, turnsInto))}
               </td>
               <td className={quiet('pl-num pl-earnings', link.earnings_minor === 0)}>
                 {linkEarnings(link, program.currency)}

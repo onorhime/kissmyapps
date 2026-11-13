@@ -253,6 +253,8 @@ const notEarnedReasons: Record<string, string> = {
   zero_amount: 'The commission came to zero',
   refunded: 'The sale was refunded',
   no_creator: 'No creator was credited',
+  // A program that pays creators for events only.
+  sales_not_rewarded: 'Your program pays for events, not sales',
 }
 
 export interface SaleStatusWords {

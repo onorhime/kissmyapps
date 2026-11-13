@@ -1,6 +1,8 @@
 import { formatMoney } from '../../../merchant/programs'
 import { oneOf, record, text } from '../../marketplace/model'
 import type { PartnerDataErrorCode, PartnerDataStatus } from '../api/types'
+import { absent, creditedFor, readEarnFrom } from './earnFrom'
+import type { EarnFrom } from './earnFrom'
 
 /**
  * A creator's program links: what the `partner_program_links`, `partner_program_link_create`
@@ -27,6 +29,8 @@ export interface ProgramLink {
   /** Clicks, sales and earnings over the answer's `stats_days`. */
   clicks: number
   sales: number
+  /** Rewarded events. Left out by a database from before events could be rewarded: none. */
+  events?: number
   earnings_minor: number
   /** A custom link that nobody has clicked yet, so removing it breaks nothing. */
   removable: boolean
@@ -37,6 +41,11 @@ export interface LinkProgram {
   slug: string
   name: string
   currency: string
+  /**
+   * What the program pays for: sales, events such as a sign-up, or both. Left out by a
+   * database from before events could be rewarded, which is a program that pays for sales.
+   */
+  earn_from?: EarnFrom
   /** False while the links open the page without crediting the creator. */
   working: boolean
   paused_reason: PausedReason | null
@@ -135,6 +144,7 @@ function readLink(value: unknown): ProgramLink {
   const url = webAddress(row?.url)
   const clicks = count(row?.clicks)
   const sales = count(row?.sales)
+  const events = absent(row?.events) ? undefined : count(row.events)
   const earnings = count(row?.earnings_minor)
   const channel = kind === 'channel' ? text(row?.channel) : null
   if (
@@ -145,6 +155,7 @@ function readLink(value: unknown): ProgramLink {
     !url ||
     clicks === null ||
     sales === null ||
+    events === null ||
     earnings === null ||
     (kind === 'channel' && !channel)
   )
@@ -158,6 +169,8 @@ function readLink(value: unknown): ProgramLink {
     created_at: moment(row.created_at),
     clicks,
     sales,
+    // Only an answer that counts events has the key, so an older one reads as it always has.
+    ...(events === undefined ? {} : { events }),
     earnings_minor: earnings,
     // Only a link the creator made can go, whatever the answer says about the others.
     removable: kind === 'custom' && row.removable === true,
@@ -175,12 +188,14 @@ export function readLinkProgram(value: unknown): LinkProgram {
   const slug = text(row?.slug)
   const name = text(row?.name)
   const currency = currencyCode(row?.currency)
+  const earnFrom = absent(row?.earn_from) ? undefined : readEarnFrom(row.earn_from)
   if (
     !row ||
     !programId ||
     !slug ||
     !name ||
     !currency ||
+    earnFrom === null ||
     typeof row.working !== 'boolean' ||
     !Array.isArray(row.links)
   )
@@ -193,6 +208,7 @@ export function readLinkProgram(value: unknown): LinkProgram {
     slug,
     name: name.trim(),
     currency,
+    ...(earnFrom === undefined ? {} : { earn_from: earnFrom }),
     working: row.working,
     paused_reason: row.working
       ? null
@@ -272,13 +288,16 @@ export function displayAddress(url: string): string {
 }
 
 /** "Live", or in one short sentence why sales are not credited right now. */
-export function linkStatusLine(program: Pick<LinkProgram, 'working' | 'paused_reason'>): string {
+export function linkStatusLine(
+  program: Pick<LinkProgram, 'working' | 'paused_reason' | 'earn_from'>,
+): string {
   if (program.working) return 'Live'
+  const what = creditedFor(program.earn_from)
   if (program.paused_reason === 'program_paused')
-    return 'Paused by the brand: sales are not credited right now.'
+    return `Paused by the brand: ${what} are not credited right now.`
   if (program.paused_reason === 'balance_empty')
-    return 'Paused: the brand’s balance is empty, so sales are not credited right now.'
-  return 'Paused: sales are not credited right now.'
+    return `Paused: the brand’s balance is empty, so ${what} are not credited right now.`
+  return `Paused: ${what} are not credited right now.`
 }
 
 const wholeNumber = new Intl.NumberFormat('en-US')
@@ -288,7 +307,10 @@ export function formatCount(value: number): string {
   return wholeNumber.format(value)
 }
 
-/** Sales per click as "2.5%". With no clicks there is no rate, and a dash says so. */
+/**
+ * Sales per click as "2.5%" (events per click in a program that pays for events only). With no
+ * clicks there is no rate, and a dash says so.
+ */
 export function conversionRate(clicks: number, sales: number): string {
   if (clicks <= 0) return '—'
   return `${((sales / clicks) * 100).toFixed(1)}%`

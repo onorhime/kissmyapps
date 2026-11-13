@@ -561,7 +561,7 @@ select pg_temp.check(
   and pg_temp.link('Main link') @> '{"clicks":5,"sales":2,"earnings_minor":2940}'
   and (select pg_temp.channel(r, 'TikTok') @> '{"kind":"channel","clicks":1,"sales":1,"earnings_minor":600}'
       and pg_temp.channel(r, 'Main link') @> '{"clicks":5,"sales":2,"earnings_minor":2940}'
-      and r->'totals' = '{"clicks":6,"sales":3,"earnings_minor":3540}'::jsonb
+      and r->'totals' = '{"clicks":6,"sales":3,"events":0,"earnings_minor":3540}'::jsonb
       and r->'daily'->6 @> '{"clicks":6,"sales":3,"earnings_minor":3540}'
       and r->'money' @> '{"pending_minor":600,"approved_minor":1470,"paying_minor":0,"paid_minor":1470}'
       -- The suite's sales fall in the same second, so which one is first is not asked.
@@ -573,7 +573,7 @@ select pg_temp.check(
   'the creator sees the sale under TikTok on the Links and Performance pages, and the totals match their earnings');
 select pg_temp.check(
   (select c->'creators'->0 @> '{"name":"Mira Maker","clicks":6,"sales":3,"sales_amount_minor":11800,"commission_minor":3540,"pending_minor":600}'
-      and c->'totals' = '{"clicks":6,"sales":3,"sales_amount_minor":11800,"commission_minor":3540,"pending_minor":600}'::jsonb
+      and c->'totals' = '{"clicks":6,"sales":3,"events":0,"sales_amount_minor":11800,"commission_minor":3540,"pending_minor":600}'::jsonb
       and c->>'currency' = 'USD'
     from pg_temp.call('owner', format('select public.workspace_program_creators(%L)', pg_temp.q('workspace'))) c)
   and (select (select count(*) = 1 from jsonb_array_elements(s->'sales') x

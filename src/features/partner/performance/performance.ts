@@ -1,6 +1,8 @@
 import { formatMoney } from '../../../merchant/programs'
 import { oneOf, record, text } from '../../marketplace/model'
 import type { PartnerDataError, PartnerDataResult } from '../api/types'
+import { absent, readEarnFrom } from '../links/earnFrom'
+import type { EarnFrom } from '../links/earnFrom'
 
 /**
  * A creator's results in one program: what the `partner_program_performance` database function
@@ -22,12 +24,22 @@ export interface PerformanceProgram {
   slug: string
   name: string
   currency: string
+  /**
+   * What the program pays for: sales, events such as a sign-up, or both. Left out by a
+   * database from before events could be rewarded, which is a program that pays for sales.
+   */
+  earn_from?: EarnFrom
 }
 
-/** Clicks, sales and what the commission on those sales is worth now. */
+/**
+ * Clicks, sales, rewarded events, and what the commission on those sales and the rewards for
+ * those events are worth now.
+ */
 export interface PerformanceCounts {
   clicks: number
   sales: number
+  /** Left out by a database from before events could be rewarded: none. */
+  events?: number
   earnings_minor: number
 }
 
@@ -61,12 +73,28 @@ export interface PerformanceMoney {
 export type SaleStatus = 'held' | 'approved' | 'reversed'
 
 export interface LatestSale {
+  /** A sale, or a reward for an event. Left out by an older database: every row is a sale. */
+  kind?: 'sale' | 'reward'
+  /** What the brand calls the reward: "Account created". Null for a sale. */
+  reward_label?: string | null
+  /** When the sale was paid, or when the rewarded event happened. */
   paid_at: string | null
   /** The link the sale came through. Null when it came through none. */
   link_name: string | null
   /** What the commission is worth now. */
   amount_minor: number
   status: SaleStatus
+}
+
+/** One of the program's rewards, with what it brought in the days shown. */
+export interface PerformanceReward {
+  key: string
+  /** What the brand calls it: "Account created". */
+  label: string
+  /** What one such event earns. */
+  amount_minor: number
+  count: number
+  earnings_minor: number
 }
 
 export interface ProgramPerformance {
@@ -86,6 +114,13 @@ export interface ProgramPerformance {
   channels: PerformanceChannel[]
   money: PerformanceMoney | null
   latest: LatestSale[]
+  /**
+   * The program's rewards, none in a program that pays for sales. Left out, like the next one,
+   * by a database from before events could be rewarded.
+   */
+  rewards?: PerformanceReward[]
+  /** The brand's budget for rewards is used up for this month, so new events earn nothing. */
+  budget_reached?: boolean
 }
 
 export type ProgramPerformanceResult = PartnerDataResult<ProgramPerformance | null>
@@ -135,8 +170,17 @@ function readProgram(value: unknown): PerformanceProgram {
   const slug = text(row?.slug)
   const name = text(row?.name)
   const currency = currencyCode(row?.currency)
-  if (!programId || !slug || !name || !currency) throw new PerformanceUnreadable()
-  return { program_id: programId, slug, name, currency }
+  const earnFrom = absent(row?.earn_from) ? undefined : readEarnFrom(row.earn_from)
+  if (!programId || !slug || !name || !currency || earnFrom === null)
+    throw new PerformanceUnreadable()
+  // Only an answer that says what the program pays for has the key.
+  return {
+    program_id: programId,
+    slug,
+    name,
+    currency,
+    ...(earnFrom === undefined ? {} : { earn_from: earnFrom }),
+  }
 }
 
 /** A row of numbers must be whole: a missing one is refused, never shown as zero. */
@@ -144,9 +188,12 @@ function readCounts(value: unknown): PerformanceCounts {
   const row = record(value)
   const clicks = count(row?.clicks)
   const sales = count(row?.sales)
+  const events = absent(row?.events) ? undefined : count(row.events)
   const earnings = integer(row?.earnings_minor)
-  if (clicks === null || sales === null || earnings === null) throw new PerformanceUnreadable()
-  return { clicks, sales, earnings_minor: earnings }
+  if (clicks === null || sales === null || events === null || earnings === null)
+    throw new PerformanceUnreadable()
+  // Only an answer that counts events has the key, so an older one reads as it always has.
+  return { clicks, sales, ...(events === undefined ? {} : { events }), earnings_minor: earnings }
 }
 
 function readDay(value: unknown): PerformanceDay {
@@ -184,19 +231,47 @@ function readMoney(value: unknown): PerformanceMoney | null {
   }
 }
 
-/** Null for a status the page has no words for, so the list leaves that sale out. */
+/**
+ * Null for a status or a kind the page has no words for, so the list leaves that row out. An
+ * answer from before events could be rewarded names no kind: every row of it is a sale.
+ */
 function readLatest(value: unknown): LatestSale | null {
   const row = record(value)
   const status = oneOf(row?.status, ['held', 'approved', 'reversed'] as const)
-  if (!row || !status) return null
+  const kind = absent(row?.kind) ? undefined : oneOf(row.kind, ['sale', 'reward'] as const)
+  if (!row || !status || kind === null) return null
   const amount = integer(row.amount_minor)
   if (amount === null) throw new PerformanceUnreadable()
   return {
+    ...(kind === undefined
+      ? {}
+      : {
+          kind,
+          reward_label: kind === 'reward' ? (text(row.reward_label)?.trim() ?? null) : null,
+        }),
     paid_at: moment(row.paid_at),
     link_name: text(row.link_name),
     amount_minor: amount,
     status,
   }
+}
+
+/** A reward's row must be whole: what it is called, what it pays and what it brought. */
+function readReward(value: unknown): PerformanceReward {
+  const row = record(value)
+  const key = text(row?.key)
+  const label = text(row?.label)?.trim()
+  const amount = count(row?.amount_minor)
+  const events = count(row?.count)
+  const earnings = integer(row?.earnings_minor)
+  if (!key || !label || !amount || events === null || earnings === null)
+    throw new PerformanceUnreadable()
+  return { key, label, amount_minor: amount, count: events, earnings_minor: earnings }
+}
+
+function readRewards(value: unknown): PerformanceReward[] {
+  if (!Array.isArray(value)) throw new PerformanceUnreadable()
+  return value.map(readReward)
 }
 
 const DAY_MS = 86_400_000
@@ -226,6 +301,8 @@ export function readProgramPerformance(value: unknown): ProgramPerformance {
   )
     throw new PerformanceUnreadable()
   if (dayTime(endsOn) - dayTime(startsOn) !== (days - 1) * DAY_MS) throw new PerformanceUnreadable()
+  if (!absent(body.budget_reached) && typeof body.budget_reached !== 'boolean')
+    throw new PerformanceUnreadable()
 
   const program =
     body.program === null || body.program === undefined ? null : readProgram(body.program)
@@ -252,6 +329,11 @@ export function readProgramPerformance(value: unknown): ProgramPerformance {
       const sale = readLatest(item)
       return sale ? [sale] : []
     }),
+    // Only an answer from a database that rewards events has these two.
+    ...(absent(body.rewards) ? {} : { rewards: program ? readRewards(body.rewards) : [] }),
+    ...(absent(body.budget_reached)
+      ? {}
+      : { budget_reached: program !== null && body.budget_reached === true }),
   }
 }
 
@@ -341,7 +423,7 @@ export function changeRest(change: Change, days: PerformanceDays): string {
 
 /** True for a row with nothing in it in the days shown. */
 export function isQuiet(row: PerformanceCounts): boolean {
-  return row.clicks === 0 && row.sales === 0 && row.earnings_minor === 0
+  return row.clicks === 0 && row.sales === 0 && !row.events && row.earnings_minor === 0
 }
 
 /** The channels worth a row, in the order they came, and how many links were left out. */
@@ -355,13 +437,45 @@ export function channelRows(channels: readonly PerformanceChannel[]): {
   }
 }
 
+/** "clicks or sales", "clicks or events", "clicks, sales or events": what a link can bring. */
+export function clicksOr(earnFrom: EarnFrom = 'sales'): string {
+  if (earnFrom === 'events') return 'clicks or events'
+  return earnFrom === 'both' ? 'clicks, sales or events' : 'clicks or sales'
+}
+
 /** "6 other links had no clicks or sales in these 30 days." With none shown: "Your 7 links had …". */
-export function quietLinksLine(quiet: number, shown: number, days: PerformanceDays): string | null {
+export function quietLinksLine(
+  quiet: number,
+  shown: number,
+  days: PerformanceDays,
+  earnFrom: EarnFrom = 'sales',
+): string | null {
   if (quiet <= 0) return null
   const links = quiet === 1 ? 'link' : 'links'
   const subject =
     shown > 0 ? `${quiet} other ${links}` : quiet === 1 ? 'Your link' : `Your ${quiet} links`
-  return `${subject} had no clicks or sales in these ${days} days.`
+  return `${subject} had no ${clicksOr(earnFrom)} in these ${days} days.`
+}
+
+// What a program pays for ---------------------------------------------------------------------
+
+/** "Latest sales", "Latest rewards", "Latest sales and rewards". */
+export function latestTitle(earnFrom: EarnFrom): string {
+  if (earnFrom === 'events') return 'Latest rewards'
+  return earnFrom === 'both' ? 'Latest sales and rewards' : 'Latest sales'
+}
+
+/** What the list says while it is empty. */
+export function latestEmpty(earnFrom: EarnFrom): string {
+  if (earnFrom === 'events') return 'No rewards yet.'
+  return earnFrom === 'both' ? 'No sales or rewards yet.' : 'No sales yet.'
+}
+
+/** "TikTok", or "TikTok · Account created" for a reward: where it came from and what for. */
+export function latestWhat(item: Pick<LatestSale, 'kind' | 'link_name' | 'reward_label'>): string {
+  const link = item.link_name ?? 'No link'
+  if (item.kind !== 'reward') return link
+  return `${link} · ${item.reward_label ?? 'Reward'}`
 }
 
 // Words -------------------------------------------------------------------------------------
@@ -420,13 +534,20 @@ export function axisMoney(minor: number, currency: string): string {
   return currency === 'USD' ? `$${amount}` : `${amount} ${currency}`
 }
 
-/** A sale's standing in a word, and how its pill is drawn. */
-export function saleStatus(status: SaleStatus): {
+/**
+ * A sale's standing in a word, and how its pill is drawn. A reward that was given back was
+ * rejected by the brand, not refunded.
+ */
+export function saleStatus(
+  status: SaleStatus,
+  kind: 'sale' | 'reward' = 'sale',
+): {
   label: string
   tone: 'good' | 'waiting' | 'quiet'
 } {
   if (status === 'approved') return { label: 'Approved', tone: 'good' }
-  if (status === 'reversed') return { label: 'Returned', tone: 'quiet' }
+  if (status === 'reversed')
+    return { label: kind === 'reward' ? 'Rejected' : 'Returned', tone: 'quiet' }
   return { label: 'Pending', tone: 'waiting' }
 }
 

@@ -431,6 +431,11 @@
   color: var(--brand-subtle);
 }
 
+/* Events beside sales: one count more, so the fifth column is a count, not a rate. */
+.pl-results-wide thead .pl-num:nth-child(5) {
+  width: 92px;
+}
+
 .pl-results tr > :last-child {
   padding-right: 0;
 }
@@ -484,6 +489,10 @@
   .pl-results .pl-rate,
   .pl-results .pl-earnings {
     width: 104px;
+  }
+
+  .pl-results-wide thead .pl-num:nth-child(5) {
+    width: 76px;
   }
 }
 
@@ -599,6 +608,7 @@
 
   .pl-results tbody .pl-clicks,
   .pl-results tbody .pl-sales,
+  .pl-results tbody .pl-events,
   .pl-results tbody .pl-rate {
     flex: none;
     order: 4;
@@ -609,8 +619,13 @@
 
   .pl-results tbody .pl-clicks::before,
   .pl-results tbody .pl-sales::before,
+  .pl-results tbody .pl-events::before,
   .pl-results tbody .pl-rate::before {
     color: var(--brand-muted);
+  }
+
+  .pl-results tbody .pl-events::before {
+    content: 'Events ';
   }
 
   .pl-results tbody .pl-clicks::before {

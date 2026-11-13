@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Check, Copy, LoaderCircle } from 'lucide-react'
-import { formatDay } from '../../../merchant/programs'
+import { commissionHeadline, formatDay } from '../../../merchant/programs'
 import {
   AgreementDocument,
   AgreementSkeleton,
@@ -10,12 +10,19 @@ import {
   ProgramLogo,
   StatusPill,
 } from '../../marketplace/components'
-import { programHeadline } from '../../marketplace/model'
+import {
+  programHeadline,
+  programHeadlineClass,
+  programRewardLine,
+  programRewardsLine,
+} from '../../marketplace/model'
+import type { MarketplaceProgram } from '../../marketplace/model'
 import { marketplaceHash } from '../../marketplace/routing'
 import type { PartnerDataGateway } from '../api'
 import { earningsLine, earningsOfProgram } from '../earnings/earnings'
 import type { ProgramEarnings } from '../earnings/earnings'
 import { useProgramEarnings } from '../earnings/useProgramEarnings'
+import { creditedFor, creditedTitle } from '../links/earnFrom'
 import '../earnings/ProgramEarnings.css'
 import {
   brandOf,
@@ -279,9 +286,29 @@ function membershipLine(membership: ProgramMembership): string | null {
   if (membership.status === 'removed') return `${brand} removed you from this program.`
   if (membership.status === 'left') return 'You left this program.'
   if (membership.program_status === 'paused')
-    return `Paused by ${brand}: your link still opens the page but sales are not credited.`
+    return `Paused by ${brand}: your link still opens the page but ${creditedFor(membership.program.earn_from)} are not credited.`
   if (membership.link && !membership.link.working) return 'Your link is switched off right now.'
   return null
+}
+
+/**
+ * What a program that pays for events pays, on its own page: the commission when there is one,
+ * then each reward on a line. A program that pays for sales says it in its agreement, as ever.
+ */
+function WhatYouEarn({ program }: { program: MarketplaceProgram }) {
+  if (program.earn_from === 'sales' || program.rewards.length === 0) return null
+  const commission = program.earn_from === 'both' ? commissionHeadline(program) : null
+  return (
+    <div className="pmk-earn">
+      <h3 id="pmk-earn-title">What you earn</h3>
+      <ul aria-labelledby="pmk-earn-title">
+        {commission && <li>{commission}</li>}
+        {program.rewards.map((reward) => (
+          <li key={reward.key}>{programRewardLine(reward, program.currency)}</li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function MembershipCard({
@@ -302,6 +329,7 @@ function MembershipCard({
   )
   const line = membershipLine(membership)
   const headline = programHeadline(program)
+  const rewards = programRewardsLine(program)
   const href = marketplaceHash(program.slug)
   const current = membership.status === 'active' || membership.status === 'pending'
   return (
@@ -312,7 +340,10 @@ function MembershipCard({
           <h3>
             <a href={href}>{program.name}</a>
           </h3>
-          {headline && <p>{headline}</p>}
+          {headline && (
+            <p className={programHeadlineClass(program).trim() || undefined}>{headline}</p>
+          )}
+          {rewards && <p className="mkt-headline-rewards">{rewards}</p>}
         </div>
         <StatusPill tone={standing.tone}>{standing.label}</StatusPill>
       </header>
@@ -497,6 +528,9 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
   const live = program.status === 'live'
   const programId = membership?.program_id ?? program.id
   const termsVersion = program.terms_version ?? 0
+  /** What the program credits the creator for: "sales", "events", "sales and events". */
+  const credited = creditedFor(program.earn_from)
+  const earn = <WhatYouEarn program={program} />
   const unavailable = () =>
     Promise.resolve<PartnerProgramResult<ProgramMembership | null>>({
       data: null,
@@ -598,7 +632,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
           <p>
             {member.status === 'pending'
               ? `Cancel your request to join ${program.name}?`
-              : `Leave ${program.name}? Sales from your link will no longer be credited to you.`}
+              : `Leave ${program.name}? ${creditedTitle(program.earn_from)} from your link will no longer be credited to you.`}
           </p>
           <div className="pmk-actions">
             <button
@@ -679,13 +713,14 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
         )}
         <p>
           {member.program_status === 'paused' || program.status === 'paused'
-            ? `Paused by ${brand}: your link still opens the page but sales are not credited.`
+            ? `Paused by ${brand}: your link still opens the page but ${credited} are not credited.`
             : link && !link.working
-              ? 'Your link is switched off right now, so sales are not credited.'
+              ? `Your link is switched off right now, so ${credited} are not credited.`
               : link
-                ? 'Sales that come through this link are credited to you.'
+                ? `${creditedTitle(program.earn_from)} that come through this link are credited to you.`
                 : null}
         </p>
+        {earn}
         {newTerms}
         {acceptedLine}
         {leave}
@@ -702,6 +737,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
           {brand} approves each creator. Your link appears here as soon as they approve you. There
           is nothing else to do.
         </p>
+        {earn}
         {newTerms}
         {acceptedLine}
         {leave}
@@ -714,7 +750,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
         <p>
           {member.status === 'declined'
             ? `${brand} declined your request to join.`
-            : `${brand} removed you from this program. Your link no longer credits sales.`}
+            : `${brand} removed you from this program. Your link no longer credits ${credited}.`}
         </p>
         {member.decision_note && <p className="pmk-quote">{member.decision_note}</p>}
       </>
@@ -736,6 +772,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
             ? `No signature. ${brand} approves each creator, and your link is created as soon as they approve you.`
             : 'No signature or waiting. Your link is created as soon as you accept.'}
         </p>
+        {earn}
         {acceptName ? (
           <>
             {agreeBox}

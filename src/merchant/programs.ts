@@ -21,6 +21,21 @@ export type PauseReason = 'merchant' | 'stripe_disconnected' | 'admin' | 'balanc
 export type CommissionType = 'percent' | 'fixed'
 export type CommissionDuration = 'first_payment' | 'months' | 'lifetime'
 export type ApprovalMode = 'automatic' | 'manual'
+/** What creators are paid for: a share of sales, a fixed reward per event, or both. */
+export type EarnFrom = 'sales' | 'events' | 'both'
+
+/** One event the program pays for: its name, the words creators read, and the amount. */
+export interface Reward {
+  key: string
+  label: string
+  amount_minor: number
+}
+
+export const MAX_REWARDS = 5
+const REWARD_KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/
+const REWARD_LABEL_MAX = 40
+const REWARD_MAX_MINOR = 100_000_000
+const BUDGET_MIN_MINOR = 100
 
 /** The keys the database accepts for a category, with the words shown for each. */
 export const categoryLabels = {
@@ -74,6 +89,13 @@ export interface Program {
   submitted_at: string | null
   first_published_at: string | null
   updated_at: string | null
+  /**
+   * The next three are missing in an answer from before programs could pay for events.
+   * Missing means what it meant then: the program pays for sales and has no rewards.
+   */
+  earn_from?: EarnFrom
+  rewards?: Reward[]
+  reward_budget_minor?: number | null
 }
 
 export interface Checklist {
@@ -91,6 +113,16 @@ export interface ProgramState {
   program: Program | null
   checklist: Checklist
   can_submit: boolean
+  /** Whether this workspace can pay for events. Missing in an answer from before it could. */
+  events_available?: boolean
+}
+
+/** An event KissMyApps has already received from the business's site or app. */
+export interface RewardEvent {
+  name: string
+  description: string | null
+  first_seen: string | null
+  last_seen: string | null
 }
 
 export interface AgreementDoc {
@@ -139,6 +171,10 @@ export interface ProgramInput {
   approval_mode?: ApprovalMode
   marketplace_listed?: boolean
   extra_terms?: string | null
+  earn_from?: EarnFrom
+  /** The whole list, replacing what was saved. */
+  rewards?: Reward[]
+  reward_budget_minor?: number | null
 }
 
 export class ProgramError extends Error {
@@ -171,6 +207,49 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | nul
 }
 
 const STATUSES = ['draft', 'in_review', 'changes_requested', 'live', 'paused', 'archived'] as const
+const EARN_FROM = ['sales', 'events', 'both'] as const
+
+const wholeAmount = (value: unknown, low: number) =>
+  typeof value === 'number' && Number.isInteger(value) && value >= low && value <= REWARD_MAX_MINOR
+
+/** One reward exactly as the database stores it, or null when it is not one. */
+function readReward(value: unknown): Reward | null {
+  const row = record(value)
+  if (!row || typeof row.key !== 'string' || typeof row.label !== 'string') return null
+  const label = row.label.trim()
+  if (!REWARD_KEY.test(row.key) || !label || label.length > REWARD_LABEL_MAX) return null
+  if (!wholeAmount(row.amount_minor, 1)) return null
+  return { key: row.key, label, amount_minor: row.amount_minor as number }
+}
+
+/**
+ * What the program pays for, when the answer says. Money depends on these, so a value that is
+ * there but cannot be read refuses the whole answer; none of them there is an older answer.
+ */
+function readEarning(
+  row: Record<string, unknown>,
+): Pick<Program, 'earn_from' | 'rewards' | 'reward_budget_minor'> {
+  const read: Pick<Program, 'earn_from' | 'rewards' | 'reward_budget_minor'> = {}
+  if (row.earn_from !== undefined) {
+    const earnFrom = oneOf(row.earn_from, EARN_FROM)
+    if (!earnFrom) throw unreadable()
+    read.earn_from = earnFrom
+  }
+  if (row.rewards !== undefined) {
+    if (!Array.isArray(row.rewards) || row.rewards.length > MAX_REWARDS) throw unreadable()
+    read.rewards = row.rewards.map((item) => {
+      const reward = readReward(item)
+      if (!reward) throw unreadable()
+      return reward
+    })
+  }
+  if (row.reward_budget_minor !== undefined) {
+    const budget = row.reward_budget_minor
+    if (budget !== null && !wholeAmount(budget, BUDGET_MIN_MINOR)) throw unreadable()
+    read.reward_budget_minor = budget as number | null
+  }
+  return read
+}
 
 function readProgram(value: unknown): Program | null {
   if (value === null || value === undefined) return null
@@ -219,6 +298,7 @@ function readProgram(value: unknown): Program | null {
     submitted_at: moment(row.submitted_at),
     first_published_at: moment(row.first_published_at),
     updated_at: moment(row.updated_at),
+    ...readEarning(row),
   }
 }
 
@@ -240,7 +320,31 @@ export function readState(value: unknown): ProgramState {
       agreement_read: list.agreement_read === true,
     },
     can_submit: body.can_submit === true,
+    ...(body.events_available === undefined
+      ? {}
+      : { events_available: body.events_available === true }),
   }
+}
+
+/** Reads the events a reward can be tied to. A name that could not be saved as one is left out. */
+export function readRewardEvents(value: unknown): RewardEvent[] {
+  const body = record(value)
+  if (!body || !Array.isArray(body.events)) throw unreadable()
+  const seen = new Set<string>()
+  return body.events.flatMap((item) => {
+    const row = record(item)
+    if (!row || typeof row.name !== 'string' || !REWARD_KEY.test(row.name)) return []
+    if (seen.has(row.name)) return []
+    seen.add(row.name)
+    return [
+      {
+        name: row.name,
+        description: text(row.description),
+        first_seen: moment(row.first_seen),
+        last_seen: moment(row.last_seen),
+      },
+    ]
+  })
 }
 
 export function readAgreement(value: unknown): Agreement {
@@ -398,6 +502,10 @@ export const programs = {
     ),
   tracking: async (workspaceId: string) =>
     readTracking(await call('workspace_program_tracking', { p_workspace_id: workspaceId })),
+  rewardEvents: async (workspaceId: string) =>
+    readRewardEvents(
+      await call('workspace_program_reward_events', { p_workspace_id: workspaceId }),
+    ),
   /** Puts the image in the workspace's folder and returns its path, ready to be saved. */
   uploadLogo: async (workspaceId: string, file: File) => {
     const refusal = checkLogoFile(file)
@@ -488,9 +596,30 @@ export interface ProgramDraft {
   marketplaceListed: boolean
   currency: string
   extraTerms: string
+  /**
+   * The next three are only in a form that asks what creators earn from (see asksEarnFrom).
+   * Left out, the program pays for sales, as every program did before it could pay for events.
+   */
+  earnFrom?: EarnFrom
+  /** Never empty: a list with nothing in it holds one blank row, ready to be filled in. */
+  rewards?: RewardRow[]
+  budget?: string
 }
 
-export type DraftField =
+/** A reward as it is typed: the amount in normal money, nothing converted yet. */
+export interface RewardRow {
+  key: string
+  label: string
+  amount: string
+}
+
+export type RewardPart = 'key' | 'label' | 'amount'
+/** Where a mistake in one reward is shown: the row it is in, and which of its three fields. */
+export type RewardField = `reward:${number}:${RewardPart}`
+export const rewardField = (index: number, part: RewardPart): RewardField =>
+  `reward:${index}:${part}`
+
+type NamedField =
   | 'name'
   | 'category'
   | 'tagline'
@@ -503,6 +632,10 @@ export type DraftField =
   | 'minimumPayout'
   | 'currency'
   | 'extraTerms'
+  | 'earnFrom'
+  | 'rewards'
+  | 'budget'
+export type DraftField = NamedField | RewardField
 export type DraftErrors = Partial<Record<DraftField, string>>
 
 /** The fields kept behind "More options". */
@@ -515,8 +648,43 @@ export const optionFields: DraftField[] = [
   'extraTerms',
 ]
 
-/** The form for a saved program, or the defaults a new one starts with. */
-export function draftFromProgram(program: Program | null): ProgramDraft {
+/**
+ * Whether the form asks what creators earn from: when the workspace can pay for events, and
+ * for a program that already does, so its form never shows a commission it does not pay.
+ */
+export function asksEarnFrom(
+  state: Pick<ProgramState, 'events_available' | 'program'> | undefined,
+): boolean {
+  return state?.events_available === true || (state?.program?.earn_from ?? 'sales') !== 'sales'
+}
+
+export const blankReward = (): RewardRow => ({ key: '', label: '', amount: '' })
+
+const isBlank = (row: RewardRow) => !row.key.trim() && !row.label.trim() && !row.amount.trim()
+
+/**
+ * The form for a saved program, or the defaults a new one starts with. `earning` adds the
+ * question of what creators earn from, with the rewards and their budget.
+ */
+export function draftFromProgram(program: Program | null, earning = false): ProgramDraft {
+  const rewards = (program?.rewards ?? []).map((reward) => ({
+    key: reward.key,
+    label: reward.label,
+    amount: minorToDollars(reward.amount_minor),
+  }))
+  return {
+    ...draftWithoutEarning(program),
+    ...(earning
+      ? {
+          earnFrom: program?.earn_from ?? 'sales',
+          rewards: rewards.length ? rewards : [blankReward()],
+          budget: program?.reward_budget_minor ? minorToDollars(program.reward_budget_minor) : '',
+        }
+      : {}),
+  }
+}
+
+function draftWithoutEarning(program: Program | null): ProgramDraft {
   return {
     name: program?.name ?? '',
     category: program?.category ?? '',
@@ -538,7 +706,7 @@ export function draftFromProgram(program: Program | null): ProgramDraft {
   }
 }
 
-export const fieldMessages: Record<DraftField, string> = {
+export const fieldMessages: Record<NamedField, string> = {
   name: 'Enter a name up to 120 characters.',
   category: 'Choose a category.',
   tagline: 'Enter a description up to 160 characters.',
@@ -551,8 +719,32 @@ export const fieldMessages: Record<DraftField, string> = {
   minimumPayout: 'Enter an amount like 20.00, or 0 for no minimum.',
   currency: 'Choose a currency from the list.',
   extraTerms: 'Keep extra terms under 4,000 characters.',
+  earnFrom: 'Choose Sales, Events or Both.',
+  rewards: 'Check the rewards. Each needs its own event, its own words for creators and an amount.',
+  budget: 'Enter a monthly budget of at least 1.00 that covers your largest reward.',
 }
 const FIXED_AMOUNT = 'Enter an amount like 20.00.'
+
+/** What is wrong with a reward or the budget, said at the field. */
+export const rewardMessages = {
+  none: 'Add at least one reward.',
+  tooMany: 'A program can have up to five rewards. Remove one.',
+  keyMissing: 'Add the event this reward is for.',
+  keyInvalid: 'An event name starts with a letter and uses only letters, numbers and _ . : -',
+  keyRepeated: 'This event already has a reward.',
+  labelMissing: 'Say what creators read, like Account created.',
+  labelLong: 'Keep this to 40 characters.',
+  labelRepeated: 'Two rewards cannot read the same.',
+  amount: 'Enter an amount like 2.00.',
+  amountLarge: 'Enter an amount up to 1,000,000.00.',
+  budgetMissing: 'Enter a monthly budget.',
+  budgetRange: 'Enter an amount from 1.00 to 1,000,000.00.',
+  eventsUnavailable: 'Paying for events is not available right now. Choose Sales, or contact us.',
+} as const
+
+/** The budget has to pay for at least one of the largest reward. */
+export const budgetBelowReward = (largestMinor: number, currency: string) =>
+  `The budget must cover your largest reward, ${formatMoney(largestMinor, currency)}.`
 
 function httpsUrl(value: string): boolean {
   try {
@@ -569,6 +761,92 @@ function commissionAmount(draft: ProgramDraft): number | null {
   return minor !== null && minor >= 1 && minor <= 100_000_000 ? minor : null
 }
 
+const rewardAmount = (value: string) => {
+  const minor = dollarsToMinor(value)
+  return minor !== null && minor >= 1 && minor <= REWARD_MAX_MINOR ? minor : null
+}
+
+/** "signup_completed" → "Signup completed": a first guess at what creators read. */
+export function labelFromEvent(name: string): string {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_.:-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+  return (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, REWARD_LABEL_MAX).trim()
+}
+
+/** Names the event of a reward. The words follow it until the person writes their own. */
+export function withRewardKey(row: RewardRow, key: string): RewardRow {
+  const untouched = !row.label.trim() || row.label === labelFromEvent(row.key)
+  return { ...row, key, label: untouched ? labelFromEvent(key) : row.label }
+}
+
+/** The rewards as the database takes them: every row that is filled in and reads right. */
+export function rewardsFromRows(rows: RewardRow[]): Reward[] {
+  return rows.flatMap((row) => {
+    const key = row.key.trim()
+    const label = row.label.trim()
+    const amount = rewardAmount(row.amount)
+    return REWARD_KEY.test(key) && label && label.length <= REWARD_LABEL_MAX && amount !== null
+      ? [{ key, label, amount_minor: amount }]
+      : []
+  })
+}
+
+/**
+ * What is wrong with the rewards, by the rules the database checks: five at most, each with
+ * an event of its own, words of its own and an amount. A row with nothing in it is not a
+ * reward. `required` is for a program creators can already see, which needs at least one.
+ */
+export function validateRewards(rows: RewardRow[], required = false): DraftErrors {
+  const errors: DraftErrors = {}
+  const keys = new Set<string>()
+  const labels = new Set<string>()
+  let filled = 0
+  rows.forEach((row, index) => {
+    if (isBlank(row)) return
+    filled += 1
+    const key = row.key.trim()
+    const label = row.label.trim()
+    if (!key) errors[rewardField(index, 'key')] = rewardMessages.keyMissing
+    else if (!REWARD_KEY.test(key)) errors[rewardField(index, 'key')] = rewardMessages.keyInvalid
+    else if (keys.has(key)) errors[rewardField(index, 'key')] = rewardMessages.keyRepeated
+    keys.add(key)
+    if (!label) errors[rewardField(index, 'label')] = rewardMessages.labelMissing
+    else if (label.length > REWARD_LABEL_MAX)
+      errors[rewardField(index, 'label')] = rewardMessages.labelLong
+    else if (labels.has(label.toLowerCase()))
+      errors[rewardField(index, 'label')] = rewardMessages.labelRepeated
+    labels.add(label.toLowerCase())
+    if (rewardAmount(row.amount) === null) {
+      const typed = dollarsToMinor(row.amount)
+      errors[rewardField(index, 'amount')] =
+        typed !== null && typed > REWARD_MAX_MINOR
+          ? rewardMessages.amountLarge
+          : rewardMessages.amount
+    }
+  })
+  if (filled > MAX_REWARDS) errors.rewards = rewardMessages.tooMany
+  else if (required && filled === 0) errors.rewards = rewardMessages.none
+  return errors
+}
+
+/** What is wrong with the monthly budget, or null. It may be empty until the program is published. */
+export function validateBudget(
+  budget: string,
+  rows: RewardRow[],
+  currency: string,
+  required = false,
+): string | null {
+  if (!budget.trim()) return required ? rewardMessages.budgetMissing : null
+  const minor = dollarsToMinor(budget)
+  if (minor === null || minor < BUDGET_MIN_MINOR || minor > REWARD_MAX_MINOR)
+    return rewardMessages.budgetRange
+  const largest = Math.max(0, ...rows.map((row) => rewardAmount(row.amount) ?? 0))
+  return minor < largest ? budgetBelowReward(largest, currency) : null
+}
+
 /**
  * What is wrong with what has been typed. A draft may be unfinished, so an empty field is
  * not a mistake; the options always hold a value, so those must be valid. A program that
@@ -583,11 +861,21 @@ export function validateDraft(draft: ProgramDraft, published = false): DraftErro
   if (published && !draft.category) errors.category = fieldMessages.category
   if (tagline.length > 160 || (published && !tagline)) errors.tagline = fieldMessages.tagline
   if (landing ? !httpsUrl(landing) : published) errors.landingUrl = fieldMessages.landingUrl
-  const typed = draft.commissionType === 'percent' ? draft.percent : draft.fixed
-  if (typed.trim() ? commissionAmount(draft) === null : published)
-    errors.amount = draft.commissionType === 'percent' ? fieldMessages.amount : FIXED_AMOUNT
-  if (draft.duration === 'months' && days(draft.months, 1, 36) === null)
-    errors.months = fieldMessages.months
+  const earnFrom = draft.earnFrom ?? 'sales'
+  // Only what the program pays for is checked: the rest is not on the page and is not sent.
+  if (earnFrom !== 'events') {
+    const typed = draft.commissionType === 'percent' ? draft.percent : draft.fixed
+    if (typed.trim() ? commissionAmount(draft) === null : published)
+      errors.amount = draft.commissionType === 'percent' ? fieldMessages.amount : FIXED_AMOUNT
+    if (draft.duration === 'months' && days(draft.months, 1, 36) === null)
+      errors.months = fieldMessages.months
+  }
+  if (earnFrom !== 'sales') {
+    const rows = draft.rewards ?? []
+    Object.assign(errors, validateRewards(rows, published))
+    const budget = validateBudget(draft.budget ?? '', rows, draft.currency, published)
+    if (budget) errors.budget = budget
+  }
   if (days(draft.attributionDays, 1, 365) === null)
     errors.attributionDays = fieldMessages.attributionDays
   if (days(draft.holdDays, 0, 90) === null) errors.holdDays = fieldMessages.holdDays
@@ -601,18 +889,33 @@ export function validateDraft(draft: ProgramDraft, published = false): DraftErro
 export function draftProgress(
   draft: ProgramDraft,
 ): Pick<Checklist, 'details' | 'landing_page' | 'commission'> {
+  const earnFrom = draft.earnFrom ?? 'sales'
+  const rows = draft.rewards ?? []
+  const commission =
+    commissionAmount(draft) !== null &&
+    (draft.duration !== 'months' || days(draft.months, 1, 36) !== null)
+  // Events need at least one reward, nothing wrong in the list, and a budget.
+  const rewards =
+    earnFrom !== 'sales' &&
+    rewardsFromRows(rows).length > 0 &&
+    Object.keys(validateRewards(rows)).length === 0 &&
+    validateBudget(draft.budget ?? '', rows, draft.currency, true) === null
   return {
     details: Boolean(draft.name.trim() && draft.category && draft.tagline.trim()),
     landing_page: httpsUrl(draft.landingUrl),
     commission:
-      commissionAmount(draft) !== null &&
-      (draft.duration !== 'months' || days(draft.months, 1, 36) !== null),
+      earnFrom === 'sales' ? commission : earnFrom === 'events' ? rewards : commission && rewards,
   }
 }
 
+type EarningKey = 'earn_from' | 'rewards' | 'reward_budget_minor'
+/** Everything the form holds; what creators earn from only when the form asks it. */
+export type DraftInput = Required<Omit<ProgramInput, EarningKey>> & Pick<ProgramInput, EarningKey>
+
 /** The form as the database takes it. Call only for a draft that passes validateDraft. */
-export function inputFromDraft(draft: ProgramDraft): Required<ProgramInput> {
+export function inputFromDraft(draft: ProgramDraft): DraftInput {
   const amount = commissionAmount(draft)
+  const budget = dollarsToMinor(draft.budget ?? '')
   return {
     name: draft.name.trim() || null,
     category: draft.category || null,
@@ -632,6 +935,16 @@ export function inputFromDraft(draft: ProgramDraft): Required<ProgramInput> {
     approval_mode: draft.approvalMode,
     marketplace_listed: draft.marketplaceListed,
     extra_terms: draft.extraTerms.trim() || null,
+    ...(draft.earnFrom === undefined
+      ? {}
+      : {
+          earn_from: draft.earnFrom,
+          rewards: rewardsFromRows(draft.rewards ?? []),
+          reward_budget_minor:
+            budget !== null && budget >= BUDGET_MIN_MINOR && budget <= REWARD_MAX_MINOR
+              ? budget
+              : null,
+        }),
   }
 }
 
@@ -640,6 +953,19 @@ const sentTogether = [
   ['commission_type', 'commission_rate_bps', 'commission_fixed_minor'],
   ['commission_duration', 'commission_months'],
 ]
+
+/** What a program pays for does not use the other half of the form, which stays as it was saved. */
+const unusedKeys: Record<EarnFrom, string[]> = {
+  sales: ['rewards', 'reward_budget_minor'],
+  events: sentTogether.flat(),
+  both: [],
+}
+
+/** What a program has before anything is saved, where that is not simply nothing. */
+const unsaved: Record<string, unknown> = { earn_from: 'sales', rewards: [] }
+
+const sameValue = (a: unknown, b: unknown) =>
+  a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b))
 
 /**
  * Only what differs from the saved program is sent, with its revision; a new program sends
@@ -650,10 +976,13 @@ export function changedInput(
   program: Program | null,
 ): ProgramInput & { revision?: number } {
   const next = inputFromDraft(draft) as Record<string, unknown>
+  for (const key of unusedKeys[draft.earnFrom ?? 'sales']) delete next[key]
   const saved = program as unknown as Record<string, unknown> | null
   const changed: Record<string, unknown> = {}
   for (const key of Object.keys(next)) {
-    if (saved ? next[key] !== saved[key] : next[key] !== null) changed[key] = next[key]
+    // A program saved before it could pay for events pays for sales and has no rewards.
+    const before = saved?.[key] ?? unsaved[key] ?? null
+    if (!sameValue(next[key], before)) changed[key] = next[key]
   }
   for (const group of sentTogether) {
     if (group.some((key) => key in changed)) for (const key of group) changed[key] = next[key]
@@ -684,6 +1013,9 @@ export function changesAgreement(draft: ProgramDraft, program: Program | null): 
     'minimum_payout_minor',
     'approval_mode',
     'extra_terms',
+    // The budget is not here: it is the business's own limit, not something creators agree to.
+    'earn_from',
+    'rewards',
   ].some((key) => key in changed)
 }
 
@@ -742,6 +1074,77 @@ export function draftTerms(draft: ProgramDraft): CommissionTerms {
     commission_duration: input.commission_duration,
     commission_months: input.commission_months,
   }
+}
+
+/** What a program pays: its commission, and its rewards when it pays for events. */
+export interface EarnTerms extends CommissionTerms {
+  earn_from: EarnFrom
+  rewards: Reward[]
+}
+
+/** "$2.00 per Account created": one reward as a creator reads it. */
+export function rewardLine(reward: Reward, currency: string): string {
+  return `${formatMoney(reward.amount_minor, currency)} per ${reward.label}`
+}
+
+/**
+ * The one line that says what a creator earns, worded as the database words it for the card
+ * and the agreement: the commission for sales ("30% of every payment"), every reward for
+ * events ("$2.00 per Account created, $5.00 per Trial started"), and for both the commission
+ * with "plus rewards". Null until there is something to say.
+ */
+export function earnHeadline(terms: EarnTerms): string | null {
+  if (terms.earn_from === 'sales') return commissionHeadline(terms)
+  const rewards = terms.rewards
+  if (terms.earn_from === 'events')
+    return rewards.length
+      ? rewards.map((reward) => rewardLine(reward, terms.currency)).join(', ')
+      : null
+  const commission = commissionHeadline(terms)
+  if (!commission) return null
+  // A program that pays for both always has a reward once it is complete; until then the
+  // line does not promise one.
+  return rewards.length ? `${commission}, plus rewards` : commission
+}
+
+/** What the form currently says creators earn, for the preview. */
+export function draftEarning(draft: ProgramDraft): EarnTerms {
+  const earnFrom = draft.earnFrom ?? 'sales'
+  const terms = draftTerms(draft)
+  return {
+    ...terms,
+    // A program that pays for events only has no commission, whatever was typed before.
+    ...(earnFrom === 'events'
+      ? {
+          commission_type: null,
+          commission_rate_bps: null,
+          commission_fixed_minor: null,
+          commission_duration: null,
+          commission_months: null,
+        }
+      : {}),
+    earn_from: earnFrom,
+    rewards: earnFrom === 'sales' ? [] : rewardsFromRows(draft.rewards ?? []),
+  }
+}
+
+/** The checklist step for what creators earn, in the words of what the program pays for. */
+export const earningStep: Record<EarnFrom, { done: string; todo: string; blank: string }> = {
+  sales: { done: 'Commission set', todo: 'Set a commission', blank: 'Your commission' },
+  events: { done: 'Rewards set', todo: 'Set rewards and a budget', blank: 'Your rewards' },
+  both: {
+    done: 'Commission and rewards set',
+    todo: 'Set a commission, rewards and a budget',
+    blank: 'Your commission and rewards',
+  },
+}
+
+/** One line under the question, saying what the chosen answer means. */
+export const earnFromAbout: Record<EarnFrom, string> = {
+  sales: "A commission on each sale that comes through a creator's link.",
+  events:
+    'A fixed reward when someone a creator sent does something on your site, like signing up.',
+  both: 'A commission on each sale, and a fixed reward for each event you list.',
 }
 
 /** The one line "More options" shows while closed. */
@@ -832,7 +1235,7 @@ export interface ProgramProblem {
   field?: DraftField
 }
 
-const invalidFields: Record<string, DraftField> = {
+const invalidFields: Record<string, NamedField> = {
   invalid_name: 'name',
   invalid_category: 'category',
   invalid_tagline: 'tagline',
@@ -847,6 +1250,16 @@ const invalidFields: Record<string, DraftField> = {
   invalid_minimum_payout_minor: 'minimumPayout',
   invalid_currency: 'currency',
   invalid_extra_terms: 'extraTerms',
+  invalid_earn_from: 'earnFrom',
+  invalid_rewards: 'rewards',
+  invalid_reward_budget_minor: 'budget',
+}
+
+/** What is missing before publishing, for a program that pays for more than sales. */
+const incompleteMessages: Record<EarnFrom, string | null> = {
+  sales: null,
+  events: 'Fill in the product, landing page, rewards and budget before you publish.',
+  both: 'Fill in the product, landing page, commission, rewards and budget before you publish.',
 }
 
 export const problemMessages: Record<string, Omit<ProgramProblem, 'code'>> = {
@@ -939,7 +1352,11 @@ export const fallbackMessages: Record<ProgramStep, string> = {
   logo: 'The logo could not be uploaded. Try again.',
 }
 
-export function describeProblem(problem: unknown, step: ProgramStep): ProgramProblem {
+export function describeProblem(
+  problem: unknown,
+  step: ProgramStep,
+  earnFrom: EarnFrom = 'sales',
+): ProgramProblem {
   const code = problem instanceof ProgramError ? problem.code : 'unknown'
   // The browser's own refusal of a file already says what to choose instead.
   if (problem instanceof ProgramError && code === 'logo_rejected')
@@ -952,6 +1369,11 @@ export function describeProblem(problem: unknown, step: ProgramStep): ProgramPro
       recovery: 'none',
       field,
     }
+  // The answer to "what do creators earn from" is the one thing the person can change about it.
+  if (code === 'events_unavailable')
+    return { code, message: rewardMessages.eventsUnavailable, recovery: 'none', field: 'earnFrom' }
+  const incomplete = code === 'program_incomplete' ? incompleteMessages[earnFrom] : null
+  if (incomplete) return { code, message: incomplete, recovery: 'none' }
   // A paused program is resumed, not published: the same refusal, said for what was pressed.
   if (code === 'balance_required' && step === 'status')
     return { code, message: 'Add funds before you resume.', recovery: 'balance' }

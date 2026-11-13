@@ -14,6 +14,7 @@ import { CreatorsScreen } from './screens/Creators'
 import { EventDetailScreen, EventsScreen } from './screens/Events'
 import { FunnelScreen, FunnelsScreen } from './screens/Funnels'
 import { RetentionScreen } from './screens/Retention'
+import { RewardsScreen } from './screens/Rewards'
 import { SalesScreen } from './screens/Sales'
 import { OverviewScreen } from './screens/Overview'
 import { ProgramScreen } from './screens/Program'
@@ -38,6 +39,7 @@ const titles: Record<Route['name'], string> = {
   program: 'Program',
   creators: 'Creators',
   sales: 'Sales',
+  rewards: 'Rewards',
   balance: 'Balance',
   overview: 'Overview',
   users: 'Users',
@@ -168,6 +170,7 @@ function Screens() {
           route.name === 'program' ||
           route.name === 'creators' ||
           route.name === 'sales' ||
+          route.name === 'rewards' ||
           route.name === 'balance'
         ? rememberedProject(projects)
         : undefined)
@@ -185,6 +188,11 @@ function Screens() {
     // Another creator, or none, is another list: it starts again from its first page.
     content = (
       <SalesScreen key={`${workspace?.id}:${route.creator ?? ''}`} creator={route.creator} />
+    )
+  } else if (route.name === 'rewards') {
+    // Another creator, or none, is another list: it starts again from its first page.
+    content = (
+      <RewardsScreen key={`${workspace?.id}:${route.creator ?? ''}`} creator={route.creator} />
     )
   } else if (route.name === 'balance') {
     content = <BalanceScreen key={workspace?.id} deposit={route.deposit} card={route.card} />
