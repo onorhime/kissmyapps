@@ -569,6 +569,12 @@ verify_jwt = false
 [functions.attribution-links]
 verify_jwt = false
 
+# Sends matched app installs to the merchant's own Amplitude project (HTTP V2 API). Called by
+# a database schedule with its own credential, or by hand with the internal worker credential;
+# disabled unless ANALYTICS_DESTINATIONS_ENABLED=true.
+[functions.analytics-destinations-worker]
+verify_jwt = false
+
 # Agreement emails and file cleanup: pg_cron calls it with its own credential from
 # kma_internal.function_secrets (scripts/deploy-agreement-notify.mjs). It was always
 # deployed with --no-verify-jwt; listing it here keeps a full release the same.
