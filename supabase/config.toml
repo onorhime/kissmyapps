@@ -499,6 +499,20 @@ verify_jwt = false
 # schedule, each with its own secret; disabled unless PROGRAM_SALES_ENABLED=true.
 [functions.program-sales-worker]
 verify_jwt = false
+# Prepaid program balance: a signed-in merchant adds funds or changes the saved card on
+# Stripe's hosted Checkout page (platform account, live only). The handler checks the
+# Supabase user itself and answers only the console origin. Off until
+# PROGRAM_BALANCE_ENABLED is "true".
+[functions.program-balance]
+verify_jwt = false
+# Stripe events of the platform's own account for those balances. Handler verifies Stripe
+# HMAC with PROGRAM_BALANCE_WEBHOOK_SIGNING and reads every object back before settling.
+[functions.program-balance-webhook]
+verify_jwt = false
+# Automatic top-ups, checks of open top-ups and the commission tick. Called by a database
+# schedule with its own credential; disabled unless PROGRAM_BALANCE_ENABLED=true.
+[functions.program-balance-worker]
+verify_jwt = false
 # Public marketplace: the live affiliate programs and one program by its address, read
 # signed out by kissmyapps.dev/marketplace. GET only, no session, no credential read;
 # disabled unless MARKETPLACE_ENABLED=true.
