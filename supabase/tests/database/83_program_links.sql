@@ -305,7 +305,7 @@ end $$;
 -- that transaction does. Everything Stripe names about the buyer is filled in, so the
 -- tests can show that none of it reaches a creator.
 create function pg_temp.sale(k text, workspace text, click uuid, amount bigint, paid timestamptz,
-  matched_by text default 'metadata', made timestamptz default now()) returns void language plpgsql as $$
+  matched_by text default 'metadata', made timestamptz default now(), paid_in text default 'USD') returns void language plpgsql as $$
 declare
   p public.affiliate_programs := pg_temp.program(workspace);
   v_click public.clicks;
@@ -316,7 +316,7 @@ begin
       checkout_session_id, customer_id, amount_minor, currency, refunded_minor, status, paid_at,
       click_id, click_record_id, affiliate_id, match_source, created_at)
     select v_id, p.id, c.id, c.account_id, 'pi_p5buyer' || k, 'ch_p5buyer' || k, 'cs_p5buyer' || k, 'cus_P5Buyer' || k,
-      amount, 'USD', 0, 'paid', paid, v_click.public_click_id, v_click.id, v_click.affiliate_id,
+      amount, paid_in, 0, 'paid', paid, v_click.public_click_id, v_click.id, v_click.affiliate_id,
       case when v_click.id is null then 'none' else matched_by end, made
     from public.merchant_connections c join public.merchant_businesses b on b.id = c.merchant_id
     where b.workspace_id = p.workspace_id;
@@ -410,12 +410,12 @@ insert into qa values
   ('creator_eve', 'b6000000-0000-4000-8000-000000000005');
 insert into public.admin_users(user_id, role) values (pg_temp.q('kma_owner'), 'owner');
 -- Ada's calendar is fourteen hours ahead of UTC; the others keep the default, UTC.
-insert into public.affiliates(id, public_name, legal_name, slug, status, reporting_timezone) values
-  (pg_temp.q('creator_ada'), 'Ada Okafor', 'Ada N. Okafor', 'ada-okafor', 'active', 'Pacific/Kiritimati'),
-  (pg_temp.q('creator_ben'), 'Ben Creator', null, 'ben-creator', 'active', 'UTC'),
-  (pg_temp.q('creator_cy'), 'Cy Park', null, 'cy-park', 'active', 'UTC'),
-  (pg_temp.q('creator_dee'), 'Dee Vale', null, 'dee-vale', 'active', 'UTC'),
-  (pg_temp.q('creator_eve'), 'Eve Stone', null, 'eve-stone', 'active', 'UTC');
+insert into public.affiliates(id, public_name, legal_name, slug, status, reporting_timezone, country_code, channels) values
+  (pg_temp.q('creator_ada'), 'Ada Okafor', 'Ada N. Okafor', 'ada-okafor', 'active', 'Pacific/Kiritimati', 'NG', array['tiktok', 'instagram']),
+  (pg_temp.q('creator_ben'), 'Ben Creator', null, 'ben-creator', 'active', 'UTC', 'GB', array['youtube']),
+  (pg_temp.q('creator_cy'), 'Cy Park', null, 'cy-park', 'active', 'UTC', null, '{}'),
+  (pg_temp.q('creator_dee'), 'Dee Vale', null, 'dee-vale', 'active', 'UTC', 'US', array['newsletter']),
+  (pg_temp.q('creator_eve'), 'Eve Stone', null, 'eve-stone', 'active', 'UTC', null, '{}');
 insert into public.affiliate_users(affiliate_id, user_id, role, active, activation_pending, activated_at)
   select pg_temp.q('creator_' || c), pg_temp.q(c), 'owner', true, false, now()
   from unnest(array['ada', 'ben', 'cy', 'dee', 'eve']) c;
@@ -695,9 +695,19 @@ select pg_temp.check(pg_temp.names(pg_temp.listed(pg_temp.links('ben'), 'rival-r
     = 'Main link, TikTok, Instagram, Facebook, X, Newsletter, While paused, While off'
   and pg_temp.open('ben', 'rival', 'YouTube') = '{"click_id":null,"destination_url":"https://rivalreader.co/","is_bot":false}',
   'an archived link is off the Links page; opened, it sends the visitor on and credits nothing');
-select pg_temp.leave('ben', 'rival');
-select pg_temp.join('ben', 'rival');
-select pg_temp.decide('rival_owner', 'rival', 'ben', 'approve');
+-- The merchant removes the creator, and takes them back.
+select pg_temp.decide('rival_owner', 'rival', 'ben', 'remove');
+select pg_temp.check(pg_temp.open('ben', 'rival', 'TikTok') = '{"click_id":null,"destination_url":"https://rivalreader.co/","is_bot":false}'
+  and pg_temp.open('ben', 'rival', 'While off')->>'click_id' is null
+  and pg_temp.links('ben')->'programs' = '[]'
+  and (pg_temp.link_row('ben', 'rival', 'TikTok')).status = 'active' and (pg_temp.link_row('ben', 'rival', 'Main link')).status = 'paused',
+  'the links of a creator the merchant removed credit nothing; the rows of the channel links are left as they are');
+select pg_temp.keep('approved_again', pg_temp.decide('rival_owner', 'rival', 'ben', 'approve'));
+select pg_temp.check(pg_temp.keys(pg_temp.kept('approved_again')->'creator') = 'activated_at channels clicks commission_minor country_code '
+    || 'decision_note ended_at handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
+    || 'sales_amount_minor status terms_version website_url'
+  and pg_temp.kept('approved_again')->'creator' @> '{"status":"active","clicks":5,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}',
+  'the answer to a decision carries the creator with the same keys as the Creators page, their clicks on every link among them');
 select pg_temp.check(pg_temp.n(format('public.affiliate_links where affiliate_id = %L', pg_temp.q('creator_ben'))) = 9
   and (pg_temp.link_row('ben', 'rival', 'YouTube')).status = 'active'
   and pg_temp.line(pg_temp.listed(pg_temp.links('ben'), 'rival-reader'), 'YouTube')->>'url'
@@ -934,8 +944,9 @@ select pg_temp.sale('s6', 'acme', pg_temp.q('click_ada_main'), 8000, pg_temp.day
 select pg_temp.sale('s7', 'acme', pg_temp.q('click_ada_main'), 6000, pg_temp.day('ada', 100) + interval '12 hours');
 -- Ben's one sale was paid in the same instant as Ada's of today.
 select pg_temp.sale('b1', 'acme', pg_temp.q('click_ben_main'), 2000, now());
--- A payment nobody sent.
+-- A payment nobody sent, and one Ben sent 50 days ago that was made in euros.
 select pg_temp.sale('n1', 'acme', null, 9900, now());
+select pg_temp.sale('e1', 'acme', pg_temp.q('click_ben_main'), 7000, pg_temp.day('ada', 50) + interval '12 hours', 'metadata', now(), 'EUR');
 -- Ada in Rival Reader: one sale 20 days ago, one today.
 select pg_temp.sale('r1', 'rival', pg_temp.q('click_ada_rival'), 5000, pg_temp.day('ada', 20) + interval '12 hours');
 select pg_temp.sale('r2', 'rival', pg_temp.q('click_ada_rival'), 2500, now());
@@ -957,10 +968,11 @@ select pg_temp.check(pg_temp.commission('s1') = 'held 1470 147 -' and pg_temp.co
   and pg_temp.commission('s7') = 'approved 1800 180 -' and pg_temp.commission('s8') = 'not_earned 0 0 program_paused'
   and pg_temp.commission('b1') = 'held 600 60 -' and pg_temp.commission('c1') = 'not_earned 0 0 not_a_member'
   and pg_temp.commission('n1') = 'not_earned 0 0 no_creator' and pg_temp.commission('d1') = 'not_earned 0 0 balance_empty'
+  and pg_temp.commission('e1') = 'not_earned 0 0 currency_mismatch'
   and pg_temp.commission('r1') = 'approved 1000 100 -' and pg_temp.commission('r2') = 'held 500 50 -'
   and pg_temp.commission('s0') = 'none'
   and (pg_temp.program('acme')).status = 'live' and (pg_temp.program('quiet')).pause_reason = 'balance_empty',
-  'the fixture sales: held, approved, returned, partly refunded, not earned for three reasons, sent by nobody, and not judged');
+  'the fixture sales: held, approved, returned, partly refunded, not earned for four reasons, sent by nobody, and not judged');
 -- A payout of Ada's Rival Reader money was paid; one of her SpeakSix money is under way.
 insert into public.program_payouts(id, affiliate_id, platform_account_id, currency, amount_minor, status, connect_account_id,
     transfer_id, approved_by, paid_at, closed_at) values
@@ -1137,18 +1149,39 @@ select pg_temp.call('ada', format('select to_jsonb(r) from public.set_partner_li
 select pg_temp.call('ada', format('select to_jsonb(r) from public.set_partner_link_status(%L, ''active'') r',
   (pg_temp.link_row('ada', 'acme', 'Podcast')).id));
 select pg_temp.check(pg_temp.performance('ada', 'speaksix', 30) = pg_temp.kept('p30'), 'the link is back and so is its line');
+-- What the creator's reader holds every Performance answer to.
+select pg_temp.check((select count(*) = 6 and bool_and(
+      (a->>'ends_on')::date - (a->>'starts_on')::date = (a->>'days')::integer - 1
+      and jsonb_array_length(a->'daily') = case when a->'program' = 'null' then 0 else (a->>'days')::integer end
+      and (a->'program' <> 'null' or (a->'programs' = '[]' and a->'channels' = '[]' and a->'latest' = '[]'
+        and a->'money' = 'null' and a->'totals' = a->'previous' and a->'totals' = '{"clicks":0,"sales":0,"earnings_minor":0}'))
+      and (a->'program' = 'null' or (jsonb_typeof(a->'money') = 'object' and a->'programs' @> jsonb_build_array(a->'program')))
+      and not exists (select 1 from jsonb_array_elements(a->'channels') c
+        where (c->'link_id' = 'null') <> (c->>'kind' = 'none') or c->>'kind' not in ('main', 'channel', 'custom', 'none'))
+      and not exists (select 1 from jsonb_array_elements(a->'latest') l
+        where l->>'status' not in ('held', 'approved', 'reversed') or jsonb_typeof(l->'amount_minor') <> 'number'
+          or jsonb_typeof(l->'link_name') <> 'string')
+      and not exists (select 1
+        from jsonb_array_elements(a->'daily' || a->'channels' || jsonb_build_array(a->'totals', a->'previous')) r,
+          jsonb_each(r) e(k, v)
+        where k in ('clicks', 'sales', 'earnings_minor') and jsonb_typeof(v) <> 'number')
+      and not exists (select 1 from jsonb_each(coalesce(nullif(a->'money', 'null'), '{}')) e(k, v)
+        where k like '%\_minor' and jsonb_typeof(v) <> 'number'))
+    from (select answer as a from answers where name in ('performance_none', 'p7', 'p30', 'p90', 'p_rival', 'p_none')) x),
+  'every Performance answer: the window is as long as asked, a day per row when there is a program, a link id on every '
+    || 'line but "No link", a known status on each latest sale, and every count and amount a JSON number');
 
 -- No buyer data reaches a creator ---------------------------------------------------------------------
 select pg_temp.check((select bool_and(answer::text !~* 'p5buyer|pi_|ch_p5|cs_p5|cus_|acct_|tr_p5|example\.test|speaksix\.com|metadata|client_reference|@')
     from answers where name in ('links_two', 'p7', 'p30', 'p90', 'p_rival', 'p_none', 'created', 'removed', 'links_fresh'))
-  and (select count(*) = 15 from public.program_sales s where s.customer_id like 'cus\_P5Buyer%' and s.payment_intent_id like 'pi\_p5buyer%'),
+  and (select count(*) = 16 from public.program_sales s where s.customer_id like 'cus\_P5Buyer%' and s.payment_intent_id like 'pi\_p5buyer%'),
   'nothing Stripe says about a buyer or a payment, and no email, is in anything a creator reads');
 
 -- The merchant's Creators page -----------------------------------------------------------------------
 select pg_temp.capture('workspace_program_creators.with_money', pg_temp.keep('creators', pg_temp.creators('owner', 'acme')));
 select pg_temp.check((select pg_temp.keys(a) = 'can_manage counts creators currency program totals'
       and a @> '{"can_manage":true,"currency":"USD","counts":{"pending":0,"active":2,"ended":1},
-        "totals":{"clicks":19,"sales":11,"sales_amount_minor":49700,"commission_minor":10140,"pending_minor":6870}}'
+        "totals":{"clicks":19,"sales":12,"sales_amount_minor":49700,"commission_minor":10140,"pending_minor":6870}}'
       and a->'program' = jsonb_build_object('id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
         'status', 'live', 'approval_mode', 'automatic', 'marketplace_listed', true)
       and (select bool_and(pg_temp.keys(c) = 'activated_at channels clicks commission_minor country_code decision_note '
@@ -1158,7 +1191,8 @@ select pg_temp.check((select pg_temp.keys(a) = 'can_manage counts creators curre
       and pg_temp.creator(a, 'ada-okafor') @> '{"status":"active","clicks":16,"sales":9,"sales_amount_minor":46200,
         "commission_minor":9540,"pending_minor":6270}'
       and (pg_temp.creator(a, 'ada-okafor')->>'last_click_at')::timestamptz = now()
-      and pg_temp.creator(a, 'ben-creator') @> '{"status":"active","clicks":1,"sales":1,"sales_amount_minor":2000,
+      -- Ben's sale in euros is a sale; its amount is not added to dollars.
+      and pg_temp.creator(a, 'ben-creator') @> '{"status":"active","clicks":1,"sales":2,"sales_amount_minor":2000,
         "commission_minor":600,"pending_minor":600}'
       and pg_temp.creator(a, 'cy-park') @> '{"status":"left","clicks":2,"sales":1,"sales_amount_minor":1500,
         "commission_minor":0,"pending_minor":0}'
@@ -1202,10 +1236,10 @@ select pg_temp.check(pg_temp.sold(pg_temp.kept('page1')) in ('c1 s8 s1 b1 s2', '
   and (pg_temp.kept('page1')->>'next_before')::timestamptz = pg_temp.day('ada', 1)
   and pg_temp.sold(pg_temp.kept('page2')) = 's3 s5 s6 s0 s4'
   and (pg_temp.kept('page2')->>'next_before')::timestamptz = pg_temp.day('ada', 40) + interval '12 hours'
-  and pg_temp.sold(pg_temp.kept('page3')) = 's7' and pg_temp.kept('page3')->'next_before' = 'null'
+  and pg_temp.sold(pg_temp.kept('page3')) = 'e1 s7' and pg_temp.kept('page3')->'next_before' = 'null'
   and pg_temp.kept('page2')->'summary' = pg_temp.kept('page1')->'summary'
   and pg_temp.kept('page3')->'summary' = pg_temp.kept('page1')->'summary'
-  and (select count(*) = 11 and count(distinct s->>'sale_id') = 11
+  and (select count(*) = 12 and count(distinct s->>'sale_id') = 12
     from answers p, jsonb_array_elements(p.answer->'sales') s where p.name in ('page1', 'page2', 'page3')),
   'sales come newest first, a page at a time; the payment nobody sent is not among them');
 select pg_temp.check((select pg_temp.sold_line(a, 's1') - 'sale_id' = jsonb_build_object('paid_at', now(), 'amount_minor', 4900,
@@ -1224,7 +1258,10 @@ select pg_temp.check((select pg_temp.sold_line(a, 's1') - 'sale_id' = jsonb_buil
       and pg_temp.sold_line(a, 's6') @> '{"status":"pending","amount_minor":8000,"refunded_minor":4000,"commission_minor":1200,"fee_minor":120}'
       and pg_temp.sold_line(a, 's0') @> '{"status":"not_judged","reason":null,"commission_minor":0,"fee_minor":0,"hold_until":null}'
       and pg_temp.sold_line(a, 's4') @> '{"status":"approved","reason":null,"link_name":"TikTok","commission_minor":1470,"fee_minor":147}'
-    from (select pg_temp.kept('page2') as a) x),
+    from (select pg_temp.kept('page2') as a) x)
+  and pg_temp.sold_line(pg_temp.kept('page3'), 'e1') @> '{"status":"not_earned","reason":"currency_mismatch","amount_minor":7000,
+    "currency":"EUR","creator_name":"Ben Creator","commission_minor":0}'
+  and pg_temp.kept('page3')->>'currency' = 'USD',
   'each sale shows who sent it and through which link, how it was matched, what it earned and its state in one word: '
     || 'pending, approved, returned, not earned with the reason, or not judged');
 -- Two sales paid in the same instant are never split between pages.
@@ -1232,16 +1269,16 @@ select pg_temp.check((select pg_temp.sold(a) in ('c1 s8 s1 b1', 'c1 s8 b1 s1') a
       and pg_temp.sold(pg_temp.sales('owner', 'acme', jsonb_build_object('limit', 3, 'before', a->'next_before'))) = 's2 s3 s5'
     from (select pg_temp.sales('owner', 'acme', '{"limit":3}') as a) x)
   and pg_temp.sold(pg_temp.sales('owner', 'acme', '{"limit":1}')) = 'c1'
-  and jsonb_array_length(pg_temp.sales('owner', 'acme')->'sales') = 11
+  and jsonb_array_length(pg_temp.sales('owner', 'acme')->'sales') = 12
   and pg_temp.sales('owner', 'acme')->'next_before' = 'null'
   and pg_temp.sales('owner', 'acme') = pg_temp.sales('owner', 'acme', '{"limit":null,"before":null,"member_id":null}')
-  and jsonb_array_length(pg_temp.sales('owner', 'acme', '{"limit":100}')->'sales') = 11,
+  and jsonb_array_length(pg_temp.sales('owner', 'acme', '{"limit":100}')->'sales') = 12,
   'a page ends on a whole instant, so the next one misses nothing; without a limit a page has up to 50 sales');
 select pg_temp.capture('workspace_program_sales.all_statuses', pg_temp.keep('sales_all', pg_temp.sales('owner', 'acme', '{"limit":100}')));
 -- One creator's sales.
 select pg_temp.capture('workspace_program_sales.one_creator', pg_temp.keep('sales_ben',
   pg_temp.sales('owner', 'acme', jsonb_build_object('member_id', (pg_temp.member('ben', 'acme')).id))));
-select pg_temp.check(pg_temp.sold(pg_temp.kept('sales_ben')) = 'b1'
+select pg_temp.check(pg_temp.sold(pg_temp.kept('sales_ben')) = 'b1 e1'
   and pg_temp.kept('sales_ben')->'summary' = pg_temp.kept('page1')->'summary'
   and (select pg_temp.sold(a) = 's8 s1 s2' and (a->>'next_before')::timestamptz = pg_temp.day('ada', 1)
     from (select pg_temp.sales('owner', 'acme', jsonb_build_object('limit', 3, 'member_id', (pg_temp.member('ada', 'acme')).id)) as a) x)

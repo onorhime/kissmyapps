@@ -661,8 +661,10 @@ end $$;
 -- What a merchant reads ---------------------------------------------------------------------------
 
 -- A member's numbers to date: clicks on every link they have for the program's product,
--- the sales credited to them, what those sales came to, and what their commissions are
--- worth now (held or approved) with the part still held.
+-- the sales credited to them, what those sales came to (the payments as they were made,
+-- before refunds, in the program's currency: one made in another currency is counted as
+-- a sale and left out of the sum), and what their commissions are worth now (held or
+-- approved) with the part still held.
 create function kma_internal.program_link_member_stats(m public.affiliate_program_members,
   out clicks bigint, out last_click_at timestamptz, out sales bigint, out sales_amount_minor bigint,
   out commission_minor bigint, out pending_minor bigint)
@@ -676,7 +678,10 @@ language sql stable set search_path = '' as $$
     join public.affiliate_links l on l.id = k.affiliate_link_id and coalesce(l.tracking_environment, 'live') = 'live'
     where p.id = m.program_id) c
   cross join (
-    select count(*) as sales, coalesce(sum(s.amount_minor), 0)::bigint as sales_amount_minor,
+    select count(*) as sales,
+      coalesce(sum(s.amount_minor) filter (where s.currency = (
+        select kma_internal.program_link_currency(p) from public.affiliate_programs p where p.id = m.program_id)), 0)::bigint
+        as sales_amount_minor,
       coalesce(sum(x.amount_minor) filter (where x.status in ('held', 'approved')), 0)::bigint as commission_minor,
       coalesce(sum(x.amount_minor) filter (where x.status = 'held'), 0)::bigint as pending_minor
     from public.program_sales s
@@ -747,6 +752,8 @@ end $$;
 
 -- The Sales page: the sales creators sent, newest first, a page at a time, and the last
 -- 30 days in one line. A payment with no creator is not listed. No buyer email or name.
+-- Each sale names its own currency: a payment made in another currency than the program's
+-- is listed too (it earns nothing), and its amount is not in the program's currency.
 create function public.workspace_program_sales(p_workspace_id uuid, p_input jsonb) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
