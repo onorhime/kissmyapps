@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AdminSettlementsPanel } from '../../creator-settlements/AdminSettlementsPanel'
+import { ProgramPayoutsPanel } from '../program-payouts/ProgramPayoutsPanel'
 import { Dialog } from '../../../components/Dialog'
 import { Select } from '../../../components/Select'
 import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
@@ -138,6 +139,7 @@ export function PayoutsPage({ gateway, role }: { gateway: AdminGateway; role: Ad
           Refresh
         </button>
       </header>
+      <ProgramPayoutsPanel gateway={gateway} role={role} reloadKey={revision} />
       <div className="payout-callout">
         <strong>
           Legacy subscription statements: review and approval only — transfers are disabled.
