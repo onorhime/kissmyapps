@@ -17,4 +17,8 @@ declare module 'react-native' {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export const NativeModules: Record<string, any>
+  export const Linking: {
+    getInitialURL(): Promise<string | null>
+    addEventListener(type: 'url', handler: (event: { url: string }) => void): { remove(): void }
+  }
 }

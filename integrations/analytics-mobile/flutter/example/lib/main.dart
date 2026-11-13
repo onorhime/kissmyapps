@@ -8,6 +8,11 @@ void main() {
         defaultValue: 'kma_pk_test_ReplaceWithYourOwnKey00'),
     options: const KissMyAppsOptions(debug: true),
   );
+  // The deferred deep link after an install, and one each time a smart link
+  // opens the app.
+  KissMyApps.onDeepLink((link) {
+    debugPrint('KissMyApps deep link: ${link.value} ${link.params}');
+  });
   runApp(const ExampleApp());
 }
 

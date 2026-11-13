@@ -2,7 +2,20 @@
 // network come in through `Environment`, so the same code runs in tests and in Node.
 // The Android and iOS SDKs follow the same rules; see integrations/analytics-mobile.
 
-export const SDK_VERSION = '1.0.0'
+import {
+  INSTALL_PATH,
+  OPEN_PATH,
+  deepLinkFrom,
+  deviceKey,
+  httpsLink,
+  installBody,
+  openBody,
+  parseAnswer,
+  within,
+} from './attribution'
+import type { AttributionInfo, AttributionRequest, DeepLink } from './attribution'
+
+export const SDK_VERSION = '1.1.0'
 export const DEFAULT_ENDPOINT = 'https://events.kissmyapps.dev'
 
 export type Properties = Record<string, unknown>
@@ -40,6 +53,17 @@ export interface ClientOptions {
   maxQueue?: number
   /** Record installs, updates, opens and backgrounding. Default true. */
   trackLifecycle?: boolean
+  /**
+   * Match the install to the link that brought it on the first launch, and report links that
+   * open the app. Default true. Nothing is matched until attribution is on for the project.
+   */
+  attribution?: boolean
+  /**
+   * iPhone only: on the first launch, read a `kma:` click ID that the smart link's page put on
+   * the clipboard. Turn it on only with "Clipboard handoff for iPhone" on in the console:
+   * iOS asks the person before an app reads what another app copied. Default false.
+   */
+  clipboardHandoff?: boolean
   debug?: boolean
 }
 
@@ -50,7 +74,30 @@ export interface Environment {
   sdk: string
   now?: () => number
   log?: (message: string) => void
+  /** The link that opened the app, such as Linking.getInitialURL(). */
+  initialLink?: () => Promise<string | null>
+  /** What the optional native module reads: device key, install referrer, Apple Ads token, if any. */
+  attributionInfo?: (request: AttributionRequest) => Promise<AttributionInfo | null>
 }
+
+/** The first launch's install call, kept until it gets an answer and resent as it was. */
+interface PendingInstall {
+  /** When app_installed was queued. */
+  at: number
+  anonymousId: string
+  sessionId: string
+  /** The first link that opened the app on the first launch, before the call went out. */
+  link?: string
+  /** Calls made so far, one per launch. */
+  tries: number
+  /** What the device gave on the first try, without the Apple Ads token, which expires. */
+  info?: AttributionInfo
+  /** False when reading the install referrer timed out: the next try reads it again. */
+  infoComplete?: boolean
+}
+
+/** This launch's install call: links wait for its answer before they go to the open call. */
+type InstallPhase = 'none' | 'waiting' | 'answered' | 'failed'
 
 interface Session {
   id: string
@@ -67,6 +114,7 @@ interface State {
   optedOut: boolean
   version?: string
   build?: string
+  install?: PendingInstall | null
 }
 
 export interface QueuedEvent {
@@ -87,6 +135,15 @@ const BATCH_SIZE = 50
 const FLUSH_AT = 30
 const HEARTBEAT_MS = 60_000
 const MAX_PROPERTIES_BYTES = 32_000
+// The first launch's call, then at most three more launches.
+const INSTALL_TRIES = 4
+// A link handed over twice this close together, by Linking and by the app, counts once.
+const SAME_LINK_MS = 3000
+// As the iOS SDK: the opening link has 1.5 seconds to arrive before the install call goes.
+const INITIAL_LINK_WAIT_MS = 1500
+// The native module waits up to 10 seconds for Google Play's install referrer.
+const NATIVE_WAIT_MS = 12_000
+const FLUSH_WAIT_MS = 5000
 
 export function uuid(): string {
   // Hermes has no crypto.randomUUID; a polyfill may add it.
@@ -118,6 +175,20 @@ export class KmaClient {
   private inForeground = false
   private firstLaunch = false
   private stopped = false
+  private launched = false
+  // This launch is the first launch: its first link goes with the install call.
+  private firstLaunchNow = false
+  private installRunning = false
+  // This launch's try is on its way (one try per launch).
+  private installSent = false
+  private installPhase: InstallPhase = 'none'
+  private linksBeforeLaunch: { url: string; at: number }[] = []
+  private waitingLinks: { url: string; at: number }[] = []
+  private readonly recentLinks = new Map<string, number>()
+  private deviceKeyRead: string | null | undefined
+  private deepLinkHandler: ((link: DeepLink) => void) | null = null
+  private heldDeepLink: DeepLink | null = null
+  private readonly initialLink: Promise<string | null>
   /** Settles once saved state is read and the launch is recorded. */
   readonly ready: Promise<void>
 
@@ -139,6 +210,19 @@ export class KmaClient {
       optedOut: false,
     }
     this.ready = this.load()
+    const opening =
+      env.initialLink && options.attribution !== false
+        ? within(
+            Promise.resolve().then(() => env.initialLink?.() ?? null),
+            INITIAL_LINK_WAIT_MS,
+            null,
+          )
+        : Promise.resolve(null)
+    // Routed before the install call reads it, so the opening link goes with the install.
+    this.initialLink = opening.then((url) => {
+      if (url) this.handleDeepLink(url)
+      return url
+    })
   }
 
   // Public API ---------------------------------------------------------------------------
@@ -230,7 +314,49 @@ export class KmaClient {
     this.whenLoaded(() => {
       this.state.optedOut = false
       this.save()
+      // An install call held back while opted out goes now.
+      if (
+        this.launched &&
+        this.state.install &&
+        this.options.attribution !== false &&
+        !this.installSent &&
+        !this.installRunning
+      ) {
+        this.installPhase = 'waiting'
+        void this.sendInstall()
+      }
     })
+  }
+
+  /**
+   * Reports a link that opened the app, such as a Universal Link or App Link. Any https link
+   * is sent and KissMyApps decides whether it is one of the project's links; its deep link then
+   * goes to `onDeepLink`. Returns false when nothing is sent (not https, longer than 2,048
+   * characters, attribution off, opted out). The same link handed over twice within 3 seconds
+   * counts once, so Linking and the app may both report it.
+   */
+  handleDeepLink(url: string): boolean {
+    if (this.options.attribution === false || this.stopped) return false
+    const link = httpsLink(url)
+    if (!link) return false
+    if (this.loaded && this.state.optedOut) return false
+    const at = this.now()
+    this.whenLoaded(() => this.routeLink(link, at))
+    return true
+  }
+
+  /**
+   * Where deep links go: the deferred one after an install, and one each time a link opens the
+   * app. Each deep link is handed over once; one that arrives before a handler is set is held
+   * and handed to the next handler set. Pass null to stop.
+   */
+  onDeepLink(handler: ((link: DeepLink) => void) | null): void {
+    this.deepLinkHandler = handler
+    const held = this.heldDeepLink
+    if (handler && held) {
+      this.heldDeepLink = null
+      this.deliver(held)
+    }
   }
 
   getAnonymousId(): string {
@@ -274,14 +400,17 @@ export class KmaClient {
     this.whenLoaded(() => {
       if (this.stopped || this.inForeground) return
       const launch = this.foregroundAt === 0
+      this.launched = true
       this.inForeground = true
       this.foregroundAt = this.now()
       if (this.state.optedOut) return
       const session = this.ensureSession()
+      const firstLaunch = launch && this.firstLaunch
       if (this.options.trackLifecycle !== false) {
         if (launch) this.recordInstallOrUpdate(session)
         this.enqueue('app_opened', { from_background: !launch }, session)
       }
+      if (launch) this.attributeLaunch(session, firstLaunch)
       this.heartbeatTimer ??= setInterval(() => this.heartbeat(), HEARTBEAT_MS)
     })
   }
@@ -329,6 +458,7 @@ export class KmaClient {
         optedOut: saved.optedOut === true,
         version: saved.version,
         build: saved.build,
+        install: pendingInstall(saved.install),
       }
     }
     // Nothing saved means a first launch, or the app's data was cleared.
@@ -512,8 +642,8 @@ export class KmaClient {
     return batch
   }
 
-  private async post(body: Properties) {
-    return this.env.fetch(`${this.options.endpoint}/v1/events`, {
+  private async post(body: Properties, path = '/v1/events') {
+    return this.env.fetch(`${this.options.endpoint}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${this.options.key}` },
       body: JSON.stringify(body),
@@ -592,7 +722,285 @@ export class KmaClient {
       .catch(() => undefined)
   }
 
+  // Attribution ---------------------------------------------------------------------------
+
+  /** The launch: the first one queues the install call; links that came before it are routed. */
+  private attributeLaunch(session: Session, firstLaunch: boolean): void {
+    this.firstLaunch = false
+    const early = this.linksBeforeLaunch.splice(0)
+    if (this.options.attribution === false) return
+    // Without storage every launch looks like the first, so there is no install to match.
+    if (firstLaunch && this.env.storage) {
+      this.state.install = {
+        at: this.now(),
+        anonymousId: this.state.anonymousId,
+        sessionId: session.id,
+        tries: 0,
+      }
+      this.firstLaunchNow = true
+      this.save()
+    }
+    if (this.state.install) {
+      this.installPhase = 'waiting'
+      for (const link of early) this.routeLaunched(link.url, link.at)
+      void this.sendInstall()
+    } else {
+      for (const link of early) void this.sendOpen(link.url, link.at)
+    }
+  }
+
+  private routeLink(url: string, at: number): void {
+    if (this.stopped || this.state.optedOut) return
+    for (const [seen, when] of this.recentLinks) {
+      if (at - when >= SAME_LINK_MS) this.recentLinks.delete(seen)
+    }
+    if (this.recentLinks.has(url)) return
+    this.recentLinks.set(url, at)
+    if (!this.launched) {
+      if (this.linksBeforeLaunch.length < 10) this.linksBeforeLaunch.push({ url, at })
+      return
+    }
+    this.routeLaunched(url, at)
+  }
+
+  private routeLaunched(url: string, at: number): void {
+    const pending = this.state.install
+    if (pending && this.installPhase === 'waiting') {
+      // Only the first link of the first launch goes with the install call.
+      if (this.firstLaunchNow && !this.installSent && !pending.tries && !pending.link) {
+        pending.link = url
+        this.save()
+      } else if (this.waitingLinks.length < 10) {
+        // Sent once the install is matched; an open first would record an install of its own.
+        this.waitingLinks.push({ url, at })
+      }
+      return
+    }
+    if (pending && this.installPhase === 'failed') {
+      this.warn('The link was not sent: the install is matched first, on the next launch.')
+      return
+    }
+    void this.sendOpen(url, at)
+  }
+
+  /** The device's details; `complete` is false when the install referrer could not be read in time. */
+  private async readNative(
+    install: boolean,
+    clipboard: boolean,
+  ): Promise<{ info: AttributionInfo; complete: boolean }> {
+    const read = this.env.attributionInfo
+    if (!read) return { info: {}, complete: true }
+    const request = {
+      install,
+      clipboard: install && clipboard && this.options.clipboardHandoff === true,
+    }
+    const info = await within<AttributionInfo | null>(
+      Promise.resolve()
+        .then(() => read(request))
+        .then(
+          (answer) => (answer && typeof answer === 'object' ? answer : {}),
+          () => ({}),
+        ),
+      NATIVE_WAIT_MS,
+      null,
+    )
+    if (!info) return { info: {}, complete: false }
+    const key = deviceKey(info.deviceKey)
+    if (key) this.deviceKeyRead = key
+    return { info, complete: info.retryReferrer !== true }
+  }
+
+  /** The first try's details again; the Apple Ads token, and a referrer that timed out, are read anew. */
+  private async installInfo(
+    pending: PendingInstall,
+  ): Promise<{ info: AttributionInfo; complete: boolean }> {
+    const saved = pending.info
+    if (saved && pending.infoComplete && this.env.device().platform === 'android') {
+      return { info: saved, complete: true }
+    }
+    // The clipboard is read on the first try only.
+    const read = await this.readNative(true, !saved)
+    if (!saved) return read
+    return {
+      info: { ...read.info, ...definedOnly(saved), appleAdsToken: read.info.appleAdsToken },
+      complete: pending.infoComplete === true || read.complete,
+    }
+  }
+
+  /** The install call: once, on the first launch; again on the next launches if it failed. */
+  private async sendInstall(): Promise<void> {
+    if (this.installRunning) return
+    this.installRunning = true
+    try {
+      await this.initialLink
+      const first = this.state.install
+      if (!first) return this.installAnswered()
+      const { info, complete } = await this.installInfo(first)
+      // app_installed and its session reach the server first.
+      await within(this.flush(), FLUSH_WAIT_MS, undefined)
+      const pending = this.state.install
+      if (!pending) return this.installAnswered()
+      if (this.stopped || this.state.optedOut || this.installSent) return
+      this.installSent = true
+      pending.tries += 1
+      if (!pending.info || !pending.infoComplete) {
+        pending.info = savedInfo(info)
+        pending.infoComplete = complete
+      }
+      const device = this.env.device()
+      const body = installBody({
+        anonymousId: pending.anonymousId,
+        sessionId: pending.sessionId,
+        platform: device.platform,
+        installedAt: pending.at,
+        sdk: this.env.sdk,
+        // Not after a reset: the install belongs to the person who installed.
+        userId: pending.anonymousId === this.state.anonymousId ? this.state.userId : null,
+        appVersion: this.options.appVersion,
+        link: pending.link,
+        info,
+        clipboard: this.options.clipboardHandoff === true,
+      })
+      await this.writeNow()
+      let response: Awaited<ReturnType<Environment['fetch']>>
+      try {
+        response = await this.post(body, INSTALL_PATH)
+      } catch {
+        return this.installFailed(pending, 'no connection')
+      }
+      if (!response.ok && retryable(response.status)) {
+        return this.installFailed(pending, `status ${response.status}`)
+      }
+      // Answered: a refused body would be refused again, and an unreadable answer is still one.
+      this.state.install = null
+      void this.writeNow()
+      const answer = await response.text().catch(() => '')
+      if (response.ok) {
+        this.deliver(deepLinkFrom(parseAnswer(answer), httpsLink(pending.link)))
+      } else {
+        this.warn(`The install was refused (${response.status}): ${answer}`)
+      }
+      this.installAnswered()
+    } finally {
+      this.installRunning = false
+    }
+  }
+
+  /** Links that waited for the install's answer go to the open call now. */
+  private installAnswered(): void {
+    this.installPhase = 'answered'
+    for (const link of this.waitingLinks.splice(0)) void this.sendOpen(link.url, link.at)
+  }
+
+  private installFailed(pending: PendingInstall, reason: string): void {
+    if (pending.tries >= INSTALL_TRIES) {
+      this.state.install = null
+      this.warn(`The install could not be matched (${reason}); giving up.`)
+      this.installAnswered()
+    } else {
+      this.warn(`The install could not be matched yet (${reason}); trying again next launch.`)
+      this.installPhase = 'failed'
+      if (this.waitingLinks.splice(0).length) {
+        this.warn('Links that opened the app were not sent: the install is matched first.')
+      }
+    }
+    void this.writeNow()
+  }
+
+  /** The open call, for a link that opened the app after the install was matched. Not retried. */
+  private async sendOpen(url: string, at: number): Promise<void> {
+    if (this.stopped || this.state.optedOut) return
+    const session = this.ensureSession()
+    const anonymousId = this.state.anonymousId
+    const userId = this.state.userId
+    const key =
+      this.deviceKeyRead ?? deviceKey((await this.readNative(false, false)).info.deviceKey)
+    if (this.stopped || this.state.optedOut) return
+    const body = openBody({
+      anonymousId,
+      sessionId: session.id,
+      platform: this.env.device().platform,
+      url,
+      openedAt: at,
+      sdk: this.env.sdk,
+      userId,
+      appVersion: this.options.appVersion,
+      deviceKey: key,
+    })
+    try {
+      const response = await this.post(body, OPEN_PATH)
+      const answer = await response.text().catch(() => '')
+      if (!response.ok) {
+        this.warn(`The link was refused (${response.status}): ${answer}`)
+        return
+      }
+      this.deliver(deepLinkFrom(parseAnswer(answer), url))
+    } catch {
+      this.warn('The link could not be sent: no connection.')
+    }
+  }
+
+  /** Hands a deep link to the handler; without one, the newest is held for the next handler. */
+  private deliver(link: DeepLink | null): void {
+    if (!link || this.stopped) return
+    const handler = this.deepLinkHandler
+    if (!handler) {
+      this.heldDeepLink = link
+      return
+    }
+    // Later, so a handler set during a render or an effect runs after it.
+    setTimeout(() => {
+      try {
+        handler(link)
+      } catch (error) {
+        this.warn(`onDeepLink threw: ${String(error)}`)
+      }
+    }, 0)
+  }
+
   private warn(message: string): void {
     if (this.options.debug) (this.env.log ?? console.warn)(`KissMyApps: ${message}`)
   }
+}
+
+function retryable(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429 || status < 400
+}
+
+function pendingInstall(value: unknown): PendingInstall | null {
+  if (!value || typeof value !== 'object') return null
+  const saved = value as Partial<PendingInstall>
+  if (
+    typeof saved.at !== 'number' ||
+    typeof saved.anonymousId !== 'string' ||
+    typeof saved.sessionId !== 'string'
+  )
+    return null
+  const info = saved.info && typeof saved.info === 'object' ? savedInfo(saved.info) : undefined
+  return {
+    at: saved.at,
+    anonymousId: saved.anonymousId,
+    sessionId: saved.sessionId,
+    link: typeof saved.link === 'string' ? saved.link : undefined,
+    tries: typeof saved.tries === 'number' ? saved.tries : 0,
+    info,
+    infoComplete: info ? saved.infoComplete === true : undefined,
+  }
+}
+
+/** What is kept for the next tries: everything but the Apple Ads token, which expires. */
+function savedInfo(info: AttributionInfo): AttributionInfo {
+  const kept: AttributionInfo = {}
+  if (typeof info.deviceKey === 'string') kept.deviceKey = info.deviceKey
+  if (typeof info.referrer === 'string') kept.referrer = info.referrer
+  if (typeof info.referrerClickTs === 'number') kept.referrerClickTs = info.referrerClickTs
+  if (typeof info.installBeginTs === 'number') kept.installBeginTs = info.installBeginTs
+  if (typeof info.clipboardClick === 'string') kept.clipboardClick = info.clipboardClick
+  return kept
+}
+
+function definedOnly(info: AttributionInfo): AttributionInfo {
+  return Object.fromEntries(
+    Object.entries(info).filter(([, value]) => value !== undefined && value !== null),
+  ) as AttributionInfo
 }

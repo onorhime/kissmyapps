@@ -26,12 +26,23 @@ void main() {
   test('sends over HTTP and keeps its state in files', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final bodies = <Map<String, dynamic>>[];
+    final installs = <Map<String, dynamic>>[];
     final headers = <String?>{};
     final backgrounded = Completer<void>();
+    final installed = Completer<void>();
     server.listen((request) async {
       final body = jsonDecode(await utf8.decodeStream(request)) as Map<String, dynamic>;
-      bodies.add(body);
       headers.add(request.headers.value('authorization'));
+      if (request.uri.path == '/v1/attribution/install') {
+        installs.add(body);
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write('{"matched":false,"method":"organic","deep_link":null}');
+        await request.response.close();
+        if (!installed.isCompleted) installed.complete();
+        return;
+      }
+      bodies.add(body);
       final count = (body['events'] as List).length;
       request.response
         ..headers.contentType = ContentType.json
@@ -72,6 +83,7 @@ void main() {
     client.track('lesson_completed', {'lesson': 1});
     await client.background();
     await backgrounded.future.timeout(const Duration(seconds: 10));
+    await installed.future.timeout(const Duration(seconds: 10));
 
     expect(
       [
@@ -88,6 +100,8 @@ void main() {
       ],
     );
     expect(headers, {'Bearer $key'});
+    expect(installs, hasLength(1));
+    expect(installs.single['session_id'], client.sessionId);
     expect((bodies.first['session'] as Map)['id'], client.sessionId);
     expect(logs, isEmpty);
     client.shutdown();
@@ -96,6 +110,9 @@ void main() {
     final again = launch();
     await again.ready;
     expect(again.anonymousId, client.anonymousId);
+    again.foreground();
+    await again.flush();
+    expect(installs, hasLength(1));
     again.shutdown();
   });
 

@@ -4,19 +4,23 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'attribution.dart';
 import 'client.dart';
 import 'options.dart';
 import 'platform/platform.dart' as platform;
 
 /// KissMyApps analytics for Flutter: sessions, installs, updates, opens, screens and your own
-/// events, sent to your KissMyApps project.
+/// events, sent to your KissMyApps project, plus install attribution and deep links.
 ///
 /// Call [start] once at launch, then [track], [screen] and [identify] from anywhere. Every
 /// call returns at once; calls made before [start] are kept and run once it has started.
 /// It records on Android and iOS, and does nothing on other platforms.
 abstract final class KissMyApps {
   static const MethodChannel _channel = MethodChannel('kissmyapps');
+  static const EventChannel _links = EventChannel('kissmyapps/links');
   static KmaClient? _client;
+  static StreamSubscription<Object?>? _linkSubscription;
+  static void Function(KissMyAppsDeepLink link)? _deepLinkHandler;
   static Future<void>? _starting;
   static _Lifecycle? _lifecycle;
   static KmaDevice? _device;
@@ -77,6 +81,41 @@ abstract final class KissMyApps {
     await _client?.flush();
   }
 
+  /// Reports a link that opened the app, such as a Universal Link or App Link, when it
+  /// reaches the app some way the plugin does not see. With `deepLinks` on (the default) the
+  /// plugin already reports links that open the app.
+  ///
+  /// Any https link is sent and KissMyApps decides whether it is one of the project's links;
+  /// its deep link then goes to [onDeepLink]. Returns false when nothing is sent (not an
+  /// https link, attribution off, opted out).
+  static bool handleDeepLink(Uri uri) {
+    final url = uri.toString();
+    final client = _client;
+    if (client != null) return client.handleDeepLink(url);
+    if (httpsLink(url) == null) return false;
+    _call((client) => client.handleDeepLink(url));
+    return true;
+  }
+
+  /// Where deep links go: the deferred one after an install, and one each time a link opens
+  /// the app. Each is handed over once; one that arrives before a handler is set waits for
+  /// it. Returns a function that removes the handler.
+  ///
+  /// ```dart
+  /// KissMyApps.onDeepLink((link) {
+  ///   if (link.value == 'lesson') router.go('/lesson/${link.params['id']}');
+  /// });
+  /// ```
+  static void Function() onDeepLink(void Function(KissMyAppsDeepLink link) handler) {
+    _deepLinkHandler = handler;
+    _client?.onDeepLink(handler);
+    return () {
+      if (!identical(_deepLinkHandler, handler)) return;
+      _deepLinkHandler = null;
+      _client?.onDeepLink(null);
+    };
+  }
+
   /// This install's random ID, for support tickets. Null until [start] has finished.
   static String? get anonymousId => _client?.anonymousId;
 
@@ -118,6 +157,7 @@ abstract final class KissMyApps {
       return;
     }
     _device = _deviceFrom(info);
+    final links = options.deepLinks && options.attribution;
     final KmaClient client;
     try {
       client = KmaClient(
@@ -129,6 +169,8 @@ abstract final class KissMyApps {
           post: debugTransport ?? platform.httpPost,
           sdk: 'kma-flutter/$sdkVersion',
           log: debugPrint,
+          initialLink: links ? _initialLink : null,
+          attributionInfo: _attributionInfo,
         ),
       );
     } on ArgumentError catch (error) {
@@ -137,11 +179,47 @@ abstract final class KissMyApps {
       return;
     }
     _client = client;
+    final handler = _deepLinkHandler;
+    if (handler != null) client.onDeepLink(handler);
+    if (links) {
+      _linkSubscription = _links.receiveBroadcastStream().listen(
+        (url) {
+          if (url is String) client.handleDeepLink(url);
+        },
+        onError: (Object _) {},
+      );
+    }
     _lifecycle = _Lifecycle(client, onResume: _refreshDevice, onBackground: _releaseBackground);
     final early = List.of(_early);
     _early.clear();
     for (final run in early) {
       run(client);
+    }
+  }
+
+  /// The link that opened the app, kept by the plugin until asked once.
+  static Future<String?> _initialLink() async {
+    try {
+      return await _channel.invokeMethod<String>('initialLink');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The device key, and on the first launch the install referrer or Apple Ads token, if any.
+  static Future<KmaAttributionInfo?> _attributionInfo({
+    required bool install,
+    required bool clipboard,
+  }) async {
+    try {
+      final info = await _channel.invokeMapMethod<String, Object?>(
+        'attributionInfo',
+        {'install': install, 'clipboard': clipboard},
+      );
+      return info == null ? null : KmaAttributionInfo.fromMap(info);
+    } catch (_) {
+      // An app built before the plugin had attribution, or the platform said no.
+      return null;
     }
   }
 
@@ -203,6 +281,9 @@ KmaTransport? debugTransport;
 void debugResetKissMyApps() {
   KissMyApps._client?.shutdown();
   KissMyApps._lifecycle?.dispose();
+  unawaited(KissMyApps._linkSubscription?.cancel());
+  KissMyApps._linkSubscription = null;
+  KissMyApps._deepLinkHandler = null;
   KissMyApps._client = null;
   KissMyApps._lifecycle = null;
   KissMyApps._starting = null;

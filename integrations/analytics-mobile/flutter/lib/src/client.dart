@@ -7,10 +7,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'attribution.dart';
 import 'options.dart';
 
 /// The version of this SDK, sent with every request as `kma-flutter/<version>`.
-const String sdkVersion = '1.0.0';
+const String sdkVersion = '1.1.0';
 
 /// The names `track` accepts: a letter, then up to 79 letters, numbers and `_ . : -`.
 final RegExp eventNamePattern = RegExp(r'^[A-Za-z][A-Za-z0-9_.:-]{0,79}$');
@@ -20,6 +21,15 @@ const int _batchSize = 50;
 const int _flushAt = 30;
 const int _heartbeatMs = 60000;
 const int _maxPropertiesBytes = 32000;
+// The first launch's call, then at most three more launches.
+const int _installTries = 4;
+// A link handed over twice this close together, by the plugin and by the app, counts once.
+const int _sameLinkMs = 3000;
+// As the iOS SDK: the opening link has 1.5 seconds to arrive before the install call goes.
+const Duration _initialLinkWait = Duration(milliseconds: 1500);
+// The plugin waits up to 10 seconds for Google Play's install referrer.
+const Duration _nativeWait = Duration(seconds: 12);
+const Duration _flushWait = Duration(seconds: 5);
 
 /// What the app's platform says about the device, sent as each request's context.
 class KmaDevice {
@@ -105,6 +115,8 @@ class KmaEnvironment {
     required this.sdk,
     this.now,
     this.log,
+    this.initialLink,
+    this.attributionInfo,
   });
 
   /// Without storage, every launch counts as a new install.
@@ -124,6 +136,12 @@ class KmaEnvironment {
 
   /// Where debug messages go.
   final void Function(String message)? log;
+
+  /// The link that opened the app, if any.
+  final Future<String?> Function()? initialLink;
+
+  /// What the plugin reads for attribution: device key, install referrer, Apple Ads token, if any.
+  final KmaAttributionReader? attributionInfo;
 }
 
 /// A random version 4 UUID.
@@ -177,6 +195,78 @@ class _Session {
     return _Session(id: id, started: started, last: last, firstScreen: _text(json['firstScreen']));
   }
 }
+
+/// The first launch's install call, kept until it gets an answer and resent as it was.
+class _PendingInstall {
+  _PendingInstall({
+    required this.at,
+    required this.anonymousId,
+    required this.sessionId,
+    this.link,
+    this.tries = 0,
+    this.info,
+    this.infoComplete = false,
+  });
+
+  /// When app_installed was queued.
+  final int at;
+  final String anonymousId;
+  final String sessionId;
+
+  /// The first link that opened the app on the first launch, before the call went out.
+  String? link;
+
+  /// Calls made so far, one per launch.
+  int tries;
+
+  /// What the device gave on the first try, without the Apple Ads token, which expires.
+  KmaAttributionInfo? info;
+
+  /// False when reading the install referrer timed out: the next try reads it again.
+  bool infoComplete;
+
+  Map<String, Object?> toJson() => {
+        'at': at,
+        'anonymousId': anonymousId,
+        'sessionId': sessionId,
+        if (link != null) 'link': link,
+        'tries': tries,
+        if (info != null) 'info': _savedInfo(info!).toMap(),
+        if (info != null) 'infoComplete': infoComplete,
+      };
+
+  static _PendingInstall? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final at = _whole(json['at']);
+    final anonymousId = _text(json['anonymousId']);
+    final sessionId = _text(json['sessionId']);
+    if (at == null || anonymousId == null || sessionId == null) return null;
+    final info = json['info'];
+    return _PendingInstall(
+      at: at,
+      anonymousId: anonymousId,
+      sessionId: sessionId,
+      link: _text(json['link']),
+      tries: _whole(json['tries']) ?? 0,
+      info: info is Map ? KmaAttributionInfo.fromMap(info) : null,
+      infoComplete: info is Map && json['infoComplete'] == true,
+    );
+  }
+}
+
+/// What is kept for the next tries: everything but the Apple Ads token, which expires.
+KmaAttributionInfo _savedInfo(KmaAttributionInfo info) => KmaAttributionInfo(
+      deviceKey: info.deviceKey,
+      referrer: info.referrer,
+      referrerClickTs: info.referrerClickTs,
+      installBeginTs: info.installBeginTs,
+      clipboardClick: info.clipboardClick,
+    );
+
+/// This launch's install call: links wait for its answer before they go to the open call.
+enum _InstallPhase { none, waiting, answered, failed }
+
+typedef _Link = ({String url, int at});
 
 class _QueuedEvent {
   _QueuedEvent({
@@ -259,6 +349,15 @@ class KmaClient {
         _storageName = _storageNameFor(key) {
     _anonymousId = uuid();
     ready = _load();
+    final read = _env.initialLink;
+    final opening = read != null && options.attribution
+        ? within<String?>(read, _initialLinkWait, null)
+        : Future<String?>.value();
+    // Routed before the install call reads it, so the opening link goes with the install.
+    _initialLink = opening.then((url) {
+      if (url != null) handleDeepLink(url);
+      return url;
+    });
   }
 
   /// Whether [key] looks like a project's client key, `kma_pk_live_…` or `kma_pk_test_…`.
@@ -322,6 +421,20 @@ class KmaClient {
   bool _inForeground = false;
   bool _firstLaunch = false;
   bool _stopped = false;
+  _PendingInstall? _install;
+  // This launch is the first launch: its first link goes with the install call.
+  bool _firstLaunchNow = false;
+  bool _installRunning = false;
+  // This launch's try is on its way (one try per launch).
+  bool _installSent = false;
+  _InstallPhase _installPhase = _InstallPhase.none;
+  final List<_Link> _linksBeforeLaunch = [];
+  final List<_Link> _waitingLinks = [];
+  final Map<String, int> _recentLinks = {};
+  String? _deviceKey;
+  void Function(KissMyAppsDeepLink link)? _deepLinkHandler;
+  KissMyAppsDeepLink? _heldDeepLink;
+  late final Future<String?> _initialLink;
 
   // Public API -------------------------------------------------------------------------
 
@@ -418,7 +531,43 @@ class KmaClient {
     _whenLoaded(() {
       _optedOut = false;
       _save();
+      // An install call held back while opted out goes now.
+      if (_launched &&
+          _install != null &&
+          options.attribution &&
+          !_installSent &&
+          !_installRunning) {
+        _installPhase = _InstallPhase.waiting;
+        unawaited(_sendInstall());
+      }
     });
+  }
+
+  /// Reports a link that opened the app, such as a Universal Link or App Link. Any https link
+  /// is sent and KissMyApps decides whether it is one of the project's links; its deep link
+  /// then goes to [onDeepLink]. Returns false when nothing is sent (not https, longer than
+  /// 2,048 characters, attribution off, opted out). The same link handed over twice within 3
+  /// seconds counts once, so the plugin and the app may both report it.
+  bool handleDeepLink(String url) {
+    if (!options.attribution || _stopped) return false;
+    final link = httpsLink(url);
+    if (link == null) return false;
+    if (_loaded && _optedOut) return false;
+    final at = _now();
+    _whenLoaded(() => _routeLink(link, at));
+    return true;
+  }
+
+  /// Where deep links go: the deferred one after an install, and one each time a link opens
+  /// the app. Each deep link is handed over once; one that arrives before a handler is set is
+  /// held and handed to the next handler set. Pass null to stop.
+  void onDeepLink(void Function(KissMyAppsDeepLink link)? handler) {
+    _deepLinkHandler = handler;
+    final held = _heldDeepLink;
+    if (handler != null && held != null) {
+      _heldDeepLink = null;
+      _deliver(held);
+    }
   }
 
   /// This install's random ID.
@@ -458,10 +607,12 @@ class KmaClient {
       _foregroundAt = _now();
       if (_optedOut) return;
       final session = _ensureSession();
+      final firstLaunch = launch && _firstLaunch;
       if (options.trackLifecycle) {
         if (launch) _recordInstallOrUpdate(session);
         _enqueue('app_opened', {'from_background': !launch}, session);
       }
+      if (launch) _attributeLaunch(session, firstLaunch: firstLaunch);
       _heartbeatTimer ??= Timer.periodic(
         const Duration(milliseconds: _heartbeatMs),
         (_) => _heartbeat(),
@@ -536,6 +687,7 @@ class KmaClient {
       _optedOut = saved['optedOut'] == true;
       _version = _text(saved['version']);
       _build = _text(saved['build']);
+      _install = _PendingInstall.fromJson(saved['install']);
       _firstLaunch = false;
     } else {
       // Nothing saved means a first launch, or the app's data was cleared.
@@ -597,6 +749,7 @@ class KmaClient {
         'optedOut': _optedOut,
         if (_version != null) 'version': _version,
         if (_build != null) 'build': _build,
+        if (_install != null) 'install': _install!.toJson(),
       };
 
   void _save() {
@@ -740,9 +893,9 @@ class KmaClient {
     return batch;
   }
 
-  Future<KmaResponse> _post(Map<String, Object?> body) {
+  Future<KmaResponse> _post(Map<String, Object?> body, [String path = '/v1/events']) {
     return _env.post(
-      endpoint.replace(path: '${endpoint.path}/v1/events'),
+      endpoint.replace(path: '${endpoint.path}$path'),
       {'content-type': 'application/json', 'authorization': 'Bearer $key'},
       jsonEncode(body),
     );
@@ -819,6 +972,249 @@ class KmaClient {
     } catch (_) {
       // Offline: the next heartbeat tries again.
     }
+  }
+
+  // Attribution ------------------------------------------------------------------------
+
+  /// The launch: the first one queues the install call; links that came before it are routed.
+  void _attributeLaunch(_Session session, {required bool firstLaunch}) {
+    _firstLaunch = false;
+    final early = List.of(_linksBeforeLaunch);
+    _linksBeforeLaunch.clear();
+    if (!options.attribution) return;
+    // Without storage every launch looks like the first, so there is no install to match.
+    if (firstLaunch && _env.storage != null) {
+      _install = _PendingInstall(at: _now(), anonymousId: _anonymousId, sessionId: session.id);
+      _firstLaunchNow = true;
+      _save();
+    }
+    if (_install != null) {
+      _installPhase = _InstallPhase.waiting;
+      for (final link in early) {
+        _routeLaunched(link.url, link.at);
+      }
+      unawaited(_sendInstall());
+    } else {
+      for (final link in early) {
+        unawaited(_sendOpen(link.url, link.at));
+      }
+    }
+  }
+
+  void _routeLink(String url, int at) {
+    if (_stopped || _optedOut) return;
+    _recentLinks.removeWhere((_, when) => at - when >= _sameLinkMs);
+    if (_recentLinks.containsKey(url)) return;
+    _recentLinks[url] = at;
+    if (!_launched) {
+      if (_linksBeforeLaunch.length < 10) _linksBeforeLaunch.add((url: url, at: at));
+      return;
+    }
+    _routeLaunched(url, at);
+  }
+
+  void _routeLaunched(String url, int at) {
+    final pending = _install;
+    if (pending != null && _installPhase == _InstallPhase.waiting) {
+      // Only the first link of the first launch goes with the install call.
+      if (_firstLaunchNow && !_installSent && pending.tries == 0 && pending.link == null) {
+        pending.link = url;
+        _save();
+      } else if (_waitingLinks.length < 10) {
+        // Sent once the install is matched; an open first would record an install of its own.
+        _waitingLinks.add((url: url, at: at));
+      }
+      return;
+    }
+    if (pending != null && _installPhase == _InstallPhase.failed) {
+      _warn('The link was not sent: the install is matched first, on the next launch.');
+      return;
+    }
+    unawaited(_sendOpen(url, at));
+  }
+
+  /// The device's details; `complete` is false when the install referrer could not be read in
+  /// time.
+  Future<({KmaAttributionInfo info, bool complete})> _readNative({
+    required bool install,
+    required bool clipboard,
+  }) async {
+    final read = _env.attributionInfo;
+    if (read == null) return (info: const KmaAttributionInfo(), complete: true);
+    final wantsClipboard = install && clipboard && options.clipboardHandoff;
+    final info = await within<KmaAttributionInfo?>(
+      () => read(install: install, clipboard: wantsClipboard).then(
+        (answer) => answer ?? const KmaAttributionInfo(),
+        onError: (Object _) => const KmaAttributionInfo(),
+      ),
+      _nativeWait,
+      null,
+    );
+    if (info == null) return (info: const KmaAttributionInfo(), complete: false);
+    final key = deviceKeyFrom(info.deviceKey);
+    if (key != null) _deviceKey = key;
+    return (info: info, complete: !info.retryReferrer);
+  }
+
+  /// The first try's details again; the Apple Ads token, and a referrer that timed out, are
+  /// read anew.
+  Future<({KmaAttributionInfo info, bool complete})> _installInfo(_PendingInstall pending) async {
+    final saved = pending.info;
+    if (saved != null && pending.infoComplete && _env.device().platform == 'android') {
+      return (info: saved, complete: true);
+    }
+    // The clipboard is read on the first try only.
+    final read = await _readNative(install: true, clipboard: saved == null);
+    if (saved == null) return read;
+    final fresh = read.info;
+    return (
+      info: KmaAttributionInfo(
+        deviceKey: saved.deviceKey ?? fresh.deviceKey,
+        referrer: saved.referrer ?? fresh.referrer,
+        referrerClickTs: saved.referrerClickTs ?? fresh.referrerClickTs,
+        installBeginTs: saved.installBeginTs ?? fresh.installBeginTs,
+        clipboardClick: saved.clipboardClick,
+        appleAdsToken: fresh.appleAdsToken,
+      ),
+      complete: pending.infoComplete || read.complete,
+    );
+  }
+
+  /// The install call: once, on the first launch; again on the next launches if it failed.
+  Future<void> _sendInstall() async {
+    if (_installRunning) return;
+    _installRunning = true;
+    try {
+      await _initialLink;
+      final first = _install;
+      if (first == null) return _installAnswered();
+      final (:info, :complete) = await _installInfo(first);
+      // app_installed and its session reach the server first.
+      await within<void>(flush, _flushWait, null);
+      final pending = _install;
+      if (pending == null) return _installAnswered();
+      if (_stopped || _optedOut || _installSent) return;
+      _installSent = true;
+      pending.tries += 1;
+      if (pending.info == null || !pending.infoComplete) {
+        pending.info = _savedInfo(info);
+        pending.infoComplete = complete;
+      }
+      final body = installBody(
+        anonymousId: pending.anonymousId,
+        sessionId: pending.sessionId,
+        platform: _env.device().platform,
+        installedAt: pending.at,
+        sdk: _env.sdk,
+        // Not after a reset: the install belongs to the person who installed.
+        userId: pending.anonymousId == _anonymousId ? _userId : null,
+        appVersion: options.appVersion,
+        link: pending.link,
+        info: info,
+        clipboard: options.clipboardHandoff,
+      );
+      await _writeNow();
+      KmaResponse response;
+      try {
+        response = await _post(body, installPath);
+      } catch (_) {
+        return _installFailed(pending, 'no connection');
+      }
+      if (!response.ok && _retryable(response.status)) {
+        return _installFailed(pending, 'status ${response.status}');
+      }
+      // Answered: a refused body would be refused again, and an unreadable answer is still one.
+      _install = null;
+      unawaited(_writeNow());
+      if (response.ok) {
+        _deliver(deepLinkFrom(parseAnswer(response.body), httpsLink(pending.link)));
+      } else {
+        _warn('The install was refused (${response.status}): ${response.body}');
+      }
+      _installAnswered();
+    } finally {
+      _installRunning = false;
+    }
+  }
+
+  /// Links that waited for the install's answer go to the open call now.
+  void _installAnswered() {
+    _installPhase = _InstallPhase.answered;
+    final waiting = List.of(_waitingLinks);
+    _waitingLinks.clear();
+    for (final link in waiting) {
+      unawaited(_sendOpen(link.url, link.at));
+    }
+  }
+
+  void _installFailed(_PendingInstall pending, String reason) {
+    if (pending.tries >= _installTries) {
+      _install = null;
+      _warn('The install could not be matched ($reason); giving up.');
+      _installAnswered();
+    } else {
+      _warn('The install could not be matched yet ($reason); trying again next launch.');
+      _installPhase = _InstallPhase.failed;
+      if (_waitingLinks.isNotEmpty) {
+        _waitingLinks.clear();
+        _warn('Links that opened the app were not sent: the install is matched first.');
+      }
+    }
+    unawaited(_writeNow());
+  }
+
+  static bool _retryable(int status) =>
+      status >= 500 || status == 408 || status == 429 || status < 400;
+
+  /// The open call, for a link that opened the app after the install was matched. Not
+  /// retried.
+  Future<void> _sendOpen(String url, int at) async {
+    if (_stopped || _optedOut) return;
+    final session = _ensureSession();
+    final anonymousId = _anonymousId;
+    final userId = _userId;
+    final key = _deviceKey ??
+        deviceKeyFrom((await _readNative(install: false, clipboard: false)).info.deviceKey);
+    if (_stopped || _optedOut) return;
+    final body = openBody(
+      anonymousId: anonymousId,
+      sessionId: session.id,
+      platform: _env.device().platform,
+      url: url,
+      openedAt: at,
+      sdk: _env.sdk,
+      userId: userId,
+      appVersion: options.appVersion,
+      deviceKey: key,
+    );
+    try {
+      final response = await _post(body, openPath);
+      if (!response.ok) {
+        _warn('The link was refused (${response.status}): ${response.body}');
+        return;
+      }
+      _deliver(deepLinkFrom(parseAnswer(response.body), url));
+    } catch (_) {
+      _warn('The link could not be sent: no connection.');
+    }
+  }
+
+  /// Hands a deep link to the handler; without one, the newest is held for the next handler.
+  void _deliver(KissMyAppsDeepLink? link) {
+    if (link == null || _stopped) return;
+    final handler = _deepLinkHandler;
+    if (handler == null) {
+      _heldDeepLink = link;
+      return;
+    }
+    // Later, so a handler set during a build runs after it.
+    Timer.run(() {
+      try {
+        handler(link);
+      } catch (error) {
+        _warn('onDeepLink threw: $error');
+      }
+    });
   }
 
   void _warn(String message) {
