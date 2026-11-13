@@ -410,7 +410,14 @@ function ProgramPage({
         {busy === 'pausing' ? <Working>Pausing</Working> : 'Pause'}
       </button>
     )
-  else if (state?.can_manage && paused && paused !== 'admin' && state.stripe_connected)
+  // A program paused for its balance goes live again by itself when funds arrive.
+  else if (
+    state?.can_manage &&
+    paused &&
+    paused !== 'admin' &&
+    paused !== 'balance_empty' &&
+    state.stripe_connected
+  )
     headerAction = (
       <button
         type="button"

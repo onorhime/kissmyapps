@@ -2170,8 +2170,19 @@ describe('program page: the balance in its wording', () => {
 
     signedInAs('owner')
     answers({ workspace_program_set_status: refuse('balance_required') })
-    const user = await openProgram(pausedProgram())
-    await user.click(button('Resume'))
+    // A program paused for its balance has no Resume: funds bring it back by themselves.
+    await openProgram(pausedProgram())
+    await screen.findByRole('link', { name: 'Add funds' })
+    expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument()
+    cleanupPage()
+
+    // One the merchant paused can be resumed, and is refused while the balance is empty.
+    const byMerchant = pausedProgram()
+    const user = await openProgram({
+      ...byMerchant,
+      program: { ...(byMerchant.program as Row), pause_reason: 'merchant' },
+    })
+    await user.click(await screen.findByRole('button', { name: 'Resume' }))
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Add funds before you resume.')
     expect(within(alert).getByRole('link', { name: 'Add funds' })).toHaveAttribute(
