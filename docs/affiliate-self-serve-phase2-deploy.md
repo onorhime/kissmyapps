@@ -12,18 +12,18 @@ the owner.
 
 ## What ships
 
-| Piece | Where |
-|---|---|
-| Program tables, the visit's creator click column | `supabase/migrations/20261114100000_affiliate_programs.sql` |
+| Piece                                                        | Where                                                                |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Program tables, the visit's creator click column             | `supabase/migrations/20261114100000_affiliate_programs.sql`          |
 | Program functions, agreement text, admin review, logo bucket | `supabase/migrations/20261114101000_affiliate_program_functions.sql` |
-| Sales from receipts, the worker's functions, the schedule | `supabase/migrations/20261114110000_program_sales.sql` |
-| Sessions keep the creator click the web SDK sends | `supabase/migrations/20261114120000_analytics_creator_click.sql` |
-| Edge function `program-sales-worker` (new) | reads payments back from Stripe, GET only |
-| Edge function `connect-payments-webhook` (changed) | nudges the worker after each receipt |
-| Edge function `analytics-ingest` (changed) | lets `kma_click` through |
-| Web SDK `kma.js` 1.2.0 | captures `kma_click`, adds `getClickId()` |
-| Merchant console | Program page, `src/merchant/screens/Program.tsx` |
-| Admin app | Programs review screen, `src/features/admin/programs/` |
+| Sales from receipts, the worker's functions, the schedule    | `supabase/migrations/20261114110000_program_sales.sql`               |
+| Sessions keep the creator click the web SDK sends            | `supabase/migrations/20261114120000_analytics_creator_click.sql`     |
+| Edge function `program-sales-worker` (new)                   | reads payments back from Stripe, GET only                            |
+| Edge function `connect-payments-webhook` (changed)           | nudges the worker after each receipt                                 |
+| Edge function `analytics-ingest` (changed)                   | lets `kma_click` through                                             |
+| Web SDK `kma.js` 1.2.0                                       | captures `kma_click`, adds `getClickId()`                            |
+| Merchant console                                             | Program page, `src/merchant/screens/Program.tsx`                     |
+| Admin app                                                    | Programs review screen, `src/features/admin/programs/`               |
 
 ## Order
 

@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -110,6 +110,10 @@ test('merchant analytics database suite', { skip, timeout: 300_000 }, () => {
       } catch (error) {
         assert.fail(`${file}: ${error.stderr?.toString() || error.message}`)
       }
+      // KMA_DB_TEST_OUTPUT=<file> keeps what each suite printed, for example the
+      // "capture" lines of suite 75 that the front-end reader fixtures are made from.
+      if (process.env.KMA_DB_TEST_OUTPUT)
+        appendFileSync(process.env.KMA_DB_TEST_OUTPUT, `-- ${file}\n${output}\n`)
       assert.match(output, done)
     }
   } finally {

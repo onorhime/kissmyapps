@@ -520,7 +520,7 @@ function ProgramPage({
                       Creator links add a click ID to your landing page. Pass it to Stripe when a
                       customer pays, and the sale is credited to that creator.
                     </p>
-                    <CodeBlock code={trackingSnippet} label="Add to your Stripe call" />
+                    <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
                     <p className="mc-prog-about">{trackingSnippetNote}</p>
                     <TrackingStatus
                       connected={state.stripe_connected}

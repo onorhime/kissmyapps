@@ -794,16 +794,18 @@ export function trackingLine(
   }
 }
 
-/** The snippet a developer adds where the business creates its Stripe payment. */
-export const trackingSnippet = `// Checkout Sessions and PaymentIntents
-metadata: { kma_click: kma.getClickId() }
+/**
+ * The snippet a developer adds. Two steps, because the click ID lives in the visitor's
+ * browser and the Stripe payment is created on the server.
+ */
+export const trackingSnippet = `// 1. In the browser
+const clickId = kma.getClickId()
 
-// Or, on a Checkout Session
-client_reference_id: 'kma_' + kma.getClickId()`
+// 2. On your server, in the Stripe call
+metadata: { kma_click: clickId }`
 
-/** The one thing the snippet cannot show: the value is read in one place and used in another. */
 export const trackingSnippetNote =
-  'Call it in the browser and send the value to your server with the checkout request.'
+  'Send clickId with your checkout request. Works for PaymentIntents and Checkout Sessions.'
 
 // What each failure means, in words a business owner can act on ----------------------------
 

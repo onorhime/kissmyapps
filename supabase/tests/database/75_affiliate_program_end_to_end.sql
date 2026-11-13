@@ -35,6 +35,15 @@ end $$;
 create function pg_temp.program() returns public.affiliate_programs language sql as $$
   select p from public.affiliate_programs p where workspace_id = pg_temp.q('workspace')
 $$;
+-- Prints one function result as the front ends receive it. The lines starting with
+-- "capture" are the source of the fixtures the console and admin readers are tested
+-- against (src/merchant/program-backend.fixture.ts); see scripts/merchant-analytics-db.test.mjs.
+create function pg_temp.capture(name text, who text, statement text) returns text language sql as $$
+  select 'capture ' || name || ' ' || pg_temp.call(who, statement)::text
+$$;
+create function pg_temp.get_sql() returns text language sql as $$
+  select format('select public.workspace_program_get(%L)', pg_temp.q('workspace'))
+$$;
 grant all on qa, e2e_assertions to anon, authenticated, service_role;
 grant execute on all functions in schema pg_temp to anon, authenticated, service_role;
 
@@ -62,6 +71,8 @@ select pg_temp.call('owner', format('select public.workspace_program_save(%L, %L
     "commission_duration":"months","commission_months":12}'::jsonb));
 select pg_temp.check((pg_temp.program()).status = 'draft' and (pg_temp.program()).attribution_window_days = 30,
   'the first save creates a draft with the default options');
+select pg_temp.capture('state_draft', 'owner', pg_temp.get_sql());
+select pg_temp.capture('agreement', 'owner', format('select public.workspace_program_agreement(%L)', pg_temp.q('workspace')));
 select pg_temp.call('owner', format('select public.workspace_program_mark_agreement_read(%L, %L)', pg_temp.q('workspace'),
   pg_temp.call('owner', format('select public.workspace_program_agreement(%L)', pg_temp.q('workspace')))->>'sha256'));
 select pg_temp.check(
@@ -69,6 +80,8 @@ select pg_temp.check(
   'a complete, read program with Stripe connected can be published');
 select pg_temp.call('owner', format('select public.workspace_program_submit(%L, %s)', pg_temp.q('workspace'), (pg_temp.program()).revision));
 select pg_temp.check((pg_temp.program()).status = 'in_review', 'publishing sends the first listing to review');
+select pg_temp.capture('state_in_review', 'owner', pg_temp.get_sql());
+select pg_temp.capture('admin_reviews_waiting', 'kma_operations', 'select public.list_admin_program_reviews()');
 
 -- KissMyApps: the queue shows it, approval makes it live -------------------------------------
 select pg_temp.check(
@@ -76,13 +89,14 @@ select pg_temp.check(
       and q->'programs'->0->'agreement'->>'title' = 'Lingo Affiliate Agreement'
     from pg_temp.call('kma_operations', 'select public.list_admin_program_reviews()') q),
   'the admin queue shows the program with its Stripe account and agreement');
-select pg_temp.call('kma_operations', format('select public.review_admin_program(%L)',
+select pg_temp.capture('admin_review_result', 'kma_operations', format('select public.review_admin_program(%L)',
   jsonb_build_object('program_id', (pg_temp.program()).id, 'decision', 'approve', 'note', null)));
 select pg_temp.check((pg_temp.program()).status = 'live' and (pg_temp.program()).live_terms_version = 1
   and exists (select 1 from public.products where id = (pg_temp.program()).product_id and status = 'active')
   and exists (select 1 from public.funnels where id = (pg_temp.program()).funnel_id and status = 'live'
     and destination_url = 'https://lingo-app.io/start'),
   'approval makes the program live with a product, a live landing page and terms version 1');
+select pg_temp.capture('state_live', 'owner', pg_temp.get_sql());
 select set_config('request.jwt.claims', '', true);
 
 -- A creator click on the program's product. Creators join in Phase 3; until then the link
@@ -167,12 +181,27 @@ select pg_temp.check(
       and t->>'sdk_click_seen_at' is not null and t->>'last_match_source' in ('metadata', 'email')
     from pg_temp.call('owner', format('select public.workspace_program_tracking(%L)', pg_temp.q('workspace'))) t),
   'the merchant sees the sales and that they are matched to creators');
+select pg_temp.capture('tracking', 'owner', format('select public.workspace_program_tracking(%L)', pg_temp.q('workspace')));
+
+-- KissMyApps pauses the program with a note the merchant sees, then lifts the pause.
+select pg_temp.capture('admin_pause_result', 'kma_operations', format('select public.set_admin_program_status(%L)',
+  jsonb_build_object('program_id', (pg_temp.program()).id, 'status', 'paused', 'note', 'The landing page is down.')));
+select pg_temp.capture('state_admin_paused', 'owner', pg_temp.get_sql());
+select pg_temp.check((pg_temp.program()).pause_reason = 'admin' and (pg_temp.program()).review_note = 'The landing page is down.',
+  'a pause by KissMyApps carries its note to the merchant');
+select pg_temp.capture('admin_lift_result', 'kma_operations', format('select public.set_admin_program_status(%L)',
+  jsonb_build_object('program_id', (pg_temp.program()).id, 'status', 'live', 'note', null)));
+select pg_temp.check((pg_temp.program()).status = 'live', 'lifting the pause makes the program live again');
 select set_config('request.jwt.claims', '', true);
 
 -- Stripe disconnected: the program pauses and says why.
 update public.merchant_connections set status = 'revoked' where account_id = 'acct_LingoE2E';
 select pg_temp.check((pg_temp.program()).status = 'paused' and (pg_temp.program()).pause_reason = 'stripe_disconnected',
   'disconnecting Stripe pauses the live program');
+
+select pg_temp.capture('state_stripe_paused', 'owner', pg_temp.get_sql());
+select pg_temp.capture('admin_reviews_reviewed', 'kma_operations', 'select public.list_admin_program_reviews()');
+select set_config('request.jwt.claims', '', true);
 
 select 'ok ' || count(*) || ' program end to end assertions' from e2e_assertions;
 rollback;

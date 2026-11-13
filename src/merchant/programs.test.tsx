@@ -1023,12 +1023,15 @@ describe('sale tracking in one line', () => {
     ).toBe('1 tagged sale so far.')
   })
 
-  it('shows both ways to pass the click ID to Stripe', () => {
-    expect(trackingSnippet).toContain('metadata: { kma_click: kma.getClickId() }')
-    expect(trackingSnippet).toContain("client_reference_id: 'kma_' + kma.getClickId()")
+  it('shows the two steps that carry the click ID to Stripe', () => {
     // The click ID lives in the visitor's browser; the Stripe call is made on the server.
+    expect(trackingSnippet).toContain('const clickId = kma.getClickId()')
+    expect(trackingSnippet).toContain('metadata: { kma_click: clickId }')
+    expect(trackingSnippet.indexOf('In the browser')).toBeLessThan(
+      trackingSnippet.indexOf('On your server'),
+    )
     expect(trackingSnippetNote).toBe(
-      'Call it in the browser and send the value to your server with the checkout request.',
+      'Send clickId with your checkout request. Works for PaymentIntents and Checkout Sessions.',
     )
   })
 })
@@ -2074,11 +2077,11 @@ describe('program page', () => {
     it('shows how to pass the click ID to Stripe', async () => {
       signedInAs('owner')
       await openProgram()
-      expect(within(track()).getByLabelText('Add to your Stripe call')).toHaveTextContent(
-        'metadata: { kma_click: kma.getClickId() }',
+      expect(within(track()).getByLabelText('Pass the click ID to Stripe')).toHaveTextContent(
+        'const clickId = kma.getClickId()',
       )
-      expect(within(track()).getByLabelText('Add to your Stripe call')).toHaveTextContent(
-        "client_reference_id: 'kma_' + kma.getClickId()",
+      expect(within(track()).getByLabelText('Pass the click ID to Stripe')).toHaveTextContent(
+        'metadata: { kma_click: clickId }',
       )
       expect(within(track()).getByText(trackingSnippetNote)).toBeInTheDocument()
       await waitFor(() => expect(sent('tracking')).toEqual([{ p_workspace_id: 'ws-1' }]))

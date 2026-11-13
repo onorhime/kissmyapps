@@ -12,12 +12,12 @@ Supabase or tried against real Stripe.
 
 ## What ships
 
-| Piece | Where |
-|---|---|
-| Queue columns on receipts, `program_sales`, `program_sale_events`, worker functions, tracking status, schedule | `supabase/migrations/20261114110000_program_sales.sql` |
-| Edge function `program-sales-worker` | claims receipts, reads Stripe (GET only), records sales |
-| Nudge in `connect-payments-webhook` | calls the worker after storing a new receipt |
-| Function entry | `supabase/config.toml`, `[functions.program-sales-worker]` |
+| Piece                                                                                                          | Where                                                      |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Queue columns on receipts, `program_sales`, `program_sale_events`, worker functions, tracking status, schedule | `supabase/migrations/20261114110000_program_sales.sql`     |
+| Edge function `program-sales-worker`                                                                           | claims receipts, reads Stripe (GET only), records sales    |
+| Nudge in `connect-payments-webhook`                                                                            | calls the worker after storing a new receipt               |
+| Function entry                                                                                                 | `supabase/config.toml`, `[functions.program-sales-worker]` |
 
 The migration needs `20261114100000_affiliate_programs.sql` (programs) and the Phase 1
 migrations to be applied first.
@@ -34,14 +34,14 @@ migrations to be applied first.
 
 ## Function secrets
 
-| Secret | Value |
-|---|---|
-| `PROGRAM_SALES_ENABLED` | `true` to switch sale tracking on. Any other value: the worker answers `enabled: false` and reads nothing, and the webhook does not nudge. |
-| `CONSOLE_CONNECT_STRIPE_SECRET` | already set in Phase 1: the live platform secret key, `sk_live_...`. The worker refuses anything else, including test keys and restricted keys. |
-| `CONSOLE_CONNECT_PLATFORM_ACCOUNT` | already set in Phase 1: the platform account, `acct_...`. |
-| `INTERNAL_WORKER_SECRET` | already set for the other workers. The webhook uses it to call the sale worker. |
-| `PROGRAM_SALES_SCHEDULER_SECRET` | new. A random value of at least 32 characters, used only by the database schedule. Do not reuse another secret. |
-| `STRIPE_API_VERSION` | unchanged. The worker sends the pinned version from `_shared/stripe-api.ts`. |
+| Secret                             | Value                                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROGRAM_SALES_ENABLED`            | `true` to switch sale tracking on. Any other value: the worker answers `enabled: false` and reads nothing, and the webhook does not nudge.      |
+| `CONSOLE_CONNECT_STRIPE_SECRET`    | already set in Phase 1: the live platform secret key, `sk_live_...`. The worker refuses anything else, including test keys and restricted keys. |
+| `CONSOLE_CONNECT_PLATFORM_ACCOUNT` | already set in Phase 1: the platform account, `acct_...`.                                                                                       |
+| `INTERNAL_WORKER_SECRET`           | already set for the other workers. The webhook uses it to call the sale worker.                                                                 |
+| `PROGRAM_SALES_SCHEDULER_SECRET`   | new. A random value of at least 32 characters, used only by the database schedule. Do not reuse another secret.                                 |
+| `STRIPE_API_VERSION`               | unchanged. The worker sends the pinned version from `_shared/stripe-api.ts`.                                                                    |
 
 `SUPABASE_URL` and the service role key are provided by the platform.
 
@@ -72,6 +72,7 @@ off. It calls the worker only when a receipt is due.
 
    While the schedule row is disabled the tick only records its own heartbeat and returns
    `paused`.
+
 4. When the worker is deployed and `PROGRAM_SALES_ENABLED` is `true`:
 
    ```sql
@@ -97,6 +98,7 @@ Do this with a workspace that has a connected live Stripe account and an approve
 
    `queue.due` is the number of receipts waiting. Receipts older than the program's first
    approval are closed as `before_program` and never become sales.
+
 2. Open a creator link of the program, go through to the merchant's checkout and pay for
    real. The checkout must carry the creator tag: `client_reference_id` (`kma_` followed
    by the click id) or `metadata.kma_click`.
@@ -111,6 +113,7 @@ Do this with a workspace that has a connected live Stripe account and an approve
    Expect one row for the payment, `match_source` of `client_reference_id` or `metadata`,
    and `matched = true`. `fee_minor` can be empty for the first minute; the worker looks
    again up to four times.
+
 4. As the workspace owner, the console's status call should now report the sale:
 
    ```sql
@@ -136,19 +139,19 @@ connection needs to be made again.
 
 `merchant_payment_events.process_outcome`, set once per receipt:
 
-| Outcome | Meaning |
-|---|---|
-| `recorded` | the sale, refund or dispute was written |
-| `no_program` | the workspace has no approved program |
-| `before_program` | the event is older than the program's first approval |
-| `connection_inactive` | the Stripe account is no longer connected |
-| `not_paid`, `refund_pending` | Stripe says the payment or refund has not succeeded; a later event covers it |
-| `no_payment_intent` | nothing was charged (free order, trial, or a legacy charge without a PaymentIntent) |
-| `no_sale` | a refund or dispute for a payment that was never recorded as a sale |
-| `not_live`, `object_mismatch`, `amount_mismatch`, `charge_mismatch` | what Stripe returned did not agree with the signed event; nothing was written |
-| `invoice_payments_unsupported` | an invoice paid by more than one payment; each payment is still recorded from its own receipt |
-| `sale_conflict`, `not_recorded` | the database declined the sale; look at the receipt |
-| `failed` | gave up after 8 attempts; `process_error` holds the last reason |
+| Outcome                                                             | Meaning                                                                                       |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `recorded`                                                          | the sale, refund or dispute was written                                                       |
+| `no_program`                                                        | the workspace has no approved program                                                         |
+| `before_program`                                                    | the event is older than the program's first approval                                          |
+| `connection_inactive`                                               | the Stripe account is no longer connected                                                     |
+| `not_paid`, `refund_pending`                                        | Stripe says the payment or refund has not succeeded; a later event covers it                  |
+| `no_payment_intent`                                                 | nothing was charged (free order, trial, or a legacy charge without a PaymentIntent)           |
+| `no_sale`                                                           | a refund or dispute for a payment that was never recorded as a sale                           |
+| `not_live`, `object_mismatch`, `amount_mismatch`, `charge_mismatch` | what Stripe returned did not agree with the signed event; nothing was written                 |
+| `invoice_payments_unsupported`                                      | an invoice paid by more than one payment; each payment is still recorded from its own receipt |
+| `sale_conflict`, `not_recorded`                                     | the database declined the sale; look at the receipt                                           |
+| `failed`                                                            | gave up after 8 attempts; `process_error` holds the last reason                               |
 
 `process_error` while a receipt is being retried: `stripe_unavailable`,
 `stripe_account_denied`, `stripe_object_missing`, `stripe_request_rejected`,
