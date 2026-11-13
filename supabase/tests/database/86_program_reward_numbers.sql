@@ -166,6 +166,16 @@ begin
   update public.affiliate_programs set live_terms_version = live_terms_version + 1 where id = p.id;
   update public.affiliate_program_members set terms_version = terms_version + 1 where program_id = p.id;
 end $$;
+-- A fixture for a program published before Phase 6: its published terms say nothing about
+-- what creators earn from. (The program form of Phase 6 writes "sales" there.)
+create function pg_temp.terms_from_before(workspace text) returns void language plpgsql as $$
+declare p public.affiliate_programs := pg_temp.program(workspace);
+begin
+  insert into public.affiliate_program_terms(program_id, version, terms, agreement, agreement_sha256, created_by)
+  select t.program_id, t.version + 1, t.terms - 'earn_from' - 'rewards', t.agreement, t.agreement_sha256, t.created_by
+  from public.affiliate_program_terms t where t.program_id = p.id and t.version = p.live_terms_version;
+  update public.affiliate_programs set live_terms_version = live_terms_version + 1 where id = p.id;
+end $$;
 -- The same for a program that starts paying for events: what it earns from, its rewards and
 -- its monthly budget on the program, and terms that name the first two. A program that pays
 -- for events only has no commission in its terms.
@@ -510,10 +520,14 @@ select pg_temp.publish('rival_owner', 'rival', '{"name":"Rival Reader","category
 select pg_temp.publish('quiet_owner', 'quiet', '{"name":"Quiet Club","category":"lifestyle","tagline":"A calmer phone.",
   "landing_url":"https://quietclub.io/join","commission_type":"percent","commission_rate_bps":2000,
   "commission_duration":"lifetime","hold_days":14}');
+-- Quiet Club was published before Phase 6: its terms name neither what creators earn from nor rewards.
+select pg_temp.terms_from_before('quiet');
 select pg_temp.check((select bool_and(p.status = 'live' and p.earn_from = 'sales' and p.rewards = '[]' and p.reward_budget_minor is null)
       and count(*) = 3 from public.affiliate_programs p)
-  and (select bool_and(not t.terms ? 'earn_from' and not t.terms ? 'rewards') from public.affiliate_program_terms t),
-  'three programs are live, paying for sales, with terms that say nothing about events');
+  and (select not t.terms ? 'earn_from' and not t.terms ? 'rewards' and t.terms->>'commission_type' = 'percent'
+    from public.affiliate_program_terms t join public.affiliate_programs p on p.id = t.program_id and p.live_terms_version = t.version
+    where p.id = (pg_temp.program('quiet')).id),
+  'three programs are live, paying for sales, and the terms of one say nothing about events');
 
 -- Closed by default ----------------------------------------------------------------------------
 select pg_temp.check((select count(*) = 4 and bool_and(has_function_privilege('authenticated', p.oid, 'execute')
@@ -1091,6 +1105,10 @@ select pg_temp.check(pg_temp.performance('ada', 'quiet-club', 30) - 'programs' =
   'every answer about the sales program is what it was before any reward existed');
 
 -- Terms are read for what they say ------------------------------------------------------------------------
+-- Some of the terms below could not be saved through the program form. Whatever keeps other
+-- tables in step with a program's terms is switched off while they are written: this part is
+-- only about how terms are read.
+alter table public.affiliate_programs disable trigger user;
 -- What a program earns from is what its published terms say, not what the form holds.
 update public.affiliate_programs set earn_from = 'both', reward_budget_minor = 100,
   rewards = '[{"key":"signup_completed","label":"Joined","amount_minor":500}]' where id = (pg_temp.program('quiet')).id;
@@ -1129,6 +1147,7 @@ select pg_temp.check((select a->'program'->>'earn_from' = 'both'
   and pg_temp.creators('quiet_owner', 'quiet')->>'earn_from' = 'both'
   and pg_temp.listed(pg_temp.links('dee'), 'quiet-club')->>'earn_from' = 'both',
   'an item that is not a key, a label and a whole amount is left out, and the rest still reads');
+alter table public.affiliate_programs enable trigger user;
 
 -- Nothing about the person who did an event ---------------------------------------------------------------
 select pg_temp.keep('cy_performance', pg_temp.performance('cy', 'rival-reader', 90)), pg_temp.keep('cy_links', pg_temp.links('cy')),
