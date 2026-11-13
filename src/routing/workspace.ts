@@ -2,7 +2,7 @@ export type Workspace = 'partner' | 'admin'
 
 const adminHostname = 'admin.kissmyapps.dev'
 const partnerHostname = 'partners.kissmyapps.dev'
-const partnerRoutes = new Set(['performance', 'payouts', 'links', 'profile'])
+const partnerRoutes = new Set(['performance', 'payouts', 'links', 'marketplace', 'profile'])
 
 function routePrefix(hash: string): string {
   return hash.replace(/^#/, '').split('/')[0]?.toLowerCase() ?? ''

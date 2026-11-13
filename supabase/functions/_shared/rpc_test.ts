@@ -117,3 +117,65 @@ Deno.test("short click RPC passes only the stored alias path and ordinary tracki
   );
   assertEquals(error.status, 429);
 });
+
+Deno.test("a null click id from the click RPC means redirect only; a missing or malformed one stays unavailable", async () => {
+  const { registerShortTrackingClick } = await import("./rpc.ts");
+  const { NotFoundError } = await import("./errors.ts");
+  const context = {
+    country_code: null,
+    session_id_hash: null,
+    user_agent_hash: null,
+    ip_hash: null,
+    is_bot: false,
+  };
+  const answering = (row: Record<string, unknown>): SupabaseClient =>
+    ({
+      rpc: () => Promise.resolve({ data: [row], error: null }),
+    }) as unknown as SupabaseClient;
+  const untracked = {
+    click_id: null,
+    destination_url: "https://speaksix.example/start",
+    is_bot: false,
+  };
+  assertEquals(
+    await registerTrackingClick(
+      answering(untracked),
+      "partner",
+      "a".repeat(24),
+      context,
+    ),
+    {
+      clickId: null,
+      destinationUrl: "https://speaksix.example/start",
+      isBot: false,
+    },
+  );
+  assertEquals(
+    (await registerShortTrackingClick(
+      answering(untracked),
+      "/speaksix/ada",
+      context,
+    )).clickId,
+    null,
+  );
+  for (
+    const row of [
+      { destination_url: "https://speaksix.example/start", is_bot: false },
+      { ...untracked, click_id: "short" },
+      { ...untracked, click_id: 7 },
+      { ...untracked, destination_url: null },
+      { click_id: null, destination_url: "https://speaksix.example/start" },
+    ]
+  ) {
+    await assertRejects(
+      () =>
+        registerTrackingClick(
+          answering(row),
+          "partner",
+          "a".repeat(24),
+          context,
+        ),
+      NotFoundError,
+    );
+  }
+});

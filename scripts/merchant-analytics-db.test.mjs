@@ -42,6 +42,9 @@ const suites = [
   ['73_program_sales.sql', /^ok \d+ program sales assertions$/m],
   ['74_analytics_creator_click.sql', /^ok \d+ analytics creator click assertions$/m],
   ['75_affiliate_program_end_to_end.sql', /^ok \d+ program end to end assertions$/m],
+  ['76_program_join.sql', /^ok \d+ program join assertions$/m],
+  ['77_program_link_tracking.sql', /^ok \d+ program link tracking assertions$/m],
+  ['78_program_creator_end_to_end.sql', /^ok \d+ program creator end to end assertions$/m],
 ]
 
 const bin = postgresBin()
@@ -75,7 +78,8 @@ test('merchant analytics database suite', { skip, timeout: 300_000 }, () => {
     run('psql', ['-h', dir, '-d', 'postgres', '-XAtq', '-v', 'ON_ERROR_STOP=1'], input)
   let started = false
   try {
-    run('initdb', ['-D', join(dir, 'data'), '-A', 'trust'])
+    // UTF-8 like the hosted database: the readable link address needs it.
+    run('initdb', ['-D', join(dir, 'data'), '-A', 'trust', '-E', 'UTF8', '--locale=C'])
     run('pg_ctl', [
       '-D',
       join(dir, 'data'),

@@ -1,4 +1,4 @@
-export type PortalPage = 'performance' | 'payouts' | 'links' | 'profile'
+export type PortalPage = 'performance' | 'payouts' | 'links' | 'marketplace' | 'profile'
 export type ProfileSection = 'details' | 'payment' | 'terms' | 'documents' | 'security'
 export type PreviewState = 'sample' | 'empty' | 'loading' | 'error' | 'partial'
 export type ReportingPeriod = '7' | '30' | '90'

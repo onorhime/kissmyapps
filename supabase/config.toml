@@ -499,6 +499,11 @@ verify_jwt = false
 # schedule, each with its own secret; disabled unless PROGRAM_SALES_ENABLED=true.
 [functions.program-sales-worker]
 verify_jwt = false
+# Public marketplace: the live affiliate programs and one program by its address, read
+# signed out by kissmyapps.dev/marketplace. GET only, no session, no credential read;
+# disabled unless MARKETPLACE_ENABLED=true.
+[functions.marketplace]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false

@@ -18,6 +18,22 @@ import {
   mapRows,
   mapSingleRow,
 } from './mappers'
+import {
+  programError,
+  programFailure,
+  readMembershipAnswer,
+  readPartnerMarketplace,
+  readPartnerProgramView,
+} from '../marketplace/programs'
+import type {
+  PartnerMarketplace,
+  PartnerProgramError,
+  PartnerProgramResult,
+  PartnerProgramView,
+  ProgramJoinInput,
+  ProgramMembership,
+  ProgramTermsInput,
+} from '../marketplace/programs'
 import type {
   PartnerAgreement,
   PartnerDashboardQuery,
@@ -46,6 +62,8 @@ import type {
 type BackendError = Readonly<{
   code?: string
   message?: string
+  /** PostgREST passes the DETAIL of a raised exception here. */
+  details?: string
   status?: number
 }>
 
@@ -128,6 +146,15 @@ export interface PartnerDataGateway {
   getAgreementDocumentUrl?: (input: {
     filePath: string
   }) => Promise<PartnerDataResult<string | null>>
+  /** Optional: the program marketplace may be absent in older deployments. */
+  getMarketplace?: () => Promise<PartnerProgramResult<PartnerMarketplace | null>>
+  getProgram?: (slug: string) => Promise<PartnerProgramResult<PartnerProgramView | null>>
+  /** The click-accept: sends the version and hash of the agreement that was on screen. */
+  joinProgram?: (input: ProgramJoinInput) => Promise<PartnerProgramResult<ProgramMembership | null>>
+  acceptProgramTerms?: (
+    input: ProgramTermsInput,
+  ) => Promise<PartnerProgramResult<ProgramMembership | null>>
+  leaveProgram?: (programId: string) => Promise<PartnerProgramResult<ProgramMembership | null>>
 }
 
 const emptyMetrics = () => ({
@@ -297,6 +324,40 @@ async function readSingle<T>(
     }
   } catch {
     return thrownFailure(empty)
+  }
+}
+
+/**
+ * One call to a program function. Its failures carry a stable code in DETAIL, which is kept;
+ * anything else falls back to the general mapping above.
+ */
+async function programCall<T>(
+  client: PartnerSupabaseClient | null,
+  functionName: string,
+  args: Record<string, unknown> | undefined,
+  read: (data: unknown) => T,
+): Promise<PartnerProgramResult<T | null>> {
+  const failed = (error: PartnerProgramError): PartnerProgramResult<T | null> => ({
+    data: null,
+    status: 'error',
+    error,
+  })
+  if (!client) return { data: null, status: 'unconfigured', error: programError('not_configured') }
+  try {
+    const response = await client.rpc(functionName, args)
+    if (response.error) {
+      const known = programFailure(response.error)
+      if (known) return failed(known)
+      const general = backendFailure(response.error, response.status, () => null).error
+      return failed(programError(general?.code ?? 'unknown'))
+    }
+    try {
+      return { data: read(response.data), status: 'ready', error: null }
+    } catch {
+      return failed(programError('invalid_response'))
+    }
+  } catch {
+    return failed(programError('temporarily_unavailable'))
   }
 }
 
@@ -699,6 +760,58 @@ export function createPartnerDataGateway(
       } catch {
         return thrownFailure(() => null)
       }
+    },
+
+    async getMarketplace() {
+      return programCall(client, PARTNER_RPCS.marketplace, undefined, readPartnerMarketplace)
+    },
+
+    async getProgram(slug) {
+      return programCall(
+        client,
+        PARTNER_RPCS.programDetail,
+        { p_slug: slug },
+        readPartnerProgramView,
+      )
+    },
+
+    async joinProgram(input) {
+      return programCall(
+        client,
+        PARTNER_RPCS.programJoin,
+        {
+          p_input: {
+            slug: input.slug,
+            terms_version: input.termsVersion,
+            agreement_sha256: input.agreementSha256,
+          },
+        },
+        readMembershipAnswer,
+      )
+    },
+
+    async acceptProgramTerms(input) {
+      return programCall(
+        client,
+        PARTNER_RPCS.programAcceptTerms,
+        {
+          p_input: {
+            program_id: input.programId,
+            terms_version: input.termsVersion,
+            agreement_sha256: input.agreementSha256,
+          },
+        },
+        readMembershipAnswer,
+      )
+    },
+
+    async leaveProgram(programId) {
+      return programCall(
+        client,
+        PARTNER_RPCS.programLeave,
+        { p_input: { program_id: programId } },
+        readMembershipAnswer,
+      )
     },
 
     async getAgreementDocumentUrl(input) {

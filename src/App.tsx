@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   LogOut,
   Menu,
+  Store,
   WalletCards,
   X,
 } from 'lucide-react'
@@ -63,17 +64,43 @@ import './brand.css'
 import type { ReportingPeriod } from './features/partner/live/performanceData'
 import { MerchantConnectionPage } from './features/merchant-connections/MerchantConnectionPage'
 import { isMerchantRoute } from './features/merchant-connections/routing'
+import { marketplaceHash, programSlugFromHash } from './features/marketplace/routing'
+import {
+  clearWantedProgram,
+  rememberWantedProgram,
+  takeWantedProgram,
+  wantedProgramClearedUrl,
+  wantedProgramFromSearch,
+} from './features/partner/marketplace/wantedProgram'
 
 const navigation = [
   { id: 'performance', label: 'Performance', icon: ChartNoAxesCombined },
   { id: 'payouts', label: 'Payouts', icon: WalletCards },
   { id: 'links', label: 'Links & Sources', icon: Link2 },
+  { id: 'marketplace', label: 'Marketplace', icon: Store },
   { id: 'profile', label: 'Profile & Documents', icon: Files },
 ] as const
 
-function currentPage(): PortalPage {
+/** The design preview has sample data only; the marketplace exists on the live dashboard. */
+const previewNavigation = navigation.filter((item) => item.id !== 'marketplace')
+
+const guideCopy: Record<PortalPage, string> = {
+  performance: 'Understand traffic, conversions, and partner earnings.',
+  payouts: 'Follow earnings through review, approval, and payment.',
+  links: 'Find your tracked links and compare traffic sources.',
+  marketplace: 'Find programs to promote and get your link.',
+  profile: 'Keep your details and partnership documents together.',
+}
+
+function currentPage(preview = false): PortalPage {
   const hash = window.location.hash.slice(1).split('/')[0]
-  return navigation.some((item) => item.id === hash) ? (hash as PortalPage) : 'performance'
+  return (preview ? previewNavigation : navigation).some((item) => item.id === hash)
+    ? (hash as PortalPage)
+    : 'performance'
+}
+
+function currentProgramSlug(): string | null {
+  return programSlugFromHash(window.location.hash)
 }
 
 function currentProfileSection(): ProfileSection {
@@ -212,7 +239,9 @@ function App({
     userId: null,
     status: previewMode ? 'active' : 'loading',
   }))
-  const [page, setPage] = useState<PortalPage>(currentPage)
+  const [page, setPage] = useState<PortalPage>(() => currentPage(previewMode))
+  const [programSlug, setProgramSlug] = useState<string | null>(currentProgramSlug)
+  const partnerNavigation = previewMode ? previewNavigation : navigation
   const [profileSection, setProfileSection] = useState<ProfileSection>(currentProfileSection)
   const [workspaceMode, setWorkspaceMode] = useState<Workspace>(() =>
     initialWorkspace({
@@ -334,14 +363,18 @@ function App({
     void verification
       .then((confirmedSession) => {
         if (!active) return
+        // Someone who registered to join a program lands on that program.
+        const wanted = takeWantedProgram()
         setWorkspaceMode('partner')
-        setPage('performance')
+        setPage(wanted ? 'marketplace' : 'performance')
+        setProgramSlug(wanted)
         setActivationState({ userId: confirmedSession.user.id, status: 'active' })
         setAuthScreen(null)
+        const cleared = signupCallbackClearedUrl(window.location, 'performance')
         window.history.replaceState(
           null,
           '',
-          signupCallbackClearedUrl(window.location, 'performance'),
+          wanted ? cleared.replace(/#performance$/, marketplaceHash(wanted)) : cleared,
         )
       })
       .catch((error) => {
@@ -442,14 +475,15 @@ function App({
           setAdminAffiliateId(currentAdminAffiliateId())
         } else {
           setWorkspaceMode('partner')
-          setPage(currentPage())
+          setPage(currentPage(previewMode))
+          setProgramSlug(currentProgramSlug())
           setProfileSection(currentProfileSection())
         }
       }
       setMobileMenu(false)
       setHelpOpen(false)
       setNotificationsOpen(false)
-      if (currentPage() !== 'performance') setReportLink(null)
+      if (currentPage(previewMode) !== 'performance') setReportLink(null)
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -491,14 +525,22 @@ function App({
                                 ? 'Product stats'
                                 : 'Product setup'
         : navigation.find((item) => item.id === page)?.label
-    document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
-    const view = effectiveAuthScreen ?? (workspaceMode === 'admin' ? `admin/${adminRoute}` : page)
+    // The Marketplace page names the open program in the title itself once it has loaded.
+    if (effectiveAuthScreen || workspaceMode === 'admin' || page !== 'marketplace' || !programSlug)
+      document.title = `${title} · KissMyApps ${workspaceMode === 'admin' ? 'Admin' : 'Partners'}`
+    const view =
+      effectiveAuthScreen ??
+      (workspaceMode === 'admin'
+        ? `admin/${adminRoute}`
+        : page === 'marketplace' && programSlug
+          ? `marketplace/${programSlug}`
+          : page)
     if (previousView.current !== view) {
       document.getElementById('main-content')?.focus({ preventScroll: true })
       window.scrollTo({ top: 0, behavior: 'auto' })
     }
     previousView.current = view
-  }, [adminRoute, effectiveAuthScreen, page, previewMode, workspaceMode])
+  }, [adminRoute, effectiveAuthScreen, page, previewMode, programSlug, workspaceMode])
 
   useEffect(() => {
     const toolbar = previewToolbar.current
@@ -518,9 +560,27 @@ function App({
   }, [effectiveAuthScreen])
 
   useEffect(() => {
+    if (previewMode) return
+    // The public marketplace's Sign in and Become a creator links name the wanted program.
+    const wanted = wantedProgramFromSearch(window.location.search)
+    if (!wanted) return
+    rememberWantedProgram(wanted)
+    window.history.replaceState(null, '', wantedProgramClearedUrl(window.location))
+  }, [previewMode])
+
+  useEffect(() => {
     if (previewMode || authScreen || ['loading', 'authenticated'].includes(session.status)) return
+    // A signed-out visitor sent to a program keeps it while they sign in or register.
+    const wanted = currentProgramSlug()
+    if (wanted) rememberWantedProgram(wanted)
     window.location.hash = 'auth/sign-in'
   }, [authScreen, previewMode, session.status])
+
+  useEffect(() => {
+    // Once a signed-in creator is on a program's page, there is nothing left to remember.
+    if (previewMode || authScreen || session.status !== 'authenticated') return
+    if (workspaceMode === 'partner' && page === 'marketplace' && programSlug) clearWantedProgram()
+  }, [authScreen, page, previewMode, programSlug, session.status, workspaceMode])
 
   useEffect(() => {
     if (!signOutError) return
@@ -537,15 +597,24 @@ function App({
     formGuard.request(() => navigatePartner(nextPage, section))
   }
 
-  function navigatePartner(nextPage: PortalPage, section: ProfileSection) {
+  function navigatePartner(
+    nextPage: PortalPage,
+    section: ProfileSection,
+    program: string | null = null,
+  ) {
     setReportLink(null)
     setAuthScreen(null)
     setWorkspaceMode('partner')
     setPage(nextPage)
+    setProgramSlug(nextPage === 'marketplace' ? program : null)
     setProfileSection(section)
     setMobileMenu(false)
     window.location.hash =
-      nextPage === 'profile' && section !== 'details' ? `profile/${section}` : nextPage
+      nextPage === 'profile' && section !== 'details'
+        ? `profile/${section}`
+        : nextPage === 'marketplace' && program
+          ? `marketplace/${program}`
+          : nextPage
   }
 
   function navigateAdmin(nextRoute: AdminRoute) {
@@ -593,7 +662,13 @@ function App({
   }
 
   function openRequestedWorkspace() {
-    if (workspaceMode === 'admin') navigateAdmin(adminRoute)
+    if (workspaceMode === 'admin') {
+      navigateAdmin(adminRoute)
+      return
+    }
+    // Someone who signed in to join a program goes straight to that program.
+    const wanted = takeWantedProgram()
+    if (wanted) formGuard.request(() => navigatePartner('marketplace', 'details', wanted))
     else navigate('performance')
   }
 
@@ -732,7 +807,7 @@ function App({
       </div>
       <div className="nav-caption">WORKSPACE</div>
       <nav aria-label="Partner navigation">
-        {navigation.map((item) => (
+        {partnerNavigation.map((item) => (
           <a
             href={`#${item.id}`}
             key={item.id}
@@ -795,7 +870,7 @@ function App({
         description="Navigate your partner dashboard."
       >
         <nav className="mobile-navigation" aria-label="Mobile partner navigation">
-          {navigation.map((item) => (
+          {partnerNavigation.map((item) => (
             <a
               href={`#${item.id}`}
               key={item.id}
@@ -880,6 +955,7 @@ function App({
               <NavigationGuardContext.Provider value={formGuard.request}>
                 <LivePartnerPortal
                   page={page}
+                  programSlug={programSlug}
                   reportingDays={reportingDays}
                   onReportingDaysChange={setReportingDays}
                 />
@@ -1025,7 +1101,7 @@ function App({
         description="A quick tour of your KissMyApps workspace."
       >
         <div className="guide-list">
-          {navigation.map((item, index) => (
+          {partnerNavigation.map((item, index) => (
             <button
               key={item.id}
               onClick={() => {
@@ -1036,16 +1112,7 @@ function App({
               <span>0{index + 1}</span>
               <div>
                 <strong>{item.label}</strong>
-                <p>
-                  {
-                    [
-                      'Understand traffic, conversions, and partner earnings.',
-                      'Follow earnings through review, approval, and payment.',
-                      'Find your tracked links and compare traffic sources.',
-                      'Keep your details and partnership documents together.',
-                    ][index]
-                  }
-                </p>
+                <p>{guideCopy[item.id]}</p>
               </div>
               <ArrowRight size={17} />
             </button>
