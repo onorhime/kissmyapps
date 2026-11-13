@@ -236,7 +236,8 @@ describe('reading what the program functions answer', () => {
     expect(readMembership(membershipRow())).toEqual({
       id: 'mem-1',
       program_id: 'prog-1',
-      program: { ...speaksixCard, membership_status: null },
+      // A card from before programs could pay for events pays for sales and has no rewards.
+      program: { ...speaksixCard, earn_from: 'sales', rewards: [], membership_status: null },
       program_status: 'live',
       status: 'active',
       terms_version: 1,

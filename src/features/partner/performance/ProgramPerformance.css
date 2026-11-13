@@ -662,3 +662,103 @@
     transition: none;
   }
 }
+
+/*
+ * A program that pays for events. Events stand where sales do, or beside them when the program
+ * pays for both, and the program's rewards have a table of their own under the channels.
+ */
+
+/* Sales and events: six figures in the panel. */
+.pp-page .pp-figures-six {
+  grid-template-columns: minmax(0, 1.3fr) repeat(5, minmax(0, 1fr));
+}
+
+.pp-stack {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* One quiet line beside the title: the brand's budget for the month is used up. */
+.pp-card-head .pp-budget {
+  margin: 0;
+  font-size: 13px;
+}
+
+.pp-table tbody .pp-zero {
+  color: var(--brand-subtle);
+}
+
+/* Six figures make two even rows of three, so none is left alone. */
+@media (max-width: 1380px) {
+  .pp-page .pp-figures-six {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pp-figures-six .pp-figure-lead {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  .pp-page .pp-figures-six {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Earnings and the last figure take a line each; the four counts and rates pair up. */
+  .pp-figures-six .pp-figure-lead,
+  .pp-figures-six .pp-figure:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* A channel with events and sales: its name and earnings, the three counts, the two rates. */
+  .pp-table.pp-table-wide tbody tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      'name name earned'
+      'clicks events sales'
+      'rate each .';
+  }
+
+  .pp-table.pp-table-wide tbody td:nth-child(3) {
+    grid-area: events;
+  }
+
+  .pp-table.pp-table-wide tbody td:nth-child(4) {
+    grid-area: sales;
+  }
+
+  .pp-table.pp-table-wide tbody td:nth-child(5) {
+    grid-area: rate;
+    text-align: left;
+  }
+
+  .pp-table.pp-table-wide tbody td:nth-child(6) {
+    grid-area: earned;
+    text-align: right;
+  }
+
+  .pp-table.pp-table-wide tbody td:nth-child(7) {
+    grid-area: each;
+  }
+
+  /* A reward: its name and earnings, then what one pays and how many there were. */
+  .pp-table.pp-rewards tbody tr {
+    grid-template-areas:
+      'name name name earned'
+      'each events . .';
+  }
+
+  .pp-table.pp-rewards tbody td:nth-child(2) {
+    grid-area: each;
+  }
+
+  .pp-table.pp-rewards tbody td:nth-child(3) {
+    grid-area: events;
+  }
+
+  .pp-table.pp-rewards tbody td:nth-child(4) {
+    grid-area: earned;
+    text-align: right;
+  }
+}

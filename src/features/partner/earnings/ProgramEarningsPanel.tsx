@@ -8,13 +8,15 @@ import {
   commissionStatusLine,
   earningsErrorMessage,
   hasEarnings,
+  hasRewards,
   payableNow,
   payoutRuleLine,
   payoutStatusLine,
   payoutTone,
   payoutsOn,
+  programActivity,
   programHasEarnings,
-  salesCount,
+  rewardLine,
   shortDay,
 } from './earnings'
 import type {
@@ -30,7 +32,8 @@ import './ProgramEarnings.css'
 /**
  * What a creator has earned through the programs they joined: per program, the commission
  * still inside its hold, the commission that has passed it, what is in a payout on its way and
- * what was paid; then the payouts and the latest commissions.
+ * what was paid; then the payouts and the latest commissions. A program can also pay a reward
+ * for an event, such as a sign-up: a reward is listed with the sales, under its own name.
  *
  * While payouts are switched on it also holds the creator's payout account. While they are
  * off, or on a database from before payouts, it shows money only: no payout account, no
@@ -55,6 +58,7 @@ export function ProgramEarningsPanel({
   const { state, retry } = useProgramEarnings(gateway)
   if (state.status === 'hidden') return null
   const terms = state.status === 'ready' ? payoutsOn(state.earnings) : null
+  const rewards = state.status === 'ready' && state.earnings ? hasRewards(state.earnings) : false
 
   return (
     <section
@@ -65,8 +69,9 @@ export function ProgramEarningsPanel({
       <header className="pe-head">
         <h2 id="pe-title">Program earnings</h2>
         <p>
-          Commission from the programs you joined in the Marketplace. It is pending while the
-          program’s hold runs, then approved unless the sale was refunded.
+          {rewards
+            ? 'Commission and rewards from the programs you joined in the Marketplace. Each is pending while the program’s hold runs, then approved unless it was refunded or rejected.'
+            : 'Commission from the programs you joined in the Marketplace. It is pending while the program’s hold runs, then approved unless the sale was refunded.'}
         </p>
       </header>
 
@@ -133,6 +138,10 @@ function Earnings({ earnings }: { earnings: ProgramEarnings }) {
   const rule = payoutRuleLine(earnings)
   const programs = earnings.programs.filter(programHasEarnings)
   const recent = showAll ? earnings.recent : earnings.recent.slice(0, RECENT_SHOWN)
+  // With a reward in the list its words are about earnings; with rewards only, no row has a
+  // sale amount, so that column is left out.
+  const withRewards = earnings.recent.some((commission) => commission.kind === 'reward')
+  const withSales = earnings.recent.some((commission) => commission.kind !== 'reward')
   // Payouts were never made here: the line from before payouts still holds.
   const payoutsToCome =
     !paying &&
@@ -154,25 +163,32 @@ function Earnings({ earnings }: { earnings: ProgramEarnings }) {
       {paying && <Payouts payouts={earnings.payouts ?? []} now={now} />}
 
       {earnings.recent.length > 0 && (
-        <div className="pe-list pe-recent">
-          <h3 id="pe-recent-title">Recent commissions</h3>
+        <div className={withSales ? 'pe-list pe-recent' : 'pe-list pe-recent pe-recent-rewards'}>
+          <h3 id="pe-recent-title">{withRewards ? 'Recent earnings' : 'Recent commissions'}</h3>
           <table aria-labelledby="pe-recent-title">
             <thead>
               <tr>
-                <th scope="col">Sale date</th>
+                <th scope="col">{withRewards ? 'Date' : 'Sale date'}</th>
                 <th scope="col">Program</th>
+                {withSales && (
+                  <th scope="col" className="pe-num">
+                    Sale
+                  </th>
+                )}
                 <th scope="col" className="pe-num">
-                  Sale
-                </th>
-                <th scope="col" className="pe-num">
-                  Your commission
+                  {withRewards ? 'You earn' : 'Your commission'}
                 </th>
                 <th scope="col">Status</th>
               </tr>
             </thead>
             <tbody>
               {recent.map((commission) => (
-                <CommissionRow key={commission.id} commission={commission} now={now} />
+                <CommissionRow
+                  key={commission.id}
+                  commission={commission}
+                  now={now}
+                  saleColumn={withSales}
+                />
               ))}
             </tbody>
           </table>
@@ -240,7 +256,7 @@ function ProgramRow({
     <li className="pe-program">
       <div className="pe-program-name">
         {row.slug ? <a href={marketplaceHash(row.slug)}>{row.name}</a> : <span>{row.name}</span>}
-        <small>{salesCount(row.sales)}</small>
+        <small>{programActivity(row)}</small>
       </div>
       <dl>
         <Figure
@@ -322,17 +338,35 @@ function Payouts({ payouts, now }: { payouts: ProgramPayout[]; now: Date }) {
   )
 }
 
-function CommissionRow({ commission, now }: { commission: RecentCommission; now: Date }) {
+function CommissionRow({
+  commission,
+  now,
+  saleColumn,
+}: {
+  commission: RecentCommission
+  now: Date
+  /** False when the list holds rewards only, which have no sale amount. */
+  saleColumn: boolean
+}) {
   const { amount, was } = commissionAmount(commission)
+  const reward = rewardLine(commission)
+  const classes = [commission.status === 'reversed' && 'pe-returned', reward && 'pe-reward']
+    .filter(Boolean)
+    .join(' ')
   return (
-    <tr className={commission.status === 'reversed' ? 'pe-returned' : undefined}>
+    <tr className={classes || undefined}>
       <td>{commission.paid_at ? shortDay(commission.paid_at, now) : '—'}</td>
-      <th scope="row">{commission.program_name}</th>
-      <td className="pe-num">
-        {commission.sale_amount_minor === null
-          ? '—'
-          : formatMoney(commission.sale_amount_minor, commission.currency)}
-      </td>
+      <th scope="row">
+        {commission.program_name}
+        {reward && <small>{reward}</small>}
+      </th>
+      {saleColumn && (
+        <td className="pe-num">
+          {commission.sale_amount_minor === null
+            ? '—'
+            : formatMoney(commission.sale_amount_minor, commission.currency)}
+        </td>
+      )}
       <td className="pe-num">
         <span className="pe-amount">{amount}</span>
         {was && <small>{was} before a refund</small>}
