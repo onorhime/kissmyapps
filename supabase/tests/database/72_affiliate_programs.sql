@@ -885,5 +885,20 @@ select pg_temp.check((select count(*) = 3 from public.affiliate_programs)
     from public.affiliate_program_terms t),
   'three workspaces have three programs, and every stored agreement still matches its terms and its hash');
 
+-- Which products are a program's (Phase 5: the admin app keeps its setup wizard for the others).
+select pg_temp.check(
+  (select jsonb_array_length(a->'products') = (select count(*) from public.affiliate_programs p where p.product_id is not null)
+      and jsonb_array_length(a->'products') > 0
+      and (select bool_and(exists (select 1 from public.affiliate_programs p
+          where p.id = (x->>'program_id')::uuid and p.product_id = (x->>'product_id')::uuid
+            and p.name = x->>'program_name' and p.slug = x->>'program_slug' and p.status = x->>'program_status'))
+        from jsonb_array_elements(a->'products') x)
+    from pg_temp.call('kma_operations', 'select public.get_admin_program_products()') a)
+  and pg_temp.try('owner', 'select public.get_admin_program_products()') = '42501'
+  and pg_temp.try_signed_out('authenticated', 'select public.get_admin_program_products()') = '28000'
+  and pg_temp.try_signed_out('anon', 'select public.get_admin_program_products()') = '42501'
+  and pg_temp.try_signed_out('service_role', 'select public.get_admin_program_products()') = '42501',
+  'an admin can read which products belong to a program; a merchant and a signed-out caller cannot');
+
 select 'ok ' || count(*) || ' affiliate program assertions' from program_assertions;
 rollback;
