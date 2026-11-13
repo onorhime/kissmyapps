@@ -998,10 +998,15 @@ select pg_temp.check((pg_temp.dispute('p_d3', 'acct_SpeakSix', 'lost') @> '{"rec
   and pg_temp.c('p_d3') = 'approved 0+147' and pg_temp.credited('p_d3', 'clawback') = '1x-1470'
   and pg_temp.moved('p_d3', 'commission_returned') = '1x1470',
   'a dispute lost after approval takes the whole commission back the same way');
--- Part two will pay creators. Until then nothing lowers what they have coming except a
--- clawback; this fixture stands for a payout that left Ada only $5.00 from SpeakSix.
+-- A payout (suite 82 covers how one is made) that left Ada only $5.00 from SpeakSix.
+with payout as (
+  insert into public.program_payouts(affiliate_id, platform_account_id, currency, amount_minor, status, connect_account_id,
+    transfer_id, approved_by, paid_at, closed_at)
+  select pg_temp.q('creator_ada'), 'acct_KMAPlatform', 'USD', pg_temp.owed('ada', 'acme') - 500, 'paid', 'acct_AdaPayouts',
+    'tr_AdaFixture', pg_temp.q('kma_owner'), now(), now()
+  returning id, amount_minor)
 insert into public.program_creator_entries(affiliate_id, program_id, currency, kind, amount_minor, payout_id)
-  select pg_temp.q('creator_ada'), (pg_temp.program('acme')).id, 'USD', 'payout', -(pg_temp.owed('ada', 'acme') - 500), gen_random_uuid();
+  select pg_temp.q('creator_ada'), (pg_temp.program('acme')).id, 'USD', 'payout', -amount_minor, id from payout;
 select pg_temp.refund('m_in', 4900);
 select pg_temp.check(pg_temp.c('m_in') = 'approved 970+147' and pg_temp.credited('m_in', 'clawback') = '1x-500'
   and pg_temp.moved('m_in', 'commission_returned') = '1x500' and pg_temp.owed('ada', 'acme') = 0,
