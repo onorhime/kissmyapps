@@ -13,6 +13,7 @@ import {
   inviteLink,
   inviteSummary,
   moneyCurrency,
+  countsShown,
   totalsNote,
   websiteLink,
   withDecision,
@@ -213,6 +214,11 @@ function CreatorsPage({
   const currency = state ? moneyCurrency(state) : null
   const totals = state?.totals ?? null
   const totalsAbout = state ? totalsNote(state, groups.active) : null
+  // A program that pays for events counts them beside sales, or in their place.
+  const shown = state ? countsShown(state) : { sales: true, events: false }
+  const events = shown.events
+  const sells = shown.sales
+  const opens = sells ? 'sales' : 'rewards'
 
   return (
     <div className="mc-page mc-crt" ref={root}>
@@ -383,18 +389,25 @@ function CreatorsPage({
                         <th scope="col" className="mc-num-col">
                           Clicks
                         </th>
-                        <th scope="col" className="mc-num-col">
-                          Sales
-                        </th>
+                        {sells && (
+                          <th scope="col" className="mc-num-col">
+                            Sales
+                          </th>
+                        )}
+                        {events && (
+                          <th scope="col" className="mc-num-col">
+                            Events
+                          </th>
+                        )}
+                        {currency && sells && (
+                          <th scope="col" className="mc-num-col">
+                            Sales amount
+                          </th>
+                        )}
                         {currency && (
-                          <>
-                            <th scope="col" className="mc-num-col">
-                              Sales amount
-                            </th>
-                            <th scope="col" className="mc-num-col">
-                              Commission
-                            </th>
-                          </>
+                          <th scope="col" className="mc-num-col">
+                            {events ? 'Earned' : 'Commission'}
+                          </th>
                         )}
                         <th scope="col" className="mc-crt-last">
                           Last click
@@ -410,7 +423,7 @@ function CreatorsPage({
                       {groups.active.map((creator) => (
                         <tr key={creator.member_id} data-member={creator.member_id} tabIndex={-1}>
                           <td>
-                            <Person creator={creator} sales={Boolean(currency)}>
+                            <Person creator={creator} opens={currency ? opens : undefined}>
                               {creator.needs_new_terms && (
                                 <Pill tone="warning">New terms not yet accepted</Pill>
                               )}
@@ -422,19 +435,40 @@ function CreatorsPage({
                           <td data-label="Clicks" className="mc-num-col mc-num">
                             {formatCount(creator.clicks)}
                           </td>
-                          <td data-label="Sales" className="mc-num-col mc-num">
-                            {formatCount(creator.sales)}
-                          </td>
+                          {sells && (
+                            <td data-label="Sales" className="mc-num-col mc-num">
+                              {formatCount(creator.sales)}
+                            </td>
+                          )}
+                          {events && (
+                            <td data-label="Events" className="mc-num-col mc-num">
+                              {/* Where the name already opens their rewards, the count is a count. */}
+                              {creator.events && sells ? (
+                                <a
+                                  className="mc-crt-open"
+                                  href={href({ name: 'rewards', creator: creator.member_id })}
+                                  aria-label={`${creator.name}: open their rewards`}
+                                >
+                                  {formatCount(creator.events)}
+                                </a>
+                              ) : (
+                                formatCount(creator.events ?? 0)
+                              )}
+                            </td>
+                          )}
+                          {currency && sells && (
+                            <td data-label="Sales amount" className="mc-num-col mc-num">
+                              <Money value={creator.sales_amount_minor} currency={currency} />
+                            </td>
+                          )}
                           {currency && (
-                            <>
-                              <td data-label="Sales amount" className="mc-num-col mc-num">
-                                <Money value={creator.sales_amount_minor} currency={currency} />
-                              </td>
-                              <td data-label="Commission" className="mc-num-col mc-num">
-                                <Money value={creator.commission_minor} currency={currency} />
-                                <Pending value={creator.pending_minor} currency={currency} />
-                              </td>
-                            </>
+                            <td
+                              data-label={events ? 'Earned' : 'Commission'}
+                              className="mc-num-col mc-num"
+                            >
+                              <Money value={creator.commission_minor} currency={currency} />
+                              <Pending value={creator.pending_minor} currency={currency} />
+                            </td>
                           )}
                           <td data-label="Last click" className="mc-crt-last mc-num">
                             {creator.last_click_at ? (
@@ -475,13 +509,25 @@ function CreatorsPage({
                           <td data-label="Clicks" className="mc-num-col mc-num">
                             {formatCount(totals.clicks)}
                           </td>
-                          <td data-label="Sales" className="mc-num-col mc-num">
-                            {formatCount(totals.sales)}
-                          </td>
-                          <td data-label="Sales amount" className="mc-num-col mc-num">
-                            {formatAmount(totals.sales_amount_minor, currency)}
-                          </td>
-                          <td data-label="Commission" className="mc-num-col mc-num">
+                          {sells && (
+                            <td data-label="Sales" className="mc-num-col mc-num">
+                              {formatCount(totals.sales)}
+                            </td>
+                          )}
+                          {events && (
+                            <td data-label="Events" className="mc-num-col mc-num">
+                              {formatCount(totals.events ?? 0)}
+                            </td>
+                          )}
+                          {sells && (
+                            <td data-label="Sales amount" className="mc-num-col mc-num">
+                              {formatAmount(totals.sales_amount_minor, currency)}
+                            </td>
+                          )}
+                          <td
+                            data-label={events ? 'Earned' : 'Commission'}
+                            className="mc-num-col mc-num"
+                          >
                             {formatAmount(totals.commission_minor, currency)}
                             <Pending value={totals.pending_minor} currency={currency} />
                           </td>
@@ -517,7 +563,7 @@ function CreatorsPage({
                     const mine = busy?.memberId === creator.member_id
                     return (
                       <li key={creator.member_id} data-member={creator.member_id} tabIndex={-1}>
-                        <Person creator={creator} sales={Boolean(currency)} />
+                        <Person creator={creator} opens={currency ? opens : undefined} />
                         <p className="mc-crt-facts">
                           <span className="mc-num">{endedLine(creator)}</span>
                           {creator.decision_note && (
@@ -676,15 +722,16 @@ function Pending({ value, currency }: { value: number | null; currency: string }
 
 /**
  * Who a creator is: their initial on their own tint, the name they go by and their handle.
- * With `sales`, the name opens the Sales page narrowed to them.
+ * With `opens`, the name opens the Sales page narrowed to them, or the Rewards page for a
+ * program that pays for events only.
  */
 function Person({
   creator,
-  sales = false,
+  opens,
   children,
 }: {
   creator: Creator
-  sales?: boolean
+  opens?: 'sales' | 'rewards'
   children?: ReactNode
 }) {
   return (
@@ -692,11 +739,11 @@ function Person({
       <Avatar id={creator.member_id} name={creator.name} />
       <span className="mc-person-text">
         <span className="mc-crt-name">
-          {sales ? (
+          {opens ? (
             <a
               className="mc-crt-open"
-              href={href({ name: 'sales', creator: creator.member_id })}
-              aria-label={`${creator.name}: open their sales`}
+              href={href({ name: opens, creator: creator.member_id })}
+              aria-label={`${creator.name}: open their ${opens}`}
             >
               <strong>{creator.name}</strong>
             </a>

@@ -47,6 +47,7 @@ import {
   readState,
 } from './programs'
 import { href, parseRoute } from './routes'
+import { rewardsBackendFixture } from './rewards-backend.fixture'
 
 type Args = Record<string, unknown>
 type Answer = unknown | ((args: Args) => unknown)
@@ -373,7 +374,7 @@ describe('balance route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators', 'Sales', 'Balance'])
+    ).toEqual(['Program', 'Creators', 'Sales', 'Rewards', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -2189,6 +2190,83 @@ describe('program page: the balance in its wording', () => {
       'href',
       '#balance',
     )
+  })
+})
+
+describe('the balance of a program that pays for events', () => {
+  const reward = (over: Row = {}) =>
+    entry({
+      creator_name: 'Mira Maker',
+      sale_amount_minor: null,
+      amount_minor: -200,
+      reward_label: 'Account created',
+      ...over,
+    })
+  const row = (over: Row) => readBalance(balanceState({ activity: [over] })).activity[0]
+
+  it('reads which reward a line is for, and nothing where there is none', () => {
+    expect(row(reward()).reward_label).toBe('Account created')
+    expect(row(reward({ reward_label: '  Trial started ' })).reward_label).toBe('Trial started')
+    // A sale's line says null; a line from before rewards existed has no such key.
+    for (const none of [null, '', '   ', 7, undefined])
+      expect('reward_label' in row(entry({ reward_label: none }))).toBe(false)
+    expect('reward_label' in row(entry())).toBe(false)
+  })
+
+  it('names a reward and who earned it on every line about it', () => {
+    for (const kind of [
+      'commission_reserved',
+      'fee_reserved',
+      'commission_returned',
+      'fee_returned',
+    ])
+      expect(entryDetail(row(reward({ kind })), 'USD')).toBe(
+        'Reward for Mira Maker: Account created',
+      )
+    expect(entryDetail(row(reward({ creator_name: null })), 'USD')).toBe('Reward: Account created')
+    // A sale's line reads as it always did, whatever else the row carries.
+    expect(entryDetail(row(entry({ reward_label: null })), 'USD')).toBe('Ada Okafor · $49.00 sale')
+    // A label never turns a deposit or an adjustment into a reward.
+    expect(entryDetail(row(reward({ kind: 'adjustment', note: 'Goodwill credit' })), 'USD')).toBe(
+      'Goodwill credit',
+    )
+    expect(entryDetail(row(reward({ kind: 'deposit', topup_kind: 'auto' })), 'USD')).toBeNull()
+  })
+
+  it('lists reward lines beside sale lines, in normal units', async () => {
+    signedInAs('owner')
+    const user = await openBalance(rewardsBackendFixture.workspace_program_balance_with_rewards)
+    await user.click(within(activity()).getByRole('button', { name: 'Show more' }))
+    const rows = within(activity()).getAllByRole('row').slice(1)
+    expect(rows[0]).toHaveTextContent('Fee' + 'Reward for Ben Creator: Trial started')
+    expect(rows[0]).toHaveTextContent('−$0.50')
+    expect(rows[1]).toHaveTextContent(
+      'Commission set aside' + 'Reward for Ben Creator: Trial started',
+    )
+    expect(rows[1]).toHaveTextContent('−$5.00')
+    expect(rows[14]).toHaveTextContent('Fee returned' + 'Reward for Ada Okafor: Account created')
+    expect(rows[14]).toHaveTextContent('+$0.20')
+    expect(rows[15]).toHaveTextContent(
+      'Commission returned' + 'Reward for Ada Okafor: Account created',
+    )
+    expect(rows[15]).toHaveTextContent('+$2.00')
+    expect(rows[25]).toHaveTextContent('Commission set aside' + 'Ada Okafor · $49.00 sale')
+    // With rewards on the balance, the summary no longer speaks of sales alone.
+    expect(figure('Reserved')).toHaveTextContent('For commissions still in their hold')
+    expect(page()).toHaveTextContent(
+      'Commission is set aside when a creator earns it, and creators are paid only from this balance.',
+    )
+    expect(page()).not.toHaveTextContent('reward_label')
+    expect(page()).not.toHaveTextContent(/\btest\b/i)
+  })
+
+  it('is the page as it was for an answer from before rewards existed', async () => {
+    signedInAs('owner')
+    await openBalance()
+    const rows = within(activity()).getAllByRole('row').slice(1)
+    expect(rows[1]).toHaveTextContent('Commission set aside' + 'Ada Okafor · $49.00 sale')
+    expect(activity()).not.toHaveTextContent('Reward')
+    expect(figure('Reserved')).toHaveTextContent('For sales still in their hold')
   })
 })
 

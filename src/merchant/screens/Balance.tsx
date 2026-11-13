@@ -432,7 +432,11 @@ function BalancePage({
 
           {started && account && form && (
             <>
-              <Summary account={account} feeBps={state.fee_bps} />
+              <Summary
+                account={account}
+                feeBps={state.fee_bps}
+                rewards={state.activity.some((entry) => entry.reward_label)}
+              />
 
               {!canManage && (
                 <p className="mc-bal-note">
@@ -747,14 +751,25 @@ function FirstDeposit({
   )
 }
 
-/** Where the money stands: what is free, what is set aside, what creators have earned, the fee. */
-function Summary({ account, feeBps }: { account: BalanceAccount; feeBps: number | null }) {
+/**
+ * Where the money stands: what is free, what is set aside, what creators have earned, the fee.
+ * Once rewards for events are on the balance, the words no longer speak of sales alone.
+ */
+function Summary({
+  account,
+  feeBps,
+  rewards,
+}: {
+  account: BalanceAccount
+  feeBps: number | null
+  rewards: boolean
+}) {
   const fee = feePercent(feeBps)
   const figures = [
     {
       label: 'Reserved',
       value: account.reserved_minor,
-      about: 'For sales still in their hold',
+      about: rewards ? 'For commissions still in their hold' : 'For sales still in their hold',
     },
     {
       label: 'Approved for creators',
@@ -792,7 +807,9 @@ function Summary({ account, feeBps }: { account: BalanceAccount; feeBps: number 
         ))}
       </dl>
       <p className="mc-bal-rule">
-        Commission is set aside when a sale happens, and creators are paid only from this balance.
+        {rewards
+          ? 'Commission is set aside when a creator earns it, and creators are paid only from this balance.'
+          : 'Commission is set aside when a sale happens, and creators are paid only from this balance.'}
       </p>
     </section>
   )

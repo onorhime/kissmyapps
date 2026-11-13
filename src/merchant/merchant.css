@@ -6340,3 +6340,533 @@ ul.mc-panel.mc-crt-list > li:first-child {
     content: '';
   }
 }
+
+/*
+ * ---- Rewards (Phase 6): every class in this block starts with mc-rw- ----------------------
+ * The month's budget in one line and one bar, each reward with its count, the creators of the
+ * last 30 days, then the list of rewards to review and, for an owner or admin, to reject.
+ */
+.mc-rw {
+  container: mc-rw / inline-size;
+}
+.mc-rw-none {
+  color: var(--mc-muted);
+}
+.mc-rw-none .mc-link,
+.mc-rw .mc-empty-line .mc-link {
+  white-space: nowrap;
+}
+.mc-rw-banner {
+  padding: 12px 16px;
+  border: 1px solid #4b3d22;
+  border-radius: 12px;
+  background: #241f15;
+  line-height: 20px;
+}
+.mc-rw-banner .mc-link {
+  white-space: nowrap;
+}
+.mc-rw-problem {
+  flex-wrap: wrap;
+}
+.mc-rw-problem > span {
+  flex: 1 1 240px;
+}
+.mc-panel-flush > .mc-rw-problem {
+  margin: 4px 16px 16px;
+}
+.mc-rw-failed {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.mc-rw-failed > .mc-rw-problem {
+  justify-self: stretch;
+}
+
+/* The budget: what is used of it as the one line, what is left beside it, the bar under both. */
+.mc-rw-budget {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px 16px;
+  padding: 0 20px 18px;
+}
+.mc-rw-used {
+  color: var(--mc-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+/* "of $500.00 used" moves to the next line whole, never one word of it. */
+.mc-rw-used > span {
+  white-space: nowrap;
+}
+.mc-rw-used > strong {
+  color: var(--mc-text);
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 34px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.mc-rw-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mc-muted);
+  white-space: nowrap;
+}
+.mc-rw-left.is-used_up {
+  color: var(--mc-warning);
+  font-weight: 600;
+}
+/* The track is a dark step of the fill's own hue, so the state reads along the whole bar. */
+.mc-rw-meter {
+  grid-column: 1 / -1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #15303f;
+}
+.mc-rw-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mc-data);
+}
+.mc-rw-meter.is-nearly,
+.mc-rw-meter.is-used_up {
+  background: #3a2c12;
+}
+.mc-rw-meter.is-nearly > span,
+.mc-rw-meter.is-used_up > span {
+  background: var(--mc-warning);
+}
+.mc-rw-quiet {
+  grid-column: 1 / -1;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-rw-unset {
+  padding: 0 20px 18px;
+  color: var(--mc-muted);
+}
+.mc-rw-month > .mc-rw-rewards {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-rw-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The creators of the last 30 days. Figures can outgrow a narrow window: the table scrolls. */
+.mc-rw-wide {
+  overflow-x: auto;
+}
+.mc-rw-creators td:first-child {
+  min-width: 200px;
+}
+.mc-rw-person > a,
+.mc-rw-person > span:first-child {
+  border-radius: 4px;
+  color: var(--mc-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mc-rw-person > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* A row worth a second look: a small flag and a sentence, readable without its colour. */
+.mc-rw-mark {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-rw-mark > svg {
+  flex: none;
+  color: var(--mc-warning);
+}
+/* A reward's name heads its column and may take two lines. */
+.mc-table th.mc-rw-col {
+  min-width: 72px;
+  max-width: 150px;
+  white-space: normal;
+}
+
+/* The list: its title and the one creator it is narrowed to, then the status it is narrowed to. */
+.mc-rw .mc-rw-head {
+  align-items: center;
+}
+.mc-rw .mc-rw-head > .mc-rw-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+}
+.mc-rw-head > .mc-segmented {
+  max-width: 100%;
+}
+.mc-rw-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 340px);
+  height: 28px;
+  padding: 0 3px 0 12px;
+  border-radius: 999px;
+  background: var(--mc-raised);
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.mc-rw-chip > button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--mc-muted);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+.mc-rw-chip > button:hover {
+  background: var(--mc-control);
+  color: var(--mc-text);
+}
+/* What the page says about a rejection, where the list just changed. */
+.mc-rw-said {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 16px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--mc-well);
+}
+.mc-rw-said > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--mc-positive);
+}
+.mc-rw-said:focus-visible {
+  outline-offset: 0;
+}
+.mc-rw-pick {
+  padding: 0 12px 4px;
+}
+.mc-rw-pick > .mc-text-btn:disabled {
+  opacity: 0.45;
+}
+
+/* One reward per row: when, who and through which link, what for, then the money. */
+.mc-table .mc-rw-tick {
+  width: 1%;
+  padding-right: 0;
+}
+.mc-rw-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.mc-rw-box > input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #ffffff;
+  cursor: inherit;
+}
+.mc-rw-box > input:disabled {
+  cursor: not-allowed;
+}
+.mc-rw-table tbody tr.is-picked td {
+  background: var(--mc-row-hover);
+}
+.mc-rw-when {
+  color: var(--mc-muted);
+  white-space: nowrap;
+}
+.mc-rw-who {
+  min-width: 132px;
+  max-width: 280px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mc-rw-who > a {
+  border-radius: 4px;
+  color: var(--mc-text);
+}
+.mc-rw-who > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mc-rw-channel,
+.mc-rw-reward {
+  min-width: 124px;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+.mc-rw-via {
+  display: none;
+}
+.mc-rw-status > .mc-pill {
+  font-variant-numeric: tabular-nums;
+}
+.mc-rw [data-award] {
+  outline-offset: -3px;
+}
+.mc-panel-flush > .mc-rw-more {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--mc-rule);
+}
+/*
+ * What is selected, and the one thing to do with it. It stays at the foot of the window while
+ * the list is longer than the window: clip, not hidden, so the panel is not its scroll box.
+ */
+.mc-panel.mc-rw-list {
+  overflow: clip;
+}
+.mc-rw-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 20px;
+  border-top: 1px solid var(--mc-control);
+  background: var(--mc-raised);
+}
+.mc-rw-bar > p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  min-width: 0;
+  margin-right: auto;
+}
+.mc-rw-bar > p > strong {
+  font-weight: 600;
+}
+.mc-rw-bar > p > span {
+  color: var(--mc-muted);
+}
+.mc-rw-bar .mc-btn-secondary {
+  background: var(--mc-control);
+}
+.mc-rw-bar .mc-btn-secondary:hover:not(:disabled) {
+  background: #4a4a4f;
+}
+.mc-rw-bar .mc-text-btn:hover {
+  background: var(--mc-control);
+}
+.mc-rw-loading {
+  display: grid;
+  gap: var(--mc-gap);
+}
+.mc-rw-loading > .mc-panel {
+  display: grid;
+  gap: 12px;
+}
+
+/*
+ * The list is as wide as the page, not the window. Under 860px of its own width every reward
+ * becomes three lines: who and how much, what for and through which link, what became of it
+ * and when. The tick, when there is one, stands to their left.
+ */
+@container mc-rw (max-width: 860px) {
+  .mc-rw-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mc-rw-table,
+  .mc-rw-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .mc-rw-table tbody tr {
+    display: grid;
+    grid-template-areas:
+      'who amount'
+      'reward reward'
+      'status when';
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 16px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--mc-rule);
+  }
+  .mc-rw-table.has-ticks tbody tr {
+    grid-template-areas:
+      'tick who amount'
+      'tick reward reward'
+      'tick status when';
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .mc-rw-table tbody tr:first-child {
+    border-top: 0;
+  }
+  .mc-rw-table tbody tr.is-picked {
+    background: var(--mc-row-hover);
+  }
+  .mc-rw-table tbody td,
+  .mc-rw-table tbody td:first-child,
+  .mc-rw-table tbody td:last-child {
+    display: block;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+  .mc-rw-table tbody tr:hover td,
+  .mc-rw-table tbody tr.is-picked td {
+    background: none;
+  }
+  .mc-rw-table tbody td.mc-rw-tick {
+    grid-area: tick;
+    align-self: start;
+    width: 24px;
+  }
+  .mc-rw-table tbody td.mc-rw-who {
+    grid-area: who;
+  }
+  .mc-rw-table tbody td.mc-rw-amount {
+    grid-area: amount;
+    text-align: right;
+  }
+  .mc-rw-table tbody td.mc-rw-channel {
+    display: none;
+  }
+  .mc-rw-table tbody td.mc-rw-reward {
+    grid-area: reward;
+    color: var(--mc-muted);
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .mc-rw-via {
+    display: inline;
+  }
+  .mc-rw-table tbody td.mc-rw-status {
+    grid-area: status;
+    margin-top: 8px;
+  }
+  .mc-rw-table tbody td.mc-rw-when {
+    grid-area: when;
+    align-self: start;
+    margin-top: 8px;
+    font-size: 13px;
+    /* The height of the status word it sits beside. */
+    line-height: 22px;
+    text-align: right;
+  }
+}
+/* Five statuses on one line of a phone: each takes its share and a little less room. */
+@container mc-rw (max-width: 560px) {
+  .mc-rw-head > .mc-segmented {
+    display: flex;
+    flex: 1 1 100%;
+  }
+  .mc-rw-head > .mc-segmented button {
+    flex: 1 1 auto;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 720px) {
+  /* A reward's three figures, and a creator's counts, three side by side under the name. */
+  .mc-rw-rewards tbody tr,
+  .mc-rw-creators tbody tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mc-rw-creators td:first-child {
+    min-width: 0;
+  }
+}
+@media (max-width: 640px) {
+  .mc-rw-budget {
+    padding: 0 16px 16px;
+  }
+  .mc-rw-unset {
+    padding: 0 16px 16px;
+  }
+  .mc-rw-used > strong {
+    font-size: 22px;
+    line-height: 28px;
+  }
+  .mc-rw-table tbody tr {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .mc-panel-flush > .mc-rw-more {
+    padding: 12px 16px 16px;
+  }
+  .mc-rw-pick {
+    padding: 0 8px 4px;
+  }
+  .mc-rw-bar {
+    padding: 10px 12px 10px 16px;
+  }
+}
+@media (pointer: coarse) {
+  .mc-rw-more .mc-btn,
+  .mc-rw-bar .mc-btn,
+  .mc-rw-bar .mc-text-btn,
+  .mc-rw-pick .mc-text-btn,
+  .mc-rw-problem .mc-text-btn {
+    min-height: 44px;
+  }
+  .mc-rw-head > .mc-segmented button {
+    height: 38px;
+  }
+  /* The tick and the chip keep their size; their touch areas grow around them. */
+  .mc-rw-box::after {
+    position: absolute;
+    inset: -12px;
+    content: '';
+  }
+  .mc-rw-chip > button::after {
+    position: absolute;
+    inset: -11px;
+    content: '';
+  }
+  /* A name or a link inside a sentence keeps its line; its touch area grows above and below it. */
+  .mc-rw-who > a,
+  .mc-rw-person > a,
+  .mc-rw-none .mc-link,
+  .mc-rw .mc-empty-line .mc-link {
+    position: relative;
+  }
+  .mc-rw-who > a::after,
+  .mc-rw-person > a::after,
+  .mc-rw-none .mc-link::after,
+  .mc-rw .mc-empty-line .mc-link::after {
+    position: absolute;
+    inset: -13px 0;
+    content: '';
+  }
+}
+/* ---- end of Rewards ---------------------------------------------------------------------- */
