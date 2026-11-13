@@ -530,8 +530,9 @@ compose up -d --no-deps --force-recreate "$SERVICE"
 wait_healthy "$CONTAINER"
 restore_service() {
   svc="$1"; c="$2"
-  known=$(compose config --services 2>/dev/null) || known=""
-  if printf '%s\n' "$known" | grep -x "$svc" >/dev/null; then
+  # Read the restored compose file itself: \`compose config\` also fails for unrelated
+  # reasons (a missing env file), and that must never stop a running service.
+  if grep -E "^  $svc:[[:space:]]*$" "$dep/compose.yaml" >/dev/null 2>&1; then
     compose up -d --no-deps --force-recreate "$svc"; wait_healthy "$c"; echo "::service $svc restored"
   elif docker inspect "$c" >/dev/null 2>&1; then
     docker stop "$c" >/dev/null; echo "::service $svc stopped"
@@ -788,6 +789,7 @@ function makeContext(repo, config) {
       const detail = quiet ? (result.stderr ?? '').trim().split('\n').slice(-3).join(' ') : ''
       throw new Error(`Remote step failed (exit ${result.status})${detail ? `: ${detail}` : ''}`)
     }
+    if (!quiet && result.stdout) process.stdout.write(result.stdout)
     return result.stdout
   }
 
