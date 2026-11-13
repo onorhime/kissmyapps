@@ -89,7 +89,10 @@ test('Events go through the geo relay, which alone holds the proxy secret', () =
   for (const file of [production, caddy]) {
     const start = file.indexOf('events.kissmyapps.dev {')
     const events = file.slice(start, file.indexOf('\n}\n', start) + 2)
-    assert.match(events, /@ingest path \/v1\/events \/v1\/replay\n/)
+    assert.match(
+      events,
+      /@ingest path \/v1\/events \/v1\/replay \/v1\/attribution\/install \/v1\/attribution\/open\n/,
+    )
     assert.match(events, /request_header -X-Kma-\*\n\t+reverse_proxy kissmyapps-geo:8787 \{/)
     assert.match(events, /header_up X-Kma-Client-Ip \{client_ip\}\n/)
     assert.equal((events.match(/reverse_proxy /g) ?? []).length, 1)

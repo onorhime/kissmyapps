@@ -115,7 +115,8 @@ go.kissmyapps.dev {
 	}
 }
 
-# The analytics SDK posts events and replay chunks here. Caddy hands them to the
+# The analytics SDKs post events and replay chunks here, and the app SDKs their install
+# and link-open calls (/v1/attribution/install and /open). Caddy hands them to the
 # kissmyapps-geo relay (deploy/geo-relay) with the visitor's address. The relay looks the
 # address up in DB-IP's city database and passes each request on to analytics-ingest with
 # the place and the proxy secret, so this file holds no secret. The address itself is
@@ -130,7 +131,7 @@ events.kissmyapps.dev {
 	}
 
 	route {
-		@ingest path /v1/events /v1/replay
+		@ingest path /v1/events /v1/replay /v1/attribution/install /v1/attribution/open
 
 		handle @ingest {
 			request_body {

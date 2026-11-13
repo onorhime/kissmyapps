@@ -1,13 +1,19 @@
-// The events relay: the edge Caddy hands it each SDK request with the visitor's address
-// in X-Kma-Client-Ip, it looks the address up in the city database, and passes the
-// request on to the analytics-ingest function with the place and the proxy secret.
+// The events relay: the edge Caddy hands it each SDK request (events, replay chunks and the
+// app SDKs' two attribution calls) with the visitor's address in X-Kma-Client-Ip, it looks
+// the address up in the city database, and passes the request on to the analytics-ingest
+// function with the place and the proxy secret.
 // Addresses are only looked up, never written down. Without a database, or for an
 // address it does not know, the request goes on without a place and the function falls
 // back to the device's time zone.
 
 import { addressBytes } from './mmdb.mjs'
 
-const PATHS = new Set(['/v1/events', '/v1/replay'])
+const PATHS = new Set([
+  '/v1/events',
+  '/v1/replay',
+  '/v1/attribution/install',
+  '/v1/attribution/open',
+])
 const HOP_BY_HOP = new Set([
   'connection',
   'keep-alive',

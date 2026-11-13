@@ -8,8 +8,13 @@
 // sends a phone to the App Store or Google Play and a computer to the website, records the
 // click, and hands the click ID on as kma_lc so the web SDK (and later the app SDKs) can
 // say which link a visit came from. Clicks go to the database in batches.
+//
+// A creator's affiliate link for an app program leads here with the creator's click
+// (kma_click): it is kept on the click and passed on to the website, never to a store. An
+// app that turned on clipboard handoff gets, on iPhone, a "Get the app" page whose button
+// copies the click ID before the App Store opens, so the app can read it on first launch.
 
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 
 const HOST = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/
 
@@ -99,7 +104,18 @@ const PARAMS = {
   kma_from: 'from',
 }
 const CLICK_IDS = ['gclid', 'gbraid', 'wbraid', 'fbclid', 'ttclid', 'msclkid']
-const LINK_KEYS = new Set([...Object.keys(OVERRIDES), ...Object.keys(PARAMS), 'kma_lc'])
+const LINK_KEYS = new Set([
+  ...Object.keys(OVERRIDES),
+  ...Object.keys(PARAMS),
+  'kma_lc',
+  'kma_click',
+])
+
+/** The creator's click (public.clicks.public_click_id) on the address, or null. */
+export function creatorClick(query) {
+  const value = query.get('kma_click')
+  return value && /^[0-9a-f]{48}$/.test(value) ? value : null
+}
 
 function pick(query, names) {
   const out = {}
@@ -126,6 +142,8 @@ export function webAddress(link, clickId, query, overrides = pick(query, OVERRID
   for (const [key, value] of Object.entries(tags))
     if (value && !has(key)) url.searchParams.set(key, value)
   if (clickId) url.searchParams.set('kma_lc', clickId)
+  const creator = creatorClick(query)
+  if (creator) url.searchParams.set('kma_click', creator)
   return url.toString()
 }
 
@@ -177,13 +195,13 @@ const escape = (value) =>
  * A small page: a title, a message and buttons (the first is the main one). Pages for
  * robots carry the link's preview in Open Graph tags.
  */
-export function page({ title, message, website, actions = [], preview = null }) {
+export function page({ title, message, website, actions = [], preview = null, script = null }) {
   const buttons = [...actions]
   if (website) buttons.push({ label: 'Go to the website', href: website })
   const links = buttons
     .map(
-      ({ label, href }, i) =>
-        `<a class="button${i ? ' quiet' : ''}" href="${escape(href)}" rel="noreferrer">${escape(label)}</a>`,
+      ({ label, href, copy }, i) =>
+        `<a class="button${i ? ' quiet' : ''}" href="${escape(href)}" rel="noreferrer"${copy ? ` data-copy="${escape(copy)}"` : ''}>${escape(label)}</a>`,
     )
     .join('\n')
   const meta = preview
@@ -230,7 +248,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
 ${links ? `<div class="actions">\n${links}\n</div>` : ''}
 <footer>Links by KissMyApps</footer>
 </main>
-</body>
+${script ? `<script>${script}</script>\n` : ''}</body>
 </html>
 `
 }
@@ -243,6 +261,36 @@ const PAGE_HEADERS = {
   'referrer-policy': 'no-referrer',
   'x-content-type-options': 'nosniff',
   'x-robots-tag': 'noindex, nofollow, noarchive',
+}
+
+// The "Get the app" button's only script: on the tap, put the click on the clipboard (a
+// selection copied at once works on every iPhone; the Clipboard API is the fallback), then
+// let the link open the App Store as usual. Without JavaScript the button is just the link.
+export const HANDOFF_SCRIPT = `document.querySelectorAll('[data-copy]').forEach(function (link) {
+  link.addEventListener('click', function () {
+    var text = link.getAttribute('data-copy')
+    var copied = false
+    var field = document.createElement('textarea')
+    field.value = text
+    field.setAttribute('readonly', '')
+    field.setAttribute('aria-hidden', 'true')
+    field.style.cssText = 'position:fixed;top:0;left:-9999px;font-size:16px'
+    document.body.appendChild(field)
+    try {
+      field.select()
+      field.setSelectionRange(0, text.length)
+      copied = document.execCommand('copy')
+    } catch (error) {}
+    document.body.removeChild(field)
+    if (!copied && navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(text).catch(function () {})
+  })
+})`
+
+const HANDOFF_HASH = createHash('sha256').update(HANDOFF_SCRIPT).digest('base64')
+const HANDOFF_HEADERS = {
+  ...PAGE_HEADERS,
+  'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-${HANDOFF_HASH}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
 }
 
 const REDIRECT_HEADERS = (location) => ({
@@ -536,11 +584,11 @@ export function createLinkService({
         message: 'This link does not exist or has been removed.',
         website: domain.web_url,
       })
-    return openLink(request, response, host, target)
+    return openLink(request, response, host, target, domain)
   }
 
   /** One link: robots get its preview; people are counted and sent on. */
-  function openLink(request, response, host, target) {
+  function openLink(request, response, host, target, domain) {
     const query = new URL(request.url ?? '/', 'http://link').searchParams
     const device = classify(request.headers['user-agent'])
     if (target.status !== 'active') {
@@ -566,6 +614,7 @@ export function createLinkService({
 
     const id = clickId()
     const next = route(target, device, id, query)
+    const creator = creatorClick(query)
     if (next.kind === 'none')
       return html(request, response, 404, {
         title: 'This link has nowhere to go yet',
@@ -579,12 +628,36 @@ export function createLinkService({
       in_app: device.inApp,
       destination: next.destination,
       overrides: pick(query, OVERRIDES),
-      params: pick(query, PARAMS),
+      params: {
+        ...pick(query, PARAMS),
+        ...(creator ? { creator_click: creator } : {}),
+      },
       click_ids: pick(query, Object.fromEntries(CLICK_IDS.map((key) => [key, key]))),
       ip: clientIp(request.headers),
       user_agent: String(request.headers['user-agent'] ?? '').slice(0, 400) || undefined,
       referrer: String(request.headers.referer ?? '').slice(0, 500) || undefined,
     })
+    // An app with clipboard handoff: the iPhone's way to the App Store goes through a page
+    // whose button copies the click (kma:<id>) for the app to read on first launch.
+    if (
+      next.kind === 'redirect' &&
+      device.platform === 'ios' &&
+      (next.destination === 'app_store' || next.destination === 'custom') &&
+      domain?.ios_clipboard_handoff === true
+    )
+      return send(
+        request,
+        response,
+        200,
+        HANDOFF_HEADERS,
+        page({
+          title: target.project_name,
+          message:
+            'The button opens the App Store and copies a short code, so the app can open the right page after you install it.',
+          actions: [{ label: 'Get the app', href: next.url, copy: `kma:${id}` }],
+          script: HANDOFF_SCRIPT,
+        }),
+      )
     if (next.kind === 'redirect') return send(request, response, 302, REDIRECT_HEADERS(next.url))
     if (next.kind === 'choose')
       return html(request, response, 200, {

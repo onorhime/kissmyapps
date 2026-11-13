@@ -199,6 +199,77 @@ test("a merchant's server can name its user's address, and only a server key's i
   }
 })
 
+test("the app SDKs' attribution calls are relayed exactly as events are", async () => {
+  const ingest = await fakeIngest()
+  const db = openMmdb(buildMmdb({ networks }))
+  const shared = 'relay-shared-value'
+  const relay = await listen(
+    createRelay({
+      upstream: `${ingest.url}/functions/v1/analytics-ingest`,
+      secret: shared,
+      database: () => db,
+      log: () => {},
+    }),
+  )
+  try {
+    const bodies = {
+      '/v1/attribution/install': {
+        anonymous_id: 'a-1',
+        session_id: 's-1',
+        platform: 'android',
+        installed_at: '2026-10-30T09:59:00.010Z',
+        sdk: 'kma-android/1.1.0',
+        referrer: 'kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ',
+        // A server key's context.ip is looked up for events only.
+        context: { ip: '41.58.1.1' },
+      },
+      '/v1/attribution/open': {
+        anonymous_id: 'a-1',
+        session_id: 's-1',
+        platform: 'ios',
+        url: 'https://fluent.go.kissmyapps.dev/lesson-4',
+        opened_at: '2026-11-02T08:00:00.000Z',
+        sdk: 'kma-ios/1.1.0',
+      },
+    }
+    for (const [path, body] of Object.entries(bodies)) {
+      const response = await send(`${relay.url}${path}`, body, {
+        authorization: 'Bearer kma_sk_live_AAAAAAAAAAAAAAAAAAAAAAAA',
+        'user-agent': 'okhttp/4.12.0',
+        'x-kma-client-ip': '102.89.1.2',
+        'x-kma-country': 'US',
+      })
+      assert.equal(response.status, 200, path)
+      assert.equal(await response.text(), '{"stored":1}')
+      const hop = ingest.seen.at(-1)
+      assert.equal(hop.url, `/functions/v1/analytics-ingest${path}`)
+      assert.equal(hop.method, 'POST')
+      assert.deepEqual(JSON.parse(hop.body), body)
+      assert.equal(hop.headers.authorization, 'Bearer kma_sk_live_AAAAAAAAAAAAAAAAAAAAAAAA')
+      assert.equal(hop.headers['user-agent'], 'okhttp/4.12.0')
+      assert.equal(hop.headers['x-kma-proxy'], shared)
+      assert.equal(hop.headers['x-kma-via'], 'geo-relay')
+      assert.equal(hop.headers['x-kma-client-ip'], '102.89.1.2')
+      assert.equal(hop.headers['x-kma-country'], 'NG')
+      assert.equal(hop.headers['x-kma-place-source'], 'ip')
+      assert.equal(hop.headers['x-kma-context-country'], undefined)
+      const preflight = await fetch(`${relay.url}${path}`, {
+        method: 'OPTIONS',
+        headers: { origin: 'https://speaksix.com' },
+      })
+      assert.equal(preflight.status, 200)
+      assert.equal(ingest.seen.at(-1).method, 'OPTIONS')
+      assert.equal((await fetch(`${relay.url}${path}`)).status, 405)
+    }
+    for (const path of ['/v1/attribution', '/v1/attribution/other', '/attribution/install'])
+      assert.equal((await send(`${relay.url}${path}`, {})).status, 404, path)
+    assert.equal(ingest.seen.length, 4)
+  } finally {
+    relay.server.close()
+    ingest.server.close()
+  }
+})
+
 test('the relay keeps working without a database and says when the function is unreachable', async () => {
   const ingest = await fakeIngest()
   const relay = await listen(
