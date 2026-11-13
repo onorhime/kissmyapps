@@ -1,7 +1,8 @@
-// The Android side of the KissMyApps Flutter plugin: device details over a method channel.
-// Plain Java, so it builds with any Android Gradle plugin and Kotlin setup the app has.
+// The Android side of the KissMyApps Flutter plugin: device details over a method channel,
+// the Google Play install referrer, and the App Links that open the app. Plain Java, so it
+// builds with any Android Gradle plugin and Kotlin setup the app has. No advertising ID.
 group = "com.kissmyapps.flutter"
-version = "1.0.0"
+version = "1.1.0"
 
 buildscript {
     repositories {
@@ -34,4 +35,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+dependencies {
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }

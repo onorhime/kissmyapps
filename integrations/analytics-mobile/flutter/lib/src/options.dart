@@ -12,6 +12,9 @@ class KissMyAppsOptions {
     this.flushIntervalSeconds = 10,
     this.maxQueue = 1000,
     this.trackLifecycle = true,
+    this.attribution = true,
+    this.deepLinks = true,
+    this.clipboardHandoff = false,
     this.debug = false,
   });
 
@@ -36,6 +39,19 @@ class KissMyAppsOptions {
   /// Record installs, updates, opens and backgrounding.
   final bool trackLifecycle;
 
+  /// Match the install to the link that brought it on the first launch, and report links that
+  /// open the app. Nothing is matched until attribution is on for the project.
+  final bool attribution;
+
+  /// Read the link that opened the app and links opened while it runs, from the plugin. Turn
+  /// it off to pass every link to `KissMyApps.handleDeepLink` yourself.
+  final bool deepLinks;
+
+  /// iPhone only: on the first launch, read a `kma:` click ID that the smart link's page put
+  /// on the clipboard. Turn it on only with "Clipboard handoff for iPhone" on in the console:
+  /// iOS asks the person before an app reads what another app copied.
+  final bool clipboardHandoff;
+
   /// Print refused events and other problems to the console.
   final bool debug;
 
@@ -49,6 +65,9 @@ class KissMyAppsOptions {
       flushIntervalSeconds: flushIntervalSeconds,
       maxQueue: maxQueue,
       trackLifecycle: trackLifecycle,
+      attribution: attribution,
+      deepLinks: deepLinks,
+      clipboardHandoff: clipboardHandoff,
       debug: debug,
     );
   }

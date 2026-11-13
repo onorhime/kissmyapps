@@ -1,8 +1,8 @@
 name: kissmyapps
 description: >-
-  Analytics for Flutter apps: installs, updates, opens, sessions, screens and your own
-  events, sent to your KissMyApps dashboard. Offline queue, no third-party dependencies.
-version: 1.0.0
+  Analytics for Flutter apps: installs, sessions, screens and your own events, install
+  attribution and deep links, sent to your KissMyApps dashboard. Offline queue.
+version: 1.1.0
 homepage: https://kissmyapps.dev
 repository: https://github.com/onorhime/kissmyapps-mobile/tree/main/flutter
 issue_tracker: https://github.com/onorhime/kissmyapps-mobile/issues
