@@ -490,6 +490,10 @@ verify_jwt = false
 # disabled unless EXTERNAL_COMMERCE_WEBHOOK_ENABLED=true and binding is explicit.
 [functions.external-commerce-webhook]
 verify_jwt = false
+# Connected-merchant payment/refund/dispute receipts (live Connect events). Handler
+# verifies Stripe HMAC; disabled unless CONNECT_PAYMENTS_WEBHOOK_ENABLED=true.
+[functions.connect-payments-webhook]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false
