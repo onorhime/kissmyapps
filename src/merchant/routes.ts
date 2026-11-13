@@ -32,6 +32,8 @@ export type Route =
   | { name: 'workspace'; section: WorkspaceSettingsSection; projectId?: string; create?: boolean }
   /** The workspace's links to outside tools, Stripe first. */
   | { name: 'connections' }
+  /** The workspace's affiliate program: what creators promote and what they earn. */
+  | { name: 'program' }
   | ProjectRoute
 
 function decode(segment: string | undefined): string | undefined {
@@ -75,6 +77,8 @@ export function parseRoute(hash: string): Route {
       }
     case 'connections':
       return { name: 'connections' }
+    case 'program':
+      return { name: 'program' }
     case 'p':
       break
     default:
@@ -153,6 +157,8 @@ export function href(route: Route): string {
     }
     case 'connections':
       return '#connections'
+    case 'program':
+      return '#program'
   }
   const base = `#p/${encodeURIComponent(route.projectId)}`
   switch (route.name) {

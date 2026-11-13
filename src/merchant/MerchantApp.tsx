@@ -13,6 +13,7 @@ import { EventDetailScreen, EventsScreen } from './screens/Events'
 import { FunnelScreen, FunnelsScreen } from './screens/Funnels'
 import { RetentionScreen } from './screens/Retention'
 import { OverviewScreen } from './screens/Overview'
+import { ProgramScreen } from './screens/Program'
 import { SessionDetailScreen, SessionsScreen } from './screens/Sessions'
 import { MembersScreen, ProjectSettingsScreen, ProjectsScreen } from './screens/Settings'
 import { PersonScreen, UsersScreen } from './screens/Users'
@@ -31,6 +32,7 @@ const titles: Record<Route['name'], string> = {
   home: 'Home',
   workspace: 'Settings',
   connections: 'Connections',
+  program: 'Program',
   overview: 'Overview',
   users: 'Users',
   person: 'User',
@@ -156,7 +158,7 @@ function Screens() {
     project ??
     (route.name === 'workspace'
       ? (projects.find((item) => item.id === route.projectId) ?? rememberedProject(projects))
-      : route.name === 'connections'
+      : route.name === 'connections' || route.name === 'program'
         ? rememberedProject(projects)
         : undefined)
   let content
@@ -165,6 +167,8 @@ function Screens() {
       route.section === 'members' ? <MembersScreen /> : <ProjectsScreen create={route.create} />
   } else if (route.name === 'connections') {
     content = <ConnectionsScreen key={workspace?.id} />
+  } else if (route.name === 'program') {
+    content = <ProgramScreen key={workspace?.id} />
   } else if (!project) {
     content = (
       <div className="mc-page">

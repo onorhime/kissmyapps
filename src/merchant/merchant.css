@@ -4612,3 +4612,636 @@ fieldset.mc-form-grid {
     align-items: center;
   }
 }
+
+/*
+ * Program: one form for the affiliate program, the card creators will see, and the step that
+ * publishes it. Sections are rows (what it is on the left, its fields on the right) split by
+ * hairlines, as on the settings pages.
+ */
+.mc-prog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 24px;
+}
+.mc-prog-main,
+.mc-prog-side {
+  display: grid;
+  gap: var(--mc-gap);
+  min-width: 0;
+}
+.mc-prog-side {
+  position: sticky;
+  top: 24px;
+}
+.mc-prog-form {
+  gap: 0;
+  padding: 0 24px;
+}
+.mc-prog-set {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mc-prog-section,
+.mc-prog-track {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px 32px;
+}
+.mc-prog-section {
+  padding: 24px 0;
+}
+.mc-prog-section + .mc-prog-section {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-prog-track {
+  padding: 24px;
+}
+.mc-prog-label h2 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-prog-label p {
+  margin-top: 4px;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-prog-fields {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.mc-prog-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.mc-prog-caption {
+  font-size: 14px;
+  font-weight: 500;
+}
+.mc-prog-logo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.mc-prog-logo {
+  display: inline-flex;
+  flex: none;
+  border-radius: 28%;
+  background: var(--mc-raised);
+  object-fit: cover;
+}
+.mc-prog-logo.is-empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--mc-faint);
+}
+.mc-prog-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+/* The field is as wide as the row has left, so a message under a short input still reads as a line. */
+.mc-prog-amount {
+  flex: 1 1 132px;
+}
+.mc-prog-amount .mc-affix {
+  width: 132px;
+}
+.mc-prog-form .mc-affix input {
+  font-variant-numeric: tabular-nums;
+}
+.mc-prog-form .mc-affix > span {
+  font-variant-numeric: tabular-nums;
+}
+.mc-prog-amount .mc-affix:not(.is-prefix) input {
+  padding-right: 8px;
+  text-align: right;
+}
+.mc-prog-form .mc-segmented button {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.mc-prog-example {
+  color: var(--mc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mc-prog-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+/*
+ * Items wrap whole. Each draws a dot in the gap before it and the list is clipped by that gap,
+ * so a line never starts or ends on a stray dot.
+ */
+.mc-prog-summary ul {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin: 0 0 0 -16px;
+  padding: 0;
+  color: var(--mc-muted);
+  line-height: 22px;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+  clip-path: inset(0 0 0 16px);
+}
+.mc-prog-summary li {
+  position: relative;
+  padding-left: 16px;
+}
+.mc-prog-summary li::before {
+  position: absolute;
+  left: 6px;
+  content: '·';
+}
+.mc-prog-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.mc-prog-wide {
+  grid-column: 1 / -1;
+}
+.mc-prog-options .mc-segmented {
+  align-self: flex-start;
+}
+.mc-prog-form textarea {
+  font-size: 15px;
+  line-height: 22px;
+}
+.mc-prog-hide {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-left: -8px;
+  color: var(--mc-muted);
+  font-weight: 500;
+}
+.mc-prog-hide:hover {
+  color: var(--mc-text);
+}
+.mc-prog-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 500;
+}
+/* Read-only: the values stay easy to read, the fields stop looking like something to press. */
+.mc-prog-set:disabled input,
+.mc-prog-set:disabled select,
+.mc-prog-set:disabled textarea,
+.mc-prog-set:disabled .mc-affix {
+  border-color: var(--mc-rule);
+  background: transparent;
+  color: #d4d4d8;
+  opacity: 1;
+  -webkit-text-fill-color: #d4d4d8;
+}
+.mc-prog-set:disabled .mc-affix input {
+  border: 0;
+}
+.mc-prog-set:disabled .mc-select-box > svg,
+.mc-prog-set:disabled .mc-prog-summary .mc-btn,
+.mc-prog-set:disabled .mc-prog-hide,
+.mc-prog-set:disabled .mc-prog-logo-row > .mc-btn,
+.mc-prog-set:disabled .mc-prog-logo-row > .mc-field-hint {
+  display: none;
+}
+.mc-prog-set:disabled .mc-segmented button {
+  cursor: default;
+}
+.mc-prog-set:disabled .mc-segmented button:not([aria-pressed='true']) {
+  color: var(--mc-faint);
+}
+.mc-prog-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -24px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--mc-rule);
+  border-radius: 0 0 var(--mc-radius) var(--mc-radius);
+  background: var(--mc-surface);
+}
+/* With edits waiting, Save stays in reach however far down the form the edit was made. */
+.mc-prog-save.is-dirty {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+.mc-prog-save p {
+  margin-right: auto;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-prog-save p.is-wrong {
+  color: var(--mc-negative);
+}
+.mc-prog-about {
+  max-width: 62ch;
+  color: var(--mc-muted);
+}
+.mc-prog-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 20px;
+}
+.mc-prog-banner {
+  display: grid;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid #1f3d4d;
+  border-radius: 12px;
+  background: #14222b;
+  line-height: 20px;
+}
+.mc-prog-banner.is-warning {
+  border-color: #4b3d22;
+  background: #241f15;
+}
+.mc-prog-banner strong {
+  font-weight: 600;
+}
+.mc-prog-review-note {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.mc-prog-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--mc-surface);
+}
+.mc-prog-problem {
+  flex-wrap: wrap;
+}
+.mc-prog-problem > span {
+  flex: 1 1 240px;
+}
+.mc-prog-none {
+  color: var(--mc-muted);
+}
+
+/* The right column: the card as creators will see it, then what is left before publishing. */
+.mc-prog-preview h2 {
+  color: var(--mc-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.mc-prog-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--mc-well);
+}
+.mc-prog-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.mc-prog-card-head > div {
+  display: grid;
+  min-width: 0;
+}
+.mc-prog-card-head strong {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+.mc-prog-card-head span:not(.mc-prog-logo) {
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-prog-card-text {
+  color: #d4d4d8;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.mc-prog-card-earn {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-prog-card-meta {
+  margin-top: -8px;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-prog-card .is-blank {
+  color: var(--mc-faint);
+  font-weight: 500;
+}
+.mc-prog-ready h2 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-prog-ready-text {
+  margin-top: -8px;
+  color: var(--mc-muted);
+}
+.mc-prog-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.mc-prog-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  line-height: 20px;
+}
+.mc-prog-steps li > svg {
+  flex: none;
+  width: 16px;
+  color: var(--mc-faint);
+}
+.mc-prog-steps li.is-done {
+  color: var(--mc-muted);
+}
+.mc-prog-steps li.is-done > svg {
+  color: var(--mc-positive);
+}
+.mc-prog-ready .mc-btn-wide + .mc-btn-wide {
+  margin-top: -4px;
+}
+.mc-prog-hint {
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* The agreement, in a reader of its own: a head that stays, the text, a foot that stays. */
+.mc-prog-doc {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 48px));
+  border-radius: var(--mc-radius);
+  background: #262626;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+}
+.mc-prog-doc-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px 14px 24px;
+  border-bottom: 1px solid #343434;
+}
+.mc-prog-doc-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+.mc-prog-doc-body {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-height: 0;
+  padding: 20px 24px 28px;
+  color: #e4e4e7;
+  font-size: 15px;
+  line-height: 24px;
+  overflow-y: auto;
+  scrollbar-color: #4a4a4a #262626;
+}
+.mc-prog-doc-body:focus-visible {
+  outline-offset: -3px;
+}
+.mc-prog-doc-body h3,
+.mc-prog-doc-body p {
+  margin: 0;
+}
+.mc-prog-doc-body h3 {
+  margin-bottom: 6px;
+  color: var(--mc-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-prog-doc-body section p + p {
+  margin-top: 10px;
+}
+.mc-prog-doc-body .mc-prog-note {
+  background: var(--mc-well);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-prog-doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.mc-prog-doc-brand > div {
+  display: grid;
+  min-width: 0;
+}
+.mc-prog-doc-brand strong {
+  color: var(--mc-text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+.mc-prog-doc-brand span:not(.mc-prog-logo) {
+  color: var(--mc-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-prog-doc-summary {
+  display: grid;
+  margin: 0;
+  border-radius: 12px;
+  background: var(--mc-well);
+}
+.mc-prog-doc-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+}
+.mc-prog-doc-summary > div + div {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-prog-doc-summary dt {
+  flex: none;
+  color: var(--mc-muted);
+  font-size: 14px;
+}
+.mc-prog-doc-summary dd {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: right;
+}
+.mc-prog-doc-extra {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+/* The business's own terms belong to the section above them, not to a block of their own. */
+.mc-prog-doc-body section + .mc-prog-doc-extra {
+  margin-top: -10px;
+}
+.mc-prog-doc-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  padding: 14px 16px 14px 24px;
+  border-top: 1px solid #343434;
+}
+.mc-prog-doc-foot p {
+  margin: 0 auto 0 0;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@media (max-width: 1180px) {
+  /* One column: the form, then the card and the publish step, then how sales are tracked. */
+  .mc-prog-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mc-gap);
+  }
+  .mc-prog-main {
+    display: contents;
+  }
+  .mc-prog-side {
+    position: static;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    order: 1;
+  }
+  .mc-prog-track {
+    order: 2;
+  }
+}
+@media (max-width: 720px) {
+  .mc-prog-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-prog-form {
+    padding: 0 20px;
+  }
+  .mc-prog-section,
+  .mc-prog-track {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .mc-prog-section {
+    padding: 20px 0;
+  }
+  .mc-prog-track {
+    padding: 20px;
+  }
+  .mc-prog-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-prog-save {
+    margin: 0 -20px;
+    padding: 12px 20px;
+  }
+  .mc-prog-summary {
+    align-items: flex-start;
+  }
+}
+@media (max-width: 480px) {
+  /* Each switch takes the row and shares it out, so three choices never run off the card. */
+  .mc-prog-form .mc-segmented {
+    display: flex;
+    flex: 1 1 100%;
+  }
+  .mc-prog-form .mc-segmented button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 8px;
+  }
+}
+@media (max-width: 640px) {
+  /* On a phone the agreement takes the whole screen, like a page. */
+  .mc-prog-doc {
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    transform: none;
+  }
+  .mc-prog-doc-head {
+    padding: 12px 8px 12px 20px;
+  }
+  .mc-prog-doc-body {
+    padding: 20px 20px 28px;
+  }
+  .mc-prog-doc-foot {
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  }
+  .mc-prog-doc-foot .mc-btn {
+    flex: 1 1 100%;
+    height: 44px;
+  }
+}
+@media (pointer: coarse) {
+  .mc-prog-problem .mc-text-btn,
+  .mc-prog-status .mc-text-btn,
+  .mc-prog-hide,
+  .mc-prog-save .mc-text-btn {
+    min-height: 44px;
+  }
+  .mc-prog-problem a.mc-text-btn {
+    display: inline-flex;
+    align-items: center;
+  }
+  .mc-prog-form .mc-segmented button {
+    height: 40px;
+  }
+  .mc-prog-save .mc-btn,
+  .mc-prog-logo-row .mc-btn,
+  .mc-prog-summary .mc-btn {
+    min-height: 44px;
+  }
+}
