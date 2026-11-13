@@ -42,6 +42,7 @@ const suites = [
   ['73_program_sales.sql', /^ok \d+ program sales assertions$/m],
   ['74_analytics_creator_click.sql', /^ok \d+ analytics creator click assertions$/m],
   ['75_affiliate_program_end_to_end.sql', /^ok \d+ program end to end assertions$/m],
+  ['77_program_link_tracking.sql', /^ok \d+ program link tracking assertions$/m],
 ]
 
 const bin = postgresBin()
