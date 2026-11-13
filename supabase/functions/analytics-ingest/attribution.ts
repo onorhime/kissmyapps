@@ -209,6 +209,14 @@ export function normalizeAttribution(
     const checked = RULES[kind][field](value, field);
     if (checked !== undefined) body[field] = checked;
   }
+  // A field of the other platform is left out rather than refused: the database refuses an
+  // install with one, and a refused install is never sent again.
+  const otherPlatform = body.platform === "android"
+    ? [APPLE_ADS_FIELD]
+    : ["referrer", "referrer_click_ts", "install_begin_ts"];
+  if (kind === "install") {
+    for (const field of otherPlatform) delete body[field];
+  }
   return body;
 }
 

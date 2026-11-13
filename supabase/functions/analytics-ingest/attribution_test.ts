@@ -130,7 +130,6 @@ Deno.test("an install body keeps every field it may send and drops the rest", ()
     referrer: "kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ&utm_source=tiktok",
     referrer_click_ts: 1761818300,
     install_begin_ts: 1761818320,
-    [APPLE_ADS_FIELD]: adsValue,
     clipboard_click: "Q2xpY2tJZDAwMDAwMDAwMQ",
   };
   assertEquals(
@@ -139,6 +138,25 @@ Deno.test("an install body keeps every field it may send and drops the rest", ()
       "install",
     ),
     full,
+  );
+  // The other platform's fields are left out, not refused: Apple Ads is iOS only, the Play
+  // install referrer Android only.
+  assertEquals(
+    normalizeAttribution({ ...full, [APPLE_ADS_FIELD]: adsValue }, "install"),
+    full,
+  );
+  const {
+    referrer: _r,
+    referrer_click_ts: _c,
+    install_begin_ts: _b,
+    ...iosFull
+  } = full;
+  assertEquals(
+    normalizeAttribution(
+      { ...full, platform: "ios", [APPLE_ADS_FIELD]: adsValue },
+      "install",
+    ),
+    { ...iosFull, platform: "ios", [APPLE_ADS_FIELD]: adsValue },
   );
   // Numbers are user IDs too, as in events; empty or null optional fields are not sent.
   assertEquals(
