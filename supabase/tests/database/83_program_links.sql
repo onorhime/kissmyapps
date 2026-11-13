@@ -504,8 +504,8 @@ select pg_temp.check(pg_temp.kept('links_empty') = '{"stats_days":30,"max_custom
   'a creator with no program gets the channels, the limits and no programs');
 select pg_temp.capture('partner_program_performance.none', pg_temp.keep('performance_none', pg_temp.performance('eve', null, 30)));
 select pg_temp.check((select a - 'starts_on' - 'ends_on' = '{"days":30,"timezone":"UTC","programs":[],"program":null,
-      "totals":{"clicks":0,"sales":0,"earnings_minor":0},"previous":{"clicks":0,"sales":0,"earnings_minor":0},
-      "daily":[],"channels":[],"money":null,"latest":[]}'::jsonb
+      "totals":{"clicks":0,"sales":0,"events":0,"earnings_minor":0},"previous":{"clicks":0,"sales":0,"events":0,"earnings_minor":0},
+      "daily":[],"channels":[],"rewards":[],"budget_reached":false,"money":null,"latest":[]}'::jsonb
       and a->>'ends_on' = (now() at time zone 'UTC')::date::text
       and a->>'starts_on' = ((now() at time zone 'UTC')::date - 29)::text
     from (select pg_temp.kept('performance_none') as a) x)
@@ -578,10 +578,10 @@ select pg_temp.capture('partner_program_links.one_program', pg_temp.keep('links_
 select pg_temp.check((select pg_temp.keys(a) = 'channels max_custom_links programs stats_days'
       and jsonb_array_length(a->'programs') = 1
       and p - 'links' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
-        'currency', 'USD', 'working', true, 'paused_reason', null, 'custom_links', 0)
+        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 0)
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter'
-      and (select bool_and(pg_temp.keys(l) = 'channel clicks created_at earnings_minor kind link_id name removable sales url'
-          and l @> '{"clicks":0,"sales":0,"earnings_minor":0,"removable":false}'
+      and (select bool_and(pg_temp.keys(l) = 'channel clicks created_at earnings_minor events kind link_id name removable sales url'
+          and l @> '{"clicks":0,"sales":0,"events":0,"earnings_minor":0,"removable":false}'
           and (l->>'created_at')::timestamptz = r.created_at and l->>'link_id' = r.id::text)
         from jsonb_array_elements(p->'links') l join public.affiliate_links r on r.id = (l->>'link_id')::uuid)
       and pg_temp.line(p, 'Main link') @> '{"kind":"main","channel":null,"url":"https://go.kissmyapps.dev/speaksix/ada-okafor"}'
@@ -598,18 +598,19 @@ select pg_temp.check(pg_temp.links('ada_helper') = pg_temp.kept('links_fresh')
   'everyone on a creator account reads the same Links page; another creator reads their own');
 select pg_temp.capture('partner_program_performance.no_results',
   pg_temp.keep('performance_fresh', pg_temp.performance('ada', 'speaksix', 7)));
-select pg_temp.check((select pg_temp.keys(a) = 'channels daily days ends_on latest money previous program programs starts_on timezone totals'
-      and a @> '{"days":7,"timezone":"Pacific/Kiritimati","latest":[],
-        "totals":{"clicks":0,"sales":0,"earnings_minor":0},"previous":{"clicks":0,"sales":0,"earnings_minor":0},
+select pg_temp.check((select pg_temp.keys(a) = 'budget_reached channels daily days ends_on latest money previous program programs rewards starts_on timezone totals'
+      and a @> '{"days":7,"timezone":"Pacific/Kiritimati","latest":[],"rewards":[],"budget_reached":false,
+        "totals":{"clicks":0,"sales":0,"events":0,"earnings_minor":0},"previous":{"clicks":0,"sales":0,"events":0,"earnings_minor":0},
         "money":{"pending_minor":0,"approved_minor":0,"paying_minor":0,"paid_minor":0,"next_release_at":null}}'
-      and a->'program' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'currency', 'USD')
+      and a->'program' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'currency', 'USD',
+        'earn_from', 'sales')
       and a->'programs' = jsonb_build_array(a->'program')
       and jsonb_array_length(a->'daily') = 7 and pg_temp.days('ada', a) = ''
-      and a->'daily'->0 = jsonb_build_object('day', pg_temp.date_of('ada', 6), 'clicks', 0, 'sales', 0, 'earnings_minor', 0)
+      and a->'daily'->0 = jsonb_build_object('day', pg_temp.date_of('ada', 6), 'clicks', 0, 'sales', 0, 'events', 0, 'earnings_minor', 0)
       and a->'daily'->6->>'day' = pg_temp.date_of('ada', 0)
       and a->>'starts_on' = pg_temp.date_of('ada', 6) and a->>'ends_on' = pg_temp.date_of('ada', 0)
       and (select string_agg(c->>'name', ', ' order by n) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter'
-          and bool_and(pg_temp.keys(c) = 'channel clicks earnings_minor kind link_id name sales')
+          and bool_and(pg_temp.keys(c) = 'channel clicks earnings_minor events kind link_id name sales')
         from jsonb_array_elements(a->'channels') with ordinality e(c, n))
     from (select pg_temp.kept('performance_fresh') as a) x),
   'a new member''s Performance page has a row for every day and every link, all zero, and money that is all zero');
@@ -704,9 +705,9 @@ select pg_temp.check(pg_temp.open('ben', 'rival', 'TikTok') = '{"click_id":null,
   'the links of a creator the merchant removed credit nothing; the rows of the channel links are left as they are');
 select pg_temp.keep('approved_again', pg_temp.decide('rival_owner', 'rival', 'ben', 'approve'));
 select pg_temp.check(pg_temp.keys(pg_temp.kept('approved_again')->'creator') = 'activated_at channels clicks commission_minor country_code '
-    || 'decision_note ended_at handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
+    || 'decision_note ended_at events handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
     || 'sales_amount_minor status terms_version website_url'
-  and pg_temp.kept('approved_again')->'creator' @> '{"status":"active","clicks":5,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}',
+  and pg_temp.kept('approved_again')->'creator' @> '{"status":"active","clicks":5,"sales":0,"events":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}',
   'the answer to a decision carries the creator with the same keys as the Creators page, their clicks on every link among them');
 select pg_temp.check(pg_temp.n(format('public.affiliate_links where affiliate_id = %L', pg_temp.q('creator_ben'))) = 9
   and (pg_temp.link_row('ben', 'rival', 'YouTube')).status = 'active'
@@ -749,11 +750,11 @@ select pg_temp.leave('eve', 'quiet');
 -- Custom links ---------------------------------------------------------------------------------------
 select pg_temp.capture('partner_program_link_create.first',
   pg_temp.keep('created', pg_temp.call('ada', pg_temp.create_sql('speaksix', 'Podcast'))));
-select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links links name paused_reason program_id slug working'
+select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id slug working'
       and p @> '{"slug":"speaksix","working":true,"custom_links":1}'
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast'
       and pg_temp.line(p, 'Podcast') - 'link_id' - 'created_at' = '{"kind":"custom","channel":null,"name":"Podcast",
-        "url":"https://go.kissmyapps.dev/speaksix/ada-okafor/podcast","clicks":0,"sales":0,"earnings_minor":0,"removable":true}'::jsonb
+        "url":"https://go.kissmyapps.dev/speaksix/ada-okafor/podcast","clicks":0,"sales":0,"events":0,"earnings_minor":0,"removable":true}'::jsonb
       and p = pg_temp.listed(pg_temp.links('ada'), 'speaksix')
     from (select pg_temp.kept('created') as p) x)
   and (select not l.is_main and l.status = 'active' and l.source_id is null and l.campaign_id is null and l.sub1 = 'podcast'
@@ -805,7 +806,7 @@ select pg_temp.check(pg_temp.names(pg_temp.call('ada_helper', pg_temp.create_sql
 -- Removing.
 select pg_temp.capture('partner_program_link_remove.done',
   pg_temp.keep('removed', pg_temp.call('ada', pg_temp.remove_sql((pg_temp.link_row('ada', 'acme', repeat('n', 40))).id))));
-select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links links name paused_reason program_id slug working'
+select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id slug working'
       and p->>'custom_links' = '2' and p = pg_temp.listed(pg_temp.links('ada'), 'speaksix')
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast, Blog post'
     from (select pg_temp.kept('removed') as p) x)
@@ -992,7 +993,7 @@ select pg_temp.capture('partner_program_links.two_programs', pg_temp.keep('links
 select pg_temp.check((select jsonb_array_length(a->'programs') = 2
       and a->'programs'->0->>'name' = 'Rival Reader' and a->'programs'->1->>'name' = 'SpeakSix'
       and s - 'links' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
-        'currency', 'USD', 'working', true, 'paused_reason', null, 'custom_links', 3)
+        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 3)
       and pg_temp.names(s) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast, Blog post, Old bio'
       -- The last 30 days of Ada's calendar. The refunded sale, the unjudged one and the one that earned nothing are not sales.
       and pg_temp.numbers(s->'links') = 'Main link 2/2/4200, TikTok 3/1/1470, Instagram 2/0/0, Podcast 1/1/600, Blog post 1/0/0'
@@ -1021,8 +1022,10 @@ select pg_temp.check((select a @> '{"days":7,"timezone":"Pacific/Kiritimati",
           = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast, Blog post, Old bio'
         from jsonb_array_elements(a->'channels') with ordinality e(c, n))
       and a->'programs' = jsonb_build_array(
-        jsonb_build_object('program_id', (pg_temp.program('rival')).id, 'slug', 'rival-reader', 'name', 'Rival Reader', 'currency', 'USD'),
-        jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'currency', 'USD'))
+        jsonb_build_object('program_id', (pg_temp.program('rival')).id, 'slug', 'rival-reader', 'name', 'Rival Reader', 'currency', 'USD',
+          'earn_from', 'sales'),
+        jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'currency', 'USD',
+          'earn_from', 'sales'))
       and a->'program' = a->'programs'->1
     from (select pg_temp.kept('p7') as a) x),
   '7 days: a click or a sale at the first moment of a day of the creator''s calendar belongs to that day, one a moment '
@@ -1060,14 +1063,18 @@ select pg_temp.check((select bool_and(
     || 'do not depend on the window');
 select pg_temp.check((select a->'money' = jsonb_build_object('pending_minor', 6270, 'approved_minor', 1470, 'paying_minor', 1800,
         'paid_minor', 0, 'next_release_at', pg_temp.day('ada', 4) + interval '12 hours' + interval '30 days')
-      and a->'money' = e - 'program_id' - 'slug' - 'name' - 'currency' - 'sales'
+      and a->'money' = e - 'program_id' - 'slug' - 'name' - 'currency' - 'sales' - 'events'
       and a->'latest' = jsonb_build_array(
-        jsonb_build_object('paid_at', now(), 'link_name', 'TikTok', 'amount_minor', 1470, 'status', 'held'),
-        jsonb_build_object('paid_at', pg_temp.day('ada', 1), 'link_name', 'Main link', 'amount_minor', 3000, 'status', 'held'),
+        jsonb_build_object('paid_at', now(), 'link_name', 'TikTok', 'amount_minor', 1470, 'status', 'held',
+          'kind', 'sale', 'reward_label', null),
+        jsonb_build_object('paid_at', pg_temp.day('ada', 1), 'link_name', 'Main link', 'amount_minor', 3000, 'status', 'held',
+          'kind', 'sale', 'reward_label', null),
         jsonb_build_object('paid_at', pg_temp.day('ada', 1) - interval '0.000001 seconds', 'link_name', 'Podcast',
-          'amount_minor', 600, 'status', 'held'),
-        jsonb_build_object('paid_at', pg_temp.day('ada', 3) + interval '12 hours', 'link_name', 'TikTok', 'amount_minor', 0, 'status', 'reversed'),
-        jsonb_build_object('paid_at', pg_temp.day('ada', 4) + interval '12 hours', 'link_name', 'Main link', 'amount_minor', 1200, 'status', 'held'))
+          'amount_minor', 600, 'status', 'held', 'kind', 'sale', 'reward_label', null),
+        jsonb_build_object('paid_at', pg_temp.day('ada', 3) + interval '12 hours', 'link_name', 'TikTok', 'amount_minor', 0, 'status', 'reversed',
+          'kind', 'sale', 'reward_label', null),
+        jsonb_build_object('paid_at', pg_temp.day('ada', 4) + interval '12 hours', 'link_name', 'Main link', 'amount_minor', 1200, 'status', 'held',
+          'kind', 'sale', 'reward_label', null))
     from (select pg_temp.kept('p7') as a, pg_temp.earnings_line('ada', 'speaksix') as e) x),
   'the money is the program''s line of the creator''s earnings, to date; the latest five commissions come newest first '
     || 'with their link and what they are worth now');
@@ -1080,7 +1087,7 @@ select pg_temp.check((select a->'program'->>'slug' = 'rival-reader' and a = pg_t
       and pg_temp.numbers(a->'channels') = 'Main link 1/2/1500, TikTok 1/0/0'
       and a->'money' = jsonb_build_object('pending_minor', 500, 'approved_minor', 0, 'paying_minor', 0, 'paid_minor', 1000,
         'next_release_at', now() + interval '14 days')
-      and a->'money' = pg_temp.earnings_line('ada', 'rival-reader') - 'program_id' - 'slug' - 'name' - 'currency' - 'sales'
+      and a->'money' = pg_temp.earnings_line('ada', 'rival-reader') - 'program_id' - 'slug' - 'name' - 'currency' - 'sales' - 'events'
       and jsonb_array_length(a->'latest') = 2 and a->'latest'->1 @> '{"link_name":"Main link","amount_minor":1000,"status":"approved"}'
     from (select pg_temp.kept('p_rival') as a) x),
   'with no program named the first by name is reported; money that was paid out shows as paid');
@@ -1103,7 +1110,7 @@ select pg_temp.check(pg_temp.try('ada', 'select public.partner_program_performan
   'the window is 7, 30 or 90 days, and a program that is not the creator''s is not found');
 -- Cy left SpeakSix: it is off their Links page, and still theirs to look back on.
 select pg_temp.check((select a->'programs'->0->>'slug' = 'speaksix' and a->'program'->>'slug' = 'speaksix'
-      and a->'totals' = '{"clicks":2,"sales":0,"earnings_minor":0}'
+      and a->'totals' = '{"clicks":2,"sales":0,"events":0,"earnings_minor":0}'
       and pg_temp.numbers(a->'channels') = 'Main link 1/0/0, my-link 1/0/0'
       and jsonb_array_length(a->'channels') = 27 and a->'latest' = '[]'
       and a->'money' = '{"pending_minor":0,"approved_minor":0,"paying_minor":0,"paid_minor":0,"next_release_at":null}'
@@ -1135,7 +1142,7 @@ select pg_temp.call('ada', format('select to_jsonb(r) from public.set_partner_li
 select pg_temp.capture('partner_program_performance.sale_without_link', pg_temp.keep('p_none', pg_temp.performance('ada', 'speaksix', 30)));
 select pg_temp.check((select a->'totals' = pg_temp.kept('p30')->'totals' and a->'daily' = pg_temp.kept('p30')->'daily'
       and pg_temp.numbers(a->'channels') = 'Main link 2/2/4200, TikTok 3/1/1470, Instagram 2/0/0, Blog post 1/0/0, No link 1/1/600'
-      and a->'channels'->-1 = '{"link_id":null,"kind":"none","channel":null,"name":"No link","clicks":1,"sales":1,"earnings_minor":600}'
+      and a->'channels'->-1 = '{"link_id":null,"kind":"none","channel":null,"name":"No link","clicks":1,"sales":1,"events":0,"earnings_minor":600}'
       and jsonb_array_length(a->'channels') = 10
       and a->'latest'->2->>'link_name' = 'Podcast'
     from (select pg_temp.kept('p_none') as a) x)
@@ -1154,7 +1161,7 @@ select pg_temp.check((select count(*) = 6 and bool_and(
       (a->>'ends_on')::date - (a->>'starts_on')::date = (a->>'days')::integer - 1
       and jsonb_array_length(a->'daily') = case when a->'program' = 'null' then 0 else (a->>'days')::integer end
       and (a->'program' <> 'null' or (a->'programs' = '[]' and a->'channels' = '[]' and a->'latest' = '[]'
-        and a->'money' = 'null' and a->'totals' = a->'previous' and a->'totals' = '{"clicks":0,"sales":0,"earnings_minor":0}'))
+        and a->'money' = 'null' and a->'totals' = a->'previous' and a->'totals' = '{"clicks":0,"sales":0,"events":0,"earnings_minor":0}'))
       and (a->'program' = 'null' or (jsonb_typeof(a->'money') = 'object' and a->'programs' @> jsonb_build_array(a->'program')))
       and not exists (select 1 from jsonb_array_elements(a->'channels') c
         where (c->'link_id' = 'null') <> (c->>'kind' = 'none') or c->>'kind' not in ('main', 'channel', 'custom', 'none'))
@@ -1179,13 +1186,13 @@ select pg_temp.check((select bool_and(answer::text !~* 'p5buyer|pi_|ch_p5|cs_p5|
 
 -- The merchant's Creators page -----------------------------------------------------------------------
 select pg_temp.capture('workspace_program_creators.with_money', pg_temp.keep('creators', pg_temp.creators('owner', 'acme')));
-select pg_temp.check((select pg_temp.keys(a) = 'can_manage counts creators currency program totals'
-      and a @> '{"can_manage":true,"currency":"USD","counts":{"pending":0,"active":2,"ended":1},
-        "totals":{"clicks":19,"sales":8,"sales_amount_minor":40300,"commission_minor":10140,"pending_minor":6870}}'
+select pg_temp.check((select pg_temp.keys(a) = 'can_manage counts creators currency earn_from program totals'
+      and a @> '{"can_manage":true,"currency":"USD","earn_from":"sales","counts":{"pending":0,"active":2,"ended":1},
+        "totals":{"clicks":19,"sales":8,"events":0,"sales_amount_minor":40300,"commission_minor":10140,"pending_minor":6870}}'
       and a->'program' = jsonb_build_object('id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
         'status', 'live', 'approval_mode', 'automatic', 'marketplace_listed', true)
       and (select bool_and(pg_temp.keys(c) = 'activated_at channels clicks commission_minor country_code decision_note '
-          || 'ended_at handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
+          || 'ended_at events handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
           || 'sales_amount_minor status terms_version website_url') from jsonb_array_elements(a->'creators') c)
       -- Ada: 16 clicks on six links. Nine sales were credited to her: six earn (held or approved),
       -- one is from before program money and counts as it did then, and the refunded one and the
@@ -1209,11 +1216,11 @@ select pg_temp.check(pg_temp.creators('analyst', 'acme') = pg_temp.kept('creator
   and pg_temp.kept('creators')::text !~* 'example\.test|Ada N\. Okafor|p5buyer',
   'an analyst of the workspace reads the same page; nobody outside it does; no creator email or legal name is on it');
 select pg_temp.capture('workspace_program_creators.no_program', pg_temp.keep('creators_none', pg_temp.creators('empty_owner', 'empty')));
-select pg_temp.check(pg_temp.kept('creators_none') = '{"can_manage":true,"program":null,"currency":null,
+select pg_temp.check(pg_temp.kept('creators_none') = '{"can_manage":true,"program":null,"currency":null,"earn_from":"sales",
     "counts":{"pending":0,"active":0,"ended":0},"creators":[],
-    "totals":{"clicks":0,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb,
+    "totals":{"clicks":0,"sales":0,"events":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb,
   'a workspace with no program has no currency, no creators and totals of zero');
-select pg_temp.check((select a->'totals' = '{"clicks":7,"sales":2,"sales_amount_minor":7500,"commission_minor":1500,"pending_minor":500}'
+select pg_temp.check((select a->'totals' = '{"clicks":7,"sales":2,"events":0,"sales_amount_minor":7500,"commission_minor":1500,"pending_minor":500}'
       and pg_temp.creator(a, 'ada-okafor') @> '{"clicks":2,"sales":2,"commission_minor":1500,"pending_minor":500}'
       and pg_temp.creator(a, 'ben-creator') @> '{"clicks":5,"sales":0,"sales_amount_minor":0,"commission_minor":0}'
     from (select pg_temp.creators('rival_owner', 'rival') as a) x),
