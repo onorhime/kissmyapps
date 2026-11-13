@@ -6,14 +6,19 @@ import {
   agreementReady,
   appPlatforms,
   asksEarnFrom,
+  billingWords,
   blankReward,
   categoryLabels,
   changedInput,
   changesAgreement,
   checkLogoFile,
+  checkoutLinkOf,
   commissionExample,
   currencies,
   describeProblem,
+  discountBps,
+  discountLine,
+  draftCheckout,
   draftEarning,
   draftFromProgram,
   draftProgress,
@@ -28,10 +33,15 @@ import {
   landingKindOf,
   linkAddress,
   offersAppLanding,
+  offersCheckout,
   optionFields,
   optionsSummary,
   ProgramError,
+  productLine,
   programs,
+  promoCountLine,
+  promoErrorWords,
+  promoFailureLine,
   rewardField,
   trackingLine,
   trackingSnippet,
@@ -43,11 +53,13 @@ import type {
   AgreementDoc,
   AppLink,
   Category,
+  CheckoutBilling,
   Checklist,
   DraftErrors,
   DraftField,
   EarnFrom,
   LandingKind,
+  PaymentMode,
   Program,
   ProgramAppLink,
   ProgramDraft,
@@ -55,6 +67,7 @@ import type {
   ProgramState,
   ProgramStatus,
   ProgramStep,
+  PromoCodeCounts,
   RewardPart,
   RewardRow,
   Tracking,
@@ -62,7 +75,15 @@ import type {
 import { personHue } from '../format'
 import { href } from '../routes'
 import { useStore } from '../store'
-import { CodeBlock, Field, PageHeader, Pill, Segmented, Skeleton } from '../ui/Primitives'
+import {
+  CodeBlock,
+  CopyButton,
+  Field,
+  PageHeader,
+  Pill,
+  Segmented,
+  Skeleton,
+} from '../ui/Primitives'
 import type { PillTone } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
 import { RewardFields } from './ProgramRewards'
@@ -138,6 +159,8 @@ function ProgramPage({
   // between a web page and the app loses nothing.
   const [landingKind, setLandingKind] = useState<LandingKind>('web')
   const landingKept = useRef<Record<LandingKind, string>>({ web: '', app: '' })
+  // A saved checkout link's address, kept while the form tries the business's own checkout.
+  const checkoutLanding = useRef<string | null>(null)
 
   /** The landing page as the program has it saved. */
   const keepLanding = useCallback((saved: Program | null) => {
@@ -151,8 +174,9 @@ function ProgramPage({
     (next: ProgramState) => {
       latest.current += 1
       setState(next)
-      setDraft(draftFromProgram(next.program, asksEarnFrom(next)))
+      setDraft(draftFromProgram(next.program, asksEarnFrom(next), offersCheckout(next)))
       keepLanding(next.program)
+      checkoutLanding.current = checkoutLinkOf(next.program)
       setErrors({})
       approvalChosen.current = false
       setLoadProblem(undefined)
@@ -186,12 +210,16 @@ function ProgramPage({
   // Asked when the workspace can pay for events; otherwise the form is the one for sales.
   const asks = asksEarnFrom(state)
   const earnFrom = draft.earnFrom ?? 'sales'
-  const saved = useMemo(() => draftFromProgram(program, asks), [program, asks])
+  // Asked by a database that knows checkout links; an older one keeps the form as it was.
+  const paying = offersCheckout(state)
+  const paymentMode = draft.paymentMode ?? 'own_checkout'
+  const saved = useMemo(() => draftFromProgram(program, asks, paying), [program, asks, paying])
   const dirty = Boolean(state) && !sameDraft(draft, saved)
   const editable = Boolean(state?.can_manage) && status !== 'in_review'
   // Asked when the workspace has smart links of an app; otherwise the landing page is a web page.
   const offersApp = offersAppLanding(state)
-  const appLanding = offersApp && landingKind === 'app'
+  // A checkout link is the landing page itself, so the app is not one then.
+  const appLanding = offersApp && landingKind === 'app' && paymentMode !== 'kma_checkout'
 
   // A review ends without the person doing anything, so the page looks for the answer itself.
   useEffect(() => {
@@ -289,15 +317,27 @@ function ProgramPage({
     // An event has no payment behind it, so the business approves each creator of a program
     // that pays for events, unless it already decided how creators are approved.
     const decided = approvalChosen.current || (program?.earn_from ?? 'sales') !== 'sales'
-    setDraft((current) => ({
-      ...current,
-      earnFrom: value,
-      approvalMode: decided
-        ? current.approvalMode
-        : value === 'sales'
-          ? saved.approvalMode
-          : 'manual',
-    }))
+    setDraft((current) => {
+      const next: ProgramDraft = {
+        ...current,
+        earnFrom: value,
+        approvalMode: decided
+          ? current.approvalMode
+          : value === 'sales'
+            ? saved.approvalMode
+            : 'manual',
+      }
+      // An event has nothing to pay for, so a program that earns from events only has neither a
+      // checkout link nor creator codes.
+      if (value === 'events' && paying) {
+        next.codes = false
+        if (current.paymentMode === 'kma_checkout') {
+          next.paymentMode = 'own_checkout'
+          if (current.landingUrl === checkoutLanding.current) next.landingUrl = ''
+        }
+      }
+      return next
+    })
     if (errors.earnFrom) setErrors(({ earnFrom: _fixed, ...rest }) => rest)
   }
 
@@ -313,6 +353,25 @@ function ProgramPage({
     landingKept.current[landingKind] = draft.landingUrl
     setLandingKind(kind)
     set('landingUrl', landingKept.current[kind], 'landingUrl')
+  }
+
+  /**
+   * A checkout link's address is KissMyApps' own, so going back to one's own checkout starts
+   * from an empty landing page, and coming back puts the address in again.
+   */
+  const choosePaymentMode = (mode: PaymentMode) => {
+    if (mode === paymentMode) return
+    setDraft((current) => ({
+      ...current,
+      paymentMode: mode,
+      landingUrl:
+        mode === 'kma_checkout'
+          ? (checkoutLanding.current ?? current.landingUrl)
+          : current.landingUrl === checkoutLanding.current
+            ? ''
+            : current.landingUrl,
+    }))
+    if (errors.paymentMode) setErrors(({ paymentMode: _fixed, ...rest }) => rest)
   }
 
   const chooseLink = (url: string) =>
@@ -360,7 +419,7 @@ function ProgramPage({
 
   /** Says what went wrong where it belongs: at the field, or above the form. */
   const fail = async (problem: unknown, step: ProgramStep, again?: Action) => {
-    const described = describeProblem(problem, step, earnFrom)
+    const described = describeProblem(problem, step, earnFrom, paymentMode)
     if (described.field) {
       showErrors({ ...errors, [described.field]: described.message })
       return
@@ -417,7 +476,7 @@ function ProgramPage({
         setReader({ open: false })
         setNotice({
           tone: 'problem',
-          problem: describeProblem(incomplete, 'agreement', earnFrom),
+          problem: describeProblem(incomplete, 'agreement', earnFrom, paymentMode),
         })
         return
       }
@@ -489,6 +548,7 @@ function ProgramPage({
             current.checklist.agreement_read ? incomplete : unread,
             'publish',
             earnFrom,
+            paymentMode,
           ),
         })
         return
@@ -603,12 +663,21 @@ function ProgramPage({
         <p>How a sale is tied to a creator</p>
       </div>
       <div className="mc-prog-fields">
-        <p className="mc-prog-about">
-          Creator links add a click ID to your landing page. Pass it to Stripe when a customer pays,
-          and the sale is credited to that creator.
-        </p>
-        <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
-        <p className="mc-prog-about">{trackingSnippetNote}</p>
+        {paymentMode === 'kma_checkout' ? (
+          <p className="mc-prog-about">
+            Creator links open your checkout link, and KissMyApps passes the creator&rsquo;s click
+            to Stripe for you. There is nothing to add to your site.
+          </p>
+        ) : (
+          <>
+            <p className="mc-prog-about">
+              Creator links add a click ID to your landing page. Pass it to Stripe when a customer
+              pays, and the sale is credited to that creator.
+            </p>
+            <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
+            <p className="mc-prog-about">{trackingSnippetNote}</p>
+          </>
+        )}
         <TrackingStatus
           connected={state.stripe_connected}
           tracking={tracking.data}
@@ -713,6 +782,35 @@ function ProgramPage({
                   }
                   asks={asks}
                   onEarnFrom={chooseEarnFrom}
+                  payment={
+                    paying && earnFrom !== 'events' ? (
+                      <PaymentFields
+                        draft={draft}
+                        errors={errors}
+                        set={set}
+                        onMode={choosePaymentMode}
+                        checkoutLink={checkoutLinkOf(program)}
+                        stripeConnected={state.stripe_connected}
+                        chargesOff={state.stripe_charges_enabled === false}
+                      />
+                    ) : null
+                  }
+                  codes={
+                    paying && earnFrom !== 'events' ? (
+                      <CodeFields
+                        draft={draft}
+                        errors={errors}
+                        set={set}
+                        published={status === 'live' || status === 'paused'}
+                        hadDiscount={(program?.buyer_discount_bps ?? null) !== null}
+                        counts={
+                          (program?.buyer_discount_bps ?? null) !== null
+                            ? (program?.promo_codes ?? null)
+                            : null
+                        }
+                      />
+                    ) : null
+                  }
                   rewards={
                     <RewardFields
                       rows={draft.rewards ?? []}
@@ -770,6 +868,7 @@ function ProgramPage({
                   state={state}
                   checklist={checklist}
                   earnFrom={earnFrom}
+                  paymentMode={paymentMode}
                   complete={complete}
                   readable={readable}
                   editable={editable}
@@ -1046,6 +1145,8 @@ function ProgramForm({
   asks,
   onEarnFrom,
   rewards,
+  payment,
+  codes,
 }: {
   draft: ProgramDraft
   errors: DraftErrors
@@ -1070,6 +1171,10 @@ function ProgramForm({
   onEarnFrom: (value: EarnFrom) => void
   /** The reward rows and their budget, shown when the program pays for events. */
   rewards: ReactNode
+  /** How buyers pay, when the form asks; null keeps the form as it was before checkout links. */
+  payment: ReactNode
+  /** Creator promo codes and the buyer discount, when the form asks. */
+  codes: ReactNode
 }) {
   const file = useRef<HTMLInputElement>(null)
   const change = useRef<HTMLButtonElement>(null)
@@ -1207,47 +1312,60 @@ function ProgramForm({
           </div>
         </section>
 
-        <section className="mc-prog-section" aria-labelledby="mc-prog-landing">
-          <div className="mc-prog-label">
-            <h2 id="mc-prog-landing">Landing page</h2>
-            <p>Where creator links send people</p>
-          </div>
-          <div className="mc-prog-fields">
-            {landingKind && (
-              <div className="mc-pga-kind">
-                <Segmented
-                  label="Where creator links send people"
-                  value={landingKind}
-                  options={[
-                    { value: 'web', label: 'A web page' },
-                    { value: 'app', label: 'Your app' },
-                  ]}
-                  onChange={onLandingKind}
-                />
-              </div>
-            )}
-            {landingKind === 'app' ? (
-              appPicker
-            ) : (
-              <Bare label="Landing page address" error={errors.landingUrl}>
-                {(props) => (
-                  <input
-                    {...props}
-                    type="url"
-                    inputMode="url"
-                    value={draft.landingUrl}
-                    placeholder="https://"
-                    autoComplete="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    maxLength={2000}
-                    onChange={(event) => set('landingUrl', event.target.value, 'landingUrl')}
+        {payment && (
+          <section className="mc-prog-section" aria-labelledby="mc-p8-pay">
+            <div className="mc-prog-label">
+              <h2 id="mc-p8-pay">How buyers pay</h2>
+              <p>Where buyers from creator links check out</p>
+            </div>
+            <div className="mc-prog-fields">{payment}</div>
+          </section>
+        )}
+
+        {/* A checkout link is where creator links send people; its address is KissMyApps' own. */}
+        {draft.paymentMode !== 'kma_checkout' && (
+          <section className="mc-prog-section" aria-labelledby="mc-prog-landing">
+            <div className="mc-prog-label">
+              <h2 id="mc-prog-landing">Landing page</h2>
+              <p>Where creator links send people</p>
+            </div>
+            <div className="mc-prog-fields">
+              {landingKind && (
+                <div className="mc-pga-kind">
+                  <Segmented
+                    label="Where creator links send people"
+                    value={landingKind}
+                    options={[
+                      { value: 'web', label: 'A web page' },
+                      { value: 'app', label: 'Your app' },
+                    ]}
+                    onChange={onLandingKind}
                   />
-                )}
-              </Bare>
-            )}
-          </div>
-        </section>
+                </div>
+              )}
+              {landingKind === 'app' ? (
+                appPicker
+              ) : (
+                <Bare label="Landing page address" error={errors.landingUrl}>
+                  {(props) => (
+                    <input
+                      {...props}
+                      type="url"
+                      inputMode="url"
+                      value={draft.landingUrl}
+                      placeholder="https://"
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      maxLength={2000}
+                      onChange={(event) => set('landingUrl', event.target.value, 'landingUrl')}
+                    />
+                  )}
+                </Bare>
+              )}
+            </div>
+          </section>
+        )}
 
         {asks && (
           <section className="mc-prog-section" aria-labelledby="mc-prog-earn">
@@ -1366,6 +1484,16 @@ function ProgramForm({
               <p>What a creator earns per event, once per person</p>
             </div>
             <div className="mc-prog-fields">{rewards}</div>
+          </section>
+        )}
+
+        {codes && (
+          <section className="mc-prog-section" aria-labelledby="mc-p8-codes">
+            <div className="mc-prog-label">
+              <h2 id="mc-p8-codes">Promo codes</h2>
+              <p>A discount for buyers, with each creator&rsquo;s own code</p>
+            </div>
+            <div className="mc-prog-fields">{codes}</div>
           </section>
         )}
 
@@ -1554,6 +1682,263 @@ function ProgramForm({
         </div>
       )}
     </form>
+  )
+}
+
+/**
+ * How buyers pay (Phase 8): on the business's own checkout, or on a checkout link KissMyApps
+ * opens on the business's Stripe account, with its one product and the page after payment.
+ */
+function PaymentFields({
+  draft,
+  errors,
+  set,
+  onMode,
+  checkoutLink,
+  stripeConnected,
+  chargesOff,
+}: {
+  draft: ProgramDraft
+  errors: DraftErrors
+  set: <K extends keyof ProgramDraft>(key: K, value: ProgramDraft[K], field?: DraftField) => void
+  onMode: (mode: PaymentMode) => void
+  /** The saved checkout link's address; null until a checkout link is saved. */
+  checkoutLink: string | null
+  stripeConnected: boolean
+  /** The connected Stripe account cannot take payments yet. */
+  chargesOff: boolean
+}) {
+  const mode = draft.paymentMode ?? 'own_checkout'
+  const dollars = draft.currency === 'USD'
+  return (
+    <>
+      <div
+        className={errors.paymentMode ? 'mc-field mc-p8-mode has-error' : 'mc-field mc-p8-mode'}
+        data-invalid={errors.paymentMode ? true : undefined}
+      >
+        <Segmented
+          label="How buyers pay"
+          value={mode}
+          options={[
+            { value: 'own_checkout', label: 'Your own checkout' },
+            { value: 'kma_checkout', label: 'KissMyApps checkout link' },
+          ]}
+          onChange={onMode}
+        />
+        {errors.paymentMode && (
+          <p className="mc-field-error" role="alert">
+            {errors.paymentMode}
+          </p>
+        )}
+      </div>
+      {mode === 'own_checkout' ? (
+        <p className="mc-prog-example">
+          Buyers pay on your site or in your app, through your own Stripe checkout.
+        </p>
+      ) : (
+        <>
+          <p className="mc-prog-example">
+            Creator links open a Stripe checkout on your own Stripe account, so buyers pay you as
+            usual. You only say what they buy.
+          </p>
+          {/* For a saved checkout link, the database counts Stripe as connected only when it
+              can take payments, so the words cover both. */}
+          {!stripeConnected && (
+            <p className="mc-p8-note">
+              The checkout opens on your Stripe account, so Stripe must be connected and able to
+              take payments.{' '}
+              <a className="mc-link mc-pga-go" href={CONNECTIONS}>
+                Open Connections
+              </a>
+            </p>
+          )}
+          {stripeConnected && chargesOff && (
+            <p className="mc-p8-note">
+              Your Stripe account cannot take payments yet, so the checkout link would not work.
+              Finish setting it up in Stripe.{' '}
+              <a className="mc-link mc-pga-go" href={CONNECTIONS}>
+                Open Connections
+              </a>
+            </p>
+          )}
+          <Field label="Product name" error={errors.productName}>
+            {(props) => (
+              <input
+                {...props}
+                value={draft.productName ?? ''}
+                maxLength={80}
+                placeholder="Pro plan"
+                autoComplete="off"
+                onChange={(event) => set('productName', event.target.value, 'productName')}
+              />
+            )}
+          </Field>
+          <div className="mc-p8-price">
+            <Field label="Price" error={errors.productPrice}>
+              {(props) => (
+                <div className={dollars ? 'mc-affix is-prefix' : 'mc-affix'}>
+                  {dollars && <span aria-hidden="true">$</span>}
+                  <input
+                    {...props}
+                    inputMode="decimal"
+                    value={draft.productPrice ?? ''}
+                    placeholder="9.99"
+                    autoComplete="off"
+                    onChange={(event) => set('productPrice', event.target.value, 'productPrice')}
+                  />
+                  {!dollars && <span aria-hidden="true">{draft.currency}</span>}
+                </div>
+              )}
+            </Field>
+            <div className="mc-field">
+              <span className="mc-prog-caption">Billed</span>
+              <Segmented<CheckoutBilling>
+                label="Billed"
+                value={draft.productInterval ?? 'month'}
+                options={(['once', 'month', 'year'] as const).map((value) => ({
+                  value,
+                  label: billingWords[value],
+                }))}
+                onChange={(value) => set('productInterval', value, 'productPrice')}
+              />
+            </div>
+          </div>
+          <Field
+            label="Page after payment"
+            hint="Where buyers land once they have paid"
+            error={errors.successUrl}
+          >
+            {(props) => (
+              <input
+                {...props}
+                type="url"
+                inputMode="url"
+                value={draft.successUrl ?? ''}
+                placeholder="https://"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                maxLength={2000}
+                onChange={(event) => set('successUrl', event.target.value, 'successUrl')}
+              />
+            )}
+          </Field>
+          <div className="mc-field">
+            <span className="mc-prog-caption">Checkout link</span>
+            {checkoutLink ? (
+              <>
+                <div className="mc-p8-link">
+                  <span className="mc-mono">{linkAddress(checkoutLink)}</span>
+                  <CopyButton value={checkoutLink} label="checkout link" compact />
+                </div>
+                <p className="mc-field-hint">
+                  Each creator&rsquo;s link opens this checkout with their click on it.
+                </p>
+              </>
+            ) : (
+              <p className="mc-field-hint">Your checkout link appears here once you save.</p>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+/** Creator promo codes (Phase 8): off, or a discount buyers get with each creator's code. */
+function CodeFields({
+  draft,
+  errors,
+  set,
+  published,
+  hadDiscount,
+  counts,
+}: {
+  draft: ProgramDraft
+  errors: DraftErrors
+  set: <K extends keyof ProgramDraft>(key: K, value: ProgramDraft[K], field?: DraftField) => void
+  /** Creators see published terms, so codes follow what is published. */
+  published: boolean
+  /** The saved program has a discount, so creators already have codes. */
+  hadDiscount: boolean
+  /** How the saved discount's codes stand; null with no saved discount or an older answer. */
+  counts: PromoCodeCounts | null
+}) {
+  const on = draft.codes === true
+  const failure = counts ? promoFailureLine(counts) : null
+  const reason = counts && failure ? promoErrorWords(counts.last_error) : null
+  const percent = discountBps(draft.discount ?? '')
+  // The example code carries the discount, as each creator's code will.
+  const example = `ANNA${percent ? percent / 100 : 10}`
+  return (
+    <>
+      <label className="mc-prog-toggle">
+        <span>Creator promo codes</span>
+        <span className="mc-switch">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={on}
+            onChange={(event) => set('codes', event.target.checked, 'discount')}
+          />
+          <span aria-hidden="true" className="mc-switch-track" />
+        </span>
+      </label>
+      {on && (
+        <Bare label="Buyer discount" error={errors.discount} className="mc-p8-discount">
+          {(props) => (
+            <p className="mc-p8-discount-line">
+              <span>Give buyers</span>
+              <span className="mc-affix">
+                <input
+                  {...props}
+                  inputMode="numeric"
+                  value={draft.discount ?? ''}
+                  placeholder="10"
+                  autoComplete="off"
+                  maxLength={3}
+                  onChange={(event) => set('discount', event.target.value, 'discount')}
+                />
+                <span aria-hidden="true">%</span>
+              </span>
+              <span>off with each creator&rsquo;s code</span>
+            </p>
+          )}
+        </Bare>
+      )}
+      {on && (
+        <p className="mc-prog-hint">
+          {!published
+            ? 'Codes are made when you publish.'
+            : hadDiscount
+              ? 'A new discount retires every creator’s code and makes new ones when you publish, and creators accept the new terms again.'
+              : 'Codes are made when you publish, and creators accept the new terms again.'}
+        </p>
+      )}
+      {on && counts && (
+        <div className="mc-p8-codes-state" role="status">
+          <p>{promoCountLine(counts)}</p>
+          {failure && (
+            <p className="mc-p8-once">
+              <TriangleAlert size={16} aria-hidden="true" />
+              <span>
+                {failure}
+                {reason ? ` ${reason}` : ''} Those creators have been told, and can still share
+                their links.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+      <p className="mc-prog-example">
+        {on
+          ? `Each creator gets their own code, like ${example}, made on your Stripe account. A sale with a code goes to that creator, even if the buyer clicked another creator’s link first.`
+          : 'Each creator gets their own code, made on your Stripe account. A sale with a code goes to that creator, even if the buyer clicked another creator’s link first.'}
+        {on && draft.paymentMode === 'kma_checkout'
+          ? ' On your checkout link, the creator’s code is applied by itself.'
+          : ''}
+      </p>
+    </>
   )
 }
 
@@ -1780,6 +2165,8 @@ function Preview({ draft, workspaceId }: { draft: ProgramDraft; workspaceId: str
   const headline = earnHeadline(earning)
   // For events the line already names every reward; beside a commission they are listed.
   const listed = earning.earn_from === 'both' ? earning.rewards : []
+  const product = productLine(draftCheckout(draft), draft.currency)
+  const discount = draft.codes ? discountBps(draft.discount ?? '') : null
   const window = /^\d{1,3}$/.test(draft.attributionDays.trim())
     ? Number(draft.attributionDays)
     : null
@@ -1812,6 +2199,12 @@ function Preview({ draft, workspaceId }: { draft: ProgramDraft; workspaceId: str
             ))}
           </ul>
         )}
+        {(product || discount) && (
+          <ul className="mc-p8-card-list" aria-label="For buyers">
+            {product && <li className="mc-num">{product}</li>}
+            {discount && <li className="mc-num">{discountLine(discount)}</li>}
+          </ul>
+        )}
         {window !== null && <p className="mc-prog-card-meta mc-num">{window}-day attribution</p>}
       </div>
     </section>
@@ -1821,10 +2214,20 @@ function Preview({ draft, workspaceId }: { draft: ProgramDraft; workspaceId: str
 /** The checklist, with the step for what creators earn in the words of what the program pays for. */
 const stepsFor = (
   earnFrom: EarnFrom,
+  paymentMode: PaymentMode = 'own_checkout',
 ): Array<{ key: keyof Checklist; done: string; todo: string }> => [
-  { key: 'stripe_connected', done: 'Stripe connected', todo: 'Connect Stripe' },
+  // A checkout link takes payments, so its Stripe account must be able to.
+  paymentMode === 'kma_checkout'
+    ? {
+        key: 'stripe_connected',
+        done: 'Stripe takes payments',
+        todo: 'Connect Stripe that can take payments',
+      }
+    : { key: 'stripe_connected', done: 'Stripe connected', todo: 'Connect Stripe' },
   { key: 'details', done: 'Product details', todo: 'Product details' },
-  { key: 'landing_page', done: 'Landing page', todo: 'Landing page' },
+  paymentMode === 'kma_checkout'
+    ? { key: 'landing_page', done: 'Checkout product', todo: 'Checkout product' }
+    : { key: 'landing_page', done: 'Landing page', todo: 'Landing page' },
   { key: 'commission', ...earningStep[earnFrom] },
   { key: 'agreement_read', done: 'Agreement read', todo: 'Read your agreement' },
 ]
@@ -1834,6 +2237,7 @@ function Publishing({
   state,
   checklist,
   earnFrom,
+  paymentMode,
   complete,
   readable,
   editable,
@@ -1845,6 +2249,7 @@ function Publishing({
   state: ProgramState
   checklist: Checklist
   earnFrom: EarnFrom
+  paymentMode: PaymentMode
   /** Everything a listing needs is filled in. */
   complete: boolean
   /** Enough is filled in for the agreement to be written. */
@@ -1864,6 +2269,18 @@ function Publishing({
   const ready = Object.values(checklist).every(Boolean)
   // After a save the server decides; before it, the form's own answers stand in.
   const canPublish = editable && ready && !termsEdited && state.can_submit
+  // A checkout link takes payments on the business's Stripe account, which must be able to.
+  const chargesOff =
+    paymentMode === 'kma_checkout' &&
+    state.stripe_connected &&
+    state.stripe_charges_enabled === false
+  const chargesHint =
+    'Your Stripe account cannot take payments yet. Finish setting it up to publish.'
+  // For a checkout link, the database counts Stripe as connected only when it takes payments.
+  const stripeHint =
+    paymentMode === 'kma_checkout'
+      ? 'Connect a Stripe account that can take payments to publish.'
+      : 'Connect Stripe to publish.'
 
   const read = (
     <button
@@ -1929,8 +2346,10 @@ function Publishing({
         {editable && !canPublish && (
           <p className="mc-prog-hint">
             {!state.stripe_connected
-              ? 'Connect Stripe to publish.'
-              : 'Publish unlocks once you have read the updated agreement.'}
+              ? stripeHint
+              : chargesOff
+                ? chargesHint
+                : 'Publish unlocks once you have read the updated agreement.'}
           </p>
         )}
       </section>
@@ -1940,14 +2359,15 @@ function Publishing({
   if (!readable) hint = 'Fill in the sections on this page to see your agreement.'
   else if (!complete) hint = 'Add a category and a one-line description to publish.'
   else if (!checklist.agreement_read) hint = 'Publish unlocks once you have read the agreement.'
-  else if (!checklist.stripe_connected) hint = 'Connect Stripe to publish.'
+  else if (!checklist.stripe_connected) hint = stripeHint
+  else if (chargesOff) hint = chargesHint
   else hint = 'KissMyApps reviews your first listing once, usually within a day.'
 
   return (
     <section className="mc-panel mc-prog-ready" aria-labelledby="mc-prog-ready">
       <h2 id="mc-prog-ready">Ready to publish</h2>
       <ul className="mc-prog-steps">
-        {stepsFor(earnFrom).map((step) => {
+        {stepsFor(earnFrom, paymentMode).map((step) => {
           const done = checklist[step.key]
           return (
             <li key={step.key} className={done ? 'is-done' : undefined}>

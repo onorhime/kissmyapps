@@ -7184,3 +7184,368 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
 }
 /* ---- end of Attribution Phase 2 ----------------------------------------------------------- */
+
+/*
+ * ---- Phase 8: checkout link, promo codes, in-app purchases, Amplitude (mc-p8-) -------------
+ * Every class in this block starts with mc-p8-. The program form gains how buyers pay and the
+ * promo code discount; Sales says where a buyer paid and the code used; Connections gains a card
+ * per in-app purchase tool and one for Amplitude, built like the Stripe card above them.
+ */
+
+/* Program form: a short note in the flow of the fields, as the Connections notes read. */
+.mc-p8-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--mc-well);
+  color: var(--mc-muted);
+}
+/* The price takes what an amount needs; how often it is billed takes the rest of the row. */
+.mc-p8-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+.mc-p8-price > .mc-field:first-child {
+  flex: 0 1 160px;
+}
+.mc-p8-price > .mc-field:last-child {
+  flex: 1 1 260px;
+}
+.mc-p8-price .mc-segmented {
+  align-self: flex-start;
+}
+.mc-prog-form .mc-p8-price .mc-affix:not(.is-prefix) input {
+  padding-right: 8px;
+  text-align: right;
+}
+/* The checkout link is read, not typed: a quiet frame, the address, its copy button. */
+.mc-p8-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 2px 0 14px;
+  border: 1px solid var(--mc-rule);
+  border-radius: var(--mc-radius-inner);
+}
+.mc-p8-link > .mc-mono {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+/* The choice of how buyers pay is as wide as its two answers, as the other choices are. */
+.mc-p8-mode .mc-segmented {
+  align-self: flex-start;
+}
+/*
+ * "Give buyers [10 %] off with each creator's code": one sentence with its field in it. On a
+ * narrow screen the words after the field move to the next line together.
+ */
+.mc-p8-discount-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  line-height: 24px;
+}
+.mc-p8-discount-line > .mc-affix {
+  display: inline-flex;
+  width: 84px;
+}
+.mc-p8-discount-line > .mc-affix input {
+  padding-right: 4px;
+  text-align: right;
+}
+/* On the card creators will see: what buyers pay and the discount their code gives. */
+.mc-p8-card-list {
+  display: grid;
+  gap: 4px;
+  margin: -4px 0 0;
+  padding: 0;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 20px;
+  list-style: none;
+}
+
+/* Sales: the code a buyer used reads as a code; where they paid is a quiet badge. */
+.mc-p8-code-text {
+  font-family: var(--mc-mono);
+  font-size: 13px;
+}
+.mc-p8-source {
+  white-space: nowrap;
+}
+.mc-p8-source-inline {
+  display: none;
+}
+@container mc-sales (max-width: 860px) {
+  .mc-sales-table tbody td.mc-p8-source {
+    display: none;
+  }
+  .mc-p8-source-inline {
+    display: inline;
+  }
+}
+
+/* Connections: a tool card is the Stripe card's frame; its apps are rows split by hairlines. */
+.mc-p8-loading {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.mc-p8-apps {
+  margin: 16px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--mc-rule);
+  list-style: none;
+}
+.mc-p8-app {
+  padding: 16px 0;
+}
+.mc-p8-app + .mc-p8-app {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-p8-app:last-child {
+  padding-bottom: 0;
+}
+.mc-p8-app-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 12px;
+}
+.mc-p8-amp > .mc-p8-app-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.mc-p8-app-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mc-p8-app-text h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+.mc-p8-app-text .mc-conn-state {
+  color: var(--mc-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-p8-app-text .mc-conn-state > .mc-status-dot {
+  margin-top: 6px;
+}
+.mc-p8-app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 16px;
+}
+/* The facts line up under the app's name, past its mark, with no rule of their own. */
+.mc-conn-facts.mc-p8-facts {
+  margin: 12px 0 0 3px;
+  padding-top: 0;
+  border-top: 0;
+}
+.mc-p8-amp > .mc-conn-facts.mc-p8-facts {
+  margin: 16px 0 0 -41px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-p8-amp {
+  margin-top: 16px;
+}
+.mc-p8-amp .mc-conn-state {
+  line-height: 22px;
+}
+.mc-p8-label {
+  color: var(--mc-faint);
+}
+.mc-p8-tool .mc-p8-last-error {
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+}
+/* Choosing an app and connecting it: the field takes what a name needs, the button sits by it. */
+.mc-p8-connect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+.mc-p8-connect > .mc-field {
+  flex: 0 1 300px;
+}
+.mc-p8-connect .mc-select-box,
+.mc-p8-picker .mc-select-box {
+  display: flex;
+}
+.mc-p8-connect > .mc-btn {
+  height: 40px;
+}
+.mc-p8-picker {
+  max-width: 300px;
+  margin-top: 16px;
+}
+/* The webhook to add: steps in a well, each value in a frame of its own with its copy button. */
+.mc-p8-setup {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--mc-control);
+  border-radius: 12px;
+  background: var(--mc-well);
+}
+.mc-p8-setup:focus-visible {
+  outline: 2px solid var(--mc-link);
+  outline-offset: 2px;
+}
+.mc-p8-setup h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-p8-setup ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 20px;
+}
+.mc-p8-setup li {
+  padding-left: 4px;
+  line-height: 22px;
+}
+.mc-p8-setup li::marker {
+  color: var(--mc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mc-p8-setup li > span:first-child {
+  display: block;
+}
+.mc-p8-address {
+  margin: 12px 0 0 3px;
+}
+.mc-p8-address > span {
+  color: var(--mc-faint);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-p8-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.mc-p8-copy > code {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--mc-rule);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.mc-p8-copy > .mc-btn {
+  flex: none;
+}
+.mc-p8-once {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--mc-warning);
+  line-height: 20px;
+}
+.mc-p8-once > svg {
+  flex: none;
+  margin-top: 2px;
+}
+/* How the creators' codes stand on the business's Stripe account. */
+.mc-p8-codes-state {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-p8-codes-state > p:first-child {
+  color: var(--mc-text);
+}
+/* Amplitude's form: the key, the region, then what saves it. */
+.mc-p8-amp-form {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  margin-top: 16px;
+}
+.mc-p8-amp-form .mc-segmented {
+  align-self: flex-start;
+}
+.mc-p8-amp-form input.mc-mono {
+  font-family: var(--mc-mono);
+  font-size: 14px;
+}
+.mc-p8-amp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .mc-p8-app-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  /* The two quiet actions move under what the row says, flush with its name. */
+  .mc-p8-app-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    margin-left: -8px;
+  }
+  .mc-p8-amp > .mc-p8-app-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-p8-amp .mc-p8-app-actions {
+    grid-column: 1;
+  }
+  .mc-conn-facts.mc-p8-facts,
+  .mc-p8-amp > .mc-conn-facts.mc-p8-facts {
+    margin-left: 0;
+  }
+  .mc-p8-connect > .mc-field {
+    flex: 1 1 100%;
+  }
+  .mc-p8-connect > .mc-btn,
+  .mc-p8-amp-actions > .mc-btn {
+    flex: 1 1 100%;
+    height: 44px;
+  }
+  .mc-p8-picker {
+    max-width: none;
+  }
+  .mc-p8-copy {
+    flex-wrap: wrap;
+  }
+  .mc-p8-copy > .mc-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+    height: 44px;
+  }
+  .mc-p8-setup > div > .mc-btn {
+    width: 100%;
+    height: 44px;
+  }
+}
+@media (pointer: coarse) {
+  .mc-p8-app-actions .mc-text-btn,
+  .mc-p8-problem .mc-text-btn {
+    min-height: 44px;
+  }
+}
+/* ---- end of Phase 8 ------------------------------------------------------------------------ */

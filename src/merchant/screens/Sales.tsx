@@ -11,6 +11,7 @@ import {
   hasCommission,
   refundLine,
   sales,
+  saleSource,
   saleStatus,
   summaryLine,
   withNextPage,
@@ -230,6 +231,7 @@ function SalesPage({
                     <th scope="col">Date</th>
                     <th scope="col">Creator</th>
                     <th scope="col">Channel</th>
+                    <th scope="col">Source</th>
                     <th scope="col" className="mc-num-col">
                       Amount
                     </th>
@@ -304,6 +306,8 @@ function Row({
   const paidIn = sale.currency ?? currency
   const refund = refundLine(sale, paidIn)
   const earned = hasCommission(sale)
+  // Where the buyer paid: Stripe, the App Store or Google Play.
+  const source = saleSource(sale)
   return (
     <tr data-sale={sale.sale_id} tabIndex={-1}>
       <td className="mc-sales-when mc-num">
@@ -324,7 +328,19 @@ function Row({
         )}
       </td>
       <td className="mc-sales-channel">
-        {sale.link_name ?? <span className="mc-muted">No link</span>}
+        {/* A code beats a link: the sale went to the creator whose code the buyer used. */}
+        {sale.promotion_code ? (
+          <span className="mc-p8-code">
+            Promo code <span className="mc-p8-code-text">{sale.promotion_code}</span>
+          </span>
+        ) : (
+          (sale.link_name ?? <span className="mc-muted">No link</span>)
+        )}
+        {/* On a phone the source is said here, after the link. */}
+        {source && <span className="mc-p8-source-inline"> · {source}</span>}
+      </td>
+      <td className="mc-p8-source">
+        {source ? <Pill tone="neutral">{source}</Pill> : <Dash label="Not known" />}
       </td>
       <td className="mc-num-col mc-num mc-sales-amount">
         {formatAmount(sale.amount_minor, paidIn)}

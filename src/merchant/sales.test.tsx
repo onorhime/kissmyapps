@@ -370,11 +370,16 @@ describe('reading answers', () => {
           'match_source',
           'member_id',
           'paid_at',
+          'promotion_code',
           'reason',
           'refunded_minor',
           'sale_id',
+          'source',
           'status',
+          'store',
         ])
+        // An answer from before in-app purchases lists Stripe sales, with no store and no code.
+        expect(row).toMatchObject({ source: 'stripe', store: null, promotion_code: null })
         expect(row.status).not.toBe('other')
         expect(Number.isFinite(Date.parse(row.paid_at))).toBe(true)
         expect(Number.isSafeInteger(row.amount_minor)).toBe(true)
@@ -415,7 +420,8 @@ describe('reading answers', () => {
       hold_until: '2026-12-13T09:41:07.120045+00:00',
     })
     const [read] = readSales(answer([stamped])).sales
-    expect(read).toEqual(stamped)
+    // Before Phase 8 the database names no source: every sale came from Stripe.
+    expect(read).toEqual({ ...stamped, source: 'stripe', store: null, promotion_code: null })
     expect(new Date(read.paid_at).toISOString()).toBe('2026-11-13T09:41:07.120Z')
   })
 
@@ -433,7 +439,9 @@ describe('reading answers', () => {
     const written = JSON.stringify(read)
     for (const leak of ['buyer@example.test', 'Bea Buyer', 'pi_123', 'cus_123'])
       expect(written).not.toContain(leak)
-    expect(Object.keys(read.sales[0]).sort()).toEqual(Object.keys(pending).sort())
+    expect(Object.keys(read.sales[0]).sort()).toEqual(
+      [...Object.keys(pending), 'source', 'store', 'promotion_code'].sort(),
+    )
   })
 
   it('fills what a thin row leaves out and drops a row it cannot trust', () => {
@@ -469,6 +477,9 @@ describe('reading answers', () => {
       commission_minor: null,
       fee_minor: null,
       hold_until: null,
+      source: 'stripe',
+      store: null,
+      promotion_code: null,
     })
     // A status from a later version is still a sale.
     expect(read.sales[1].status).toBe('other')
@@ -830,19 +841,22 @@ describe('sales page: what it shows', () => {
       within(screen.getByRole('table'))
         .getAllByRole('columnheader')
         .map((cell) => cell.textContent),
-    ).toEqual(['Date', 'Creator', 'Channel', 'Amount', 'Commission', 'Status'])
-    // The word "Commission" is written for the narrow layout, where the column has no heading.
+    ).toEqual(['Date', 'Creator', 'Channel', 'Source', 'Amount', 'Commission', 'Status'])
+    // The word "Commission" is written for the narrow layout, where the column has no heading,
+    // and so is the source, after the link.
     expect(cells('s-ada-1')).toEqual([
       when(pending.paid_at),
       'Ada Okafor',
-      'TikTok',
+      'TikTok · Stripe',
+      'Stripe',
       '$49.00',
       'Commission $14.70',
       `Pending until ${formatShortDay(HOLD)}`,
     ])
     expect(cells('s-kwame-1').slice(1)).toEqual([
       'Kwame Mensah',
-      'YouTube',
+      'YouTube · Stripe',
+      'Stripe',
       '$99.00',
       'Commission $29.70',
       'Approved',
@@ -885,31 +899,31 @@ describe('sales page: what it shows', () => {
   it('shows no commission figure for a sale that earned none', async () => {
     signedInAs('owner')
     await openSales()
-    expect(cells('s-mei-1')[4]).toBe('—None')
-    expect(cells('s-ada-0')[4]).toBe('—None')
+    expect(cells('s-mei-1')[5]).toBe('—None')
+    expect(cells('s-ada-0')[5]).toBe('—None')
     // A commission that went back is the figure it now is.
-    expect(within(rowOf('s-lena-1')).getAllByRole('cell')[4]).toHaveTextContent('$0.00')
+    expect(within(rowOf('s-lena-1')).getAllByRole('cell')[5]).toHaveTextContent('$0.00')
   })
 
   it('says what was refunded under the amount', async () => {
     signedInAs('owner')
     await openSales()
-    expect(cells('s-ada-2')[3]).toBe('$99.00' + '$20.00 refunded')
-    expect(cells('s-lena-1')[3]).toBe('$49.00' + '$49.00 refunded')
-    expect(cells('s-ada-1')[3]).toBe('$49.00')
+    expect(cells('s-ada-2')[4]).toBe('$99.00' + '$20.00 refunded')
+    expect(cells('s-lena-1')[4]).toBe('$49.00' + '$49.00 refunded')
+    expect(cells('s-ada-1')[4]).toBe('$49.00')
   })
 
   it('says when a sale is tied to no link', async () => {
     signedInAs('owner')
     await openSales()
-    expect(cells('s-ada-0')[2]).toBe('No link')
+    expect(cells('s-ada-0')[2]).toBe('No link · Stripe')
   })
 
   it('shows money in normal units, in the program’s currency', async () => {
     signedInAs('owner')
     const inEuros = mixed.map((row) => ({ ...row, currency: 'EUR' }))
     await openSales(answer(inEuros, { currency: 'EUR' }))
-    expect(cells('s-ada-1').slice(3, 5)).toEqual(['49.00 EUR', 'Commission 14.70 EUR'])
+    expect(cells('s-ada-1').slice(4, 6)).toEqual(['49.00 EUR', 'Commission 14.70 EUR'])
     expect(screen.getByRole('group', { name: 'Last 30 days' })).toHaveTextContent('3,430.00 EUR')
     for (const minor of ['4900', '1470', '343000', '102900', '10290'])
       expect(page()).not.toHaveTextContent(minor)
@@ -928,8 +942,8 @@ describe('sales page: what it shows', () => {
       hold_until: null,
     })
     await openSales(answer([abroad, pending]))
-    expect(cells('s-abroad')[3]).toBe('49.00 EUR10.00 EUR refunded')
-    expect(cells('s-ada-1')[3]).toBe('$49.00')
+    expect(cells('s-abroad')[4]).toBe('49.00 EUR10.00 EUR refunded')
+    expect(cells('s-ada-1')[4]).toBe('$49.00')
     // A row from before the database sent a currency falls back to the program's.
     const { currency: _unsent, ...older } = sale({ sale_id: 's-older' })
     expect(readSales(answer([older])).sales[0].currency).toBeNull()
@@ -961,7 +975,7 @@ describe('sales page: what it shows', () => {
         sale({ sale_id: 's-nameless', creator_name: null, member_id: null }),
       ]),
     )
-    expect(cells('s-ada-1').slice(1, 3)).toEqual([name, link])
+    expect(cells('s-ada-1').slice(1, 3)).toEqual([name, `${link} · Stripe`])
     expect(within(rowOf('s-ada-1')).getAllByRole('cell')[1]).toHaveClass('mc-sales-who')
     // A sale whose creator has no name to show still has its row.
     expect(cells('s-nameless')[1]).toBe('—Not known')
@@ -979,7 +993,7 @@ describe('sales page: what it shows', () => {
     )
     await openSales(answer(many, { next_before: many.at(-1)!.paid_at }))
     expect(rows()).toHaveLength(PAGE_SIZE)
-    expect(cells('s-49').slice(3, 5)).toEqual(['$1,234,567.00', 'Commission $370,370.10'])
+    expect(cells('s-49').slice(4, 6)).toEqual(['$1,234,567.00', 'Commission $370,370.10'])
     expect(page()).toHaveTextContent(`Showing the latest ${PAGE_SIZE}`)
     expect(button('Show more')).toBeEnabled()
   })
@@ -1288,7 +1302,7 @@ describe('sales of a program that pays for events only', () => {
   it('says so on the page, with no commission figure', async () => {
     signedInAs('owner')
     await openSales(answer([unrewarded]))
-    expect(cells('s-ada-events').slice(4)).toEqual([
+    expect(cells('s-ada-events').slice(5)).toEqual([
       '—None',
       'No commission' + 'Your program pays for events, not sales',
     ])

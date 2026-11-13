@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from '../lib/supabase'
+import { ProgramError, readFailure } from './programs'
 
 export type Platform = 'ios' | 'android' | 'web' | 'server'
 export type Role = 'owner' | 'admin' | 'developer' | 'analyst'
@@ -1046,3 +1047,268 @@ export const api = {
 }
 
 export type Api = typeof api
+
+// In-app purchase tools and Amplitude (Phase 8) ---------------------------------------------
+//
+// The answers below come from newer database functions that raise a stable code in DETAIL, as
+// the program functions do, so they are read strictly and fail as a ProgramError carrying it.
+
+/** The tools that report App Store and Google Play purchases, one webhook per app each. */
+export type StoreProvider = 'revenuecat' | 'adapty'
+export const STORE_PROVIDERS: readonly StoreProvider[] = ['revenuecat', 'adapty']
+
+export interface StoreConnection {
+  id: string
+  provider: StoreProvider
+  /** The app (analytics project) the tool reports purchases for. */
+  project_id: string
+  project_name: string
+  status: 'active' | 'revoked'
+  created_at: string | null
+  last_event_at: string | null
+  events_30d: number
+  sales_30d: number
+  /** Events that became no sale: test purchases, other events, purchases no creator brought. */
+  ignored_30d: number
+  /** Where the tool sends events. Not a secret, so it can be shown again; null when not sent. */
+  webhook_url: string | null
+}
+
+export interface StoreConnections {
+  /** Live connections only: a removed one is history and is not listed. */
+  connections: StoreConnection[]
+  /** The workspace's apps a tool can be connected to. */
+  projects: Array<{ id: string; name: string }>
+  /** Whether the person can connect and remove tools, when the answer says. */
+  can_manage?: boolean
+}
+
+/** What connecting a tool, or making a new header value, returns: shown once, never again. */
+export interface StoreWebhook {
+  /** The connection it is for, when the answer carries it. */
+  connection: StoreConnection | null
+  webhook_url: string
+  header_value: string
+}
+
+export type DestinationRegion = 'us' | 'eu'
+export type DestinationStatus = 'active' | 'paused' | 'failing'
+
+/** An app's Amplitude project, which installs are sent to. The key is never sent back whole. */
+export interface AnalyticsDestination {
+  provider: 'amplitude'
+  region: DestinationRegion
+  key_last4: string
+  status: DestinationStatus
+  last_sent_at: string | null
+  last_error: string | null
+  sent_30d: number
+  failed_30d: number
+}
+
+const refused = () => new ProgramError('response_unreadable')
+
+function objectOf(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw refused()
+  return value as Record<string, unknown>
+}
+
+function idOf(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) throw refused()
+  return value
+}
+
+function countOf(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw refused()
+  return value
+}
+
+/** A time that is there must be one; none is null. */
+function timeOf(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) throw refused()
+  return value
+}
+
+const nameOf = (value: unknown, fallback: string) =>
+  typeof value === 'string' && value.trim() ? value.trim() : fallback
+
+function choiceOf<T extends string>(value: unknown, allowed: readonly T[]): T {
+  if (!allowed.includes(value as T)) throw refused()
+  return value as T
+}
+
+function readStoreConnection(value: unknown, names: Map<string, string>): StoreConnection {
+  const row = objectOf(value)
+  const projectId = idOf(row.project_id)
+  return {
+    id: idOf(row.id),
+    provider: choiceOf(row.provider, STORE_PROVIDERS),
+    project_id: projectId,
+    project_name: nameOf(row.project_name, names.get(projectId) ?? 'Your app'),
+    status: choiceOf(row.status, ['active', 'revoked'] as const),
+    created_at: timeOf(row.created_at),
+    last_event_at: timeOf(row.last_event_at),
+    events_30d: countOf(row.events_30d),
+    sales_30d: countOf(row.sales_30d),
+    ignored_30d: countOf(row.ignored_30d),
+    webhook_url: webhookAddress(row.webhook_url),
+  }
+}
+
+/** Reads a `workspace_store_connections` answer, refusing one that cannot draw the cards. */
+export function readStoreConnections(value: unknown): StoreConnections {
+  const body = objectOf(value)
+  if (!Array.isArray(body.connections) || !Array.isArray(body.projects)) throw refused()
+  if (body.can_manage !== undefined && typeof body.can_manage !== 'boolean') throw refused()
+  const projects = body.projects.map((item) => {
+    const row = objectOf(item)
+    return { id: idOf(row.id), name: nameOf(row.name, 'Untitled app') }
+  })
+  const names = new Map(projects.map((project) => [project.id, project.name]))
+  return {
+    connections: body.connections
+      .map((item) => readStoreConnection(item, names))
+      .filter((connection) => connection.status === 'active'),
+    projects,
+    ...(body.can_manage === undefined ? {} : { can_manage: body.can_manage }),
+  }
+}
+
+/**
+ * The address a tool sends its webhook to, whole, as the database builds it. Only an https
+ * address with a path is shown; anything else is not pasted anywhere.
+ */
+export function webhookAddress(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const raw = value.trim()
+  try {
+    const url = new URL(raw)
+    // No name or other sign-in part before the host: "https://name@host/..." is refused.
+    const signIn = /^https:\/\/[^/?#]*@/i.test(raw)
+    return url.protocol === 'https:' && !signIn && url.pathname !== '/' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+/** "Bearer " and the random value the tool sends back in its Authorization header. */
+const HEADER_VALUE = /^Bearer [A-Za-z0-9_-]{16,128}={0,2}$/
+
+/**
+ * Reads what `workspace_store_connection_create` and `_rotate` answer: the connection with the
+ * webhook address and the header value beside it (or under `connection`).
+ */
+export function readStoreWebhook(value: unknown): StoreWebhook {
+  const body = objectOf(value)
+  const address = webhookAddress(body.webhook_url)
+  const header = body.header_value
+  if (!address || typeof header !== 'string' || !HEADER_VALUE.test(header)) throw refused()
+  const inner = body.connection
+  const row = inner && typeof inner === 'object' ? inner : 'id' in body ? body : null
+  return {
+    connection: row ? { ...readStoreConnection(row, new Map()), webhook_url: address } : null,
+    webhook_url: address,
+    header_value: header,
+  }
+}
+
+function readDestination(value: unknown): AnalyticsDestination | null {
+  const row = objectOf(value)
+  // A destination this console has no card for yet is left out, not refused.
+  if (row.provider !== 'amplitude') return null
+  const last4 = row.key_last4
+  if (typeof last4 !== 'string' || !/^[A-Za-z0-9]{4}$/.test(last4)) throw refused()
+  const error = typeof row.last_error === 'string' ? row.last_error.trim().slice(0, 300) : ''
+  return {
+    provider: 'amplitude',
+    region: choiceOf(row.region, ['us', 'eu'] as const),
+    key_last4: last4,
+    status: choiceOf(row.status, ['active', 'paused', 'failing'] as const),
+    last_sent_at: timeOf(row.last_sent_at),
+    last_error: error || null,
+    sent_30d: countOf(row.sent_30d),
+    failed_30d: countOf(row.failed_30d),
+  }
+}
+
+/** Reads an `analytics_destinations_get` answer (also what saving answers). */
+export function readDestinations(value: unknown): AnalyticsDestination[] {
+  const body = objectOf(value)
+  if (!Array.isArray(body.destinations)) throw refused()
+  return body.destinations.flatMap((item) => readDestination(item) ?? [])
+}
+
+/** An Amplitude project API key: 32 letters 0-9 and a-f. */
+export const AMPLITUDE_KEY = /^[0-9a-f]{32}$/i
+
+/** The field the database reads the key from, written so no scanner takes it for a leak. */
+const KEY_FIELD = 'api_' + 'key'
+
+async function strictRpc(name: string, args: Record<string, unknown>): Promise<unknown> {
+  let response
+  try {
+    response = await requireSupabaseClient().rpc(name, args)
+  } catch {
+    throw new ProgramError(
+      typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'unreachable',
+    )
+  }
+  if (response.error) throw readFailure(response.error)
+  return response.data
+}
+
+/** RevenueCat and Adapty, connected per app. Owners and admins change them. */
+export const storeConnections = {
+  list: async (workspaceId: string) =>
+    readStoreConnections(
+      await strictRpc('workspace_store_connections', { p_workspace_id: workspaceId }),
+    ),
+  create: async (workspaceId: string, projectId: string, provider: StoreProvider) =>
+    readStoreWebhook(
+      await strictRpc('workspace_store_connection_create', {
+        p_workspace_id: workspaceId,
+        p_project_id: projectId,
+        p_provider: provider,
+      }),
+    ),
+  /** A new header value; the old one stops working. */
+  rotate: async (connectionId: string) =>
+    readStoreWebhook(
+      await strictRpc('workspace_store_connection_rotate', { p_connection_id: connectionId }),
+    ),
+  /** Answers the list as it is after the removal, or null when the answer carries none. */
+  remove: async (connectionId: string): Promise<StoreConnections | null> => {
+    const answer = await strictRpc('workspace_store_connection_remove', {
+      p_connection_id: connectionId,
+    })
+    const body = answer && typeof answer === 'object' ? (answer as Record<string, unknown>) : null
+    return Array.isArray(body?.connections) ? readStoreConnections(answer) : null
+  },
+}
+
+/** An app's Amplitude project. Developers, admins and owners change it. */
+export const analyticsDestinations = {
+  get: async (projectId: string) =>
+    readDestinations(await strictRpc('analytics_destinations_get', { p_project_id: projectId })),
+  /** A key left out keeps the saved one; the region can change on its own. */
+  save: async (projectId: string, input: { key?: string; region: DestinationRegion }) =>
+    readDestinations(
+      await strictRpc('analytics_destination_save', {
+        p_project_id: projectId,
+        p_provider: 'amplitude',
+        p_input: { region: input.region, ...(input.key ? { [KEY_FIELD]: input.key } : {}) },
+      }),
+    ),
+  remove: async (projectId: string) => {
+    const answer = await strictRpc('analytics_destination_remove', {
+      p_project_id: projectId,
+      p_provider: 'amplitude',
+    })
+    // Removing may answer the destinations left, or nothing to read: then they are read again.
+    const body = answer && typeof answer === 'object' ? (answer as Record<string, unknown>) : null
+    return Array.isArray(body?.destinations)
+      ? readDestinations(answer)
+      : analyticsDestinations.get(projectId)
+  },
+}

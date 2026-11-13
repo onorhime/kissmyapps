@@ -14,6 +14,8 @@ import type {
   ProgramListingStatus,
 } from '../../marketplace/model'
 import type { PartnerDataErrorCode, PartnerDataStatus } from '../api/types'
+import { readPromoCode } from '../links/promoCode'
+import type { PromoCode, PromoCodeShown } from '../links/promoCode'
 
 /**
  * A creator's programs: what the `partner_marketplace` and `partner_program_*` database
@@ -43,6 +45,8 @@ export interface ProgramMembership {
   activated_at: string | null
   ended_at: string | null
   decision_note: string | null
+  /** The creator's promo code in this program, when the membership answer carries one. */
+  promo_code?: PromoCode
 }
 
 export interface PartnerMarketplace {
@@ -57,6 +61,11 @@ export interface PartnerProgramView {
   membership: ProgramMembership | null
   /** The name the agreement will be accepted under. */
   accept_name: string | null
+  /**
+   * The creator's promo code in this program: null when there is none to show, and from a
+   * database from before promo codes.
+   */
+  promo_code: PromoCode | null
 }
 
 export type PartnerProgramErrorCode =
@@ -124,7 +133,9 @@ export function readMembership(value: unknown): ProgramMembership {
   const row = record(value)
   const program = readProgram(row?.program)
   const status = oneOf(row?.status, ['pending', 'active', 'declined', 'removed', 'left'] as const)
-  if (!row || typeof row.id !== 'string' || !program || !status) throw new MarketplaceUnreadable()
+  const promoCode = readPromoCode(row?.promo_code)
+  if (!row || typeof row.id !== 'string' || !program || !status || promoCode === null)
+    throw new MarketplaceUnreadable()
   return {
     id: row.id,
     program_id: text(row.program_id),
@@ -139,6 +150,7 @@ export function readMembership(value: unknown): ProgramMembership {
     activated_at: moment(row.activated_at),
     ended_at: moment(row.ended_at),
     decision_note: text(row.decision_note),
+    ...(promoCode === undefined ? {} : { promo_code: promoCode }),
   }
 }
 
@@ -161,16 +173,24 @@ export function readPartnerMarketplace(value: unknown): PartnerMarketplace {
   }
 }
 
+/**
+ * `{"program", "membership", "accept_name", "promo_code"}`. The promo code is read beside the
+ * membership, or inside it when that is where the answer puts it.
+ */
 export function readPartnerProgramView(value: unknown): PartnerProgramView {
   const body = record(value)
   if (!body) throw new MarketplaceUnreadable()
+  const membership =
+    body.membership === null || body.membership === undefined
+      ? null
+      : readMembership(body.membership)
+  const promoCode = readPromoCode(body.promo_code)
+  if (promoCode === null) throw new MarketplaceUnreadable()
   return {
     program: readProgramDetail(body.program),
-    membership:
-      body.membership === null || body.membership === undefined
-        ? null
-        : readMembership(body.membership),
+    membership,
     accept_name: text(body.accept_name),
+    promo_code: promoCode ?? membership?.promo_code ?? null,
   }
 }
 
@@ -295,6 +315,21 @@ export function membershipStanding(
 /** The address to hand out: the short one when there is one. */
 export function shareableLink(link: ProgramLink): string {
   return link.short_url ?? link.url
+}
+
+/**
+ * The code an active member sees on a program's page. A program with a buyer discount gives
+ * every active member a code as they join, so with no code in the answer (it was just joined
+ * and the answer of joining does not say) the code is being made.
+ */
+export function promoCodeShown(
+  program: Pick<MarketplaceProgram, 'buyer_discount_bps'>,
+  promoCode: PromoCode | null,
+): PromoCodeShown | null {
+  if (promoCode) return promoCode
+  return program.buyer_discount_bps
+    ? { status: 'pending', discount_bps: program.buyer_discount_bps }
+    : null
 }
 
 export function brandOf(program: MarketplaceProgram): string {

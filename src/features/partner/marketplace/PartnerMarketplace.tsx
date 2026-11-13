@@ -5,6 +5,7 @@ import { commissionHeadline, formatDay } from '../../../merchant/programs'
 import {
   AgreementDocument,
   AgreementSkeleton,
+  BuyerOffer,
   ProgramBrowser,
   ProgramGridSkeleton,
   ProgramLogo,
@@ -23,12 +24,14 @@ import { earningsLine, earningsOfProgram } from '../earnings/earnings'
 import type { ProgramEarnings } from '../earnings/earnings'
 import { useProgramEarnings } from '../earnings/useProgramEarnings'
 import { creditedFor, creditedTitle } from '../links/earnFrom'
+import { PromoCodeBody } from '../links/PromoCode'
 import '../earnings/ProgramEarnings.css'
 import {
   brandOf,
   membershipStanding,
   programError,
   programErrorMessage,
+  promoCodeShown,
   shareableLink,
 } from './programs'
 import type {
@@ -350,6 +353,9 @@ function MembershipCard({
       {membership.status === 'active' && membership.link && (
         <LinkCopy url={shareableLink(membership.link)} label={`Your ${program.name} link`} />
       )}
+      {membership.status === 'active' && membership.promo_code && (
+        <PromoCodeBody promo={membership.promo_code} brand={brandOf(program)} compact />
+      )}
       {earned && <p className="pe-card-line">{earned}</p>}
       {line && <p className="pmk-member-line">{line}</p>}
       {!current && membership.decision_note && (
@@ -444,7 +450,12 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
       result = thrown<ProgramMembership>()
     }
     if (result.data) {
-      setState({ status: 'ready', view: { ...view, membership: result.data } })
+      // Joining and leaving change the code; new terms keep it unless the answer says otherwise.
+      const promoCode = result.data.promo_code ?? (action === 'terms' ? view.promo_code : null)
+      setState({
+        status: 'ready',
+        view: { ...view, membership: result.data, promo_code: promoCode },
+      })
       setAgreed(false)
       setMustTick(false)
       setConfirmLeave(false)
@@ -696,6 +707,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
     )
   } else if (member?.status === 'active') {
     const link = member.link
+    const promo = promoCodeShown(program, state.view.promo_code)
     const standing = membershipStanding(
       'active',
       program.status === 'paused' ? 'paused' : member.program_status,
@@ -720,6 +732,17 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
                 ? `${creditedTitle(program.earn_from)} that come through this link are credited to you.`
                 : null}
         </p>
+        <BuyerOffer program={program} discount={false} />
+        {promo && (
+          <div className="pmk-block p8-promo-side">
+            <h3>Promo code</h3>
+            <PromoCodeBody
+              promo={promo}
+              brand={brand}
+              appliedByLink={program.payment_mode === 'kma_checkout'}
+            />
+          </div>
+        )}
         {earn}
         {newTerms}
         {acceptedLine}
@@ -738,6 +761,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
           is nothing else to do.
         </p>
         {earn}
+        <BuyerOffer program={program} />
         {newTerms}
         {acceptedLine}
         {leave}
@@ -773,6 +797,7 @@ function ProgramPage({ gateway, slug }: { gateway: PartnerDataGateway; slug: str
             : 'No signature or waiting. Your link is created as soon as you accept.'}
         </p>
         {earn}
+        <BuyerOffer program={program} />
         {acceptName ? (
           <>
             {agreeBox}

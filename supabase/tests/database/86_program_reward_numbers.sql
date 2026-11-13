@@ -665,8 +665,9 @@ select pg_temp.keep('dee_links', pg_temp.links('dee')), pg_temp.keep('dee_perfor
   pg_temp.keep('dee_earnings', pg_temp.earnings('dee')), pg_temp.keep('ada_links_before', pg_temp.links('ada'));
 select pg_temp.check((select pg_temp.neutral(l) and pg_temp.neutral(f) and pg_temp.neutral(e)
       and pg_temp.times(l, 'earn_from') = 1 and pg_temp.times(l, 'events') = 7
-      and pg_temp.keys(l->'programs'->0) = 'currency custom_links earn_from links name paused_reason program_id slug working'
-      and pg_temp.old_shape(l->'programs'->0) - 'links' = jsonb_build_object('program_id', (pg_temp.program('quiet')).id,
+      and pg_temp.keys(l->'programs'->0) = 'currency custom_links earn_from links name paused_reason program_id promo_code slug working'
+      and l->'programs'->0->'promo_code' = 'null'
+      and pg_temp.old_shape(l->'programs'->0) - 'links' - 'promo_code' = jsonb_build_object('program_id', (pg_temp.program('quiet')).id,
         'slug', 'quiet-club', 'name', 'Quiet Club', 'currency', 'USD', 'working', true, 'paused_reason', null, 'custom_links', 0)
       and pg_temp.line(l->'programs'->0, 'TikTok') - 'link_id' - 'created_at' = '{"kind":"channel","channel":"tiktok","name":"TikTok",
         "url":"https://go.kissmyapps.dev/quiet-club/dee-vale/tiktok","clicks":1,"sales":1,"events":0,"earnings_minor":600,"removable":false}'
@@ -823,7 +824,7 @@ select pg_temp.capture('partner_program_links.events_program', pg_temp.keep('ben
 select pg_temp.capture('partner_program_links.both_program', pg_temp.keep('ada_links', pg_temp.links('ada')));
 select pg_temp.check((select pg_temp.keys(a) = 'channels max_custom_links programs stats_days' and jsonb_array_length(a->'programs') = 1
       and p - 'links' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
-        'currency', 'USD', 'earn_from', 'events', 'working', true, 'paused_reason', null, 'custom_links', 0)
+        'currency', 'USD', 'earn_from', 'events', 'working', true, 'paused_reason', null, 'custom_links', 0, 'promo_code', null)
       and pg_temp.numbers(p->'links') = 'Main link 1/0/2/700'
       and pg_temp.line(p, 'Main link') - 'link_id' - 'created_at' = '{"kind":"main","channel":null,"name":"Main link",
         "url":"https://go.kissmyapps.dev/speaksix/ben-creator","clicks":1,"sales":0,"events":2,"earnings_minor":700,"removable":false}'
