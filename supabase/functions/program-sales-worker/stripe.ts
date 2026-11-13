@@ -3,8 +3,9 @@
 // requests only. Written for the pinned STRIPE_API_VERSION: an invoice no
 // longer names its PaymentIntent (its payments are listed by
 // /v1/invoice_payments) and its subscription sits under `parent`.
-// Only identifiers, amounts, the creator tag and, for one database call, the
-// buyer's email leave this file. Nothing here logs.
+// Only identifiers, amounts, the creator tag, the promotion code the buyer used
+// and, for one database call, the buyer's email leave this file. Nothing here
+// logs.
 import {
   STRIPE_API_VERSION,
   stripeRequestSignal,
@@ -44,6 +45,13 @@ export interface SaleFacts {
   tag_source: "metadata" | "client_reference_id" | null;
   /** Used for one lookup in the database call, then dropped. Never logged. */
   buyer_email: string | null;
+  /**
+   * The Stripe promotion code the buyer used (promo_...), when a Checkout
+   * Session or an invoice names one. Left out otherwise: a PaymentIntent on
+   * its own never says, and the session or invoice receipt of the same
+   * payment brings it.
+   */
+  promotion_code_id?: string;
 }
 
 export interface SaleEventFact {
@@ -102,6 +110,7 @@ const CURRENCY = /^[A-Za-z]{3}$/;
 const BILLING_REASON = /^[a-z_]{1,60}$/;
 const CLICK_ID = /^[A-Za-z0-9_-]{16,128}$/;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const PROMOTION_CODE = /^promo_[A-Za-z0-9]{1,250}$/;
 
 const EXPAND_CHARGE_FEE = "latest_charge.balance_transaction";
 
@@ -170,6 +179,77 @@ interface PaymentContext {
   metadata_tag?: string | null;
   reference_tag?: string | null;
   email?: string | null;
+  promotion_code_id?: string | null;
+}
+
+/** A Discount object's promotion code, when the discount came from one. */
+function discountCode(discount: unknown): string | null {
+  return isPlainObject(discount)
+    ? refId(discount.promotion_code, PROMOTION_CODE)
+    : null;
+}
+
+/** The first entry of a list that names a promotion code. */
+function firstCode(
+  list: unknown,
+  read: (entry: unknown) => string | null,
+): string | null {
+  if (!Array.isArray(list)) return null;
+  for (const entry of list) {
+    const found = read(entry);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/**
+ * The promotion code of a Checkout Session: its `discounts`, else the
+ * discounts of `total_details.breakdown` when that was expanded. Checkout
+ * takes one code at most.
+ */
+function sessionCode(session: Json): string | null {
+  const totals = isPlainObject(session.total_details)
+    ? session.total_details
+    : null;
+  const breakdown = totals && isPlainObject(totals.breakdown)
+    ? totals.breakdown
+    : null;
+  return firstCode(
+    session.discounts,
+    (entry) =>
+      isPlainObject(entry) ? refId(entry.promotion_code, PROMOTION_CODE) : null,
+  ) ?? firstCode(
+    breakdown?.discounts,
+    (entry) => isPlainObject(entry) ? discountCode(entry.discount) : null,
+  );
+}
+
+function sessionDiscounted(session: Json): boolean {
+  const totals = isPlainObject(session.total_details)
+    ? session.total_details
+    : null;
+  return (wholeAmount(totals?.amount_discount) ?? 0) > 0;
+}
+
+/**
+ * The promotion code of an invoice: its `discounts` and the discounts behind
+ * `total_discount_amounts`, when Stripe sent them as objects (both are ids
+ * unless expanded).
+ */
+function invoiceCode(invoice: Json): string | null {
+  return firstCode(invoice.discounts, discountCode) ??
+    firstCode(
+      invoice.total_discount_amounts,
+      (entry) => isPlainObject(entry) ? discountCode(entry.discount) : null,
+    );
+}
+
+function invoiceDiscounted(invoice: Json): boolean {
+  return (Array.isArray(invoice.discounts) && invoice.discounts.length > 0) ||
+    (Array.isArray(invoice.total_discount_amounts) &&
+      invoice.total_discount_amounts.some((entry) =>
+        isPlainObject(entry) && (wholeAmount(entry.amount) ?? 0) > 0
+      ));
 }
 
 function invoiceTax(invoice: Json): number | null {
@@ -207,6 +287,7 @@ function invoiceContext(invoice: Json): PaymentContext {
     // The invoice's own tag, else the subscription's as copied onto the invoice.
     metadata_tag: metadataTag(invoice) ?? metadataTag(details),
     email: emailAddress(invoice.customer_email),
+    promotion_code_id: invoiceCode(invoice),
   };
 }
 
@@ -366,6 +447,7 @@ export class StripeReader {
         : null,
       email: emailAddress(details?.email) ??
         emailAddress(session.customer_email),
+      promotion_code_id: sessionCode(session),
     };
     // A one-off payment names its PaymentIntent; a subscription names its invoice.
     let intent: unknown = session.payment_intent;
@@ -383,7 +465,20 @@ export class StripeReader {
         tax_minor: found.context.tax_minor ?? context.tax_minor,
         metadata_tag: context.metadata_tag ?? found.context.metadata_tag,
         email: context.email ?? found.context.email,
+        promotion_code_id: context.promotion_code_id ??
+          found.context.promotion_code_id,
       };
+    }
+    // A discount whose code the session does not name: read the breakdown,
+    // which names it. Sessions without a discount cost no extra read.
+    if (!context.promotion_code_id && sessionDiscounted(session)) {
+      const expanded = await this.get(
+        receipt.account_id,
+        `/v1/checkout/sessions/${encodeURIComponent(receipt.object_id)}`,
+        [["expand[]", "total_details.breakdown"]],
+      );
+      requireObject(expanded, "checkout.session", receipt.object_id);
+      context = { ...context, promotion_code_id: sessionCode(expanded) };
     }
     return await this.sale(receipt, intent, context, false);
   }
@@ -429,9 +524,24 @@ export class StripeReader {
     if (receipt) {
       requireSameMoney(receipt, invoice.amount_paid, invoice.currency);
     }
+    let context = invoiceContext(invoice);
+    // A discounted invoice names its discounts by id: read them once to
+    // learn the promotion code. Invoices without a discount cost no extra read.
+    if (!context.promotion_code_id && invoiceDiscounted(invoice)) {
+      const expanded = await this.get(
+        account,
+        `/v1/invoices/${encodeURIComponent(invoiceId)}`,
+        [
+          ["expand[]", "discounts"],
+          ["expand[]", "total_discount_amounts.discount"],
+        ],
+      );
+      requireObject(expanded, "invoice", invoiceId);
+      context = { ...context, promotion_code_id: invoiceCode(expanded) };
+    }
     return {
       intent: refId((paid[0].payment as Json).payment_intent, INTENT)!,
-      context: invoiceContext(invoice),
+      context,
     };
   }
 
@@ -527,6 +637,9 @@ export class StripeReader {
         emailAddress(intent.receipt_email) ??
         emailAddress(charge.receipt_email) ?? context.email ??
         emailAddress(customer?.email),
+      ...(context.promotion_code_id
+        ? { promotion_code_id: context.promotion_code_id }
+        : {}),
     };
   }
 
