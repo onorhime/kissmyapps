@@ -8,6 +8,10 @@ private let flushAt = 30
 private let maxPropertiesBytes = 32_000
 private let eventNamePattern = try! NSRegularExpression(pattern: "^[A-Za-z][A-Za-z0-9_.:-]{0,79}\\z")
 private let keyPattern = try! NSRegularExpression(pattern: "^kma_pk_(live|test)_[A-Za-z0-9]{20,64}\\z")
+private let currencyPattern = try! NSRegularExpression(pattern: "^[A-Za-z]{3}\\z")
+// The properties a payment event carries; reports read revenue from them.
+private let revenueKeys = ["kma_revenue", "kma_currency", "kma_product_id", "kma_transaction_id"]
+private let maxRevenue: Decimal = 1_000_000_000
 
 func matches(_ pattern: NSRegularExpression, _ text: String) -> Bool {
     pattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
@@ -210,6 +214,41 @@ final class Client {
             }
             enqueue(name, clean(properties), ensureSession())
         }
+    }
+
+    /// A payment in major units (negative for a refund) and its ISO 4217 code, sent as an event
+    /// with kma_revenue and kma_currency. An amount or currency that is not valid sends nothing.
+    func revenue(
+        _ amount: Decimal,
+        currency: String,
+        productId: String?,
+        transactionId: String?,
+        event: String?,
+        properties: [String: Any]
+    ) {
+        guard !amount.isNaN, amount != 0, amount.magnitude <= maxRevenue else {
+            return warn("revenue needs an amount that is not 0 and at most 1,000,000,000 either way (negative for a refund).")
+        }
+        let code = currency.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard matches(currencyPattern, code) else {
+            return warn("revenue needs a three-letter currency code such as USD, not \"\(currency)\".")
+        }
+        var values = properties
+        for field in revenueKeys { values.removeValue(forKey: field) }
+        values["kma_revenue"] = NSDecimalNumber(decimal: amount)
+        values["kma_currency"] = code.uppercased()
+        if let product = revenueId(productId) {
+            values["kma_product_id"] = product
+        } else if productId != nil {
+            warn("productId must be 1 to 200 characters; it was left out.")
+        }
+        if let transaction = revenueId(transactionId) {
+            values["kma_transaction_id"] = transaction
+        } else if transactionId != nil {
+            warn("transactionId must be 1 to 200 characters; it was left out.")
+        }
+        let name = event.flatMap { $0.isEmpty ? nil : $0 } ?? (amount > 0 ? "purchase" : "refund")
+        track(name, properties: values)
     }
 
     func screen(_ name: String, properties: [String: Any]) {
@@ -513,6 +552,14 @@ final class Client {
         if queue.count > limit { queue.removeFirst(queue.count - limit) }
         save()
         scheduleFlush(queue.count >= flushAt ? 0 : Int64(options.flushIntervalSeconds) * 1000)
+    }
+
+    /// A product or transaction ID as reports keep it: text of 1 to 200 characters.
+    private func revenueId(_ value: String?) -> String? {
+        guard let id = value?.trimmingCharacters(in: .whitespacesAndNewlines), !id.isEmpty, id.count <= 200 else {
+            return nil
+        }
+        return id
     }
 
     private func clean(_ properties: [String: Any]) -> [String: Any] {

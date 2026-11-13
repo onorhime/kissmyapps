@@ -30,6 +30,21 @@ const Duration _initialLinkWait = Duration(milliseconds: 1500);
 // The plugin waits up to 10 seconds for Google Play's install referrer.
 const Duration _nativeWait = Duration(seconds: 12);
 const Duration _flushWait = Duration(seconds: 5);
+final RegExp _currency = RegExp(r'^[A-Za-z]{3}$');
+// The properties a payment event carries; reports read revenue from them.
+const List<String> _revenueKeys = [
+  'kma_revenue',
+  'kma_currency',
+  'kma_product_id',
+  'kma_transaction_id',
+];
+const double _maxRevenue = 1e9;
+
+/// A product or transaction ID as reports keep it: text of 1 to 200 characters.
+String? _revenueId(String? value) {
+  final id = value?.trim();
+  return id == null || id.isEmpty || id.length > 200 ? null : id;
+}
 
 /// What the app's platform says about the device, sent as each request's context.
 class KmaDevice {
@@ -448,6 +463,49 @@ class KmaClient {
       }
       _enqueue(name, properties, _ensureSession());
     });
+  }
+
+  /// Records a payment in major units (negative for a refund) and its ISO 4217 code, as an
+  /// event with kma_revenue and kma_currency. An amount or currency that is not valid sends
+  /// nothing.
+  void revenue(
+    double amount,
+    String currency, {
+    String? productId,
+    String? transactionId,
+    String? event,
+    Map<String, Object?>? properties,
+  }) {
+    if (!amount.isFinite || amount == 0 || amount.abs() > _maxRevenue) {
+      _warn('revenue needs an amount that is not 0 and at most 1,000,000,000 either way '
+          '(negative for a refund).');
+      return;
+    }
+    final code = currency.trim();
+    if (!_currency.hasMatch(code)) {
+      _warn('revenue needs a three-letter currency code such as USD, not "$currency".');
+      return;
+    }
+    final values = <String, Object?>{...?properties};
+    for (final field in _revenueKeys) {
+      values.remove(field);
+    }
+    values['kma_revenue'] = amount;
+    values['kma_currency'] = code.toUpperCase();
+    final product = _revenueId(productId);
+    final transaction = _revenueId(transactionId);
+    if (product != null) {
+      values['kma_product_id'] = product;
+    } else if (productId != null) {
+      _warn('productId must be 1 to 200 characters; it was left out.');
+    }
+    if (transaction != null) {
+      values['kma_transaction_id'] = transaction;
+    } else if (transactionId != null) {
+      _warn('transactionId must be 1 to 200 characters; it was left out.');
+    }
+    final name = event == null || event.isEmpty ? (amount > 0 ? 'purchase' : 'refund') : event;
+    track(name, values);
   }
 
   /// Records a screen view; later events carry the screen's name.

@@ -286,6 +286,92 @@ KissMyApps.reset()
 `identify` joins the anonymous history from before sign-in to your user ID, so a person's
 first visit and their purchase show up as one journey.
 
+### Revenue
+
+Record each payment once the store has confirmed it, so the console can show what the
+people from each ad or link paid and the return on what you spent:
+
+```swift
+// iOS, StoreKit 2: the amount in major units and its ISO 4217 currency code
+KissMyApps.revenue(
+    product.price, // a Decimal, such as 9.99
+    currency: product.priceFormatStyle.currencyCode,
+    productId: product.id,
+    transactionId: String(transaction.id)
+)
+
+// A refund is a negative amount, with the same transaction ID
+KissMyApps.revenue(
+    -product.price,
+    currency: product.priceFormatStyle.currencyCode,
+    transactionId: String(transaction.id)
+)
+```
+
+```kotlin
+// Android, Google Play Billing
+KissMyApps.revenue(
+    9.99,
+    "USD",
+    productId = "annual",
+    transactionId = purchase.orderId, // GPA.…
+)
+
+// A refund is a negative amount, with the same transaction ID
+KissMyApps.revenue(-9.99, "USD", transactionId = "GPA.3309-9122-6177-47466")
+```
+
+From Java: `KissMyApps.revenue(9.99, "USD")`, `KissMyApps.revenue(9.99, "USD", "annual", orderId)`,
+and so on, with `event` and `properties` last.
+
+It sends a `purchase` event (`refund` for a negative amount) with the reserved properties
+`kma_revenue` (the amount), `kma_currency` (sent upper case) and, when given,
+`kma_product_id` and `kma_transaction_id`. `event` gives the event your own name, such as
+`subscription_started`, and `properties` adds more; the four `kma_` properties always come
+from the call itself. An amount that is 0 or over 1,000,000,000 either way (or not a
+number), or a currency that is not three letters, sends nothing, with a warning when
+`debug` is on. A product or transaction ID longer than 200 characters is left out. Reports
+show revenue in the project's currency, converted with the European Central Bank's daily
+rates. On iOS the amount is a `Decimal`, so prices keep their exact cents; write one by
+hand as `Decimal(string: "9.99")!` or an integer such as `10`, because a literal like
+`9.99` goes through `Double` first.
+
+**Transaction IDs** make one payment count once. When the project also has RevenueCat or
+Adapty connected in the console, their webhook reports the same purchase: pass the store's
+transaction ID (StoreKit's transaction ID on iOS, Google Play's order ID on Android), the
+ID those tools send as `transaction_id`, and the payment counts once. Without a
+transaction ID each call is a separate payment. If you cannot get the same ID, record
+payments in one place only: the webhook or the app.
+
+From your server, send the same event with a server key, which stays on the server, and
+the user ID you pass to `identify`, so the payment joins the person who came from the ad:
+
+```http
+POST https://events.kissmyapps.dev/v1/events
+Authorization: Bearer kma_sk_live_…
+Content-Type: application/json
+
+{
+  "user_id": "user-42",
+  "events": [
+    {
+      "name": "purchase",
+      "insert_id": "2000000812345678",
+      "time": "2026-11-13T10:00:00Z",
+      "properties": {
+        "kma_revenue": 9.99,
+        "kma_currency": "USD",
+        "kma_product_id": "annual",
+        "kma_transaction_id": "2000000812345678"
+      }
+    }
+  ]
+}
+```
+
+`kma_revenue` must be a JSON number; [`contract/app-events.json`](contract/app-events.json)
+lists the rules under `revenue`.
+
 ### Everything at a glance
 
 Apart from the SwiftUI modifier, every call is on `KissMyApps`, such as `KissMyApps.flush()`.
@@ -294,6 +380,7 @@ Apart from the SwiftUI modifier, every call is on `KissMyApps`, such as `KissMyA
 | ----------------------- | ------------------------------ | ----------------------------------------------------- |
 | `start(key:options:)`   | `start(context, key, options)` | Starts recording. Call once.                          |
 | `track(_:properties:)`  | `track(name, properties)`      | Records one of your events.                           |
+| `revenue(_:currency:…)` | `revenue(amount, currency, …)` | Records a payment, or a refund (negative).            |
 | `screen(_:properties:)` | `screen(name, properties)`     | Records a screen view.                                |
 | `View.kmaScreen(_:)`    | –                              | SwiftUI shortcut for `screen`.                        |
 | `identify(_:traits:)`   | `identify(userId, traits)`     | Ties this install to your user ID.                    |

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { KmaClient, SDK_VERSION } from './src/client'
-import type { ClientOptions, DeviceInfo, Environment, Storage } from './src/client'
+import type { ClientOptions, DeviceInfo, Environment, RevenueOptions, Storage } from './src/client'
 import type { AttributionInfo, AttributionRequest, DeepLink } from './src/attribution'
 import { deepLinkFrom, installBody, openBody } from './src/attribution'
 import { navigationTracker } from './src/navigation'
@@ -451,6 +451,95 @@ describe('React Native client', () => {
     client.track('valid_name')
     await settle(10_000)
     expect(names()).toEqual(['session_started', 'valid_name'])
+  })
+})
+
+/** The reserved revenue properties, from the contract's revenue section. */
+function expectRevenueContract(properties: Record<string, unknown>) {
+  const { revenue } = contract
+  for (const field of revenue.properties.required) expect(properties).toHaveProperty(field)
+  const amount = properties.kma_revenue as number
+  expect(Number.isFinite(amount) && amount !== 0).toBe(true)
+  expect(Math.abs(amount)).toBeLessThanOrEqual(revenue.max_amount)
+  expect(properties.kma_currency).toMatch(new RegExp(revenue.kma_currency))
+  for (const field of revenue.properties.optional.filter((name) => name in properties)) {
+    expect(typeof properties[field]).toBe('string')
+    expect(String(properties[field]).length).toBeGreaterThan(0)
+    expect(String(properties[field]).length).toBeLessThanOrEqual(revenue.id_max_length)
+  }
+}
+
+describe('Revenue', () => {
+  it('sends a payment and a refund with the reserved properties, which win over extras', async () => {
+    const client = start(memoryStorage(), { trackLifecycle: false })
+    client.foreground()
+    client.revenue(59.99, 'usd', {
+      productId: 'annual',
+      transactionId: '2000000812345678',
+      properties: { plan: 'annual', kma_revenue: 1, kma_currency: 'GBP', kma_product_id: 'x' },
+    })
+    client.revenue(-59.99, 'USD', { transactionId: '2000000812345678' })
+    client.revenue(4.5, 'EUR', { event: 'coins_bought', properties: { kma_transaction_id: 'x' } })
+    await settle(10_000)
+    expect(names()).toEqual(['session_started', 'purchase', 'refund', 'coins_bought'])
+    const [, purchase, refund, coins] = sent.flatMap((body) => body.events)
+    expect(purchase.name).toBe(contract.revenue.default_event.payment)
+    expect(purchase.properties).toEqual({
+      plan: 'annual',
+      kma_revenue: 59.99,
+      kma_currency: 'USD',
+      kma_product_id: 'annual',
+      kma_transaction_id: '2000000812345678',
+    })
+    expect(refund.name).toBe(contract.revenue.default_event.refund)
+    expect(refund.properties).toEqual({
+      kma_revenue: -59.99,
+      kma_currency: 'USD',
+      kma_transaction_id: '2000000812345678',
+    })
+    expect(coins.properties).toEqual({ kma_revenue: 4.5, kma_currency: 'EUR' })
+    for (const event of [purchase, refund, coins]) expectRevenueContract(event.properties)
+    for (const body of sent) expectContract(body)
+  })
+
+  it('sends nothing for an amount or currency that is not valid, with a warning in debug', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const client = start(memoryStorage(), { trackLifecycle: false, debug: true })
+    client.foreground()
+    for (const amount of [0, -0, NaN, Infinity, -Infinity, 1e9 + 1, -2e9, '9.99', null])
+      client.revenue(amount as number, 'USD')
+    for (const currency of ['US', 'USDT', '', 'U$D', 'ÜSD', 12, null, undefined])
+      client.revenue(9.99, currency as string)
+    client.revenue(1e9, 'USD')
+    client.revenue(-1e9, ' gbp ', null as unknown as RevenueOptions)
+    client.revenue(2, 'USD', { productId: '  ', transactionId: 'x'.repeat(201) })
+    client.revenue(2, 'USD', { event: 'not valid!' })
+    await settle(10_000)
+    expect(names()).toEqual(['session_started', 'purchase', 'refund', 'purchase'])
+    const recorded = sent.flatMap((body) => body.events)
+    expect(recorded[1].properties).toEqual({ kma_revenue: 1e9, kma_currency: 'USD' })
+    expect(recorded[2].properties).toEqual({ kma_revenue: -1e9, kma_currency: 'GBP' })
+    expect(recorded[3].properties).toEqual({ kma_revenue: 2, kma_currency: 'USD' })
+    const warnings = warn.mock.calls.map(([message]) => String(message))
+    expect(warnings.filter((message) => message.includes('revenue needs an amount'))).toHaveLength(
+      9,
+    )
+    expect(warnings.filter((message) => message.includes('three-letter currency'))).toHaveLength(8)
+    expect(warnings.some((message) => message.includes('productId must be'))).toBe(true)
+    expect(warnings.some((message) => message.includes('transactionId must be'))).toBe(true)
+    expect(warnings.some((message) => message.includes('not a valid event name'))).toBe(true)
+    warn.mockRestore()
+  })
+
+  it('sends nothing while opted out', async () => {
+    const client = start(memoryStorage(), { trackLifecycle: false })
+    client.foreground()
+    await settle(10_000)
+    sent = []
+    client.optOut()
+    client.revenue(9.99, 'USD')
+    await settle(10_000)
+    expect(sent).toHaveLength(0)
   })
 })
 

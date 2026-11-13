@@ -7,13 +7,13 @@ import { AppState, Linking, NativeModules } from 'react-native'
 import type { AttributionInfo, AttributionRequest, DeepLink } from './attribution'
 import { httpsLink } from './attribution'
 import { KmaClient, SDK_VERSION } from './client'
-import type { ClientOptions, Properties, Storage } from './client'
+import type { ClientOptions, Properties, RevenueOptions, Storage } from './client'
 import { deviceInfo } from './device'
 import { navigationTracker } from './navigation'
 import type { NavigationRefLike } from './navigation'
 
 export { KmaClient, SDK_VERSION } from './client'
-export type { ClientOptions, DeviceInfo, Properties, Storage } from './client'
+export type { ClientOptions, DeviceInfo, Properties, RevenueOptions, Storage } from './client'
 export type { AttributionInfo, DeepLink } from './attribution'
 export type { NavigationRefLike } from './navigation'
 
@@ -115,6 +115,13 @@ export const KissMyApps = {
   },
   track(name: string, properties?: Properties): void {
     call((kma) => kma.track(name, properties))
+  },
+  /**
+   * Records a payment: the amount in major units (9.99, not 999), negative for a refund, and
+   * its ISO 4217 currency code, such as `revenue(9.99, 'USD', { transactionId })`.
+   */
+  revenue(amount: number, currency: string, options?: RevenueOptions): void {
+    call((kma) => kma.revenue(amount, currency, options))
   },
   screen(name: string, properties?: Properties): void {
     call((kma) => kma.screen(name, properties))

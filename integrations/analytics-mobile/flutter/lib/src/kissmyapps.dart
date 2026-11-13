@@ -43,6 +43,31 @@ abstract final class KissMyApps {
     _call((client) => client.track(name, properties));
   }
 
+  /// Records a payment: the amount in major units (9.99, not 999), negative for a refund, and
+  /// its ISO 4217 currency code. Sent as a `purchase` (or `refund`) event with the reserved
+  /// properties `kma_revenue` and `kma_currency`.
+  ///
+  /// Pass the store's [transactionId] so the same payment reported by a RevenueCat or Adapty
+  /// webhook counts once. An amount that is 0 or over 1,000,000,000 either way, or a currency
+  /// that is not three letters, sends nothing (with a warning when `debug` is on).
+  static void revenue(
+    double amount,
+    String currency, {
+    String? productId,
+    String? transactionId,
+    String? event,
+    Map<String, Object?>? properties,
+  }) {
+    _call((client) => client.revenue(
+          amount,
+          currency,
+          productId: productId,
+          transactionId: transactionId,
+          event: event,
+          properties: properties,
+        ));
+  }
+
   /// Records a screen view; later events carry the screen's name. [KissMyAppsObserver] calls
   /// this for every route.
   static void screen(String name, {Map<String, Object?> properties = const {}}) {
