@@ -350,12 +350,14 @@ export class BalanceStripe {
     } catch {
       unreadable();
     }
-    // Only Stripe's own hosted page is ever handed to a browser.
+    // Only Stripe's own hosted page is ever handed to a browser: https, that host,
+    // and nothing else around the host (no user info, no port).
+    const { pathname, search, hash } = url!;
+    const hosted = `https://checkout.stripe.com${pathname}${search}${hash}`;
     if (
       body.mode !== mode ||
       reference(body.customer, STRIPE_ID.customer) !== customerId ||
-      url!.protocol !== "https:" || url!.hostname !== "checkout.stripe.com" ||
-      url!.username || url!.password || url!.port
+      url!.href !== hosted
     ) unreadable();
     return { id, url: url!.href };
   }
