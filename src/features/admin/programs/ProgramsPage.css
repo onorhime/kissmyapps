@@ -1,0 +1,576 @@
+/* Program review. The queue is the page; everything else stays quiet. */
+.admin-programs,
+.admin-prog-dialog {
+  --prog-text: var(--brand-text, #ffffff);
+  --prog-muted: var(--brand-muted, #a9a9ae);
+  --prog-line: var(--brand-line, #4a4a4a);
+  --prog-raised: var(--brand-control, #3b3b3b);
+  --prog-deep: var(--brand-bg-deep, #111111);
+  --prog-green: var(--brand-green, #58d65e);
+  --prog-yellow: var(--brand-yellow, #ffea30);
+  --prog-pink: var(--brand-pink, #ff80bf);
+  --prog-red: var(--brand-red, #ff6767);
+  --prog-link: var(--brand-light-blue, #66ccff);
+}
+
+.admin-programs {
+  max-width: 1180px;
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  color: var(--prog-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-programs h1,
+.admin-programs h2,
+.admin-programs h3,
+.admin-programs h4,
+.admin-programs p,
+.admin-programs dl,
+.admin-programs dd,
+.admin-programs ul {
+  margin: 0;
+  padding: 0;
+}
+
+.admin-prog-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.admin-prog-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-prog-heading h1 {
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.6px;
+}
+
+.admin-prog-heading p {
+  margin-top: 6px;
+  color: var(--prog-muted);
+}
+
+.admin-prog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: 20px;
+}
+
+.admin-prog-queue {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* One program ------------------------------------------------------------------------------ */
+
+.admin-prog-card {
+  min-width: 0;
+  padding: 22px;
+}
+
+.admin-prog-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.admin-prog-logo {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--prog-raised);
+}
+
+.admin-prog-logo-empty {
+  display: grid;
+  place-items: center;
+  color: var(--prog-muted);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin-prog-card-title {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.admin-prog-card-title h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.admin-prog-card-title p {
+  color: var(--prog-muted);
+  overflow-wrap: anywhere;
+}
+
+.admin-prog-submitted {
+  flex: none;
+  padding-top: 3px;
+  color: var(--prog-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.admin-prog-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 24px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--prog-line);
+}
+
+.admin-prog-facts > div {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.admin-prog-facts dt {
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-facts dd {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.admin-prog-facts a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--prog-link);
+  text-decoration: none;
+}
+
+.admin-prog-facts a > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-prog-facts a svg {
+  flex: none;
+}
+
+.admin-prog-facts a:hover {
+  text-decoration: underline;
+}
+
+.admin-prog-fact-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-fact-sub code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.admin-prog-missing {
+  color: var(--prog-muted);
+}
+
+.admin-prog-warning {
+  color: var(--prog-yellow);
+}
+
+.admin-prog-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-top: 22px;
+}
+
+.admin-prog-agreement-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.admin-prog-agreement-toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.admin-prog-chevron-open {
+  transform: rotate(180deg);
+}
+
+.admin-prog-note {
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* The agreement, opened in place ----------------------------------------------------------- */
+
+.admin-prog-agreement {
+  max-height: 460px;
+  margin-top: 20px;
+  padding: 20px 4px 4px 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--prog-line);
+}
+
+.admin-prog-agreement-body {
+  max-width: 68ch;
+  display: grid;
+  gap: 18px;
+}
+
+.admin-prog-agreement-body h3 {
+  font-size: 16px;
+}
+
+.admin-prog-agreement-body h4 {
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.admin-prog-agreement-body p {
+  color: #d6d6da;
+  line-height: 1.65;
+}
+
+.admin-prog-agreement-body p + p {
+  margin-top: 8px;
+}
+
+.admin-prog-extra-terms {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-prog-agreement-summary {
+  padding: 4px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--prog-deep) 55%, transparent);
+}
+
+.admin-prog-agreement-summary > div {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.admin-prog-agreement-summary > div + div {
+  border-top: 1px solid color-mix(in srgb, var(--prog-line) 60%, transparent);
+}
+
+.admin-prog-agreement-summary dt {
+  color: var(--prog-muted);
+}
+
+.admin-prog-agreement-summary dd {
+  text-align: right;
+}
+
+/* Recently reviewed ------------------------------------------------------------------------ */
+
+.admin-prog-reviewed {
+  min-width: 0;
+  padding: 20px;
+}
+
+.admin-prog-reviewed h2 {
+  font-size: 15px;
+}
+
+.admin-prog-reviewed ul {
+  margin-top: 8px;
+  list-style: none;
+}
+
+.admin-prog-reviewed-empty {
+  margin-top: 8px;
+  color: var(--prog-muted);
+}
+
+.admin-prog-reviewed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.admin-prog-reviewed-row + .admin-prog-reviewed-row {
+  border-top: 1px solid color-mix(in srgb, var(--prog-line) 70%, transparent);
+}
+
+.admin-prog-reviewed-row > div {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.admin-prog-reviewed-row strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-prog-reviewed-workspace {
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-reviewed-row button {
+  flex: none;
+}
+
+.admin-prog-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--prog-muted);
+  background: color-mix(in srgb, var(--prog-muted) 14%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-prog-pill-live {
+  color: var(--prog-green);
+  background: color-mix(in srgb, var(--prog-green) 14%, transparent);
+}
+
+.admin-prog-pill-paused {
+  color: var(--prog-pink);
+  background: color-mix(in srgb, var(--prog-pink) 14%, transparent);
+}
+
+.admin-prog-pill-changes,
+.admin-prog-pill-waiting {
+  color: var(--prog-yellow);
+  background: color-mix(in srgb, var(--prog-yellow) 12%, transparent);
+}
+
+/* Empty, loading and blocked --------------------------------------------------------------- */
+
+.admin-prog-empty,
+.admin-prog-message {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 28px;
+  border-radius: 14px;
+}
+
+.admin-prog-empty {
+  border: 1px dashed var(--prog-line);
+}
+
+.admin-prog-message {
+  max-width: 620px;
+  border: 1px solid var(--prog-line);
+  background: var(--brand-card, #2e2e2e);
+}
+
+.admin-prog-empty h2,
+.admin-prog-message h1,
+.admin-prog-message h2 {
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.admin-prog-empty p,
+.admin-prog-message p {
+  color: var(--prog-muted);
+}
+
+.admin-prog-message button {
+  margin-top: 12px;
+}
+
+.admin-prog-bar {
+  display: block;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--prog-raised);
+}
+
+.admin-prog-skeleton .admin-prog-card-title,
+.admin-prog-skeleton .admin-prog-facts > div {
+  gap: 8px;
+}
+
+/* Dialogs render outside the admin shell, so the form carries its own colours. */
+
+.admin-prog-dialog {
+  display: grid;
+  gap: 16px;
+  color: var(--prog-text);
+}
+
+.admin-prog-field {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-prog-field label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-prog-field textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px 12px;
+  border: 1px solid var(--prog-line);
+  border-radius: 8px;
+  color: var(--prog-text);
+  background: var(--prog-deep);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.admin-prog-field textarea[aria-invalid='true'] {
+  border-color: var(--prog-red);
+}
+
+.admin-prog-field textarea:focus-visible,
+.admin-prog-dialog button:focus-visible {
+  outline: 3px solid var(--prog-link);
+  outline-offset: 3px;
+}
+
+.admin-prog-field-hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-field-error > span:first-child,
+.admin-prog-dialog-error {
+  color: #ffb3b3;
+}
+
+.admin-prog-dialog-error {
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--prog-red) 12%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-prog-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-prog-dialog .admin-primary-button {
+  border: 1px solid var(--prog-pink);
+  color: #22101c;
+  background: var(--prog-pink);
+}
+
+.admin-prog-dialog .admin-secondary-button {
+  border: 1px solid var(--prog-line);
+  color: var(--prog-text);
+  background: var(--prog-raised);
+}
+
+.admin-prog-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+@media (max-width: 1180px) {
+  .admin-prog-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-prog-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-prog-card-head {
+    flex-wrap: wrap;
+  }
+
+  .admin-prog-submitted {
+    width: 100%;
+    padding: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-prog-card {
+    padding: 18px;
+  }
+
+  .admin-prog-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-prog-actions,
+  .admin-prog-dialog-actions {
+    width: 100%;
+  }
+
+  .admin-prog-actions button,
+  .admin-prog-dialog-actions button {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-prog-agreement-toggle svg {
+    transition: none;
+  }
+}
