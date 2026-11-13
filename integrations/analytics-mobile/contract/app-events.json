@@ -4,7 +4,9 @@
     "required": ["anonymous_id", "session", "sent_at", "context", "events"],
     "optional": ["user_id", "traits"]
   },
-  "session": { "required": ["id", "started_at"] },
+  "session": {
+    "required": ["id", "started_at"]
+  },
   "context": {
     "required": [
       "platform",
@@ -38,7 +40,10 @@
   "example": {
     "anonymous_id": "5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f",
     "user_id": "user-42",
-    "traits": { "email": "amaka@example.com", "plan": "annual" },
+    "traits": {
+      "email": "amaka@example.com",
+      "plan": "annual"
+    },
     "session": {
       "id": "0b9c8d7e-6f5a-4b3c-8d2e-1f0a9b8c7d6e",
       "started_at": "2026-10-30T09:59:00.000Z"
@@ -70,14 +75,19 @@
         "name": "app_installed",
         "insert_id": "e-2",
         "time": "2026-10-30T09:59:00.010Z",
-        "properties": { "version": "2.4.0", "build": "120" },
+        "properties": {
+          "version": "2.4.0",
+          "build": "120"
+        },
         "user_id": "user-42"
       },
       {
         "name": "app_opened",
         "insert_id": "e-3",
         "time": "2026-10-30T09:59:00.020Z",
-        "properties": { "from_background": false },
+        "properties": {
+          "from_background": false
+        },
         "user_id": "user-42"
       },
       {
@@ -85,7 +95,9 @@
         "insert_id": "e-4",
         "time": "2026-10-30T09:59:01.000Z",
         "screen": "Home",
-        "properties": { "name": "Home" },
+        "properties": {
+          "name": "Home"
+        },
         "user_id": "user-42"
       },
       {
@@ -93,7 +105,9 @@
         "insert_id": "e-5",
         "time": "2026-10-30T09:59:40.000Z",
         "screen": "Lesson",
-        "properties": { "lesson": 3 },
+        "properties": {
+          "lesson": 3
+        },
         "user_id": "user-42"
       },
       {
@@ -101,9 +115,112 @@
         "insert_id": "e-6",
         "time": "2026-10-30T10:00:04.000Z",
         "screen": "Lesson",
-        "properties": { "seconds_in_foreground": 64 },
+        "properties": {
+          "seconds_in_foreground": 64
+        },
         "user_id": "user-42"
       }
     ]
+  },
+  "attribution": {
+    "about": "What every KissMyApps app SDK sends to the two attribution calls, and what it gets back. Both use the same key as /v1/events (Authorization: Bearer). They do nothing until the merchant turns attribution on for the project: the answer is then {\"matched\": false, \"method\": \"off\", \"deep_link\": null}.",
+    "install": {
+      "path": "/v1/attribution/install",
+      "when": "Once, on the first launch after install, after app_installed is queued. An app that was opened by a link on that first launch passes the link as link_url instead of calling open.",
+      "required": ["anonymous_id", "session_id", "platform", "installed_at", "sdk"],
+      "optional": [
+        "user_id",
+        "app_version",
+        "device_key",
+        "link_url",
+        "referrer",
+        "referrer_click_ts",
+        "install_begin_ts",
+        "apple_ads_token",
+        "clipboard_click"
+      ]
+    },
+    "open": {
+      "path": "/v1/attribution/open",
+      "when": "Each time a Universal Link or App Link opens the app, except on the first launch (see install).",
+      "required": ["anonymous_id", "session_id", "platform", "url", "opened_at", "sdk"],
+      "optional": ["user_id", "app_version", "device_key"]
+    },
+    "fields": {
+      "platform": ["ios", "android"],
+      "installed_at": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "opened_at": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "device_key": "^[0-9a-f]{64}$",
+      "device_key_about": "Lowercase hex SHA-256 of identifierForVendor (iOS) or Settings.Secure.ANDROID_ID (Android), worked out on the device. The raw identifier never leaves the phone.",
+      "link_url": "https URL, at most 2048 characters",
+      "url": "https URL, at most 2048 characters",
+      "referrer": "The Google Play install referrer string as Play returns it, at most 1024 characters (Android only)",
+      "referrer_click_ts": "Whole seconds since 1970 (Android only, from the Install Referrer API)",
+      "install_begin_ts": "Whole seconds since 1970 (Android only, from the Install Referrer API)",
+      "apple_ads_token": "AAAttribution.attributionToken(), at most 4096 characters (iOS 14.3+ only)",
+      "clipboard_click": "^[A-Za-z0-9_-]{16,40}$",
+      "clipboard_about": "Only when the app turned clipboard handoff on: the click ID after the prefix kma: on the clipboard at first launch."
+    },
+    "response": {
+      "required": ["matched", "method", "deep_link"],
+      "optional": ["source", "campaign", "channel", "adset", "ad", "reinstall"],
+      "methods": [
+        "off",
+        "link_open",
+        "install_referrer",
+        "apple_ads",
+        "clipboard",
+        "login",
+        "organic",
+        "reinstall"
+      ],
+      "deep_link": {
+        "about": "null, or the link's deep link. The SDK hands it to onDeepLink once.",
+        "required": ["value", "params", "deferred"],
+        "value": "text or null",
+        "params": "object of text values, at most 10 keys",
+        "deferred": "true when it reached the app through an install, false when a link opened the app"
+      }
+    },
+    "examples": {
+      "install": {
+        "anonymous_id": "5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f",
+        "session_id": "0b9c8d7e-6f5a-4b3c-8d2e-1f0a9b8c7d6e",
+        "platform": "android",
+        "installed_at": "2026-10-30T09:59:00.010Z",
+        "sdk": "kma-android/1.1.0",
+        "app_version": "2.4.0",
+        "device_key": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        "referrer": "kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ&utm_source=tiktok&utm_campaign=launch",
+        "referrer_click_ts": 1761818300,
+        "install_begin_ts": 1761818320
+      },
+      "open": {
+        "anonymous_id": "5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f",
+        "session_id": "0b9c8d7e-6f5a-4b3c-8d2e-1f0a9b8c7d6e",
+        "platform": "ios",
+        "url": "https://fluent.go.kissmyapps.dev/lesson-4?dl=lesson&id=4",
+        "opened_at": "2026-11-02T08:00:00.000Z",
+        "sdk": "kma-ios/1.1.0",
+        "user_id": "user-42"
+      },
+      "response": {
+        "matched": true,
+        "method": "install_referrer",
+        "source": "tiktok",
+        "campaign": "launch",
+        "channel": null,
+        "adset": null,
+        "ad": null,
+        "reinstall": false,
+        "deep_link": {
+          "value": "lesson",
+          "params": {
+            "id": "4"
+          },
+          "deferred": true
+        }
+      }
+    }
   }
 }
