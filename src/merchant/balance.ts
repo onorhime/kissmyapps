@@ -60,6 +60,12 @@ export interface TopupProblem {
   retry_at: string | null
 }
 
+/** Set while the day's limit on automatic charges is holding the next top-up back. */
+export interface TopupLimit {
+  per_day: number
+  resumes_at: string | null
+}
+
 export interface BalanceAccount {
   currency: string
   available_minor: number
@@ -73,6 +79,7 @@ export interface BalanceAccount {
   min_balance_minor: number
   topup_amount_minor: number
   topup_problem: TopupProblem | null
+  topup_limit: TopupLimit | null
 }
 
 export interface BalanceProgram {
@@ -168,6 +175,13 @@ function cardFrom(value: unknown): BalanceCard | null {
   }
 }
 
+function topupLimitFrom(value: unknown): TopupLimit | null {
+  const row = record(value)
+  const perDay = minor(row?.per_day)
+  if (!row || perDay === null || perDay < 1) return null
+  return { per_day: perDay, resumes_at: moment(row.resumes_at) }
+}
+
 function topupProblemFrom(value: unknown): TopupProblem | null {
   const row = record(value)
   if (!row) return null
@@ -215,6 +229,7 @@ function accountFrom(value: unknown, programCurrency: string | undefined): Balan
     min_balance_minor: floor,
     topup_amount_minor: topup,
     topup_problem: topupProblemFrom(row.topup_problem),
+    topup_limit: topupLimitFrom(row.topup_limit),
   }
 }
 
@@ -436,6 +451,22 @@ const shortDayFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month:
 /** 15 Nov, in the reader's own time. */
 export function formatShortDay(time: string): string {
   return shortDayFormat.format(Date.parse(time))
+}
+
+const dayTimeFormat = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' })
+
+/** 14:30 on 15 Nov, in the reader's own time. */
+export function formatDayAndTime(time: string): string {
+  return `${dayTimeFormat.format(Date.parse(time))} on ${formatShortDay(time)}`
+}
+
+/**
+ * The limit matters only while it is holding a top-up back: the balance is under the
+ * minimum and automatic top-up would otherwise have charged the card.
+ */
+export function heldBackByLimit(account: BalanceAccount | null): TopupLimit | null {
+  if (!account?.topup_limit || !account.auto_topup) return null
+  return account.available_minor < account.min_balance_minor ? account.topup_limit : null
 }
 
 // The balance itself ------------------------------------------------------------------------
@@ -791,6 +822,28 @@ export const problemMessages: Record<string, Omit<BalanceProblem, 'code'>> = {
   amount_too_small: AMOUNT,
   amount_too_large: AMOUNT,
   amount_out_of_range: AMOUNT,
+  verified_email_required: {
+    message: 'Confirm your email address first, then sign in again to add funds.',
+    recovery: 'none',
+  },
+  balance_conflict: {
+    message: 'Your balance changed while this was sent, so nothing was charged. Try again.',
+    recovery: 'retry',
+  },
+  currency_mismatch: {
+    message:
+      'Your program and your balance are in different currencies, so nothing was charged. Contact KissMyApps to fix this.',
+    recovery: 'none',
+  },
+  platform_mismatch: {
+    message:
+      'This balance cannot take payments right now, so nothing was charged. Contact KissMyApps to fix this.',
+    recovery: 'none',
+  },
+  stripe_rejected: {
+    message: 'Stripe did not accept the request, so nothing was charged. Try again.',
+    recovery: 'retry',
+  },
   balance_not_started: {
     message: 'Add funds first. Your card and top-up settings start with your first deposit.',
     recovery: 'reload',

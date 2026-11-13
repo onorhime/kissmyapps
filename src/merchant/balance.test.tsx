@@ -21,6 +21,7 @@ import {
   feePercent,
   forgetLeaving,
   formatAmount,
+  formatDayAndTime,
   formatMovement,
   hasStarted,
   MAX_AMOUNT_MINOR,
@@ -193,6 +194,7 @@ const account = (over: Row = {}): Row => ({
   min_balance_minor: 5000,
   topup_amount_minor: 10000,
   topup_problem: null,
+  topup_limit: null,
   ...over,
 })
 
@@ -425,6 +427,7 @@ describe('reading answers', () => {
         min_balance_minor: 5000,
         topup_amount_minor: 10000,
         topup_problem: null,
+        topup_limit: null,
       },
       min_deposit_minor: 5000,
       fee_bps: 1000,
@@ -546,6 +549,18 @@ describe('reading answers', () => {
       exp_month: null,
       exp_year: null,
     })
+  })
+
+  it("reads the day's limit on automatic top-ups, and drops one it cannot trust", () => {
+    const limit = { per_day: 5, resumes_at: '2026-11-14T13:52:14+00:00' }
+    const read = (value: unknown) =>
+      readBalance(balanceState({ account: account({ topup_limit: value }) })).account?.topup_limit
+    expect(read(limit)).toEqual(limit)
+    expect(read({ per_day: 5, resumes_at: 'soon' })).toEqual({ per_day: 5, resumes_at: null })
+    expect(read({ per_day: 0, resumes_at: limit.resumes_at })).toBeNull()
+    expect(read('5')).toBeNull()
+    const { topup_limit: _absent, ...older } = account()
+    expect(readBalance(balanceState({ account: older })).account?.topup_limit).toBeNull()
   })
 
   it('reads a failed top-up and a deposit that is on its way', () => {
@@ -864,6 +879,37 @@ describe('error mapping', () => {
   const steps: BalanceStep[] = ['load', 'deposit', 'card', 'settings']
   const fromDatabase = (details: string | null, code = '22023') =>
     readFailure({ code, details, message: 'From the database.' })
+
+  it('has words for every refusal the payments function sends', () => {
+    const refused = (code: string, status: number) =>
+      describeProblem(new BalanceError(code, '', status), 'deposit')
+    expect(refused('verified_email_required', 401)).toMatchObject({
+      message: 'Confirm your email address first, then sign in again to add funds.',
+      recovery: 'none',
+    })
+    expect(refused('balance_conflict', 409)).toMatchObject({ recovery: 'retry' })
+    expect(refused('currency_mismatch', 409)).toMatchObject({ recovery: 'none' })
+    expect(refused('platform_mismatch', 409)).toMatchObject({ recovery: 'none' })
+    expect(refused('stripe_rejected', 502).message).toBe(
+      'Stripe did not accept the request, so nothing was charged. Try again.',
+    )
+    for (const [code, status] of [
+      ['invalid_input', 400],
+      ['invalid_amount_minor', 400],
+      ['unauthorized', 401],
+      ['origin_rejected', 403],
+      ['not_a_member', 403],
+      ['owner_or_admin_required', 403],
+      ['program_money_disabled', 409],
+      ['no_program', 409],
+      ['balance_not_started', 409],
+      ['stripe_unavailable', 502],
+      ['program_balance_disabled', 503],
+      ['configuration_error', 503],
+      ['database_boundary_error', 503],
+    ] as const)
+      expect(refused(code, status).message, code).not.toBe(fallbackMessages.deposit)
+  })
 
   it('puts a refused setting at its field', () => {
     expect(describeProblem(fromDatabase('invalid_min_balance_minor'), 'settings')).toEqual({
@@ -1414,6 +1460,38 @@ describe('balance page: what needs the merchant', () => {
     expect(attention()).toHaveTextContent(
       'Automatic top-up failed: the card has expired. We will not try again until you add funds or change your card.',
     )
+  })
+
+  it("says when the day's limit is holding a top-up back, and what to do meanwhile", async () => {
+    signedInAs('owner')
+    const resumes = '2026-11-14T12:30:00+00:00'
+    const user = await openBalance(
+      balanceState({
+        account: account({
+          available_minor: 1200,
+          topup_limit: { per_day: 5, resumes_at: resumes },
+        }),
+      }),
+    )
+    const alert = attention() as HTMLElement
+    expect(formatDayAndTime(resumes)).toMatch(/^\d{2}:\d{2} on 1[45] Nov$/)
+    expect(alert).toHaveTextContent(
+      `Automatic top-up is waiting: your card was charged 5 times in 24 hours, the most we charge automatically. It starts again at ${formatDayAndTime(resumes)}. Add funds yourself until then, or raise the top-up amount so each one lasts longer.`,
+    )
+    expect(within(alert).queryByRole('button', { name: 'Change card' })).not.toBeInTheDocument()
+    expect(buttons('Add funds')).toHaveLength(1)
+    await user.click(within(alert).getByRole('button', { name: 'Add funds' }))
+    expect(within(dialog()).getByLabelText('Amount')).toBeInTheDocument()
+  })
+
+  it("keeps quiet about the day's limit while the balance is above the minimum", async () => {
+    signedInAs('owner')
+    await openBalance(
+      balanceState({
+        account: account({ topup_limit: { per_day: 5, resumes_at: '2026-11-14T12:30:00+00:00' } }),
+      }),
+    )
+    expect(attention()).toBeNull()
   })
 
   it('says both when the program is paused and the top-up failed', async () => {

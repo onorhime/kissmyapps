@@ -194,6 +194,24 @@ language sql stable set search_path = '' as $$
     where o.account_id = p_account and o.kind = 'auto' and o.status in ('pending', 'processing'))
 $$;
 
+-- A card is charged automatically at most this many times in any 24 hours. A balance that
+-- keeps running out faster than that is something the merchant should look at (a larger
+-- top-up amount, or sales that are not what they seem), not something to keep charging for.
+create function kma_internal.program_topup_day_limit() returns integer
+language sql immutable set search_path = '' as $$ select 5 $$;
+
+-- When automatic top-up may charge the account again: null while it is under the limit,
+-- otherwise the moment the oldest of its last charges is a day old. Only charges that
+-- went through count; a failed one has its own retry schedule.
+create function kma_internal.program_topup_resumes_at(p_account uuid, p_now timestamptz) returns timestamptz
+language sql stable set search_path = '' as $$
+  select case when count(*) >= kma_internal.program_topup_day_limit() then min(x.created_at) + interval '24 hours' end
+  from (select t.created_at from public.program_topups t
+    where t.account_id = p_account and t.kind = 'auto' and t.status in ('succeeded', 'reversed')
+      and t.created_at > p_now - interval '24 hours'
+    order by t.created_at desc limit kma_internal.program_topup_day_limit()) x
+$$;
+
 -- What a service function says about a top-up.
 create function kma_internal.program_topup_json(t public.program_topups) returns jsonb
 language sql stable set search_path = '' as $$
@@ -225,6 +243,7 @@ declare
   v_problem jsonb;
   v_activity jsonb;
   v_pending jsonb;
+  v_resumes timestamptz;
 begin
   select coalesce(s.program_money_enabled, false) as enabled, coalesce(s.program_fee_bps, 1000) as fee_bps,
       coalesce(s.program_min_deposit_minor, 5000) as min_deposit
@@ -262,6 +281,9 @@ begin
       'retry_at', case when a.auto_topup and a.topup_failures < 4 then a.topup_retry_at end);
   end if;
 
+  -- Set while the day's limit on automatic charges holds the next one back.
+  v_resumes := kma_internal.program_topup_resumes_at(a.id, clock_timestamp());
+
   -- Newest first. Entries written in one transaction share created_at; seq keeps them in
   -- the order they were posted.
   select coalesce(jsonb_agg(x.entry order by x.created_at desc, x.seq desc), '[]'::jsonb) into v_activity
@@ -292,7 +314,9 @@ begin
       'card', case when a.payment_method_id is null then null else jsonb_build_object(
         'brand', a.card_brand, 'last4', a.card_last4, 'exp_month', a.card_exp_month, 'exp_year', a.card_exp_year) end,
       'auto_topup', a.auto_topup, 'min_balance_minor', a.min_balance_minor, 'topup_amount_minor', a.topup_amount_minor,
-      'topup_problem', v_problem),
+      'topup_problem', v_problem,
+      'topup_limit', case when a.auto_topup and v_resumes is not null then jsonb_build_object(
+        'per_day', kma_internal.program_topup_day_limit(), 'resumes_at', v_resumes) end),
     'activity', v_activity, 'pending_topup', v_pending);
 end $$;
 
@@ -907,7 +931,8 @@ end $$;
 -- Hands the worker the accounts whose balance is below the minimum the merchant chose, each
 -- with a new automatic top-up to charge and a lease on it. An account is due when program
 -- money is on, automatic top-up is on, a card is saved, the program is live (or paused only
--- for its balance), no top-up of the account is still open, and the retry schedule allows.
+-- for its balance), no top-up of the account is still open, the retry schedule allows, and
+-- the card has not been charged automatically five times in the last 24 hours.
 -- The new top-up is itself what stops a second worker: the account is locked while it is
 -- made, and an account cannot have two open automatic top-ups.
 -- Input: platform_account_id, limit 1..25, lease_seconds 60..900.
@@ -934,6 +959,7 @@ begin
       and b.currency = p.currency
       and (p.status = 'live' or (p.status = 'paused' and p.pause_reason = 'balance_empty'))
       and not exists (select 1 from public.program_topups o where o.account_id = b.id and o.status in ('pending', 'processing'))
+      and kma_internal.program_topup_resumes_at(b.id, v_now) is null
     order by b.available_minor - b.min_balance_minor, b.id
     limit c.lot
     for no key update of b skip locked
@@ -943,7 +969,8 @@ begin
     select * into a from public.program_balance_accounts where id = a.id;
     if not a.auto_topup or a.payment_method_id is null or a.available_minor >= a.min_balance_minor
       or a.topup_failures >= 4 or a.topup_retry_at > v_now
-      or exists (select 1 from public.program_topups o where o.account_id = a.id and o.status in ('pending', 'processing')) then
+      or exists (select 1 from public.program_topups o where o.account_id = a.id and o.status in ('pending', 'processing'))
+      or kma_internal.program_topup_resumes_at(a.id, v_now) is not null then
       continue;
     end if;
     begin

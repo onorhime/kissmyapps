@@ -612,7 +612,7 @@ select pg_temp.capture('workspace_program_balance.funded', pg_temp.page('owner',
 select pg_temp.check((select d->'account' = '{"currency":"USD","available_minor":10149,"reserved_minor":1617,
       "creators_pending_minor":1470,"creators_approved_minor":2940,"fees_minor":441,"deposited_minor":15000,
       "card":{"brand":"visa","last4":"4242","exp_month":4,"exp_year":2029},
-      "auto_topup":true,"min_balance_minor":20000,"topup_amount_minor":10000,"topup_problem":null}'
+      "auto_topup":true,"min_balance_minor":20000,"topup_amount_minor":10000,"topup_problem":null,"topup_limit":null}'
       and jsonb_array_length(d->'activity') = 5
       and (select array_agg(e->>'kind') = array['fee_reserved', 'commission_reserved', 'fee_reserved', 'commission_reserved', 'deposit']
           and array_agg((e->>'amount_minor')::int) = array[-147, -1470, -294, -2940, 15000]
@@ -633,7 +633,7 @@ select pg_temp.check((select array_agg(k order by k) = array['account', 'activit
     from jsonb_object_keys(pg_temp.page('owner', 'acme')) k)
   and (select array_agg(k order by k) = array['auto_topup', 'available_minor', 'card', 'creators_approved_minor',
       'creators_pending_minor', 'currency', 'deposited_minor', 'fees_minor', 'min_balance_minor', 'reserved_minor',
-      'topup_amount_minor', 'topup_problem'] from jsonb_object_keys(pg_temp.page('owner', 'acme')->'account') k)
+      'topup_amount_minor', 'topup_limit', 'topup_problem'] from jsonb_object_keys(pg_temp.page('owner', 'acme')->'account') k)
   and (select array_agg(k order by k) = array['currency', 'id', 'name', 'pause_reason', 'status']
     from jsonb_object_keys(pg_temp.page('owner', 'acme')->'program') k),
   'the page has exactly the agreed fields');
@@ -691,6 +691,38 @@ select pg_temp.svc('settle_program_topup', jsonb_build_object('topup_id', pg_tem
 select pg_temp.check((pg_temp.topup('t_blocking')).status = 'canceled' and (pg_temp.topup('t_blocking')).failure_code = 'checkout_expired'
   and (pg_temp.account('acme')).topup_failures = 0 and pg_temp.due(),
   'an expired deposit is canceled without counting as a failure, and the account is due again');
+
+-- Automatic top-up: at most five charges of a card in any 24 hours ----------------------------------
+insert into public.program_topups(account_id, kind, amount_minor, currency, status, created_at, updated_at, settled_at)
+select (pg_temp.account('acme')).id, 'auto', 10000, 'USD', case when n = 2 then 'reversed' else 'succeeded' end,
+  now() - make_interval(hours => n * 4), now(), now() - make_interval(hours => n * 4)
+from generate_series(1, 4) n;
+select pg_temp.check(pg_temp.due() and pg_temp.page('owner', 'acme')->'account'->'topup_limit' = 'null'::jsonb,
+  'four automatic charges in a day leave room for a fifth');
+insert into public.program_topups(account_id, kind, amount_minor, currency, status, created_at, updated_at, settled_at)
+values ((pg_temp.account('acme')).id, 'auto', 10000, 'USD', 'succeeded', now() - interval '23 hours', now(), now() - interval '23 hours');
+select pg_temp.check(not pg_temp.due()
+  and pg_temp.page('owner', 'acme')->'account'->'topup_limit'->>'per_day' = '5'
+  and (pg_temp.page('owner', 'acme')->'account'->'topup_limit'->>'resumes_at')::timestamptz
+    between now() + interval '59 minutes' and now() + interval '61 minutes',
+  'after five automatic charges in a day nothing is due, and the page says when it starts again');
+select pg_temp.capture('workspace_program_balance.topup_limited', pg_temp.page('owner', 'acme'));
+select pg_temp.call('owner', pg_temp.settings_sql('acme', '{"auto_topup":false}'));
+select pg_temp.check(pg_temp.page('owner', 'acme')->'account'->'topup_limit' = 'null'::jsonb,
+  'the limit is not mentioned while automatic top-up is off');
+select pg_temp.call('owner', pg_temp.settings_sql('acme', '{"auto_topup":true}'));
+update public.program_topups set created_at = now() - interval '25 hours'
+  where account_id = (pg_temp.account('acme')).id and kind = 'auto' and created_at < now() - interval '22 hours';
+select pg_temp.check(pg_temp.due() and pg_temp.page('owner', 'acme')->'account'->'topup_limit' = 'null'::jsonb,
+  'once the oldest of the five is a day old the account is due again');
+-- Failed and canceled tries do not count toward the limit; only charges that went through do.
+insert into public.program_topups(account_id, kind, amount_minor, currency, status, failure_code, created_at, updated_at, settled_at)
+select (pg_temp.account('acme')).id, 'auto', 10000, 'USD', case when n % 2 = 0 then 'failed' else 'canceled' end, 'test_only',
+  now() - make_interval(mins => n), now(), now() from generate_series(1, 6) n;
+select pg_temp.check(pg_temp.due(), 'tries that charged nothing do not count toward the limit');
+delete from public.program_topups where account_id = (pg_temp.account('acme')).id and kind = 'auto'
+  and (status in ('succeeded', 'reversed') or failure_code = 'test_only')
+  and checkout_session_id is null and payment_intent_id is null;
 
 -- Automatic top-up: one charge per shortfall, and the retry schedule ----------------------------------
 create temporary table claimed as select pg_temp.claim('t_auto1') as answer;

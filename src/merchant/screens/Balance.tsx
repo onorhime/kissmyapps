@@ -19,9 +19,11 @@ import {
   feePercent,
   forgetLeaving,
   formatAmount,
+  formatDayAndTime,
   formatMovement,
   formatShortDay,
   hasStarted,
+  heldBackByLimit,
   meansReadOnly,
   pausedForBalance,
   readReturn,
@@ -39,6 +41,7 @@ import type {
   SettingsDraft,
   SettingsErrors,
   SettingsField,
+  TopupLimit,
   TopupProblem,
 } from '../balance'
 import { browser, formatWhen } from '../connections'
@@ -310,7 +313,8 @@ function BalancePage({
   const started = Boolean(state && hasStarted(state))
   const paused = pausedForBalance(program)
   const failed = account?.topup_problem ?? null
-  const attention = paused || Boolean(failed)
+  const limit = heldBackByLimit(account ?? null)
+  const attention = paused || Boolean(failed) || Boolean(limit)
   const idle = busy === 'idle'
   const bounds = state ? depositBounds(state) : null
   const openDialog = () => {
@@ -380,6 +384,7 @@ function BalancePage({
             <Attention
               paused={paused}
               failed={failed}
+              limit={limit}
               canManage={canManage}
               busy={busy}
               onAddFunds={started ? openDialog : undefined}
@@ -519,10 +524,14 @@ function Problem({
   )
 }
 
-/** What needs the merchant now: a program paused for its balance, a top-up that failed, or both. */
+/**
+ * What needs the merchant now: a program paused for its balance, a top-up that failed, a
+ * top-up held back by the day's limit, or several of these.
+ */
 function Attention({
   paused,
   failed,
+  limit,
   canManage,
   busy,
   onAddFunds,
@@ -530,6 +539,7 @@ function Attention({
 }: {
   paused: boolean
   failed: TopupProblem | null
+  limit: TopupLimit | null
   canManage: boolean
   busy: Busy
   onAddFunds?: () => void
@@ -553,6 +563,19 @@ function Attention({
             {failed.retry_at
               ? `We will try again on ${formatShortDay(failed.retry_at)}.`
               : 'We will not try again until you add funds or change your card.'}
+          </p>
+        )}
+        {limit && (
+          <p className="mc-num">
+            {paused || failed ? (
+              'Automatic top-up is also waiting'
+            ) : (
+              <strong>Automatic top-up is waiting</strong>
+            )}
+            : your card was charged {limit.per_day} times in 24 hours, the most we charge
+            automatically.{' '}
+            {limit.resumes_at ? `It starts again at ${formatDayAndTime(limit.resumes_at)}. ` : ''}
+            Add funds yourself until then, or raise the top-up amount so each one lasts longer.
           </p>
         )}
       </div>
