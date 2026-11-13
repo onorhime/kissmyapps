@@ -30,6 +30,8 @@ describe('in-app purchase readers and the real backend answers', () => {
       events_30d: 15,
       sales_30d: 4,
       ignored_30d: 8,
+      webhook_url:
+        'https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/program-store-webhook/revenuecat',
     })
     // The header value is never in the list, so nothing of it is kept.
     expect(JSON.stringify(read)).not.toMatch(/Bearer/)

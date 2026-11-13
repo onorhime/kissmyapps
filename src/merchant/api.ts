@@ -1070,6 +1070,8 @@ export interface StoreConnection {
   sales_30d: number
   /** Events that became no sale: test purchases, other events, purchases no creator brought. */
   ignored_30d: number
+  /** Where the tool sends events. Not a secret, so it can be shown again; null when not sent. */
+  webhook_url: string | null
 }
 
 export interface StoreConnections {
@@ -1150,6 +1152,7 @@ function readStoreConnection(value: unknown, names: Map<string, string>): StoreC
     events_30d: countOf(row.events_30d),
     sales_30d: countOf(row.sales_30d),
     ignored_30d: countOf(row.ignored_30d),
+    webhook_url: webhookAddress(row.webhook_url),
   }
 }
 
@@ -1204,7 +1207,7 @@ export function readStoreWebhook(value: unknown): StoreWebhook {
   const inner = body.connection
   const row = inner && typeof inner === 'object' ? inner : 'id' in body ? body : null
   return {
-    connection: row ? readStoreConnection(row, new Map()) : null,
+    connection: row ? { ...readStoreConnection(row, new Map()), webhook_url: address } : null,
     webhook_url: address,
     header_value: header,
   }

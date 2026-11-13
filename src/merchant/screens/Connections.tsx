@@ -1135,6 +1135,12 @@ function StoreApp({
           </div>
         )}
       </dl>
+      {!made && connection.webhook_url && (
+        <div className="mc-p8-address">
+          <span>Webhook address</span>
+          <CopyLine value={connection.webhook_url} label="webhook address" />
+        </div>
+      )}
       {made && <WebhookSetup provider={connection.provider} made={made} onDone={onDone} />}
     </li>
   )

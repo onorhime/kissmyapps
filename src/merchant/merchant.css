@@ -7429,6 +7429,14 @@ ul.mc-panel.mc-crt-list > li:first-child {
 .mc-p8-setup li > span:first-child {
   display: block;
 }
+.mc-p8-address {
+  margin: 12px 0 0 3px;
+}
+.mc-p8-address > span {
+  color: var(--mc-faint);
+  font-size: 13px;
+  line-height: 18px;
+}
 .mc-p8-copy {
   display: flex;
   align-items: center;

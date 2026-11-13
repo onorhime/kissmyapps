@@ -305,8 +305,14 @@ describe('RevenueCat and Adapty on the Connections page', () => {
       analytics_destinations_get: destinations('analytics_destinations_get.none'),
     })
     await waitFor(() => app('RevenueCat', 'Fluent'))
-    expect(within(card('RevenueCat')).queryByRole('button')).toBeNull()
-    expect(within(card('Adapty')).queryByRole('button')).toBeNull()
+    // Only the webhook address can be copied: it is no secret. Nothing can be changed.
+    const names = (tool: 'RevenueCat' | 'Adapty') =>
+      within(card(tool))
+        .queryAllByRole('button')
+        .map((button) => button.textContent)
+    expect(names('RevenueCat')).toEqual(['Copy'])
+    expect(within(card('RevenueCat')).getByText('Webhook address')).toBeInTheDocument()
+    expect(names('Adapty')).toEqual(['Copy'])
     expect(card('RevenueCat')).toHaveTextContent(
       'Only an owner or admin of Fluent Labs can connect RevenueCat.',
     )
