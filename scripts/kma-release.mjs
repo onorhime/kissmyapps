@@ -796,7 +796,8 @@ function makeContext(repo, config) {
   const upload = (file, target) => {
     const fd = openSync(file, 'r')
     try {
-      const script = `set -euo pipefail; install -d -m 700 ${sq(`${config.vps.root}/incoming`)}; cat > ${sq(target)}`
+      // Runs in the login shell, which may not be bash: keep it POSIX.
+      const script = `set -eu; install -d -m 700 ${sq(`${config.vps.root}/incoming`)}; cat > ${sq(target)}`
       const [command, args] =
         remoteMode === 'local' ? ['bash', ['-c', script]] : ['ssh', [...sshArgs, script]]
       const result = spawnSync(command, args, { stdio: [fd, 'inherit', 'inherit'] })
