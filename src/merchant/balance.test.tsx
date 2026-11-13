@@ -360,7 +360,7 @@ describe('balance route', () => {
     expect(href({ name: 'balance', deposit: 'done' })).toBe('#balance?deposit=done')
   })
 
-  it('is the third entry of the Affiliates group, after Creators', async () => {
+  it('is the last entry of the Affiliates group, after Sales', async () => {
     signedInAs('owner')
     await openBalance()
     const nav = screen.getByRole('navigation', { name: 'Sections' })
@@ -373,7 +373,7 @@ describe('balance route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators', 'Balance'])
+    ).toEqual(['Program', 'Creators', 'Sales', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })

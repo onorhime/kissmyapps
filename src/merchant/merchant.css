@@ -5391,6 +5391,40 @@ ul.mc-panel.mc-crt-list > li:first-child {
 .mc-crt-table td:first-child {
   min-width: 220px;
 }
+/* Figures in the millions are wider than a narrow window: the table scrolls, the page does not. */
+.mc-crt-wide {
+  overflow-x: auto;
+}
+/* The name opens that creator's sales: it reads as the name, and as a link once pointed at. */
+.mc-crt-open {
+  min-width: 0;
+  border-radius: 4px;
+  color: var(--mc-text);
+}
+.mc-crt-open > strong {
+  overflow-wrap: anywhere;
+}
+.mc-crt-open:hover > strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The totals line: the same columns, set apart by a stronger rule and its weight. */
+.mc-crt-table tfoot th,
+.mc-crt-table tfoot td {
+  border-top: 1px solid var(--mc-control);
+  font-weight: 600;
+  vertical-align: top;
+}
+.mc-crt-table tfoot th {
+  height: auto;
+  border-bottom: 0;
+  color: var(--mc-text);
+  font-size: 14px;
+  text-align: left;
+}
+.mc-crt-table tfoot .mc-sub {
+  font-weight: 400;
+}
 .mc-crt [data-member] {
   outline-offset: -3px;
 }
@@ -5443,6 +5477,19 @@ ul.mc-panel.mc-crt-list > li:first-child {
   border-radius: 50%;
 }
 
+/* With the money columns the table is two columns wider: the two dates wait for a wide screen. */
+@media (min-width: 721px) and (max-width: 1240px) {
+  .mc-crt-table.has-money .mc-crt-joined,
+  .mc-crt-table.has-money .mc-crt-last {
+    display: none;
+  }
+  /* Tighter columns keep the name and its label whole beside five figures. */
+  .mc-crt-table.has-money th:not(:first-child):not(:last-child),
+  .mc-crt-table.has-money td:not(:first-child):not(:last-child) {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
 @media (max-width: 960px) {
   .mc-crt-invite {
     grid-template-columns: minmax(0, 1fr);
@@ -5470,6 +5517,31 @@ ul.mc-panel.mc-crt-list > li:first-child {
     order: 2;
     margin: -6px 0 -6px -8px;
   }
+  /* The totals line is one more card, its figures under the same labels. */
+  .mc-crt-table tfoot {
+    display: block;
+  }
+  .mc-crt-table tfoot tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--mc-control);
+  }
+  .mc-table.mc-crt-table tfoot th:first-child,
+  .mc-table.mc-crt-table tfoot td,
+  .mc-table.mc-crt-table tfoot td:last-child {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .mc-table.mc-crt-table tfoot th:first-child {
+    grid-column: 1 / -1;
+  }
+  .mc-table.mc-crt-table tfoot td.mc-crt-blank {
+    display: none;
+  }
 }
 @media (pointer: coarse) {
   /* A link inside a sentence keeps its line; its touch area grows above and below it. */
@@ -5481,6 +5553,14 @@ ul.mc-panel.mc-crt-list > li:first-child {
   .mc-crt-facts > a::after {
     position: absolute;
     inset: -12px 0 -12px 16px;
+    content: '';
+  }
+  .mc-crt-open {
+    position: relative;
+  }
+  .mc-crt-open::after {
+    position: absolute;
+    inset: -13px 0;
     content: '';
   }
   .mc-crt-actions .mc-btn,
@@ -5878,5 +5958,254 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
   .mc-bal-toggle {
     min-height: 44px;
+  }
+}
+
+/* Sales: the last 30 days in four figures, then every sale a creator sent, newest first. */
+.mc-sales {
+  container: mc-sales / inline-size;
+}
+.mc-sales-none {
+  color: var(--mc-muted);
+}
+.mc-sales-none .mc-link,
+.mc-sales .mc-empty-line .mc-link {
+  white-space: nowrap;
+}
+.mc-sales-problem {
+  flex-wrap: wrap;
+}
+.mc-sales-problem > span {
+  flex: 1 1 240px;
+}
+.mc-panel-flush > .mc-sales-problem {
+  margin: 12px 16px 16px;
+}
+.mc-sales-failed {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+.mc-sales-failed > .mc-sales-problem {
+  justify-self: stretch;
+}
+.mc-sales-head {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 10px;
+}
+/* The one creator the list is narrowed to, and the button that widens it again. */
+.mc-sales .mc-sales-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 340px);
+  height: 28px;
+  padding: 0 3px 0 12px;
+  border-radius: 999px;
+  background: var(--mc-raised);
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.mc-sales-chip > button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--mc-muted);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+.mc-sales-chip > button:hover {
+  background: var(--mc-control);
+  color: var(--mc-text);
+}
+
+/* One sale per row: when, who and through which link, then the money, figures flush right. */
+.mc-sales-when {
+  color: var(--mc-muted);
+  white-space: nowrap;
+}
+.mc-sales-who {
+  min-width: 132px;
+  max-width: 280px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mc-sales-who > a {
+  border-radius: 4px;
+  color: var(--mc-text);
+}
+.mc-sales-who > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mc-sales-channel {
+  min-width: 124px;
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+.mc-sales-label {
+  display: none;
+}
+/* What became of the commission: the word, and under it the one line that explains an exception. */
+.mc-sales-status > .mc-pill {
+  font-variant-numeric: tabular-nums;
+}
+.mc-sales [data-sale] {
+  outline-offset: -3px;
+}
+.mc-panel-flush > .mc-sales-more {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-sales-loading {
+  display: grid;
+  gap: var(--mc-gap);
+}
+.mc-sales-loading > .mc-panel {
+  display: grid;
+  gap: 12px;
+}
+
+/*
+ * The list is as wide as the page, not the window: beside the menu a mid-sized window leaves it
+ * less room than a tablet does. Under 860px of its own width every sale becomes three lines:
+ * who and how much, the link and its commission, what became of it and when.
+ */
+@container mc-sales (max-width: 860px) {
+  .mc-sales-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .mc-sales-table,
+  .mc-sales-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .mc-sales-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 16px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--mc-rule);
+  }
+  .mc-sales-table tbody tr:first-child {
+    border-top: 0;
+  }
+  .mc-sales-table tbody td,
+  .mc-sales-table tbody td:first-child,
+  .mc-sales-table tbody td:last-child {
+    display: block;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .mc-sales-table tbody tr:hover td {
+    background: none;
+  }
+  .mc-sales-table tbody td.mc-sales-who {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .mc-sales-table tbody td.mc-sales-amount {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+  .mc-sales-table tbody td.mc-sales-channel {
+    grid-column: 1;
+    grid-row: 2;
+    color: var(--mc-muted);
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .mc-sales-table tbody td.mc-sales-commission {
+    grid-column: 2;
+    grid-row: 2;
+    color: var(--mc-muted);
+    font-size: 13px;
+    line-height: 18px;
+    text-align: right;
+  }
+  .mc-sales-dash {
+    display: none;
+  }
+  .mc-sales-table tbody td.mc-sales-status {
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 8px;
+  }
+  /* The refund moves above the commission, so the name and its link stay together. */
+  .mc-sales-amount > .mc-sub {
+    display: none;
+  }
+  .mc-sales-table tbody td.mc-sales-when {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+    margin-top: 8px;
+    font-size: 13px;
+    /* The height of the status word it sits beside. */
+    line-height: 22px;
+    text-align: right;
+  }
+  .mc-sales-label {
+    display: inline;
+  }
+  .mc-sales-label.is-line {
+    display: block;
+  }
+}
+@media (max-width: 640px) {
+  .mc-sales-table tbody tr {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .mc-panel-flush > .mc-sales-more {
+    padding: 12px 16px 16px;
+  }
+}
+@media (pointer: coarse) {
+  .mc-sales-more .mc-btn,
+  .mc-sales-problem .mc-text-btn {
+    min-height: 44px;
+  }
+  /* The chip keeps its size; the touch area of its button grows around it. */
+  .mc-sales-chip > button::after {
+    position: absolute;
+    inset: -11px;
+    content: '';
+  }
+  /* A name or a link inside a sentence keeps its line; its touch area grows above and below it. */
+  .mc-sales-who > a,
+  .mc-sales-none .mc-link,
+  .mc-sales .mc-empty-line .mc-link {
+    position: relative;
+  }
+  .mc-sales-who > a::after,
+  .mc-sales-none .mc-link::after,
+  .mc-sales .mc-empty-line .mc-link::after {
+    position: absolute;
+    inset: -13px 0;
+    content: '';
   }
 }
