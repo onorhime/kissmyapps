@@ -1,0 +1,261 @@
+/*
+ * The partner dashboard's Marketplace page. The cards, grid and agreement come from the
+ * shared marketplace styles; these are the parts only a signed-in creator sees.
+ */
+
+.pmk-page {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+}
+
+.pmk-section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pmk-section > h2 {
+  color: var(--brand-text);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.pmk-note {
+  padding: 12px 14px;
+  border: 1px solid var(--brand-orange);
+  border-radius: 10px;
+  background: var(--brand-orange-dark);
+  color: var(--brand-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pmk-memberships {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+}
+
+.pmk-member {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-card);
+}
+
+.pmk-member h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pmk-member-line {
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pmk-quote {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--brand-control);
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+/* The link and its Copy button */
+.pmk-link {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pmk-link-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pmk-link-row .pmk-link-url {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* One click or tap selects the whole address. */
+.pmk-link-url > span:last-child {
+  user-select: all;
+}
+
+.pmk-link-row .mkt-btn {
+  align-self: flex-start;
+}
+
+/* The box beside the agreement is narrow: the address takes the row, Copy sits under it. */
+.pmk-side .pmk-link-row {
+  flex-wrap: wrap;
+}
+
+.pmk-side .pmk-link-url {
+  flex-basis: 100%;
+}
+
+.pmk-side .pmk-link-row .mkt-btn {
+  width: 100%;
+}
+
+.pmk-link-note {
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pmk-link-note:empty {
+  display: none;
+}
+
+/* One program: the agreement on the left, the creator's box on the right */
+.pmk-join {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: start;
+  gap: 28px;
+}
+
+.page-heading:has(+ .pmk-join) {
+  margin-bottom: 22px;
+}
+
+.pmk-side {
+  grid-area: auto;
+  outline: none;
+}
+
+.pmk-side:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.pmk-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pmk-side h3 {
+  color: var(--brand-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.pmk-agree {
+  display: grid;
+  gap: 6px;
+}
+
+.pmk-agree label {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 44px;
+  padding: 10px 0;
+  color: var(--brand-text);
+  font-size: 15px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.pmk-agree input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--brand-blue);
+  cursor: pointer;
+}
+
+.pmk-side .pmk-error {
+  color: var(--brand-red);
+}
+
+.pmk-side .pmk-fine {
+  font-size: 13px;
+}
+
+.pmk-side .pmk-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--brand-green-dark);
+  color: var(--brand-text);
+}
+
+.pmk-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--brand-line);
+}
+
+.pmk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.pmk-leave .mkt-link {
+  min-height: 44px;
+}
+
+@media (max-width: 1160px) {
+  .pmk-join {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pmk-side {
+    position: static;
+  }
+
+  /* A member's link and standing come first; someone still deciding reads the agreement first. */
+  .pmk-join-member .pmk-side {
+    order: -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .pmk-member {
+    padding: 18px;
+  }
+
+  .pmk-link-row {
+    flex-wrap: wrap;
+  }
+
+  .pmk-link-row .pmk-link-url {
+    flex-basis: 100%;
+  }
+
+  .pmk-link-row .mkt-btn {
+    width: 100%;
+  }
+}
