@@ -1,4 +1,5 @@
 import {
+  bpsToPercent,
   categoryLabels,
   commissionHeadline,
   formatMoney,
@@ -34,6 +35,20 @@ export interface ProgramReward {
   amount_minor: number
 }
 
+/**
+ * How buyers pay: on the merchant's own checkout, or on a checkout link KissMyApps opens on the
+ * merchant's Stripe account for one product.
+ */
+export type PaymentMode = 'own_checkout' | 'kma_checkout'
+
+/** The one product a checkout link sells, priced in the program's currency. */
+export interface CheckoutProduct {
+  name: string
+  amount_minor: number
+  /** Null for a one-time payment. */
+  interval: 'month' | 'year' | null
+}
+
 export interface MarketplaceProgram {
   slug: string
   name: string
@@ -58,6 +73,15 @@ export interface MarketplaceProgram {
   rewards: ProgramReward[]
   /** Set only on the signed-in creator's list: where they stand with this program. */
   membership_status: MembershipStatus | null
+  /**
+   * The keys below are left out by an answer from before checkout links and promo codes, which
+   * is a program on the merchant's own checkout with no buyer discount.
+   */
+  payment_mode?: PaymentMode
+  /** Only on a program with a checkout link: what the link sells. */
+  checkout?: CheckoutProduct
+  /** The discount each creator's code gives buyers, 100 to 9000 (10% is 1000). Left out: none. */
+  buyer_discount_bps?: number
 }
 
 export interface MarketplaceProgramDetail extends MarketplaceProgram {
@@ -77,6 +101,9 @@ export class MarketplaceUnreadable extends Error {
 }
 
 const MEMBERSHIP_STATUSES = ['pending', 'active', 'declined', 'removed', 'left'] as const
+const PAYMENT_MODES = ['own_checkout', 'kma_checkout'] as const
+const CHECKOUT_INTERVALS = ['month', 'year'] as const
+const MAXIMUM_PRODUCT_NAME = 80
 const COMMISSION_TYPES = ['percent', 'fixed'] as const
 const EARN_FROM = ['sales', 'events', 'both'] as const
 const REWARD_KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/
@@ -143,16 +170,69 @@ function readEarnFrom(
   return { earn_from: earnFrom, rewards }
 }
 
+/** The product of a checkout link, or null when it is not whole. */
+function readCheckoutProduct(value: unknown): CheckoutProduct | null {
+  const row = record(value)
+  const name = typeof row?.name === 'string' ? row.name.trim() : ''
+  const amount = row?.amount_minor
+  const interval = row?.interval
+  if (
+    !row ||
+    name === '' ||
+    [...name].length > MAXIMUM_PRODUCT_NAME ||
+    typeof amount !== 'number' ||
+    !Number.isSafeInteger(amount) ||
+    amount < 1 ||
+    (interval !== null && !oneOf(interval, CHECKOUT_INTERVALS))
+  )
+    return null
+  return {
+    name,
+    amount_minor: amount,
+    interval: interval === null ? null : (interval as 'month' | 'year'),
+  }
+}
+
 /**
- * One card. Null when the row has no usable slug or name, or when what it pays for cannot be
- * trusted, so a list can leave it out.
+ * What buyers get: how they pay and the discount a creator's code gives them. An answer from
+ * before checkout links has none of the keys and is read with none of them. With the keys the
+ * card must be whole: a checkout-link program names its product, and a discount is 1% to 90%.
+ * A merchant's own checkout has no product of ours, so one sent with it is not read.
+ */
+function readBuyerOffer(
+  row: Record<string, unknown>,
+): Pick<MarketplaceProgram, 'payment_mode' | 'checkout' | 'buyer_discount_bps'> | null {
+  const offer: Pick<MarketplaceProgram, 'payment_mode' | 'checkout' | 'buyer_discount_bps'> = {}
+  if (row.payment_mode != null) {
+    const mode = oneOf(row.payment_mode, PAYMENT_MODES)
+    if (!mode) return null
+    offer.payment_mode = mode
+    if (mode === 'kma_checkout') {
+      const product = readCheckoutProduct(row.checkout)
+      if (!product) return null
+      offer.checkout = product
+    }
+  }
+  if (row.buyer_discount_bps != null) {
+    const bps = row.buyer_discount_bps
+    if (typeof bps !== 'number' || !Number.isSafeInteger(bps) || bps < 100 || bps > 9000)
+      return null
+    offer.buyer_discount_bps = bps
+  }
+  return offer
+}
+
+/**
+ * One card. Null when the row has no usable slug or name, or when what it pays for or what
+ * buyers get cannot be trusted, so a list can leave it out.
  */
 export function readProgram(value: unknown): MarketplaceProgram | null {
   const row = record(value)
   const name = text(row?.name)
   if (!row || !isProgramSlug(row.slug) || !name) return null
   const pays = readEarnFrom(row)
-  if (!pays) return null
+  const offer = readBuyerOffer(row)
+  if (!pays || !offer) return null
   return {
     slug: row.slug,
     name,
@@ -177,6 +257,7 @@ export function readProgram(value: unknown): MarketplaceProgram | null {
     terms_version: whole(row.terms_version),
     ...pays,
     membership_status: oneOf(row.membership_status, MEMBERSHIP_STATUSES),
+    ...offer,
   }
 }
 
@@ -271,6 +352,50 @@ export function programRewardsLine(program: MarketplaceProgram): string | null {
  */
 export function programHeadlineClass(program: MarketplaceProgram): string {
   return program.earn_from === 'sales' ? '' : ' mkt-headline-rewards'
+}
+
+/** Spaces that never break a line, so "$9.99 a month" and "10% off" are read in one piece. */
+const together = (words: string) => words.replace(/ /g, '\u00a0')
+
+/** "10%": a buyer discount as people say it. */
+export function discountPercent(bps: number): string {
+  return `${bpsToPercent(bps)}%`
+}
+
+/** "Buyers get 10% off with your code", or null for a program with no buyer discount. */
+export function buyerDiscountLine(program: Pick<MarketplaceProgram, 'buyer_discount_bps'>) {
+  return program.buyer_discount_bps
+    ? `Buyers get ${together(`${discountPercent(program.buyer_discount_bps)} off`)} with your code`
+    : null
+}
+
+/** "Fluent Pro, $9.99 a month": the product of a checkout link and what it costs. */
+export function checkoutProductLine(product: CheckoutProduct, currency: string): string {
+  const price = formatMoney(product.amount_minor, currency)
+  const when =
+    product.interval === 'month' ? 'a month' : product.interval === 'year' ? 'a year' : 'one-time'
+  return `${product.name}, ${together(`${price} ${when}`)}`
+}
+
+/**
+ * The words for what buyers get, one line each: where a checkout link leads and the discount
+ * with a creator's code. Empty for a program on its own checkout with no discount.
+ */
+export function buyerOfferLines(
+  program: Pick<
+    MarketplaceProgram,
+    'payment_mode' | 'checkout' | 'buyer_discount_bps' | 'currency'
+  >,
+): { key: 'checkout' | 'discount'; text: string }[] {
+  const lines: { key: 'checkout' | 'discount'; text: string }[] = []
+  if (program.payment_mode === 'kma_checkout' && program.checkout)
+    lines.push({
+      key: 'checkout',
+      text: `Your link opens the checkout for ${checkoutProductLine(program.checkout, program.currency)}`,
+    })
+  const discount = buyerDiscountLine(program)
+  if (discount) lines.push({ key: 'discount', text: discount })
+  return lines
 }
 
 /** "30-day attribution · 30-day hold": the small line under the commission. */

@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react'
 import {
   AgreementDocument,
   AgreementSkeleton,
+  BuyerOffer,
   ProgramBrowser,
   ProgramGridSkeleton,
   ProgramLogo,
@@ -294,6 +295,7 @@ function ProgramPage({
           )}
           {rewards && <p className="mkt-side-rewards">{rewards}</p>}
           <p>{programTermsLine(program)}</p>
+          <BuyerOffer program={program} />
           {open ? (
             <>
               <a
