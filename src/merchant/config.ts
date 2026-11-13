@@ -13,7 +13,7 @@ export const SDK_URL =
  * Flutter from pub.dev.
  */
 export const MOBILE_SDK = {
-  version: '1.0.0',
+  version: '1.1.0',
   repository:
     import.meta.env.VITE_MOBILE_SDK_REPOSITORY?.trim() ||
     'https://github.com/onorhime/kissmyapps-mobile',

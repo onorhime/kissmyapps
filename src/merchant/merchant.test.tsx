@@ -573,7 +573,7 @@ describe('merchant console', () => {
     await user.click(within(tabs).getByRole('button', { name: 'Android' }))
     expect(code('Gradle')).toContain('maven("https://jitpack.io")')
     expect(code('Gradle')).toContain(
-      'implementation("com.github.onorhime:kissmyapps-mobile:1.0.0")',
+      'implementation("com.github.onorhime:kissmyapps-mobile:1.1.0")',
     )
     expect(code('Kotlin')).toContain(
       'KissMyApps.start(this, "kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8")',
@@ -1381,7 +1381,7 @@ describe('attribution', () => {
     await screen.findByRole('heading', { name: 'Your apps and website' })
     // The project lists web and iOS, so there is nothing to fill in for Android.
     expect(screen.queryByText('Android app')).not.toBeInTheDocument()
-    expect(screen.getByText('1 of 3 steps done')).toBeInTheDocument()
+    expect(screen.getByText('1 of 4 steps done')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('App Store ID'), 'id1234567890')
     await user.type(screen.getByLabelText('Bundle ID'), 'app.speaksix.ios')
@@ -1408,7 +1408,7 @@ describe('attribution', () => {
       'href',
       `https://speaksix.${root}/.well-known/apple-app-site-association`,
     )
-    expect(screen.getByText('2 of 3 steps done')).toBeInTheDocument()
+    expect(screen.getByText('2 of 4 steps done')).toBeInTheDocument()
   })
 
   it('adds a domain of its own and says how to point it here', async () => {
@@ -1828,7 +1828,7 @@ describe('attribution', () => {
     expect(within(trial).getByText('Not seen yet')).toBeInTheDocument()
 
     window.location.hash = '#p/proj-1/attribution'
-    await screen.findByText('2 of 3 steps done')
+    await screen.findByText('2 of 4 steps done')
     const step = screen.getByRole('heading', { name: 'Conversions', level: 2 }).closest('section')!
     expect(within(step).getByText('Done')).toBeInTheDocument()
     expect(within(step).getByRole('checkbox', { name: /sign_up/ })).toBeChecked()

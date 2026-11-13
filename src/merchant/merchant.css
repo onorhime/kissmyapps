@@ -6870,3 +6870,264 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
 }
 /* ---- end of Rewards ---------------------------------------------------------------------- */
+
+/* ---- Attribution Phase 2: app installs and deep links (mc-at2-) -------------------------- */
+/* The SDK step: the code for the app on a panel, then the test on a phone on its own panel. */
+.mc-at2-sdk {
+  display: grid;
+  gap: var(--mc-gap);
+  min-width: 0;
+}
+.mc-at2-lead {
+  max-width: 68ch;
+  font-size: 15px;
+  line-height: 22px;
+}
+.mc-at2-lead strong {
+  font-weight: 600;
+}
+.mc-at2-sdk .mc-segmented {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+/* Numbered like the rest of setup: a small mark, a title, then what to do. */
+.mc-at2-steps {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: at2-step;
+}
+.mc-at2-steps > li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px 12px;
+  min-width: 0;
+  counter-increment: at2-step;
+}
+.mc-at2-steps > li::before {
+  content: counter(at2-step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--mc-raised);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mc-at2-steps > li > * {
+  grid-column: 2;
+  min-width: 0;
+}
+.mc-at2-steps > li > h3 {
+  grid-row: 1;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 24px;
+}
+.mc-at2-steps p {
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at2-steps code.mc-mono {
+  font-size: 13px;
+}
+/* The switch beside what it does, set off from the code by a rule. */
+.mc-at2-handoff {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-at2-handoff-text {
+  display: grid;
+  gap: 2px;
+  max-width: 68ch;
+}
+.mc-at2-handoff-text strong {
+  font-weight: 600;
+}
+.mc-at2-handoff .mc-switch {
+  margin-top: 2px;
+}
+
+/* Test on your phone: the code to scan on the left, what to do and what arrived on the right. */
+.mc-at2-test-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 16px 24px;
+}
+.mc-at2-qr {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-width: 0;
+  max-width: 240px;
+}
+.mc-at2-qr img {
+  display: block;
+  border-radius: var(--mc-radius-inner);
+}
+.mc-at2-qr-url {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  color: var(--mc-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.mc-at2-qr-url > .mc-mono {
+  min-width: 0;
+}
+.mc-at2-qr-url .mc-icon-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+.mc-at2-test-side {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.mc-at2-howto {
+  display: grid;
+  gap: 6px;
+  max-width: 68ch;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at2-howto li::marker {
+  color: var(--mc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mc-at2-checks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-well);
+  list-style: none;
+}
+.mc-at2-checks > li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.mc-at2-checks > li + li {
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-at2-check-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--mc-control);
+  border-radius: 50%;
+  color: var(--mc-muted);
+}
+.mc-at2-checks > li.is-done .mc-at2-check-mark {
+  border-color: transparent;
+  background: var(--mc-positive);
+  color: #111111;
+}
+.mc-at2-checks > li.is-waiting .mc-at2-check-mark {
+  border-color: transparent;
+  color: var(--mc-link);
+}
+.mc-at2-checks > li.is-warning .mc-at2-check-mark {
+  border-color: transparent;
+  color: var(--mc-warning);
+}
+.mc-at2-checks > li.is-off .mc-at2-check-mark {
+  border-style: dashed;
+}
+.mc-at2-check-text {
+  display: grid;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at2-check-text strong {
+  font-weight: 600;
+}
+.mc-at2-checks > li.is-later .mc-at2-check-text strong,
+.mc-at2-checks > li.is-off .mc-at2-check-text strong {
+  color: var(--mc-muted);
+  font-weight: 500;
+}
+.mc-at2-checks > li.is-warning .mc-sub {
+  color: var(--mc-warning);
+}
+.mc-at2-checks > li > .mc-muted {
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.mc-at2-test-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--mc-positive);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at2-test-done > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.mc-at2-test-none {
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at2-test .mc-select {
+  max-width: 360px;
+}
+
+/* A person's app install: one sentence, how exact it is, then when and through which link. */
+.mc-at2-acquired {
+  display: grid;
+  gap: 2px;
+}
+.mc-at2-acquired + .mc-facts {
+  padding-top: 14px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-at2-acquired > p {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+@media (max-width: 720px) {
+  /* Code takes the whole width of a phone, under the step's number too. */
+  .mc-at2-steps > li > .mc-code {
+    grid-column: 1 / -1;
+  }
+  .mc-at2-test-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-at2-qr {
+    justify-items: center;
+    justify-self: center;
+  }
+  /* Six figures on a phone: two rows of three, the last one as wide as the rest. */
+  .mc-at2-sources tbody td:last-child {
+    grid-column: auto;
+  }
+}
+/* ---- end of Attribution Phase 2 ----------------------------------------------------------- */

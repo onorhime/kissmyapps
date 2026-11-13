@@ -12,6 +12,8 @@ import type {
 } from '../api'
 import {
   SOURCE_SUGGESTIONS,
+  hasApp,
+  linkInstalls,
   linkWithOverrides,
   qrDataUrl,
   sourceLabel,
@@ -50,6 +52,8 @@ export function LinksScreen({
   const [sharing, setSharing] = useState<AttributionLink | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const canEdit = canDo(role, 'developer')
+  // Installs and re-engagements only mean something for a project with an app.
+  const apps = hasApp(project, view.settings)
   const report = useRpc(`attribution-links:${project.id}:${range}`, () =>
     api.attributionLinks(project.id, range),
   )
@@ -106,7 +110,11 @@ export function LinksScreen({
       )}
       <Panel
         title="Links"
-        description={`Clicks, the visits they opened and the conversions they got ${rangePhrase[range]}.`}
+        description={
+          apps
+            ? `Clicks, the installs and visits they brought, and the conversions they got ${rangePhrase[range]}.`
+            : `Clicks, the visits they opened and the conversions they got ${rangePhrase[range]}.`
+        }
         id="mc-attr-links"
         flush
       >
@@ -131,7 +139,11 @@ export function LinksScreen({
             )}
           </div>
         ) : (
-          <table className="mc-table mc-attr-links-table">
+          <table
+            className={
+              apps ? 'mc-table mc-attr-links-table mc-at2-links' : 'mc-table mc-attr-links-table'
+            }
+          >
             <thead>
               <tr>
                 <th scope="col">Link</th>
@@ -139,6 +151,16 @@ export function LinksScreen({
                 <th scope="col" className="mc-num-col">
                   Clicks
                 </th>
+                {apps && (
+                  <>
+                    <th scope="col" className="mc-num-col">
+                      Installs
+                    </th>
+                    <th scope="col" className="mc-num-col">
+                      Re-engagements
+                    </th>
+                  </>
+                )}
                 <th scope="col" className="mc-num-col">
                   Visits
                 </th>
@@ -174,6 +196,16 @@ export function LinksScreen({
                   <td data-label="Clicks" className="mc-num mc-num-col">
                     {formatCount(link.clicks ?? 0)}
                   </td>
+                  {apps && (
+                    <>
+                      <td data-label="Installs" className="mc-num mc-num-col">
+                        {formatCount(linkInstalls(link).installs)}
+                      </td>
+                      <td data-label="Re-engagements" className="mc-num mc-num-col">
+                        {formatCount(linkInstalls(link).reengagements)}
+                      </td>
+                    </>
+                  )}
                   <td data-label="Visits" className="mc-num mc-num-col">
                     {formatCount(link.visits ?? 0)}
                   </td>
@@ -598,7 +630,7 @@ function LinkEditor({
               maxLength: 2000,
             })}
           {text('deep_link_value', 'Screen in the app', {
-            hint: 'Opens this screen once your app has the SDK update for links.',
+            hint: 'Your app gets it in onDeepLink, also right after an install. Needs SDK 1.1.',
             placeholder: 'lesson_4',
             maxLength: 500,
           })}
