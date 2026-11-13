@@ -5245,3 +5245,250 @@ fieldset.mc-form-grid {
     min-height: 44px;
   }
 }
+
+/* Creators: the invite link, who is waiting for an answer, who is promoting, who has left. */
+.mc-crt-none {
+  color: var(--mc-muted);
+}
+.mc-crt-none .mc-link {
+  white-space: nowrap;
+}
+.mc-crt-banner {
+  padding: 12px 16px;
+  border: 1px solid #4b3d22;
+  border-radius: 12px;
+  background: #241f15;
+  line-height: 20px;
+}
+.mc-crt-banner .mc-link {
+  white-space: nowrap;
+}
+.mc-crt-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--mc-surface);
+}
+.mc-crt-problem {
+  flex-wrap: wrap;
+}
+.mc-crt-problem > span {
+  flex: 1 1 240px;
+}
+.mc-crt-count {
+  color: var(--mc-muted);
+  font-weight: 500;
+}
+
+/* What the link is on the left, the link itself on the right; one column once that gets tight. */
+.mc-crt-invite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+  align-items: center;
+  gap: 16px 32px;
+  padding: 20px 24px;
+}
+.mc-crt-invite-text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.mc-crt-invite h2 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-crt-invite-text > p {
+  color: var(--mc-muted);
+}
+.mc-crt-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+}
+.mc-crt-link > .mc-mono {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow-wrap: break-word;
+}
+/*
+ * Short facts in a row. Items wrap whole; each draws a dot in the gap before it and the row is
+ * clipped by that gap, so a line never starts or ends on a stray dot.
+ */
+/* Two classes, so the negative margin outranks the console's reset of paragraph margins. */
+.mc-crt .mc-crt-terms,
+.mc-crt .mc-crt-facts {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin-left: -16px;
+  color: var(--mc-muted);
+  clip-path: inset(0 0 0 16px);
+}
+.mc-crt-terms > *,
+.mc-crt-facts > * {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 16px;
+}
+.mc-crt-terms > *::before,
+.mc-crt-facts > *::before {
+  position: absolute;
+  left: 6px;
+  color: var(--mc-muted);
+  content: '·';
+}
+.mc-crt-facts > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mc-crt-said {
+  overflow-wrap: anywhere;
+}
+
+/* A creator per row: who they are, what is known about them, what can be done. */
+.mc-crt-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-crt-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 24px;
+  min-height: 64px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--mc-rule);
+}
+ul.mc-panel.mc-crt-list > li:first-child {
+  border-top: 0;
+}
+.mc-crt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  grid-column: 3;
+}
+.mc-crt-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.mc-crt-name > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mc-crt-table td:first-child {
+  min-width: 220px;
+}
+.mc-crt [data-member] {
+  outline-offset: -3px;
+}
+.mc-text-btn.mc-crt-quiet {
+  color: var(--mc-muted);
+  font-weight: 500;
+}
+.mc-text-btn.mc-crt-quiet:hover:not(:disabled) {
+  color: var(--mc-text);
+}
+.mc-text-btn.mc-crt-quiet:disabled,
+.mc-crt-toggle:disabled {
+  opacity: 0.45;
+}
+.mc-crt-ended {
+  display: grid;
+  gap: 8px;
+}
+.mc-crt-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 36px;
+  margin-left: -8px;
+  color: var(--mc-muted);
+  font-weight: 500;
+}
+.mc-crt-toggle:hover {
+  color: var(--mc-text);
+}
+.mc-crt-toggle > svg {
+  transform: rotate(-90deg);
+  transition: transform 150ms ease-out;
+}
+.mc-crt-toggle[aria-expanded='true'] > svg {
+  transform: none;
+}
+.mc-crt-loading {
+  display: grid;
+  gap: var(--mc-gap);
+}
+.mc-crt-loading-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mc-crt-loading-row > .mc-skeleton:first-child {
+  flex: none;
+  border-radius: 50%;
+}
+
+@media (max-width: 960px) {
+  .mc-crt-invite {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .mc-crt-invite {
+    padding: 16px;
+  }
+  /* One creator, top to bottom: who, what is known, then the answer. */
+  .mc-crt-list > li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .mc-crt-actions {
+    grid-column: auto;
+  }
+  /* The figures first, the date after them, the action last on a row of its own. */
+  .mc-crt-table tbody td[data-label='Joined'] {
+    order: 1;
+  }
+  .mc-crt-table tbody td.is-action {
+    grid-column: 1 / -1;
+    order: 2;
+    margin: -6px 0 -6px -8px;
+  }
+}
+@media (pointer: coarse) {
+  /* A link inside a sentence keeps its line; its touch area grows above and below it. */
+  .mc-crt .mc-crt-terms,
+  .mc-crt .mc-crt-facts {
+    clip-path: inset(-12px 0 -12px 16px);
+  }
+  .mc-crt-terms > a::after,
+  .mc-crt-facts > a::after {
+    position: absolute;
+    inset: -12px 0 -12px 16px;
+    content: '';
+  }
+  .mc-crt-actions .mc-btn,
+  .mc-crt-actions .mc-text-btn,
+  .mc-crt-table .mc-text-btn,
+  .mc-crt-problem .mc-text-btn,
+  .mc-crt-toggle,
+  .mc-crt-link .mc-btn {
+    min-height: 44px;
+  }
+}

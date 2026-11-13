@@ -34,6 +34,8 @@ export type Route =
   | { name: 'connections' }
   /** The workspace's affiliate program: what creators promote and what they earn. */
   | { name: 'program' }
+  /** The creators of that program: who is waiting, who is promoting, who has left. */
+  | { name: 'creators' }
   | ProjectRoute
 
 function decode(segment: string | undefined): string | undefined {
@@ -79,6 +81,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'connections' }
     case 'program':
       return { name: 'program' }
+    case 'creators':
+      return { name: 'creators' }
     case 'p':
       break
     default:
@@ -159,6 +163,8 @@ export function href(route: Route): string {
       return '#connections'
     case 'program':
       return '#program'
+    case 'creators':
+      return '#creators'
   }
   const base = `#p/${encodeURIComponent(route.projectId)}`
   switch (route.name) {

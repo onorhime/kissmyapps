@@ -98,6 +98,7 @@ function groups(project: Project | undefined): NavGroup[] {
   // The program belongs to the workspace, so it is there with or without a project.
   const affiliates: NavItem[] = [
     { label: 'Program', route: { name: 'program' }, match: (r) => r.name === 'program' },
+    { label: 'Creators', route: { name: 'creators' }, match: (r) => r.name === 'creators' },
   ]
   const settings: NavItem[] = [
     {
