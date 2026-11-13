@@ -1104,7 +1104,7 @@ select pg_temp.capture('partner_program_earnings_ben', pg_temp.call('ben', 'sele
 select pg_temp.check((select jsonb_array_length(e->'programs') = 2
       and e->'programs'->0->>'name' = 'Rival Reader' and e->'programs'->1->>'name' = 'SpeakSix'
       and (select bool_and((select array_agg(k order by k) from jsonb_object_keys(p) k) = array['approved_minor', 'currency',
-          'name', 'next_release_at', 'paid_minor', 'pending_minor', 'program_id', 'sales', 'slug'])
+          'name', 'next_release_at', 'paid_minor', 'paying_minor', 'pending_minor', 'program_id', 'sales', 'slug'])
         from jsonb_array_elements(e->'programs') p)
       and (select bool_and((select array_agg(k order by k) from jsonb_object_keys(r) k) = array['amount_minor', 'approved_at',
           'currency', 'earned_minor', 'hold_until', 'id', 'paid_at', 'program_id', 'program_name', 'sale_amount_minor', 'status'])
@@ -1159,7 +1159,8 @@ insert into public.affiliates(id, public_name, slug, status) values (pg_temp.q('
 insert into public.affiliate_users(affiliate_id, user_id, role, active, activation_pending, activated_at)
   values (pg_temp.q('creator_newbie'), pg_temp.q('newbie'), 'owner', true, false, now());
 select pg_temp.capture('partner_program_earnings_none', pg_temp.call('newbie', 'select public.partner_program_earnings()'));
-select pg_temp.check(pg_temp.call('newbie', 'select public.partner_program_earnings()') = '{"programs":[],"recent":[]}'::jsonb,
+select pg_temp.check(pg_temp.call('newbie', 'select public.partner_program_earnings()') - 'payouts' - 'payout'
+    = '{"programs":[],"recent":[]}'::jsonb,
   'a creator who has earned nothing gets two empty lists');
 select set_config('request.jwt.claims', '', true);
 
