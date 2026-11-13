@@ -453,7 +453,7 @@ select pg_temp.check((select m.status = 'active' and m.terms_version = 1 and m.j
       and l.name = 'SpeakSix · Main' and l.created_by = pg_temp.q('ada') and l.public_code ~ '^[0-9a-f]{36}$'
       and l.tracking_url = 'https://go.kissmyapps.dev/r/ada-okafor/' || l.public_code
     from pg_temp.link('ada', 'acme') l)
-  and (select count(*) = 1 from public.affiliate_links),
+  and (select count(*) = 1 from public.affiliate_links where is_main),
   'the membership is active and its link is a live, commercial main link on the program''s product and landing page');
 select pg_temp.check((select count(*) = 1 and bool_and(a.program_id = (pg_temp.program('acme')).id and a.terms_version = 1
       and a.agreement_sha256 = (pg_temp.live_terms('acme')).agreement_sha256 and a.accepted_by = pg_temp.q('ada')
@@ -467,7 +467,7 @@ select pg_temp.check((select count(*) = 1 and bool_and(a.program_id = (pg_temp.p
     and a.target_id = (pg_temp.link('ada', 'acme')).id),
   'the acceptance is recorded with the agreement hash and the name, and the join and the link are in the audit log');
 select pg_temp.check(pg_temp.try('ada', pg_temp.join_sql('acme')) = '22023 already_member'
-  and pg_temp.n('public.affiliate_program_members') = 1 and pg_temp.n('public.affiliate_links') = 1
+  and pg_temp.n('public.affiliate_program_members') = 1 and pg_temp.n('public.affiliate_links where is_main') = 1
   and pg_temp.n('public.affiliate_program_acceptances') = 1,
   'an active member cannot join again');
 
@@ -506,12 +506,15 @@ select pg_temp.capture('creators_one_active', pg_temp.creators('owner', 'acme'))
 select pg_temp.check((select r - 'creators' = jsonb_build_object('can_manage', true,
       'program', jsonb_build_object('id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'status', 'live',
         'approval_mode', 'automatic', 'marketplace_listed', true),
+      'currency', 'USD',
+      'totals', '{"clicks":2,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}'::jsonb,
       'counts', '{"pending":0,"active":1,"ended":0}'::jsonb)
     and jsonb_array_length(r->'creators') = 1
     and (r->'creators'->0) - 'requested_at' - 'activated_at' - 'last_click_at' = jsonb_build_object(
       'member_id', (pg_temp.member('ada', 'acme')).id, 'status', 'active', 'name', 'Ada Okafor', 'handle', 'ada-okafor',
       'country_code', 'NG', 'channels', '["tiktok","instagram"]'::jsonb, 'website_url', null,
-      'ended_at', null, 'decision_note', null, 'terms_version', 1, 'needs_new_terms', false, 'clicks', 2, 'sales', 0)
+      'ended_at', null, 'decision_note', null, 'terms_version', 1, 'needs_new_terms', false, 'clicks', 2, 'sales', 0,
+      'sales_amount_minor', 0, 'commission_minor', 0, 'pending_minor', 0)
     and (r->'creators'->0->>'activated_at')::timestamptz = (pg_temp.member('ada', 'acme')).activated_at
     and (r->'creators'->0->>'last_click_at')::timestamptz = (select max(occurred_at) from public.clicks)
   from pg_temp.creators('owner', 'acme') r),
@@ -531,7 +534,8 @@ select pg_temp.check(pg_temp.try('rival_owner', format('select public.workspace_
   and (pg_temp.member('ada', 'acme')).status = 'active',
   'a member of another workspace cannot see or change these creators, and an analyst cannot change them');
 select pg_temp.check(pg_temp.creators('draft_owner', 'draft') - 'program'
-    = '{"can_manage":true,"counts":{"pending":0,"active":0,"ended":0},"creators":[]}'::jsonb
+    = '{"can_manage":true,"counts":{"pending":0,"active":0,"ended":0},"creators":[],"currency":"USD",
+      "totals":{"clicks":0,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
   and pg_temp.creators('draft_owner', 'draft')->'program' = jsonb_build_object('id', (pg_temp.program('draft')).id,
     'slug', 'draft-thing', 'name', 'Draft Thing', 'status', 'draft', 'approval_mode', 'automatic', 'marketplace_listed', true),
   'a program that is still a draft has no creators');
@@ -546,7 +550,7 @@ select pg_temp.check((select m @> '{"status":"pending","program_status":"live","
     and (m->>'accepted_at')::timestamptz = (m->>'requested_at')::timestamptz
   from (select value::jsonb->'membership' as m from qa where key = 'ben_joined') j)
   and (select m.status = 'pending' and m.main_link_id is null and m.activated_at is null from pg_temp.member('ben', 'rival') m)
-  and (select count(*) = 1 from public.affiliate_links)
+  and (select count(*) = 1 from public.affiliate_links where is_main)
   and (select count(*) = 1 and bool_and(a.accepted_name = 'Ben Creator') from public.affiliate_program_acceptances a
     where a.member_id = (pg_temp.member('ben', 'rival')).id)
   and pg_temp.audits('ben', 'rival', 'affiliate_program_member_requested') = 1,
@@ -565,7 +569,8 @@ select pg_temp.check((select r->'counts' = '{"pending":3,"active":0,"ended":0}'
     and r->'program' @> '{"slug":"rival-reader","approval_mode":"manual","status":"live"}'
     and (r->'creators'->0) - 'member_id' - 'requested_at' = '{"status":"pending","name":"Ben Creator","handle":"ben-creator",
       "country_code":"GB","channels":["youtube"],"website_url":"https://ben.example.com","activated_at":null,"ended_at":null,
-      "decision_note":null,"terms_version":1,"needs_new_terms":false,"clicks":0,"sales":0,"last_click_at":null}'::jsonb
+      "decision_note":null,"terms_version":1,"needs_new_terms":false,"clicks":0,"sales":0,"last_click_at":null,
+      "sales_amount_minor":0,"commission_minor":0,"pending_minor":0}'::jsonb
   from pg_temp.creators('rival_owner', 'rival') r),
   'the merchant sees the waiting creators, the oldest request first');
 
@@ -664,7 +669,7 @@ select pg_temp.check((select c @> '{"status":"active","decision_note":null,"ende
     from (select pg_temp.call('rival_owner', pg_temp.decide_sql('rival', 'ben', 'approve'))->'creator' as c) x)
   and (select m.main_link_id = pg_temp.q('ben_link') and m.ended_at is null and m.activated_at < m.decided_at from pg_temp.member('ben', 'rival') m)
   and (select l.status = 'active' from pg_temp.link('ben', 'rival') l)
-  and pg_temp.n(format('public.affiliate_links where affiliate_id = %L', pg_temp.q('creator_ben'))) = 1
+  and pg_temp.n(format('public.affiliate_links where is_main and affiliate_id = %L', pg_temp.q('creator_ben'))) = 1
   and pg_temp.click('ben', 'rival')->>'click_id' ~ '^[0-9a-f]{48}$'
   and pg_temp.audits('ben', 'rival', 'affiliate_program_member_approved') = 2,
   'approving a removed creator again switches the same link back on; the first activation date is kept');
@@ -675,7 +680,7 @@ update public.affiliate_links set status = 'archived' where id = pg_temp.q('ben_
 select pg_temp.check(pg_temp.membership('ben', 'rival') @> '{"status":"removed","decision_note":null}'
   and pg_temp.call('rival_owner', pg_temp.decide_sql('rival', 'ben', 'approve'))->'creator'->>'status' = 'active'
   and (select l.id = pg_temp.q('ben_link') and l.status = 'active' and l.archived_at is null from pg_temp.link('ben', 'rival') l)
-  and pg_temp.n(format('public.affiliate_links where affiliate_id = %L', pg_temp.q('creator_ben'))) = 1,
+  and pg_temp.n(format('public.affiliate_links where is_main and affiliate_id = %L', pg_temp.q('creator_ben'))) = 1,
   'a removal without a note clears the old one, and a link that was archived meanwhile is restored instead of replaced');
 
 -- Leave, and join again -----------------------------------------------------------------------------------
@@ -722,7 +727,7 @@ select pg_temp.check((select m @> '{"status":"active","terms_version":1,"ended_a
       and m.requested_at > (select value::timestamptz from qa where key = 'ada_first_request')
       and m.activated_at = (select value::timestamptz from qa where key = 'ada_first_request') from pg_temp.member('ada', 'acme') m)
   and (select l.status = 'active' from pg_temp.link('ada', 'acme') l)
-  and pg_temp.n(format('public.affiliate_links where affiliate_id = %L', pg_temp.q('creator_ada'))) = 1
+  and pg_temp.n(format('public.affiliate_links where is_main and affiliate_id = %L', pg_temp.q('creator_ada'))) = 1
   and pg_temp.n(format('public.affiliate_program_acceptances where member_id = %L', (pg_temp.member('ada', 'acme')).id)) = 1
   and pg_temp.n(format('public.affiliate_program_acceptances where member_id = %L and accepted_at = %L',
     (pg_temp.member('ada', 'acme')).id, (select value::timestamptz from qa where key = 'ada_first_request'))) = 1
@@ -930,7 +935,7 @@ select pg_temp.check((select m @> '{"status":"active"}' and m->'link' = '{"url":
     from (select pg_temp.call('dee', pg_temp.join_sql('quiet'))->'membership' as m) x)
   and (select m.main_link_id = 'f8000000-0000-4000-8000-000000000001' from pg_temp.member('dee', 'quiet') m)
   and (pg_temp.link('dee', 'quiet')).status = 'active'
-  and pg_temp.n(format('public.affiliate_links where affiliate_id = %L and product_id = %L',
+  and pg_temp.n(format('public.affiliate_links where is_main and affiliate_id = %L and product_id = %L',
     pg_temp.q('creator_dee'), (pg_temp.program('quiet')).product_id)) = 1
   and pg_temp.click('dee', 'quiet')->>'click_id' ~ '^[0-9a-f]{48}$',
   'a creator who already has a main link for the product keeps it: the join switches that link on instead of issuing a '
@@ -975,7 +980,8 @@ select pg_temp.check(pg_temp.service('select public.marketplace_program(''quiet-
     from pg_temp.call('ada', 'select public.partner_program_detail(''quiet-club'')') d)
   and pg_temp.try('ben', pg_temp.join_sql('quiet')) = '22023 program_not_open'
   and pg_temp.call('ada', pg_temp.leave_sql('quiet'))->'membership' @> '{"status":"left","program_status":"archived"}'
-  and pg_temp.creators('quiet_owner', 'quiet') = '{"can_manage":true,"program":null,"counts":{"pending":0,"active":0,"ended":0},"creators":[]}'::jsonb
+  and pg_temp.creators('quiet_owner', 'quiet') = '{"can_manage":true,"program":null,"counts":{"pending":0,"active":0,"ended":0},"creators":[],
+    "currency":null,"totals":{"clicks":0,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
   and pg_temp.try('quiet_owner', pg_temp.decide_sql('quiet', 'dee', 'remove')) = '22023 not_a_member',
   'an archived program is gone for everyone but its members, who can still see their membership and leave');
 
