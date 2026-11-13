@@ -312,6 +312,33 @@ describe('how buyers pay and creator promo codes', () => {
     )
   })
 
+  it('asks for a Stripe account that can take payments before a checkout link goes out', async () => {
+    // The database counts Stripe as connected for a checkout link only when it takes payments.
+    await openProgram(
+      checkoutLink(
+        { status: 'draft', first_published_at: null, live_terms_version: null },
+        {
+          stripe_connected: false,
+          stripe_charges_enabled: false,
+          checklist: {
+            details: true,
+            commission: true,
+            landing_page: true,
+            agreement_read: true,
+            stripe_connected: false,
+          },
+        },
+      ),
+    )
+    expect(within(paying()).getByText(/Stripe must be connected and able to take payments/))
+    expect(
+      screen.getByRole('link', { name: 'Connect Stripe that can take payments' }),
+    ).toHaveAttribute('href', '#connections')
+    expect(
+      screen.getByText('Connect a Stripe account that can take payments to publish.'),
+    ).toBeInTheDocument()
+  })
+
   it('never speaks of test mode', async () => {
     await openProgram(checkoutLink())
     expect(document.body.textContent).not.toMatch(/\btest mode\b|sandbox/i)

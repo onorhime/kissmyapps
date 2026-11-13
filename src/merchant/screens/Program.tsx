@@ -1741,11 +1741,14 @@ function PaymentFields({
             Creator links open a Stripe checkout on your own Stripe account, so buyers pay you as
             usual. You only say what they buy.
           </p>
+          {/* For a saved checkout link, the database counts Stripe as connected only when it
+              can take payments, so the words cover both. */}
           {!stripeConnected && (
             <p className="mc-p8-note">
-              The checkout opens on your Stripe account, so connect Stripe first.{' '}
+              The checkout opens on your Stripe account, so Stripe must be connected and able to
+              take payments.{' '}
               <a className="mc-link mc-pga-go" href={CONNECTIONS}>
-                Connect Stripe
+                Open Connections
               </a>
             </p>
           )}
@@ -2213,7 +2216,14 @@ const stepsFor = (
   earnFrom: EarnFrom,
   paymentMode: PaymentMode = 'own_checkout',
 ): Array<{ key: keyof Checklist; done: string; todo: string }> => [
-  { key: 'stripe_connected', done: 'Stripe connected', todo: 'Connect Stripe' },
+  // A checkout link takes payments, so its Stripe account must be able to.
+  paymentMode === 'kma_checkout'
+    ? {
+        key: 'stripe_connected',
+        done: 'Stripe takes payments',
+        todo: 'Connect Stripe that can take payments',
+      }
+    : { key: 'stripe_connected', done: 'Stripe connected', todo: 'Connect Stripe' },
   { key: 'details', done: 'Product details', todo: 'Product details' },
   paymentMode === 'kma_checkout'
     ? { key: 'landing_page', done: 'Checkout product', todo: 'Checkout product' }
@@ -2266,6 +2276,11 @@ function Publishing({
     state.stripe_charges_enabled === false
   const chargesHint =
     'Your Stripe account cannot take payments yet. Finish setting it up to publish.'
+  // For a checkout link, the database counts Stripe as connected only when it takes payments.
+  const stripeHint =
+    paymentMode === 'kma_checkout'
+      ? 'Connect a Stripe account that can take payments to publish.'
+      : 'Connect Stripe to publish.'
 
   const read = (
     <button
@@ -2331,7 +2346,7 @@ function Publishing({
         {editable && !canPublish && (
           <p className="mc-prog-hint">
             {!state.stripe_connected
-              ? 'Connect Stripe to publish.'
+              ? stripeHint
               : chargesOff
                 ? chargesHint
                 : 'Publish unlocks once you have read the updated agreement.'}
@@ -2344,7 +2359,7 @@ function Publishing({
   if (!readable) hint = 'Fill in the sections on this page to see your agreement.'
   else if (!complete) hint = 'Add a category and a one-line description to publish.'
   else if (!checklist.agreement_read) hint = 'Publish unlocks once you have read the agreement.'
-  else if (!checklist.stripe_connected) hint = 'Connect Stripe to publish.'
+  else if (!checklist.stripe_connected) hint = stripeHint
   else if (chargesOff) hint = chargesHint
   else hint = 'KissMyApps reviews your first listing once, usually within a day.'
 
