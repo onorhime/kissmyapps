@@ -2,6 +2,9 @@ import Foundation
 #if os(iOS)
 import UIKit
 #endif
+#if canImport(AdServices)
+import AdServices
+#endif
 
 /// The hardware model, such as iPhone15,4.
 func modelIdentifier() -> String? {
@@ -53,8 +56,20 @@ func currentDevice() -> DeviceInfo {
         screenWidth: Int(bounds.width.rounded()),
         screenHeight: Int(bounds.height.rounded()),
         timezone: TimeZone.current.identifier,
-        language: preferredLanguage()
+        language: preferredLanguage(),
+        vendorId: device.identifierForVendor?.uuidString
     )
+}
+
+/// The clipboard's text, read on the main thread. Only called when the app turned clipboard
+/// handoff on: iOS tells the person the app pasted, and from iOS 16 asks them first.
+func clipboardText() -> String? {
+    let read = { () -> String? in
+        let board = UIPasteboard.general
+        // hasStrings looks without pasting, so an empty clipboard shows the person nothing.
+        return board.hasStrings ? board.string : nil
+    }
+    return Thread.isMainThread ? read() : DispatchQueue.main.sync(execute: read)
 }
 
 /// Follows the app between foreground and background, and asks iOS for time to send what is
@@ -116,7 +131,22 @@ func currentDevice() -> DeviceInfo {
         language: preferredLanguage()
     )
 }
+
+func clipboardText() -> String? {
+    nil
+}
 #endif
+
+/// Apple Ads' attribution value for this install (iOS 14.3 and later), which KissMyApps swaps for
+/// Apple's answer. Nil before iOS 14.3 or when iOS has none. It needs no prompt and no IDFA.
+func appleAdsAttribution() -> String? {
+    #if canImport(AdServices)
+    if #available(iOS 14.3, macOS 11.1, *) {
+        return try? AAAttribution.attributionToken()
+    }
+    #endif
+    return nil
+}
 
 #if canImport(SwiftUI) && os(iOS)
 import SwiftUI

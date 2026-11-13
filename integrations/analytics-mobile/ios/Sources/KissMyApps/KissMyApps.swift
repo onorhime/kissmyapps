@@ -1,9 +1,10 @@
 import Foundation
 
 /// KissMyApps analytics for iOS: sessions, installs, updates, opens, screens and your own
-/// events, sent to your KissMyApps project.
+/// events, sent to your KissMyApps project, and the link that brought each install.
 ///
 /// Call `start(key:)` once at launch, then `track`, `screen` and `identify` from anywhere.
+/// Pass the links that open the app to `handleDeepLink(_:)` and route people with `onDeepLink`.
 /// Every call returns at once; the work happens on the SDK's own queue.
 public enum KissMyApps {
     private static let lock = NSLock()
@@ -28,13 +29,15 @@ public enum KissMyApps {
         if options.appVersion == nil { options.appVersion = info["CFBundleShortVersionString"] as? String }
         if options.build == nil { options.build = info["CFBundleVersion"] as? String }
         let device = DeviceBox(currentDevice())
-        let platform = Platform(
+        var platform = Platform(
             store: FileStore(directory: storageDirectory()),
             transport: URLSessionTransport(),
             scheduler: DispatchScheduler(),
             device: { device.value },
             sdk: "kma-ios/\(sdkVersion)"
         )
+        platform.appleAdsAttribution = appleAdsAttribution
+        platform.readClipboard = clipboardText
         let started: Client
         do {
             started = try Client(key: key, options: options, platform: platform)
@@ -93,6 +96,25 @@ public enum KissMyApps {
     /// Sends everything queued now.
     public static func flush() {
         call { $0.flush() }
+    }
+
+    /// Passes a link that opened the app, from SwiftUI's `.onOpenURL` or your scene delegate's
+    /// `scene(_:continue:)`. Any https link is sent to KissMyApps, which records the click when it
+    /// is one of your project's links and answers with its deep link through `onDeepLink`.
+    /// Returns true when the link was sent, false for anything that is not an https link, such as
+    /// your own URL scheme, so you can route those yourself.
+    @discardableResult
+    public static func handleDeepLink(_ url: URL) -> Bool {
+        guard isLinkURL(url) else { return false }
+        call { _ = $0.handleDeepLink(url) }
+        return true
+    }
+
+    /// Where to take the person, for a link that opened the app or the link they tapped before
+    /// installing it (then `deferred` is true). Called on the main thread, once per deep link; a
+    /// deep link that arrives before you set the callback waits for it.
+    public static func onDeepLink(_ handler: @escaping (DeepLink) -> Void) {
+        call { $0.onDeepLink(handler) }
     }
 
     /// The ID of this install's person until `identify`, or nil before `start`.

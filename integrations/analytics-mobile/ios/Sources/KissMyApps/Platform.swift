@@ -16,6 +16,8 @@ struct DeviceInfo {
     var screenHeight: Int
     var timezone: String
     var language: String
+    /// `identifierForVendor`. Only its SHA-256 leaves the phone, as the attribution device key.
+    var vendorId: String? = nil
 }
 
 protocol Store: AnyObject {
@@ -56,6 +58,12 @@ struct Platform {
     var sdk: String
     var now: () -> Int64 = { Int64((Date().timeIntervalSince1970 * 1000).rounded()) }
     var log: (String) -> Void = { print($0) }
+    /// Apple Ads' attribution value for this install (AAAttribution), or nil.
+    var appleAdsAttribution: () -> String? = { nil }
+    /// The clipboard's text. Only asked when the app turned clipboard handoff on.
+    var readClipboard: () -> String? = { nil }
+    /// Runs the app's callbacks, such as `onDeepLink`, on the main thread.
+    var main: (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }
 }
 
 /// Keeps each value in its own file, replaced whole so a crash never leaves half a file.
