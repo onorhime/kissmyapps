@@ -885,6 +885,16 @@ export interface AdminGateway {
   configureProgramMoney?: (
     input: import('./programMoney').AdminProgramMoneyUpdate,
   ) => Promise<AdminDataResult<import('./programMoney').AdminProgramMoney | null>>
+  /** Optional: program payouts may be absent in older deployments. */
+  getProgramPayouts?: () => Promise<
+    AdminDataResult<import('../program-payouts/api').AdminProgramPayouts | null>
+  >
+  performProgramPayout?: (
+    input: import('../program-payouts/api').AdminProgramPayoutAction,
+  ) => Promise<AdminDataResult<import('../program-payouts/api').AdminProgramPayouts | null>>
+  configureProgramPayouts?: (
+    input: import('../program-payouts/api').AdminProgramPayoutSettings,
+  ) => Promise<AdminDataResult<import('../program-payouts/api').AdminProgramPayouts | null>>
 }
 
 /** Aggregate-only operational reads used by Attribution and Data Health. */

@@ -4,8 +4,11 @@
 -- sets commission and fee aside from the balance; a refund inside the hold gives both back;
 -- after the hold the commission is the creator's; a sale the balance cannot cover pauses
 -- the program and stops the link crediting; the next deposit brings it back by itself.
--- Stripe is never called: each service function is given what its edge function passes
--- after reading Stripe.
+-- Then part two, paying the creator: KissMyApps switches payouts on; the creator sets up a
+-- payout account; an admin pays what is approved; the worker claims the payout, begins it
+-- and reports Stripe's transfer; a second payout that Stripe will not take gives the money
+-- back. Stripe is never called: each service function is given what its edge function
+-- passes after reading Stripe.
 begin;
 set local time zone 'UTC';
 create temporary table e2e_assertions(label text);
@@ -63,7 +66,8 @@ begin
   set constraints all immediate;
   set constraints all deferred;
 end $$;
-create function pg_temp.epoch(p_at timestamptz) returns bigint language sql as $$ select extract(epoch from p_at)::bigint $$;
+-- Rounded up: a payment recorded in the same second as the join must not fall before it.
+create function pg_temp.epoch(p_at timestamptz) returns bigint language sql as $$ select ceil(extract(epoch from p_at))::bigint $$;
 create function pg_temp.program() returns public.affiliate_programs language sql as $$
   select p from public.affiliate_programs p where workspace_id = pg_temp.q('workspace')
 $$;
@@ -338,6 +342,155 @@ select pg_temp.check(
     from pg_temp.account() a)
   and public.program_balance_health()->>'ledger_mismatches' = '0',
   'the balance equals its entries, and deposits less commission and fees equals what is available');
+
+-- Part two: paying the creator ---------------------------------------------------------------------
+create function pg_temp.panel() returns jsonb language sql as $$
+  select pg_temp.call('kma_owner', 'select public.get_admin_program_payouts()')
+$$;
+-- The creator's row in the admin's list.
+create function pg_temp.listed(panel jsonb) returns jsonb language sql as $$
+  select c from jsonb_array_elements(panel->'creators') c
+  where c->>'affiliate_id' = 'ec000000-0000-4000-8000-000000000001' and c->>'currency' = 'USD'
+$$;
+create function pg_temp.act(input jsonb) returns jsonb language sql as $$
+  select pg_temp.call('kma_owner', format('select public.perform_admin_program_payout(%L)', input))
+$$;
+create function pg_temp.pay_creator(amount bigint) returns jsonb language sql as $$
+  select pg_temp.act(jsonb_build_object('action', 'pay', 'affiliate_id', 'ec000000-0000-4000-8000-000000000001',
+    'currency', 'USD', 'expected_amount_minor', amount))
+$$;
+-- What the payout worker is handed: the one payout that is due, with the worker's hold on it.
+create function pg_temp.claimed() returns jsonb language sql as $$
+  select pg_temp.svc('claim_program_payouts', '{"platform_account_id":"acct_KMAPlatform","limit":5,"lease_seconds":300}')->'payouts'
+$$;
+create function pg_temp.hold(payout jsonb) returns jsonb language sql as $$
+  select jsonb_build_object('payout_id', payout->'payout_id', 'lease_token', payout->'lease_token')
+$$;
+grant execute on all functions in schema pg_temp to anon, authenticated, service_role;
+
+select pg_temp.check(
+  pg_temp.try('creator', 'select public.program_creator_payout_context(''acct_KMAPlatform'', true)') = '42501 payouts_off'
+  and (select e->'payout' @> '{"enabled":false}' and e->'payouts' = '[]'::jsonb from pg_temp.earnings() e)
+  and (select p @> '{"enabled":false,"money_enabled":true}' and pg_temp.listed(p) @> '{"payable_minor":1470,"blocker":"payouts_off"}'
+    from pg_temp.panel() p),
+  'while payouts are off the creator has no payout account, and KissMyApps sees what it would owe');
+
+select pg_temp.check(
+  (select p @> '{"enabled":true,"min_payout_minor":2500,"platform":{"account_id":"acct_KMAPlatform","registered":true,"enabled":true}}'
+    from pg_temp.call('kma_owner', format('select public.configure_admin_program_payouts(%L)',
+      jsonb_build_object('enabled', true, 'expected_updated_at', pg_temp.panel()->'updated_at'))) p)
+  and (select pg_temp.listed(p) @> '{"blocker":"no_account","account_status":"not_connected"}' from pg_temp.panel() p)
+  and (select e->'payout' @> '{"enabled":true,"min_payout_minor":2500,"platform_account_id":"acct_KMAPlatform",
+      "payable":[{"currency":"USD","amount_minor":1470}]}' from pg_temp.earnings() e),
+  'the KissMyApps owner switches payouts on; the creator has no payout account yet');
+
+-- The creator sets up the payout account: the two calls the payout account function makes
+-- around Stripe's onboarding.
+insert into qa select 'account_key', pg_temp.call('creator',
+  'select public.program_creator_payout_context(''acct_KMAPlatform'', true)')->>'account_key';
+select pg_temp.svc('reserve_creator_connect_account', jsonb_build_object('account_key', pg_temp.q('account_key'),
+  'country', 'GB', 'actor_user_id', pg_temp.q('creator')));
+select pg_temp.check(
+  (select a @> '{"status":"ready","connect_account_id":"acct_E2EMiraPay"}'
+    from pg_temp.svc('set_creator_connect_account', jsonb_build_object('account_key', pg_temp.q('account_key'),
+      'affiliate_id', 'ec000000-0000-4000-8000-000000000001', 'platform_account_id', 'acct_KMAPlatform', 'livemode', true,
+      'connect_account_id', 'acct_E2EMiraPay', 'charges_enabled', false, 'payouts_enabled', true, 'transfers_enabled', true,
+      'details_submitted', true, 'disabled_reason', null, 'requirements_due', '[]'::jsonb, 'verified_at', clock_timestamp())) a)
+  and (select pg_temp.listed(p) @> '{"blocker":"below_minimum","account_status":"ready","account_country":"GB"}' from pg_temp.panel() p)
+  and pg_temp.try('kma_owner', format('select public.perform_admin_program_payout(%L)', jsonb_build_object('action', 'pay',
+    'affiliate_id', 'ec000000-0000-4000-8000-000000000001', 'currency', 'USD', 'expected_amount_minor', 1470))) = '22023 not_payable',
+  'once Stripe says the account can be paid, only the amount stands in the way: 14.70 is under the smallest payout of 25.00');
+select pg_temp.check(
+  (select p @> '{"min_payout_minor":1000}' from pg_temp.call('kma_owner', format('select public.configure_admin_program_payouts(%L)',
+    jsonb_build_object('min_payout_minor', 1000, 'expected_updated_at', pg_temp.panel()->'updated_at'))) p)
+  and (select pg_temp.listed(p) @> '{"blocker":null,"payable_minor":1470}'
+      and p->'totals' @> '{"ready_count":1,"ready_minor_by_currency":{"USD":1470}}'
+    from pg_temp.panel() p),
+  'with the smallest payout lowered to 10.00 the creator is ready to pay');
+
+-- An admin pays, the worker sends ------------------------------------------------------------------
+select pg_temp.check(pg_temp.try('kma_owner', format('select public.perform_admin_program_payout(%L)', jsonb_build_object('action', 'pay',
+    'affiliate_id', 'ec000000-0000-4000-8000-000000000001', 'currency', 'USD', 'expected_amount_minor', 1400))) like '% amount_changed',
+  'paying names the amount on screen, and another amount is refused');
+select pg_temp.check(
+  (select p->'open'->0 @> '{"name":"Mira Maker","currency":"USD","amount_minor":1470,"status":"approved","can_cancel":true}'
+      and pg_temp.listed(p) is null
+    from pg_temp.pay_creator(1470) p)
+  and (select e->'programs'->0 @> '{"pending_minor":1470,"approved_minor":0,"paying_minor":1470,"paid_minor":0}'
+      and e->'payouts'->0 @> '{"amount_minor":1470,"currency":"USD","status":"approved"}' and e->'payout'->'payable' = '[]'::jsonb
+    from pg_temp.earnings() e),
+  'the admin pays 14.70: it leaves the creator''s approved earnings at once and shows as on its way');
+insert into qa select 'first_payout', pg_temp.claimed()->0;
+select pg_temp.check(
+  (select c @> '{"amount_minor":1470,"currency":"USD","status":"approved","attempts":0,"lookup_only":false,
+      "connect_account_id":"acct_E2EMiraPay","platform_account_id":"acct_KMAPlatform","account_status":"ready"}'
+      and c->>'lease_token' is not null and c->>'account_key' = pg_temp.t('account_key')
+    from (select pg_temp.t('first_payout')::jsonb as c) x)
+  and pg_temp.claimed() = '[]'::jsonb,
+  'the worker is handed the payout once, with the creator''s Stripe account');
+select pg_temp.check(
+  (select b @> '{"status":"processing","attempts":1,"connect_account_id":"acct_E2EMiraPay"}' and b->>'first_attempt_at' is not null
+    from pg_temp.svc('begin_program_payout', pg_temp.hold(pg_temp.t('first_payout')::jsonb)
+      || '{"connect_account_id":"acct_E2EMiraPay"}') b)
+  and pg_temp.try('kma_owner', format('select public.perform_admin_program_payout(%L)',
+    jsonb_build_object('action', 'cancel', 'payout_id', pg_temp.t('first_payout')::jsonb->'payout_id'))) like '% not_cancelable',
+  'before Stripe is asked the payout is marked as being sent, and from then on it cannot be canceled');
+select pg_temp.check(
+  (select f @> '{"status":"paid","transfer_id":"tr_E2EMiraOne"}'
+    from pg_temp.svc('finish_program_payout', pg_temp.hold(pg_temp.t('first_payout')::jsonb)
+      || '{"outcome":"paid","transfer_id":"tr_E2EMiraOne"}') f)
+  and (select e->'programs'->0 @> '{"approved_minor":0,"paying_minor":0,"paid_minor":1470}'
+      and e->'payouts'->0 @> '{"amount_minor":1470,"status":"paid"}' and e->'payouts'->0->>'paid_at' is not null
+      and (e->'payouts')::text not like '%tr\_%' and (e->'payouts')::text not like '%acct\_%'
+    from pg_temp.earnings() e)
+  and (select p->'open' = '[]'::jsonb and p->'recent'->0 @> '{"status":"paid","amount_minor":1470,"transfer_id":"tr_E2EMiraOne"}'
+      and p->'totals'->'paid_minor_by_currency' = '{"USD":1470}'::jsonb
+    from pg_temp.panel() p),
+  'when Stripe confirms the transfer the payout is paid: the creator sees 14.70 paid, the admin sees the transfer');
+
+-- A payout Stripe will not take gives the money back ---------------------------------------------
+update public.program_commissions set hold_until = now() - interval '1 minute' where id = (pg_temp.commission('after')).id;
+select pg_temp.svc('program_commissions_tick', '{"limit":100}');
+select pg_temp.pay_creator(1470);
+insert into qa select 'second_payout', pg_temp.claimed()->0;
+select pg_temp.svc('begin_program_payout', pg_temp.hold(pg_temp.t('second_payout')::jsonb) || '{"connect_account_id":"acct_E2EMiraPay"}');
+select pg_temp.check(
+  (select f @> '{"status":"processing","failure_code":"platform_balance_low"}' and f->>'next_attempt_at' is not null
+    from pg_temp.svc('finish_program_payout', pg_temp.hold(pg_temp.t('second_payout')::jsonb)
+      || '{"outcome":"retry","failure_code":"platform_balance_low","delay_seconds":900}') f)
+  and pg_temp.claimed() = '[]'::jsonb
+  and (select e->'programs'->0 @> '{"approved_minor":0,"paying_minor":1470,"paid_minor":1470}' from pg_temp.earnings() e),
+  'a payout that has to wait stays on its way and is not handed out again before its time');
+-- Fifteen minutes go by.
+update public.program_payouts set next_attempt_at = now() - interval '1 second' where id = (pg_temp.t('second_payout')::jsonb->>'payout_id')::uuid;
+insert into qa select 'second_again', pg_temp.claimed()->0;
+select pg_temp.check(
+  (select c->>'payout_id' = pg_temp.t('second_payout')::jsonb->>'payout_id' and c @> '{"status":"processing","attempts":1}'
+      and c->>'lease_token' <> pg_temp.t('second_payout')::jsonb->>'lease_token'
+    from (select pg_temp.t('second_again')::jsonb as c) x)
+  and (select f @> '{"status":"failed","failure_code":"transfer_rejected","transfer_id":null}'
+    from pg_temp.svc('finish_program_payout', pg_temp.hold(pg_temp.t('second_again')::jsonb)
+      || '{"outcome":"failed","failure_code":"transfer_rejected"}') f)
+  and (select e->'programs'->0 @> '{"pending_minor":0,"approved_minor":1470,"paying_minor":0,"paid_minor":1470}'
+      and e->'payouts'->0 @> '{"status":"failed","amount_minor":1470}' and e->'payouts'->1 @> '{"status":"paid"}'
+      and e->'payout'->'payable' = '[{"currency":"USD","amount_minor":1470}]'::jsonb
+    from pg_temp.earnings() e)
+  and (select pg_temp.listed(p) @> '{"blocker":null,"payable_minor":1470}'
+      and p->'recent'->0 @> '{"status":"failed","failure_code":"transfer_rejected"}'
+    from pg_temp.panel() p),
+  'a payout Stripe refuses for good ends as failed and the 14.70 is back in the creator''s approved earnings, ready to pay again');
+
+select pg_temp.check(
+  (select h @> '{"enabled":true,"ledger_mismatches":0,"payouts":{"paid":1,"failed":1},"failures":{"transfer_rejected":1}}'
+      and h->'open_payouts' @> '{"due":0}'
+    from public.program_payout_health() h)
+  and (select sum(e.amount_minor) = 1470 and count(*) filter (where e.kind = 'payout') = 2
+      and count(*) filter (where e.kind = 'payout_reversed') = 1
+    from public.program_creator_entries e where e.affiliate_id = 'ec000000-0000-4000-8000-000000000001')
+  -- Paying a creator takes nothing from the merchant: that money left the balance at the sale.
+  and (select a.available_minor = 26766 from pg_temp.account() a)
+  and public.program_balance_health()->>'ledger_mismatches' = '0',
+  'every payout matches its entries, and the merchant''s balance is untouched by paying the creator');
 select set_config('request.jwt.claims', '', true);
 
 select 'ok ' || count(*) || ' program money end to end assertions' from e2e_assertions;

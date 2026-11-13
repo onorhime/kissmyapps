@@ -1,0 +1,545 @@
+/*
+ * Program payouts on the admin Payouts page. The panel sits inside the page's own section, whose
+ * older rules style every button, paragraph, label and input in it, so each rule here is
+ * written with the panel's class in front to stay the stronger one.
+ */
+
+.admin-pp,
+.admin-pp-confirm {
+  --pp-text: var(--brand-text, #ffffff);
+  --pp-muted: var(--brand-muted, #a9a9ae);
+  --pp-line: var(--brand-line, #4a4a4a);
+  --pp-rule: color-mix(in srgb, var(--brand-line, #4a4a4a) 62%, transparent);
+  --pp-raised: var(--brand-control, #3b3b3b);
+  --pp-deep: var(--brand-bg-deep, #111111);
+  --pp-pink: var(--brand-pink, #ff80bf);
+  --pp-green: var(--brand-green, #58d65e);
+  --pp-yellow: var(--brand-yellow, #ffea30);
+  --pp-red: var(--brand-red, #ff6767);
+}
+
+.admin-pp {
+  min-width: 0;
+  margin: 20px 0 24px;
+  padding: 22px;
+  color: var(--pp-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-pp :where(h2, h3, p, dl, dt, dd, ul, li) {
+  margin: 0;
+  padding: 0;
+}
+
+.admin-pp .admin-pp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-pp .admin-pp-head h2 {
+  font-size: 19px;
+  line-height: 1.25;
+  letter-spacing: -0.35px;
+}
+
+.admin-pp .admin-pp-head p {
+  max-width: 68ch;
+  margin-top: 6px;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* One-line states: loading, not available, not allowed. */
+.admin-pp .admin-pp-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-pp .admin-pp-problem,
+.admin-pp .admin-pp-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.admin-pp .admin-pp-problem {
+  border: 1px solid color-mix(in srgb, var(--pp-red) 40%, var(--pp-line));
+  background: color-mix(in srgb, var(--pp-red) 7%, transparent);
+}
+
+.admin-pp .admin-pp-off {
+  border: 1px solid color-mix(in srgb, var(--pp-yellow) 30%, var(--pp-line));
+  background: color-mix(in srgb, var(--pp-yellow) 7%, transparent);
+}
+
+.admin-pp .admin-pp-problem p,
+.admin-pp .admin-pp-off p {
+  flex: 1 1 260px;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-pp .admin-pp-problem strong,
+.admin-pp .admin-pp-off strong {
+  color: var(--pp-text);
+  font-weight: 650;
+}
+
+/* Buttons ---------------------------------------------------------------------------------- */
+
+.admin-pp .admin-pp-btn {
+  flex: none;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: 9px;
+  color: var(--pp-text);
+  background: var(--pp-raised);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-pp .admin-pp-btn:hover:not(:disabled) {
+  border-color: var(--pp-pink);
+}
+
+.admin-pp .admin-pp-btn-primary {
+  border-color: var(--pp-pink);
+  color: #22101c;
+  background: var(--pp-pink);
+}
+
+.admin-pp .admin-pp-btn-danger {
+  border-color: color-mix(in srgb, var(--pp-red) 36%, var(--pp-line));
+  color: #ffe5e9;
+}
+
+.admin-pp .admin-pp-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+/* Totals: one strip, three figures --------------------------------------------------------- */
+
+.admin-pp .admin-pp-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+  border: 1px solid var(--pp-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pp-deep) 55%, transparent);
+}
+
+.admin-pp .admin-pp-totals > div {
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.admin-pp .admin-pp-totals > div + div {
+  border-left: 1px solid var(--pp-line);
+}
+
+.admin-pp .admin-pp-totals dt {
+  color: var(--pp-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-pp .admin-pp-totals dd {
+  margin: 4px 0 0;
+  color: var(--pp-text);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  overflow-wrap: anywhere;
+}
+
+.admin-pp .admin-pp-totals dd + dd {
+  margin-top: 0;
+}
+
+.admin-pp .admin-pp-totals dd.admin-pp-total-none {
+  color: var(--pp-muted);
+  font-weight: 500;
+}
+
+.admin-pp .admin-pp-totals dd.admin-pp-total-note {
+  margin-top: 4px;
+  color: var(--pp-muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
+/* The four lists --------------------------------------------------------------------------- */
+
+.admin-pp .admin-pp-block {
+  margin-top: 26px;
+}
+
+.admin-pp .admin-pp-block-head {
+  min-height: 36px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pp-line);
+}
+
+.admin-pp .admin-pp-block-head h3 {
+  margin-right: auto;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.admin-pp .admin-pp-rows {
+  list-style: none;
+}
+
+/*
+ * Name, amount, what it is about, and room for one action. The amount comes second so every
+ * amount in the panel ends on one line, whether or not its row can be acted on.
+ */
+.admin-pp .admin-pp-rows > li {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 240px) 124px minmax(0, 1fr) 84px;
+  grid-template-areas: 'name amount detail action';
+  align-items: center;
+  gap: 4px 28px;
+  padding: 8px 0;
+}
+
+.admin-pp .admin-pp-rows > li + li {
+  border-top: 1px solid var(--pp-rule);
+}
+
+.admin-pp .admin-pp-name {
+  grid-area: name;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-pp .admin-pp-detail {
+  grid-area: detail;
+  min-width: 0;
+  color: var(--pp-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-pp .admin-pp-program {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* A closed payout: how it ended, when, and its transfer or the reason it was not sent. */
+.admin-pp .admin-pp-outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.admin-pp .admin-pp-outcome code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.admin-pp .admin-pp-amount {
+  grid-area: amount;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-pp .admin-pp-action {
+  grid-area: action;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-pp .admin-pp-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--pp-muted);
+  background: color-mix(in srgb, var(--pp-muted) 14%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.admin-pp .admin-pp-pill-paid {
+  color: var(--pp-green);
+  background: color-mix(in srgb, var(--pp-green) 14%, transparent);
+}
+
+.admin-pp .admin-pp-pill-failed {
+  color: #ffb3b3;
+  background: color-mix(in srgb, var(--pp-red) 16%, transparent);
+}
+
+.admin-pp .admin-pp-none,
+.admin-pp .admin-pp-note {
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-pp .admin-pp-none {
+  padding: 14px 0 2px;
+}
+
+.admin-pp .admin-pp-note {
+  padding-top: 10px;
+  border-top: 1px solid var(--pp-rule);
+  font-size: 12px;
+}
+
+.admin-pp .admin-pp-empty {
+  margin-top: 20px;
+  padding: 22px;
+  border: 1px dashed var(--pp-line);
+  border-radius: 10px;
+  color: var(--pp-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Settings: the smallest payout and the switch --------------------------------------------- */
+
+.admin-pp .admin-pp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pp-line);
+}
+
+.admin-pp .admin-pp-foot > p {
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-pp .admin-pp-settings {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.admin-pp .admin-pp-label {
+  display: block;
+  color: var(--pp-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-pp .admin-pp-field {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-pp .admin-pp-input {
+  width: 140px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--pp-line);
+  border-radius: 8px;
+  color: var(--pp-text);
+  background: var(--pp-deep);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-pp .admin-pp-input[aria-invalid='true'] {
+  border-color: var(--pp-red);
+}
+
+.admin-pp .admin-pp-hint {
+  color: var(--pp-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.admin-pp .admin-pp-hint-error {
+  color: #ffb3b3;
+}
+
+/* Confirmations render outside the page, in the shared dialog ------------------------------ */
+
+.admin-pp-confirm {
+  color: var(--pp-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.admin-pp-confirm .admin-pp-sum {
+  font-size: 16px;
+}
+
+.admin-pp-confirm .admin-pp-sum strong {
+  font-size: 26px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.4px;
+}
+
+.admin-pp-confirm .admin-pp-breakdown {
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pp-deep) 55%, transparent);
+  list-style: none;
+}
+
+.admin-pp-confirm .admin-pp-breakdown li {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+}
+
+.admin-pp-confirm .admin-pp-breakdown li + li {
+  border-top: 1px solid var(--pp-rule);
+}
+
+.admin-pp-confirm .admin-pp-breakdown span:last-child:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-pp-confirm .admin-pp-breakdown-more {
+  color: var(--pp-muted);
+}
+
+.admin-pp-confirm .admin-pp-warning {
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.admin-pp-confirm .admin-pp-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* The phone: each row becomes two lines, the name and the amount first --------------------- */
+
+@media (max-width: 640px) {
+  .admin-pp {
+    padding: 18px 16px;
+  }
+
+  .admin-pp .admin-pp-btn {
+    min-height: 44px;
+  }
+
+  .admin-pp .admin-pp-totals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-pp .admin-pp-totals > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0 12px;
+    padding: 12px 14px;
+  }
+
+  .admin-pp .admin-pp-totals > div + div {
+    border-top: 1px solid var(--pp-line);
+    border-left: 0;
+  }
+
+  .admin-pp .admin-pp-totals dt {
+    grid-row: 1 / span 3;
+    font-size: 13px;
+  }
+
+  .admin-pp .admin-pp-totals dd {
+    grid-column: 2;
+    margin-top: 0;
+    font-size: 18px;
+    text-align: right;
+  }
+
+  .admin-pp .admin-pp-totals dd.admin-pp-total-note {
+    margin-top: 0;
+  }
+
+  .admin-pp .admin-pp-rows > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name amount'
+      'detail detail';
+    gap: 2px 12px;
+    padding: 12px 0;
+  }
+
+  .admin-pp .admin-pp-rows > li.admin-pp-row-action {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'name amount action'
+      'detail detail action';
+  }
+
+  .admin-pp .admin-pp-foot {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-pp .admin-pp-input {
+    flex: 1;
+    width: auto;
+    min-height: 44px;
+  }
+
+  .admin-pp-confirm .admin-pp-confirm-actions > button {
+    flex: 1 1 100%;
+  }
+}

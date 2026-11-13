@@ -6,9 +6,11 @@ balance at once and holds them. A refund inside the hold gives both back. When t
 passed, the commission is the creator's. A balance that cannot cover a commission pauses
 the program, so KissMyApps never owes a creator money it has not collected.
 
-Part one does not pay anyone. Creator payouts, the admin review of payouts and returning a
-closing merchant's balance are part two. Until then an approved commission is a number the
-creator sees, backed by money KissMyApps already holds.
+Part one does not pay anyone. Paying creators is part two, with its own steps in
+`docs/affiliate-self-serve-phase4-payouts.md`; deploy it after this document's live checks
+pass. Until payouts are switched on an approved commission is a number the creator sees,
+backed by money KissMyApps already holds. Returning a closing merchant's balance is not
+built yet.
 
 Phases 1 to 3 must be live first: `docs/affiliate-self-serve-phase1-deploy.md`,
 `-phase2-deploy.md`, `-phase3-deploy.md`. This phase charges real cards. Deploy only with
@@ -94,7 +96,8 @@ Use your own workspace, program and creator account from the Phase 3 live check.
 
 ## Known limits
 
-- Nothing is paid out yet (part two). Do not tell creators a payout date.
+- Nothing is paid out until part two is deployed and payouts are switched on. A payout is
+  made by an admin, so do not tell creators a payout date.
 - The agreement text says commission is a share "of every payment"; the code works it out
   on the payment without tax. The agreement template should say so before the first
   merchant goes live (open with the owner's lawyer).
