@@ -189,7 +189,7 @@ launches, with the same details. Until attribution is on for the project, both c
 ### Let your app open your links
 
 The console's **Attribution → Setup** shows the exact lines for your link domains. The
-[iOS and Android SDK guide](https://github.com/onorhime/kissmyapps-mobile#readme) explains
+[iOS and Android SDK guide](https://github.com/onorhime/kissmyapps-mobile#attribution-and-deep-links) explains
 them in full; in short:
 
 - **iOS:** in Xcode, under **Signing & Capabilities**, add **Associated Domains** with

@@ -223,7 +223,7 @@ launches, with the same details. Until attribution is on for the project, both c
 ### Let your app open your links
 
 The console's **Attribution → Setup** shows the exact lines for your link domains, and the
-[iOS and Android SDK guide](../README.md) explains them in full. In short:
+[iOS and Android SDK guide](../README.md#attribution-and-deep-links) explains them in full. In short:
 
 - **iOS:** in Xcode (`ios/Runner.xcworkspace`), under **Signing & Capabilities**, add
   **Associated Domains** with `applinks:<your link domain>`.
