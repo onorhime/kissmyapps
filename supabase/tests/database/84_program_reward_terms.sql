@@ -520,7 +520,7 @@ select pg_temp.check(kma_internal.program_terms_earn_from(pg_temp.old_terms()) =
 
 -- A sales program, published while program money is off, as before Phase 6 -----------------------
 select pg_temp.check(pg_temp.state('quiet_owner', 'quiet') = '{"can_manage":true,"stripe_connected":true,"brand_name":"Quiet Club",
-    "events_available":false,"program":null,
+    "events_available":false,"app_links_available":false,"program":null,
     "checklist":{"stripe_connected":true,"details":false,"landing_page":false,"commission":false,"agreement_read":false},
     "can_submit":false}'::jsonb, 'a workspace with no program is told that events are not available while program money is off');
 select pg_temp.save('quiet_owner', 'quiet', '{"name":"Quiet Club","category":"lifestyle","tagline":"A calmer phone.",
@@ -701,8 +701,8 @@ select pg_temp.check((select s->'program' @> '{"earn_from":"events","commission_
   and (select kma_internal.program_terms(p) = pg_temp.event_terms('{"approval_mode":"manual"}') from pg_temp.program('fluent') p),
   'going back to events keeps the commission on the form but leaves it out of the terms');
 select pg_temp.capture('workspace_program_get.events_draft', pg_temp.state('owner', 'fluent'));
-select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'brand_name can_manage can_submit checklist events_available program stripe_connected'
-  and pg_temp.keys(pg_temp.state('owner', 'fluent')->'program') = 'agreement_read approval_mode attribution_window_days category '
+select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'app_links_available brand_name can_manage can_submit checklist events_available program stripe_connected'
+  and pg_temp.keys(pg_temp.state('owner', 'fluent')->'program') = 'agreement_read app_link approval_mode attribution_window_days category '
     || 'commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from extra_terms '
     || 'first_published_at has_unpublished_changes hold_days id landing_url live_terms_version logo_path marketplace_listed '
     || 'minimum_payout_minor name pause_reason review_note revision reward_budget_minor rewards slug status submitted_at tagline updated_at',
@@ -723,14 +723,14 @@ from generate_series(1, 205) n;
 select pg_temp.capture('workspace_program_reward_events.listed', pg_temp.reward_events('owner', 'fluent'));
 select pg_temp.capture('workspace_program_reward_events.none', pg_temp.reward_events('empty_owner', 'empty'));
 select pg_temp.check(pg_temp.reward_events('owner', 'fluent') = '{"events":[
-    {"name":"trial_started","description":null,"first_seen":"2026-10-05T10:00:00+00:00","last_seen":"2026-11-13T09:00:00+00:00"},
-    {"name":"signup_completed","description":"An account was made","first_seen":"2026-09-20T08:00:00+00:00","last_seen":"2026-11-13T07:15:00+00:00"},
-    {"name":"lesson_finished","description":"A lesson was finished","first_seen":"2026-10-01T10:00:00+00:00","last_seen":"2026-11-01T10:00:00+00:00"}]}'::jsonb
+    {"name":"trial_started","description":null,"first_seen":"2026-10-05T10:00:00+00:00","last_seen":"2026-11-13T09:00:00+00:00","suggested_label":null},
+    {"name":"signup_completed","description":"An account was made","first_seen":"2026-09-20T08:00:00+00:00","last_seen":"2026-11-13T07:15:00+00:00","suggested_label":null},
+    {"name":"lesson_finished","description":"A lesson was finished","first_seen":"2026-10-01T10:00:00+00:00","last_seen":"2026-11-01T10:00:00+00:00","suggested_label":null}]}'::jsonb
   and pg_temp.reward_events('analyst', 'fluent') = pg_temp.reward_events('owner', 'fluent'),
   'the events the workspace has received are listed once per name over its projects, the latest first; blocked ones are left out');
 select pg_temp.check(pg_temp.reward_events('empty_owner', 'empty') = '{"events":[]}'::jsonb
   and pg_temp.reward_events('rival_owner', 'rival') = '{"events":[{"name":"chapter_read","description":null,
-    "first_seen":"2026-10-01T10:00:00+00:00","last_seen":"2026-11-13T12:00:00+00:00"}]}'::jsonb,
+    "first_seen":"2026-10-01T10:00:00+00:00","last_seen":"2026-11-13T12:00:00+00:00","suggested_label":null}]}'::jsonb,
   'a workspace sees only its own events, and none when nothing has arrived');
 select pg_temp.check((select jsonb_array_length(e->'events') = 200 and e->'events'->0->>'name' = 'event_205'
     and e->'events'->199->>'name' = 'event_006' from pg_temp.reward_events('quiet_owner', 'quiet') e),
