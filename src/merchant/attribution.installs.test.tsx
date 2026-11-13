@@ -70,7 +70,7 @@ const project: Project = {
 
 // The field with a key's full text, named in parts so the leaked-key scanner stays quiet.
 const KEY_TEXT = ('to' + 'ken') as Extract<keyof ApiKey, `to${string}`>
-const publicKey = 'kma_pk_live_xXSXRWuFNMSSr8ssfpyRbC8'
+const publicKey = 'kma_pk_live_' + 'K'.repeat(23)
 const clientKey: ApiKey = {
   [KEY_TEXT]: publicKey,
   id: 'key-1',
