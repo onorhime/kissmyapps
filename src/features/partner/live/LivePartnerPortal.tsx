@@ -24,6 +24,8 @@ import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 import { PartnerMarketplace } from '../marketplace/PartnerMarketplace'
 import { ProgramEarningsPanel } from '../earnings/ProgramEarningsPanel'
+import { ProgramLinksPage } from '../links/ProgramLinksPage'
+import { useLegacyLinks } from '../links/legacyLinks'
 
 const pageCopy = {
   performance: {
@@ -111,21 +113,32 @@ export function LivePartnerPortal({
   programSlug = null,
   reportingDays,
   onReportingDaysChange,
+  onLegacyLinksChange,
 }: {
   page: PortalPage
   /** The program open on the Marketplace page (`#marketplace/<slug>`), if any. */
   programSlug?: string | null
   reportingDays?: ReportingPeriod
   onReportingDaysChange?: (days: ReportingPeriod) => void
+  /** Told whether the Links page also shows the older product links, which names its nav entry. */
+  onLegacyLinksChange?: (shown: boolean) => void
 }) {
   const navigateSafely = useContext(NavigationGuardContext)
   const workspace = usePartnerLiveWorkspace()
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
   const context = toPartnerLiveWorkspaceContext(snapshot, selectedProductId)
+  const legacyLinks = useLegacyLinks(snapshot, onLegacyLinksChange)
   // The marketplace does not depend on a product: a creator with none yet joins their first here.
   if (page === 'marketplace') {
     return <PartnerMarketplace gateway={workspace.gateway} slug={programSlug} />
   }
+  // Program links belong to the creator. The older product links follow only for a creator
+  // who has an older product.
+  const programLinks =
+    page === 'links' ? (
+      <ProgramLinksPage gateway={workspace.gateway} legacyBelow={legacyLinks} />
+    ) : null
+  if (page === 'links' && !legacyLinks) return programLinks
   const copy = pageCopy[page]
   const Icon = copy.icon
   const selectedProduct = context.selectedProduct
@@ -148,6 +161,7 @@ export function LivePartnerPortal({
 
   return (
     <>
+      {programLinks}
       {page !== 'profile' && (
         <section className="workspace-context" aria-label="Product and partnership context">
           <label className="workspace-product">

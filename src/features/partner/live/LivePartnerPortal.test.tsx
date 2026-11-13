@@ -474,7 +474,8 @@ describe('product read failures versus empty configuration', () => {
   it('keeps a successful empty product response distinct from an error', async () => {
     const { dataGateway } = gateway()
     dataGateway.getProducts = async () => result([], 'empty')
-    renderPortal(dataGateway)
+    // The Links page shows program links alone to a creator with no older product.
+    renderPortal(dataGateway, 'payouts')
     expect(
       await screen.findByRole('heading', { name: 'No products are connected yet' }),
     ).toBeVisible()
