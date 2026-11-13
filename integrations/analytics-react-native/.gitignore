@@ -1,2 +1,6 @@
 lib/
 node_modules/
+android/build/
+android/.gradle/
+android/.cxx/
+ios/build/

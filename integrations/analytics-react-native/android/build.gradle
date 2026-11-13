@@ -1,0 +1,65 @@
+// The optional native module KissMyAppsAttribution for Android: the Google Play install
+// referrer and the device key for install attribution. Linked by autolinking; without it the
+// SDK still runs, minus those fields. No advertising ID, no AD_ID permission.
+buildscript {
+    def kotlinVersion = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : '1.9.24'
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+def safeExtGet(name, fallback) {
+    rootProject.ext.has(name) ? rootProject.ext.get(name) : fallback
+}
+
+// Android Gradle plugin 7.3 and later take the namespace here; older ones read the manifest.
+def supportsNamespace() {
+    def parts = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')
+    def major = parts[0].toInteger()
+    def minor = parts[1].toInteger()
+    return major > 7 || (major == 7 && minor >= 3)
+}
+
+android {
+    if (supportsNamespace()) {
+        namespace 'com.kissmyapps.reactnative'
+        sourceSets {
+            main {
+                manifest.srcFile 'src/main/AndroidManifestNew.xml'
+            }
+        }
+    }
+    compileSdkVersion safeExtGet('compileSdkVersion', 34)
+
+    defaultConfig {
+        minSdkVersion safeExtGet('minSdkVersion', 21)
+        targetSdkVersion safeExtGet('targetSdkVersion', 34)
+    }
+
+    // React Native 0.73 and later set both to 17 for every library.
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // Resolved to react-android by React Native 0.71 and later.
+    implementation 'com.facebook.react:react-native:+'
+    implementation 'com.android.installreferrer:installreferrer:2.2'
+}

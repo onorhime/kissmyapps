@@ -1,7 +1,7 @@
 {
   "name": "@kissmyappss/react-native",
-  "version": "1.0.0",
-  "description": "KissMyApps analytics for React Native apps: sessions, installs, screens and events.",
+  "version": "1.1.0",
+  "description": "KissMyApps analytics for React Native apps: sessions, installs, screens, events, install attribution and deep links.",
   "license": "MIT",
   "homepage": "https://kissmyapps.dev",
   "main": "lib/index.js",
@@ -10,7 +10,14 @@
   "files": [
     "lib",
     "src",
-    "README.md"
+    "android/build.gradle",
+    "android/src",
+    "ios",
+    "KissMyAppsReactNative.podspec",
+    "react-native.config.js",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
@@ -28,6 +35,8 @@
     "react-native",
     "expo",
     "mobile-analytics",
+    "deep-links",
+    "attribution",
     "kissmyapps"
   ],
   "publishConfig": {
