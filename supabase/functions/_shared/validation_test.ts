@@ -71,6 +71,36 @@ Deno.test("redirect URL preserves approved destination state and replaces click 
   );
 });
 
+Deno.test("redirect URL without a click keeps the stored destination and never carries a click token", () => {
+  assertEquals(
+    validatedRedirectUrl(
+      "https://funnel.example/offer?utm_campaign=launch&q=a%20b#pricing",
+      null,
+    ),
+    "https://funnel.example/offer?utm_campaign=launch&q=a%20b#pricing",
+  );
+  assertEquals(
+    validatedRedirectUrl("https://funnel.example/start", null),
+    "https://funnel.example/start",
+  );
+  assertEquals(
+    validatedRedirectUrl(
+      "https://funnel.example/offer?kma_click=old&utm_campaign=launch",
+      null,
+    ),
+    "https://funnel.example/offer?utm_campaign=launch",
+  );
+  assertThrows(
+    () => validatedRedirectUrl("http://funnel.example/offer", null),
+    RequestError,
+  );
+  assertThrows(
+    () => validatedRedirectUrl("https://user:pass@funnel.example", null),
+    RequestError,
+  );
+  assertThrows(() => validatedRedirectUrl("not a url", null), RequestError);
+});
+
 Deno.test("browser event contract accepts only allowlisted behavior and properties", () => {
   assertEquals(validateBrowserEvent(baseEvent, now), baseEvent);
   assertThrows(
