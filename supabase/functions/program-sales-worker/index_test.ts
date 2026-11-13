@@ -100,6 +100,17 @@ class FakeStripe {
       for (const item of target.data) this.expand(item, rest);
       return;
     }
+    if (Array.isArray(target[head])) {
+      // A list of ids or objects (an invoice's discounts): ids become objects.
+      const list = target[head] as unknown[];
+      for (const [index, item] of list.entries()) {
+        if (typeof item === "string" && this.byId.has(item)) {
+          list[index] = structuredClone(this.byId.get(item));
+        }
+        this.expand(list[index], rest);
+      }
+      return;
+    }
     const value = target[head];
     if (typeof value === "string" && this.byId.has(value)) {
       target[head] = structuredClone(this.byId.get(value));
@@ -1550,4 +1561,214 @@ Deno.test("a run works through batches, stops at its time budget and releases wh
     [BATCH_SIZE, 2, BATCH_SIZE - 2],
   );
   assertEquals(slow.claims.length, 1);
+});
+
+// Phase 8: the promotion code the buyer used goes to the sale call --------------
+
+const PROMO = "promo_Anna10Fixture";
+const OTHER_PROMO = "promo_Ben10Fixture";
+
+Deno.test("a Checkout Session paid with a promotion code hands the code to the sale call in one read", async () => {
+  const r = receipt("checkout.session.completed", "cs_live_1", {
+    amount_minor: 4410,
+  });
+  const f = fixture([r]);
+  f.stripe.add(
+    ...payment("1", {
+      intent: { amount: 4410, amount_received: 4410 },
+      charge: { amount: 4410, amount_captured: 4410 },
+      balance: { amount: 4410 },
+    }),
+    session("1", {
+      amount_total: 4410,
+      // The creator's link of one creator, the code of another: the database
+      // decides (a code beats a link); the worker passes both on.
+      metadata: { kma_click: CLICK },
+      client_reference_id: `kma_${CLICK}`,
+      discounts: [{ coupon: null, promotion_code: PROMO }],
+      total_details: { amount_tax: 0, amount_discount: 490 },
+    }),
+  );
+  const { body } = await f.run();
+  assertEquals(f.stripe.reads, [
+    "/v1/checkout/sessions/cs_live_1?expand[]=payment_intent.latest_charge.balance_transaction",
+  ]);
+  assertEquals(f.sales.length, 1);
+  assertEquals(f.sales[0].promotion_code_id, PROMO);
+  assertEquals(f.sales[0].kma_click, CLICK);
+  assertEquals(f.sales[0].tag_source, "metadata");
+  assertEquals(f.sales[0].amount_minor, 4410);
+  assertEquals(outcomes(f), [`${r.event_id}: done recorded`]);
+  assertNothingSensitive(f, body);
+});
+
+Deno.test("a session discount whose code the session does not name is read from its breakdown, once", async () => {
+  const f = fixture([
+    receipt("checkout.session.completed", "cs_live_1", { amount_minor: 4410 }),
+    receipt("checkout.session.completed", "cs_live_2"),
+  ]);
+  f.stripe.add(
+    ...payment("1", {
+      intent: { amount: 4410, amount_received: 4410 },
+      charge: { amount: 4410, amount_captured: 4410 },
+    }),
+    session("1", {
+      amount_total: 4410,
+      discounts: [],
+      // Stripe leaves the breakdown out unless it is asked for; the fake
+      // stands it in with an id that only an expansion turns into the object.
+      total_details: {
+        amount_tax: 0,
+        amount_discount: 490,
+        breakdown: "breakdown_1",
+      },
+    }),
+    {
+      id: "breakdown_1",
+      object: "breakdown",
+      taxes: [],
+      discounts: [{
+        amount: 490,
+        discount: {
+          id: "di_1",
+          object: "discount",
+          promotion_code: PROMO,
+          source: { type: "coupon", coupon: "cpn1" },
+        },
+      }],
+    },
+    // A session without any discount costs no extra read.
+    ...payment("2"),
+    session("2"),
+  );
+  await f.run();
+  assertEquals(f.stripe.reads, [
+    "/v1/checkout/sessions/cs_live_1?expand[]=payment_intent.latest_charge.balance_transaction",
+    "/v1/checkout/sessions/cs_live_1?expand[]=total_details.breakdown",
+    "/v1/checkout/sessions/cs_live_2?expand[]=payment_intent.latest_charge.balance_transaction",
+  ]);
+  assertEquals(f.sales[0].promotion_code_id, PROMO);
+  assert(!("promotion_code_id" in f.sales[1]));
+});
+
+Deno.test("a discounted subscription checkout: the invoice and the session name the code, the PaymentIntent cannot", async () => {
+  const receipts = [
+    receipt("payment_intent.succeeded", "pi_1", { amount_minor: 4410 }),
+    receipt("invoice.paid", "in_1", {
+      payment_intent_id: null,
+      amount_minor: 4410,
+    }),
+    receipt("checkout.session.completed", "cs_live_1", {
+      payment_intent_id: null,
+      amount_minor: 4410,
+    }),
+  ];
+  const f = fixture(receipts);
+  f.stripe.add(
+    ...payment("1", {
+      intent: {
+        amount: 4410,
+        amount_received: 4410,
+        customer: "cus_Buyer1",
+        metadata: {},
+      },
+      charge: { amount: 4410, amount_captured: 4410 },
+    }),
+    ...invoice("1", "pi_1", {
+      amount_paid: 4410,
+      // Ids unless expanded.
+      discounts: ["di_1"],
+      total_discount_amounts: [{ amount: 490, discount: "di_1" }],
+      parent: {
+        type: "subscription_details",
+        subscription_details: {
+          subscription: "sub_1",
+          metadata: { kma_click: CLICK },
+        },
+      },
+    }),
+    {
+      id: "di_1",
+      object: "discount",
+      promotion_code: PROMO,
+      source: { type: "coupon", coupon: "cpn1" },
+      subscription: "sub_1",
+    },
+    session("1", {
+      mode: "subscription",
+      amount_total: 4410,
+      payment_intent: null,
+      invoice: "in_1",
+      subscription: "sub_1",
+      customer: "cus_Buyer1",
+      metadata: { kma_click: CLICK },
+      discounts: [{ coupon: null, promotion_code: PROMO }],
+      total_details: { amount_tax: 0, amount_discount: 490 },
+    }),
+  );
+  const { body } = await f.run();
+  assertEquals(body.recorded, 3);
+  assertEquals(
+    f.sales.map((sale) => [sale.payment_intent_id, sale.promotion_code_id]),
+    [["pi_1", undefined], ["pi_1", PROMO], ["pi_1", PROMO]],
+  );
+  // The invoice is read again once, with its discounts expanded.
+  assertEquals(
+    f.stripe.reads.filter((read) => read.startsWith("/v1/invoices/")),
+    [
+      "/v1/invoices/in_1?expand[]=discounts&expand[]=total_discount_amounts.discount",
+    ],
+  );
+  assertNothingSensitive(f, body);
+});
+
+Deno.test("a renewal paid without a discount names no code; one paid with a lasting code names it", async () => {
+  const f = fixture([
+    receipt("invoice.paid", "in_2", { payment_intent_id: null }),
+    receipt("invoice.paid", "in_3", { payment_intent_id: null }),
+  ]);
+  f.stripe.add(
+    ...payment("2"),
+    ...invoice("2", "pi_2", { billing_reason: "subscription_cycle" }),
+    ...payment("3"),
+    ...invoice("3", "pi_3", {
+      billing_reason: "subscription_cycle",
+      // Already expanded: no second read.
+      discounts: [{
+        id: "di_3",
+        object: "discount",
+        promotion_code: { id: OTHER_PROMO, object: "promotion_code" },
+      }],
+    }),
+  );
+  await f.run();
+  assert(!("promotion_code_id" in f.sales[0]));
+  assertEquals(f.sales[1].promotion_code_id, OTHER_PROMO);
+  assertEquals(
+    f.stripe.reads.filter((read) => read.startsWith("/v1/invoices/")),
+    [],
+  );
+});
+
+Deno.test("a promotion code that is not a promotion code id is never passed on", async () => {
+  const f = fixture([
+    receipt("checkout.session.completed", "cs_live_1"),
+    receipt("checkout.session.completed", "cs_live_2"),
+  ]);
+  f.stripe.add(
+    ...payment("1"),
+    session("1", {
+      discounts: [{ coupon: "cpn1", promotion_code: null }],
+      total_details: { amount_tax: 0, amount_discount: 0 },
+    }),
+    ...payment("2"),
+    session("2", {
+      discounts: [{ promotion_code: "promo_has spaces" }, {
+        promotion_code: "coupon_Anna10",
+      }],
+    }),
+  );
+  await f.run();
+  assertEquals(f.sales.length, 2);
+  for (const sale of f.sales) assert(!("promotion_code_id" in sale));
 });

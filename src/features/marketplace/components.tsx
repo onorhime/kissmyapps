@@ -1,8 +1,9 @@
 import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Search } from 'lucide-react'
+import { BadgePercent, Search, ShoppingCart } from 'lucide-react'
 import type { AgreementDoc, Category } from '../../merchant/programs'
 import {
+  buyerOfferLines,
   categoriesPresent,
   categoryLabel,
   filterPrograms,
@@ -70,6 +71,36 @@ export function StatusPill({
   return <span className={`mkt-pill mkt-pill-${pillTone}`}>{children}</span>
 }
 
+/**
+ * What buyers get, a line each: where a checkout link leads and the discount with a creator's
+ * code. Nothing for a program on its own checkout with no discount. `discount={false}` leaves
+ * the discount out where the creator's own code says it instead.
+ */
+export function BuyerOffer({
+  program,
+  discount = true,
+}: {
+  program: MarketplaceProgram
+  discount?: boolean
+}) {
+  const lines = buyerOfferLines(program).filter((line) => discount || line.key !== 'discount')
+  if (lines.length === 0) return null
+  return (
+    <ul className="p8-offer" aria-label="What buyers get">
+      {lines.map((line) => (
+        <li key={line.key}>
+          {line.key === 'checkout' ? (
+            <ShoppingCart size={16} aria-hidden="true" />
+          ) : (
+            <BadgePercent size={16} aria-hidden="true" />
+          )}
+          <span>{line.text}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function ProgramCard({
   program,
   href,
@@ -100,6 +131,7 @@ export function ProgramCard({
         <p className={`mkt-card-headline${programHeadlineClass(program)}`}>{headline}</p>
       )}
       {rewards && <p className="mkt-card-rewards">{rewards}</p>}
+      <BuyerOffer program={program} />
       <footer className="mkt-card-foot">
         <span>{programTermsLine(program)}</span>
         <a

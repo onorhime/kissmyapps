@@ -1,0 +1,15 @@
+{
+  "claim_program_promo_codes.pending": {
+    "codes": [
+      {
+        "id": "f5e53614-5317-49b0-9b7b-8e92f104b34c",
+        "code": "ANNA10",
+        "coupon_id": null,
+        "account_id": "acct_P8Checkout",
+        "program_id": "d582a05c-c1d1-40bf-a056-b880d6dbf1a2",
+        "discount_bps": 1000
+      }
+    ],
+    "deactivate": []
+  }
+}

@@ -894,3 +894,141 @@
     transition: none;
   }
 }
+
+/* Phase 8: checkout links and promo codes (p8-) -------------------------------------------- */
+
+/* What buyers get, on a card and beside an agreement: a quiet line each. */
+.p8-offer {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p8-offer li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.p8-offer svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--brand-muted);
+}
+
+/* A creator's promo code: the code in a box of its own, its Copy button, a quieter note. */
+.p8-promo-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.p8-promo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  min-width: 0;
+}
+
+.p8-promo-line {
+  min-width: 0;
+  color: var(--brand-text);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.p8-code {
+  display: inline-block;
+  padding: 1px 10px;
+  border: 1px solid var(--brand-line);
+  border-radius: 8px;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  user-select: all;
+}
+
+.p8-promo-note,
+.p8-promo-by-hand {
+  max-width: 72ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.p8-promo-by-hand:empty {
+  display: none;
+}
+
+/* Being made, or could not be made: a coloured dot as the link's status has, then the words. */
+.p8-promo-state {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: 72ch;
+  color: var(--brand-text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.p8-promo-state::before {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  content: '';
+  transform: translateY(-1px);
+}
+
+.p8-promo-pending::before {
+  background: var(--brand-orange);
+}
+
+.p8-promo-failed::before {
+  background: var(--brand-red);
+}
+
+/* Beside the agreement the box is narrow: the code takes its line, Copy goes under it. */
+.p8-promo-side h3 {
+  color: var(--brand-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.mkt-side .p8-promo-line,
+.mkt-side .p8-promo-state {
+  color: var(--brand-text);
+  font-size: 14px;
+}
+
+.mkt-side .p8-promo-note {
+  font-size: 13px;
+}
+
+.mkt-side .p8-promo-row .mkt-btn {
+  width: 100%;
+}
+
+/* On a membership card the code reads at the card's size. */
+.pmk-member .p8-promo-line,
+.pmk-member .p8-promo-state {
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .p8-promo-row .mkt-btn {
+    width: 100%;
+  }
+}
