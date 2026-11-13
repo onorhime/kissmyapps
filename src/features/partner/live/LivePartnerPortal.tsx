@@ -246,7 +246,7 @@ export function LivePartnerPortal({
 
       {/* Program earnings belong to the creator, not to the product chosen above. */}
       {page === 'payouts' && !loading && !failed && (
-        <ProgramEarningsPanel gateway={workspace.gateway} />
+        <ProgramEarningsPanel gateway={workspace.gateway} client={workspace.client} />
       )}
 
       {page === 'profile' ? (
