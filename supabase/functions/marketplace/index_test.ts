@@ -48,6 +48,45 @@ const DETAIL = {
   agreement_sha256: "a".repeat(64),
 };
 
+// The same card as the database sends it now that a program can pay for events.
+const SALES_CARD = { ...CARD, earn_from: "sales", rewards: [] };
+
+const SIGNUP = {
+  key: "signup_completed",
+  label: "Account created",
+  amount_minor: 200,
+};
+const TRIAL = {
+  key: "trial_started",
+  label: "Trial started",
+  amount_minor: 500,
+};
+
+// Pays for events only: no commission at all.
+const EVENTS_CARD = {
+  ...CARD,
+  slug: "fluent",
+  name: "Fluent",
+  commission_type: null,
+  commission_rate_bps: null,
+  commission_fixed_minor: null,
+  commission_duration: null,
+  commission_months: null,
+  earn_from: "events",
+  rewards: [SIGNUP, TRIAL],
+};
+
+// Pays a commission and a reward.
+const BOTH_CARD = {
+  ...CARD,
+  slug: "pocket-chef",
+  name: "Pocket Chef",
+  earn_from: "both",
+  rewards: [SIGNUP],
+};
+
+const EVENTS_DETAIL = { ...DETAIL, ...EVENTS_CARD };
+
 interface Fake {
   handler: (request: Request) => Promise<Response>;
   calls: string[];
@@ -408,6 +447,173 @@ Deno.test("an answer that is not the agreed shape is refused, never passed on", 
     const response = await handler(get("?slug=speaksix"));
     assertPublicError(response, 503);
     assertEquals((await response.json()).error, "database_boundary_error");
+  }
+});
+
+Deno.test("the list answers sales, events and both programs with what each pays", async () => {
+  const cards = [SALES_CARD, EVENTS_CARD, BOTH_CARD];
+  const { handler, logs } = fake({
+    list: () => Promise.resolve({ programs: cards }),
+  });
+  const response = await handler(get());
+  assertEquals(response.status, 200);
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(response.headers.get("x-content-type-options"), "nosniff");
+  assertEquals(await response.json(), { programs: cards });
+  assertEquals(logs, []);
+});
+
+Deno.test("an events program is answered by its slug with no commission and its rewards", async () => {
+  const { handler } = fake({
+    detail: () => Promise.resolve({ program: EVENTS_DETAIL }),
+  });
+  const response = await handler(get("?slug=fluent"));
+  assertEquals(response.status, 200);
+  const { program } = await response.json();
+  assertEquals(program, EVENTS_DETAIL);
+  assertEquals(program.commission_type, null);
+  assertEquals(program.rewards, [SIGNUP, TRIAL]);
+});
+
+Deno.test("an answer without earn_from and rewards, or with both null, is passed on as it always was", async () => {
+  for (const card of [CARD, { ...CARD, earn_from: null, rewards: null }]) {
+    const { handler } = fake({
+      list: () => Promise.resolve({ programs: [card] }),
+      detail: () => Promise.resolve({ program: { ...DETAIL, ...card } }),
+    });
+    assertEquals(await (await handler(get())).json(), { programs: [CARD] });
+    assertEquals(await (await handler(get("?slug=speaksix"))).json(), {
+      program: DETAIL,
+    });
+  }
+});
+
+Deno.test("only the three fields of a reward leave the function, and a label stays text", async () => {
+  const label = "<img src=x onerror=alert(1)>";
+  const leaky = {
+    ...EVENTS_CARD,
+    reward_budget_minor: 50000,
+    rewards: [
+      {
+        ...SIGNUP,
+        label: `  ${label} `,
+        count: 41,
+        person_id: "5d0c7f0e-27e5-4f4e-9d2f-0f7f1d9e1c11",
+        event_id: "0b0f6a52-7a3e-4a43-9d5c-0f3f1f8f6f11",
+      },
+    ],
+  };
+  const { handler } = fake({
+    list: () => Promise.resolve({ programs: [leaky] }),
+  });
+  const response = await handler(get());
+  // JSON that a browser will not sniff as a page: the label is data.
+  assertEquals(
+    response.headers.get("content-type"),
+    "application/json; charset=utf-8",
+  );
+  assertEquals(response.headers.get("x-content-type-options"), "nosniff");
+  assertEquals(await response.json(), {
+    programs: [{ ...EVENTS_CARD, rewards: [{ ...SIGNUP, label }] }],
+  });
+});
+
+Deno.test("a reward at the limits is accepted: five rewards, a 40-character label, the largest amount", async () => {
+  const rewards = Array.from({ length: 5 }, (_, index) => ({
+    key: `step.${index}:done-ok_`,
+    label: "é".repeat(40),
+    amount_minor: index === 0 ? 1 : 100_000_000,
+  }));
+  const card = { ...EVENTS_CARD, rewards };
+  const { handler } = fake({
+    list: () => Promise.resolve({ programs: [card] }),
+  });
+  const response = await handler(get());
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { programs: [card] });
+});
+
+Deno.test("a card that does not say whole what it pays is refused, never passed on", async () => {
+  const six = Array.from({ length: 6 }, (_, index) => ({
+    ...SIGNUP,
+    key: `event_${index}`,
+  }));
+  const wrongCards: Record<string, unknown>[] = [
+    // Neither a commission nor a reward, in every shape.
+    { ...CARD, commission_type: null },
+    { ...CARD, commission_duration: null },
+    { ...SALES_CARD, commission_type: null },
+    { ...EVENTS_CARD, rewards: [] },
+    { ...EVENTS_CARD, earn_from: "sales", rewards: [] },
+    // A commission is null only for events, and events has none.
+    { ...BOTH_CARD, commission_type: null },
+    { ...BOTH_CARD, commission_duration: null },
+    { ...EVENTS_CARD, commission_type: "percent" },
+    { ...EVENTS_CARD, commission_rate_bps: 3000 },
+    { ...EVENTS_CARD, commission_fixed_minor: 500 },
+    { ...EVENTS_CARD, commission_duration: "lifetime" },
+    { ...EVENTS_CARD, commission_months: 12 },
+    { ...EVENTS_CARD, earn_from: null },
+    { ...EVENTS_CARD, earn_from: undefined },
+    // Rewards belong to events and both, and both needs one.
+    { ...BOTH_CARD, rewards: [] },
+    { ...SALES_CARD, rewards: [SIGNUP] },
+    { ...SALES_CARD, rewards: null },
+    { ...CARD, earn_from: "sales" },
+    { ...CARD, rewards: [] },
+    { ...EVENTS_CARD, earn_from: "installs" },
+    { ...EVENTS_CARD, earn_from: ["events"] },
+    // The list itself.
+    { ...EVENTS_CARD, rewards: null },
+    { ...EVENTS_CARD, rewards: "signup_completed" },
+    { ...EVENTS_CARD, rewards: { 0: SIGNUP } },
+    { ...EVENTS_CARD, rewards: six },
+    // One reward.
+    { ...EVENTS_CARD, rewards: [null] },
+    { ...EVENTS_CARD, rewards: ["signup_completed"] },
+    { ...EVENTS_CARD, rewards: [[SIGNUP]] },
+    { ...EVENTS_CARD, rewards: [SIGNUP, { ...TRIAL, key: SIGNUP.key }] },
+    ...[
+      { key: undefined },
+      { key: "" },
+      { key: 7 },
+      { key: "9lives" },
+      { key: "sign up" },
+      { key: "signup<script>" },
+      { key: `a${"b".repeat(80)}` },
+      { label: undefined },
+      { label: "" },
+      { label: "   " },
+      { label: 200 },
+      { label: "a".repeat(41) },
+      { amount_minor: undefined },
+      { amount_minor: null },
+      { amount_minor: 0 },
+      { amount_minor: -200 },
+      { amount_minor: 199.5 },
+      { amount_minor: "200" },
+      { amount_minor: 100_000_001 },
+    ].map((change) => ({
+      ...EVENTS_CARD,
+      rewards: [{ ...SIGNUP, ...change }],
+    })),
+  ];
+  for (const card of wrongCards) {
+    const { handler, logs } = fake({
+      list: () => Promise.resolve({ programs: [SALES_CARD, card] }),
+      detail: () => Promise.resolve({ program: { ...DETAIL, ...card } }),
+    });
+    for (const query of ["", "?slug=speaksix"]) {
+      const response = await handler(get(query));
+      assertPublicError(response, 503);
+      const body = await response.json();
+      assertEquals(body.error, "database_boundary_error", JSON.stringify(card));
+      assertEquals(JSON.stringify(body).includes("signup"), false);
+    }
+    assertEquals(logs.length, 2);
   }
 });
 

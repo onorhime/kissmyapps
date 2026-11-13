@@ -10,8 +10,20 @@ const COMMISSION_TYPES = ["percent", "fixed"] as const;
 const COMMISSION_DURATIONS = ["first_payment", "months", "lifetime"] as const;
 const APPROVAL_MODES = ["automatic", "manual"] as const;
 const PUBLIC_STATUSES = ["live", "paused"] as const;
+const EARN_FROM = ["sales", "events", "both"] as const;
+const REWARD_KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/;
 
 export const MAXIMUM_SLUG_LENGTH = 80;
+export const MAXIMUM_REWARDS = 5;
+export const MAXIMUM_REWARD_LABEL_LENGTH = 40;
+export const MAXIMUM_REWARD_MINOR = 100_000_000;
+
+/** One event a program pays for: what creators read and what it pays. */
+export interface ProgramReward {
+  key: string;
+  label: string;
+  amount_minor: number;
+}
 
 export interface ProgramCard {
   slug: string;
@@ -20,17 +32,25 @@ export interface ProgramCard {
   tagline: string | null;
   logo_path: string | null;
   brand_name: string | null;
-  commission_type: typeof COMMISSION_TYPES[number];
+  /** Null only for a program that pays for events and not for sales. */
+  commission_type: typeof COMMISSION_TYPES[number] | null;
   commission_rate_bps: number | null;
   commission_fixed_minor: number | null;
   currency: string;
-  commission_duration: typeof COMMISSION_DURATIONS[number];
+  commission_duration: typeof COMMISSION_DURATIONS[number] | null;
   commission_months: number | null;
   attribution_window_days: number;
   hold_days: number;
   minimum_payout_minor: number;
   approval_mode: typeof APPROVAL_MODES[number];
   terms_version: number;
+  /**
+   * What creators earn from, and the rewards for events. Both are left out of
+   * an answer from before programs could pay for events: that is a sales
+   * program with no rewards.
+   */
+  earn_from?: typeof EARN_FROM[number];
+  rewards?: ProgramReward[];
 }
 
 export interface AgreementDoc {
@@ -94,6 +114,60 @@ export function isProgramSlug(value: unknown): value is string {
     SLUG.test(value);
 }
 
+/** Reads the rewards of a card. One reward that does not fit refuses them all. */
+function programRewards(value: unknown): ProgramReward[] | null {
+  if (!Array.isArray(value) || value.length > MAXIMUM_REWARDS) return null;
+  const rewards: ProgramReward[] = [];
+  for (const entry of value) {
+    if (!isObject(entry)) return null;
+    const { key, amount_minor } = entry;
+    const label = typeof entry.label === "string" ? entry.label.trim() : "";
+    if (
+      typeof key !== "string" || !REWARD_KEY.test(key) ||
+      rewards.some((reward) => reward.key === key) || label === "" ||
+      [...label].length > MAXIMUM_REWARD_LABEL_LENGTH ||
+      !isCount(amount_minor) || amount_minor < 1 ||
+      amount_minor > MAXIMUM_REWARD_MINOR
+    ) return null;
+    rewards.push({ key, label, amount_minor });
+  }
+  return rewards;
+}
+
+/**
+ * What the card says creators earn from, checked against its commission.
+ * `{}` for an answer from before programs could pay for events (neither key,
+ * or both null), which must have a commission as it always did. `null` when
+ * the card is not whole: sales and both need a commission, events must have
+ * none, events and both need at least one reward, sales has none.
+ */
+function programEarnFrom(
+  value: Json,
+): Pick<ProgramCard, "earn_from" | "rewards"> | null {
+  const commission = [
+    value.commission_type,
+    value.commission_rate_bps,
+    value.commission_fixed_minor,
+    value.commission_duration,
+    value.commission_months,
+  ];
+  const hasCommission = value.commission_type !== null &&
+    value.commission_duration !== null;
+  if ((value.earn_from ?? null) === null && (value.rewards ?? null) === null) {
+    return hasCommission ? {} : null;
+  }
+  const { earn_from } = value;
+  const rewards = programRewards(value.rewards);
+  if (!isOneOf(EARN_FROM, earn_from) || !rewards) return null;
+  if (
+    earn_from === "events"
+      ? commission.some((field) => field !== null)
+      : !hasCommission
+  ) return null;
+  if ((earn_from === "sales") !== (rewards.length === 0)) return null;
+  return { earn_from, rewards };
+}
+
 export function programCard(value: unknown): ProgramCard | null {
   if (!isObject(value)) return null;
   const {
@@ -118,16 +192,21 @@ export function programCard(value: unknown): ProgramCard | null {
   if (
     !isProgramSlug(slug) || !isText(name) || !isTextOrNull(category) ||
     !isTextOrNull(tagline) || !isTextOrNull(logo_path) ||
-    !isTextOrNull(brand_name) || !isOneOf(COMMISSION_TYPES, commission_type) ||
+    !isTextOrNull(brand_name) ||
+    !(commission_type === null ||
+      isOneOf(COMMISSION_TYPES, commission_type)) ||
     !isCountOrNull(commission_rate_bps) ||
     !isCountOrNull(commission_fixed_minor) ||
     typeof currency !== "string" || !CURRENCY.test(currency) ||
-    !isOneOf(COMMISSION_DURATIONS, commission_duration) ||
+    !(commission_duration === null ||
+      isOneOf(COMMISSION_DURATIONS, commission_duration)) ||
     !isCountOrNull(commission_months) || !isCount(attribution_window_days) ||
     !isCount(hold_days) || !isCount(minimum_payout_minor) ||
     !isOneOf(APPROVAL_MODES, approval_mode) || !isCount(terms_version) ||
     terms_version < 1
   ) return null;
+  const pays = programEarnFrom(value);
+  if (!pays) return null;
   return {
     slug,
     name,
@@ -146,6 +225,7 @@ export function programCard(value: unknown): ProgramCard | null {
     minimum_payout_minor,
     approval_mode,
     terms_version,
+    ...pays,
   };
 }
 

@@ -164,5 +164,353 @@
       "commission_fixed_minor": null,
       "attribution_window_days": 30
     }
+  },
+  "marketplace_program_both": {
+    "program": {
+      "id": "00000000-0000-4000-8000-0000000000b1",
+      "name": "Pocket Chef",
+      "slug": "pocket-chef",
+      "status": "live",
+      "rewards": [
+        {
+          "key": "signup_completed",
+          "label": "Account created",
+          "amount_minor": 150
+        }
+      ],
+      "tagline": "Dinner planned in the time it takes to boil water.",
+      "category": "food_drink",
+      "currency": "USD",
+      "agreement": {
+        "title": "Pocket Chef Affiliate Agreement",
+        "summary": [
+          {
+            "label": "Commission",
+            "value": "20% of every payment"
+          },
+          {
+            "label": "Rewards",
+            "value": "$1.50 per Account created"
+          },
+          {
+            "label": "Attribution window",
+            "value": "30 days"
+          },
+          {
+            "label": "Hold before payout",
+            "value": "30 days"
+          },
+          {
+            "label": "Minimum payout",
+            "value": "$20.00"
+          }
+        ],
+        "sections": [
+          {
+            "heading": "1. Who this agreement is between",
+            "paragraphs": [
+              "This agreement is between you, the creator, and Pocket Chef Inc, the business behind Pocket Chef. KissMyApps is the platform the program runs on. It tracks sales and rewards and pays you on behalf of Pocket Chef Inc.",
+              "You sign this agreement by accepting it on KissMyApps. Pocket Chef Inc agreed to these terms when it published them, so nobody needs to countersign."
+            ]
+          },
+          {
+            "heading": "2. What you promote",
+            "paragraphs": [
+              "You promote Pocket Chef. KissMyApps gives you your own link, and people who click it land on https://pocketchef.example.test/.",
+              "You can start as soon as you accept this agreement."
+            ]
+          },
+          {
+            "heading": "3. Commission",
+            "paragraphs": [
+              "You earn 20% of every payment credited to you, for as long as the customer keeps paying.",
+              "A sale is credited to you when a customer clicks your link and pays within 30 days of that click."
+            ]
+          },
+          {
+            "heading": "4. Rewards",
+            "paragraphs": [
+              "You earn a reward when a person who opened your link does one of these on Pocket Chef:",
+              "Account created: $1.50."
+            ]
+          },
+          {
+            "heading": "5. How a reward is credited to you",
+            "paragraphs": [
+              "Each reward is earned once per person.",
+              "It goes to the last creator link that person opened in the 30 days before.",
+              "Pocket Chef Inc sets a monthly budget for rewards and KissMyApps sets a daily limit per creator. Rewards stop when either is reached.",
+              "Your own actions earn nothing."
+            ]
+          },
+          {
+            "heading": "6. Hold and rejected rewards",
+            "paragraphs": [
+              "A reward is held for 30 days before it can be paid out.",
+              "In that time Pocket Chef Inc may reject it when it is fake, a duplicate or your own."
+            ]
+          },
+          {
+            "heading": "7. Payouts",
+            "paragraphs": [
+              "KissMyApps pays what you earned on behalf of Pocket Chef Inc, to the payout account you connect on KissMyApps.",
+              "It is paid when what you can be paid reaches $20.00."
+            ]
+          },
+          {
+            "heading": "8. How you may promote",
+            "paragraphs": [
+              "Be honest. Only say things about Pocket Chef that are true.",
+              "Tell your audience clearly that you earn commission and rewards when they use your link.",
+              "Do not send spam. Do not send fake, automated or paid-for clicks or sign-ups."
+            ]
+          },
+          {
+            "heading": "9. Changes to these terms",
+            "paragraphs": [
+              "Pocket Chef Inc can change these terms by publishing a new version. KissMyApps will ask you to accept it."
+            ]
+          },
+          {
+            "heading": "10. Ending this agreement",
+            "paragraphs": [
+              "You or Pocket Chef Inc can end this agreement at any time."
+            ]
+          }
+        ],
+        "brand_name": "Pocket Chef Inc",
+        "extra_terms": null,
+        "program_name": "Pocket Chef"
+      },
+      "earn_from": "both",
+      "hold_days": 30,
+      "logo_path": null,
+      "brand_name": "Pocket Chef Inc",
+      "landing_url": "https://pocketchef.example.test/",
+      "approval_mode": "automatic",
+      "terms_version": 2,
+      "commission_type": "percent",
+      "agreement_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "commission_months": null,
+      "commission_duration": "lifetime",
+      "commission_rate_bps": 2000,
+      "minimum_payout_minor": 2000,
+      "commission_fixed_minor": null,
+      "attribution_window_days": 30
+    }
+  },
+  "marketplace_program_events": {
+    "program": {
+      "id": "00000000-0000-4000-8000-0000000000e1",
+      "name": "Fluent",
+      "slug": "fluent",
+      "status": "live",
+      "rewards": [
+        {
+          "key": "signup_completed",
+          "label": "Account created",
+          "amount_minor": 200
+        },
+        {
+          "key": "trial_started",
+          "label": "Trial started",
+          "amount_minor": 500
+        }
+      ],
+      "tagline": "Five minutes of Spanish a day.",
+      "category": "education",
+      "currency": "USD",
+      "agreement": {
+        "title": "Fluent Affiliate Agreement",
+        "summary": [
+          {
+            "label": "Rewards",
+            "value": "$2.00 per Account created, $5.00 per Trial started"
+          },
+          {
+            "label": "Attribution window",
+            "value": "30 days"
+          },
+          {
+            "label": "Hold before payout",
+            "value": "14 days"
+          },
+          {
+            "label": "Minimum payout",
+            "value": "$20.00"
+          }
+        ],
+        "sections": [
+          {
+            "heading": "1. Who this agreement is between",
+            "paragraphs": [
+              "This agreement is between you, the creator, and Fluent Labs, the business behind Fluent. KissMyApps is the platform the program runs on. It tracks rewards and pays you on behalf of Fluent Labs.",
+              "You sign this agreement by accepting it on KissMyApps. Fluent Labs agreed to these terms when it published them, so nobody needs to countersign."
+            ]
+          },
+          {
+            "heading": "2. What you promote",
+            "paragraphs": [
+              "You promote Fluent. KissMyApps gives you your own link, and people who click it land on https://fluent.example.test/start.",
+              "Fluent Labs approves each creator before a link is issued."
+            ]
+          },
+          {
+            "heading": "3. Rewards",
+            "paragraphs": [
+              "You earn a reward when a person who opened your link does one of these on Fluent:",
+              "Account created: $2.00.",
+              "Trial started: $5.00.",
+              "Sales do not earn anything in this program."
+            ]
+          },
+          {
+            "heading": "4. How a reward is credited to you",
+            "paragraphs": [
+              "Each reward is earned once per person.",
+              "It goes to the last creator link that person opened in the 30 days before.",
+              "Fluent Labs sets a monthly budget for rewards and KissMyApps sets a daily limit per creator. Rewards stop when either is reached.",
+              "Your own actions earn nothing."
+            ]
+          },
+          {
+            "heading": "5. Hold and rejected rewards",
+            "paragraphs": [
+              "A reward is held for 14 days before it can be paid out.",
+              "In that time Fluent Labs may reject it when it is fake, a duplicate or your own."
+            ]
+          },
+          {
+            "heading": "6. Payouts",
+            "paragraphs": [
+              "KissMyApps pays what you earned on behalf of Fluent Labs, to the payout account you connect on KissMyApps.",
+              "It is paid when what you can be paid reaches $20.00."
+            ]
+          },
+          {
+            "heading": "7. How you may promote",
+            "paragraphs": [
+              "Be honest. Only say things about Fluent that are true.",
+              "Tell your audience clearly that you earn rewards when they use your link.",
+              "Do not send spam. Do not send fake, automated or paid-for clicks or sign-ups."
+            ]
+          },
+          {
+            "heading": "8. Changes to these terms",
+            "paragraphs": [
+              "Fluent Labs can change these terms by publishing a new version. KissMyApps will ask you to accept it."
+            ]
+          },
+          {
+            "heading": "9. Ending this agreement",
+            "paragraphs": [
+              "You or Fluent Labs can end this agreement at any time."
+            ]
+          }
+        ],
+        "brand_name": "Fluent Labs",
+        "extra_terms": null,
+        "program_name": "Fluent"
+      },
+      "earn_from": "events",
+      "hold_days": 14,
+      "logo_path": null,
+      "brand_name": "Fluent Labs",
+      "landing_url": "https://fluent.example.test/start",
+      "approval_mode": "manual",
+      "terms_version": 1,
+      "commission_type": null,
+      "agreement_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "commission_months": null,
+      "commission_duration": null,
+      "commission_rate_bps": null,
+      "minimum_payout_minor": 2000,
+      "commission_fixed_minor": null,
+      "attribution_window_days": 30
+    }
+  },
+  "marketplace_programs_mixed": {
+    "programs": [
+      {
+        "name": "Pocket Chef",
+        "slug": "pocket-chef",
+        "rewards": [
+          {
+            "key": "signup_completed",
+            "label": "Account created",
+            "amount_minor": 150
+          }
+        ],
+        "tagline": "Dinner planned in the time it takes to boil water.",
+        "category": "food_drink",
+        "currency": "USD",
+        "earn_from": "both",
+        "hold_days": 30,
+        "logo_path": null,
+        "brand_name": "Pocket Chef Inc",
+        "approval_mode": "automatic",
+        "terms_version": 2,
+        "commission_type": "percent",
+        "commission_months": null,
+        "commission_duration": "lifetime",
+        "commission_rate_bps": 2000,
+        "minimum_payout_minor": 2000,
+        "commission_fixed_minor": null,
+        "attribution_window_days": 30
+      },
+      {
+        "name": "Fluent",
+        "slug": "fluent",
+        "rewards": [
+          {
+            "key": "signup_completed",
+            "label": "Account created",
+            "amount_minor": 200
+          },
+          {
+            "key": "trial_started",
+            "label": "Trial started",
+            "amount_minor": 500
+          }
+        ],
+        "tagline": "Five minutes of Spanish a day.",
+        "category": "education",
+        "currency": "USD",
+        "earn_from": "events",
+        "hold_days": 14,
+        "logo_path": null,
+        "brand_name": "Fluent Labs",
+        "approval_mode": "manual",
+        "terms_version": 1,
+        "commission_type": null,
+        "commission_months": null,
+        "commission_duration": null,
+        "commission_rate_bps": null,
+        "minimum_payout_minor": 2000,
+        "commission_fixed_minor": null,
+        "attribution_window_days": 30
+      },
+      {
+        "name": "SpeakSix",
+        "slug": "speaksix",
+        "rewards": [],
+        "tagline": "Speak English with confidence in six weeks.",
+        "category": "education",
+        "currency": "USD",
+        "earn_from": "sales",
+        "hold_days": 30,
+        "logo_path": "059e4796-6268-4734-99b5-6df8f74b2edf/logo.png",
+        "brand_name": "SpeakSix Ltd",
+        "approval_mode": "automatic",
+        "terms_version": 1,
+        "commission_type": "percent",
+        "commission_months": 12,
+        "commission_duration": "months",
+        "commission_rate_bps": 3000,
+        "minimum_payout_minor": 2000,
+        "commission_fixed_minor": null,
+        "attribution_window_days": 30
+      }
+    ]
   }
 }
