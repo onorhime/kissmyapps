@@ -529,6 +529,23 @@ verify_jwt = false
 # disabled unless MARKETPLACE_ENABLED=true.
 [functions.marketplace]
 verify_jwt = false
+# Checkout link of a "kma_checkout" program, opened signed out by buyers at
+# kissmyapps.dev/checkout/<program>. GET and HEAD only, no session: it starts a Stripe
+# Checkout Session on the merchant's connected account (platform key, live only) and
+# answers 303 to Stripe. Disabled unless PROGRAM_CHECKOUT_ENABLED=true.
+[functions.program-checkout]
+verify_jwt = false
+# Makes creators' promo codes (coupon and promotion code) on merchants' connected
+# accounts and switches retired codes off. Called by a database schedule with its own
+# credential; disabled unless PROGRAM_PROMO_CODES_ENABLED=true.
+[functions.program-promo-worker]
+verify_jwt = false
+# In-app subscription events from RevenueCat and Adapty (/revenuecat, /adapty). No
+# Supabase session: the tool sends the Authorization header value the console showed
+# once, and the database finds the store connection by its SHA-256 hash. Disabled
+# unless PROGRAM_STORE_WEBHOOK_ENABLED=true.
+[functions.program-store-webhook]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false
@@ -567,6 +584,12 @@ verify_jwt = false
 # Merchant attribution: the link service on the VPS asks what each link domain serves,
 # with the shared ATTRIBUTION_LINK_SECRET. No Supabase session is involved.
 [functions.attribution-links]
+verify_jwt = false
+
+# Sends matched app installs to the merchant's own Amplitude project (HTTP V2 API). Called by
+# a database schedule with its own credential, or by hand with the internal worker credential;
+# disabled unless ANALYTICS_DESTINATIONS_ENABLED=true.
+[functions.analytics-destinations-worker]
 verify_jwt = false
 
 # Agreement emails and file cleanup: pg_cron calls it with its own credential from

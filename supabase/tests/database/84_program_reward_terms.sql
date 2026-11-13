@@ -519,7 +519,7 @@ select pg_temp.check(kma_internal.program_terms_earn_from(pg_temp.old_terms()) =
   'terms with no earn_from are read as sales with no rewards; sales terms never have rewards');
 
 -- A sales program, published while program money is off, as before Phase 6 -----------------------
-select pg_temp.check(pg_temp.state('quiet_owner', 'quiet') = '{"can_manage":true,"stripe_connected":true,"brand_name":"Quiet Club",
+select pg_temp.check(pg_temp.state('quiet_owner', 'quiet') = '{"can_manage":true,"stripe_connected":true,"stripe_charges_enabled":true,"brand_name":"Quiet Club",
     "events_available":false,"app_links_available":false,"program":null,
     "checklist":{"stripe_connected":true,"details":false,"landing_page":false,"commission":false,"agreement_read":false},
     "can_submit":false}'::jsonb, 'a workspace with no program is told that events are not available while program money is off');
@@ -563,9 +563,9 @@ select pg_temp.check(pg_temp.save_fails('quiet_owner', 'quiet', '{"earn_from":"e
   and (pg_temp.save('quiet_owner', 'quiet', '{"earn_from":null}')->'program'->>'earn_from') = 'sales',
   'while program money is off a program cannot be set to pay for events; clearing earn_from means sales');
 select pg_temp.check(pg_temp.card('quiet-club') @> '{"earn_from":"sales","rewards":[],"commission_type":"percent","terms_version":1}'
-  and pg_temp.keys(pg_temp.card('quiet-club')) = 'approval_mode attribution_window_days brand_name category commission_duration '
-    || 'commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from hold_days logo_path '
-    || 'minimum_payout_minor name rewards slug tagline terms_version',
+  and pg_temp.keys(pg_temp.card('quiet-club')) = 'approval_mode attribution_window_days brand_name buyer_discount_bps category checkout '
+    || 'commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from hold_days '
+    || 'logo_path minimum_payout_minor name payment_mode rewards slug tagline terms_version',
   'the card of a sales program says earn_from sales and has no rewards, beside every key it had');
 
 -- The same program as Phase 2 would have published it: its terms in force have neither key.
@@ -701,11 +701,12 @@ select pg_temp.check((select s->'program' @> '{"earn_from":"events","commission_
   and (select kma_internal.program_terms(p) = pg_temp.event_terms('{"approval_mode":"manual"}') from pg_temp.program('fluent') p),
   'going back to events keeps the commission on the form but leaves it out of the terms');
 select pg_temp.capture('workspace_program_get.events_draft', pg_temp.state('owner', 'fluent'));
-select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'app_links_available brand_name can_manage can_submit checklist events_available program stripe_connected'
-  and pg_temp.keys(pg_temp.state('owner', 'fluent')->'program') = 'agreement_read app_link approval_mode attribution_window_days category '
-    || 'commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from extra_terms '
+select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'app_links_available brand_name can_manage can_submit checklist events_available program stripe_charges_enabled stripe_connected'
+  and pg_temp.keys(pg_temp.state('owner', 'fluent')->'program') = 'agreement_read app_link approval_mode attribution_window_days buyer_discount_bps category '
+    || 'checkout commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from extra_terms '
     || 'first_published_at has_unpublished_changes hold_days id landing_url live_terms_version logo_path marketplace_listed '
-    || 'minimum_payout_minor name pause_reason review_note revision reward_budget_minor rewards slug status submitted_at tagline updated_at',
+    || 'minimum_payout_minor name pause_reason payment_mode promo_codes review_note revision reward_budget_minor rewards slug status submitted_at '
+    || 'tagline updated_at',
   'ProgramState gains events_available, and its program gains earn_from, rewards and reward_budget_minor');
 
 -- The events the form offers ---------------------------------------------------------------------
@@ -851,7 +852,8 @@ select pg_temp.check((select c = '{"slug":"fluent","name":"Fluent","category":"e
       "logo_path":null,"brand_name":"Fluent Labs","commission_type":null,"commission_rate_bps":null,"commission_fixed_minor":null,
       "currency":"USD","commission_duration":null,"commission_months":null,"attribution_window_days":30,"hold_days":30,
       "minimum_payout_minor":2000,"approval_mode":"manual","terms_version":1,"earn_from":"events",
-      "rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},{"key":"trial_started","label":"Trial started","amount_minor":500}]}'::jsonb
+      "rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},{"key":"trial_started","label":"Trial started","amount_minor":500}],
+      "payment_mode":"own_checkout","checkout":null,"buyer_discount_bps":null}'::jsonb
     from pg_temp.card('fluent') c),
   'the card of an events program has its rewards and no commission');
 
@@ -912,9 +914,9 @@ select pg_temp.check((select d->'membership' @> '{"status":"active","terms_versi
   'a member who joined under version 1 is asked to accept the new terms');
 select pg_temp.capture('partner_program_detail.events', pg_temp.detail('ada', 'fluent'));
 select pg_temp.check((select pg_temp.keys(d) = 'accept_name membership program'
-    and pg_temp.keys(d->'program') = 'agreement agreement_sha256 approval_mode attribution_window_days brand_name category commission_duration '
-      || 'commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from hold_days id landing_url logo_path '
-      || 'minimum_payout_minor name rewards slug status tagline terms_version'
+    and pg_temp.keys(d->'program') = 'agreement agreement_sha256 approval_mode attribution_window_days brand_name buyer_discount_bps '
+      || 'category checkout commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency '
+      || 'earn_from hold_days id landing_url logo_path minimum_payout_minor name payment_mode rewards slug status tagline terms_version'
     and d->'program' @> '{"earn_from":"events","commission_type":null,"commission_duration":null}'
     and d::text !~ 'reward_budget|80000'
   from pg_temp.detail('ada', 'fluent') d),

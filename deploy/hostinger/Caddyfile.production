@@ -62,6 +62,52 @@ merchant.kissmyapps.dev {
 	import kissmyapps_dashboard
 }
 
+# The main domain. Only the paths KissMyApps serves from it are routed here: the public
+# marketplace pages (docs/affiliate-self-serve-phase3-edge.md) and the checkout links of
+# programs that sell through KissMyApps (docs/affiliate-self-serve-phase8-deploy.md). If
+# kissmyapps.dev is served by another block or server today, merge these routes into it
+# and keep what serves the rest of the site (/terms, /privacy) as its last answer.
+kissmyapps.dev {
+	import compressed
+
+	route {
+		# Checkout links: GET and HEAD only. The program-checkout function answers a small
+		# page or a 303 to the merchant's Stripe Checkout page.
+		@checkoutWrongMethod {
+			path /checkout/*
+			not method GET HEAD
+		}
+		respond @checkoutWrongMethod "Method not allowed" 405
+
+		@checkout {
+			method GET HEAD
+			path /checkout/*
+		}
+		handle @checkout {
+			header {
+				Cache-Control "no-store, max-age=0"
+				X-Robots-Tag "noindex, nofollow, noarchive"
+			}
+			rewrite * /functions/v1/program-checkout{uri}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				header_up Host {upstream_hostport}
+				# Supabase answers text/html from its own domain as text/plain. The function
+				# writes only HTML pages and redirects, so text/plain here is one of its pages.
+				header_down Content-Type "^text/plain(.*)$" "text/html$1"
+			}
+		}
+
+		# The marketplace pages and the files the dashboard build loads from the site root.
+		@marketplace path /marketplace /marketplace/* /assets/* /favicon.svg /favicon-32.png /apple-touch-icon.png /kissmyapps-mark.svg
+		handle @marketplace {
+			reverse_proxy kissmyapps-dashboard:8080
+		}
+
+		# Whatever serves the rest of kissmyapps.dev replaces this answer when merged.
+		respond "Not found" 404
+	}
+}
+
 go.kissmyapps.dev {
 	import compressed
 

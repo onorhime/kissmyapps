@@ -1,0 +1,28 @@
+{
+  "claim_analytics_destination_jobs": {
+    "jobs": [
+      {
+        "id": "08b3b3e1-e147-4716-9d4d-e9d4d7dd70da",
+        "time": 1794606831006,
+        "region": "eu",
+        "user_id": "user-ann-01",
+        "provider": "amplitude",
+        "insert_id": "kma-08b3b3e1-e147-4716-9d4d-e9d4d7dd70da",
+        "user_properties": {
+          "kma_method": "install_referrer",
+          "kma_source": "creators",
+          "kma_creator": "Mira Maker",
+          "kma_campaign": "launch"
+        },
+        "event_properties": {
+          "exact": true,
+          "method": "install_referrer",
+          "source": "creators",
+          "creator": "Mira Maker",
+          "campaign": "launch",
+          "platform": "android"
+        }
+      }
+    ]
+  }
+}

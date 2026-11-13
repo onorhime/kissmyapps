@@ -578,7 +578,7 @@ select pg_temp.capture('partner_program_links.one_program', pg_temp.keep('links_
 select pg_temp.check((select pg_temp.keys(a) = 'channels max_custom_links programs stats_days'
       and jsonb_array_length(a->'programs') = 1
       and p - 'links' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
-        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 0)
+        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 0, 'promo_code', null)
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter'
       and (select bool_and(pg_temp.keys(l) = 'channel clicks created_at earnings_minor events kind link_id name removable sales url'
           and l @> '{"clicks":0,"sales":0,"events":0,"earnings_minor":0,"removable":false}'
@@ -750,7 +750,7 @@ select pg_temp.leave('eve', 'quiet');
 -- Custom links ---------------------------------------------------------------------------------------
 select pg_temp.capture('partner_program_link_create.first',
   pg_temp.keep('created', pg_temp.call('ada', pg_temp.create_sql('speaksix', 'Podcast'))));
-select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id slug working'
+select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id promo_code slug working'
       and p @> '{"slug":"speaksix","working":true,"custom_links":1}'
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast'
       and pg_temp.line(p, 'Podcast') - 'link_id' - 'created_at' = '{"kind":"custom","channel":null,"name":"Podcast",
@@ -806,7 +806,7 @@ select pg_temp.check(pg_temp.names(pg_temp.call('ada_helper', pg_temp.create_sql
 -- Removing.
 select pg_temp.capture('partner_program_link_remove.done',
   pg_temp.keep('removed', pg_temp.call('ada', pg_temp.remove_sql((pg_temp.link_row('ada', 'acme', repeat('n', 40))).id))));
-select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id slug working'
+select pg_temp.check((select pg_temp.keys(p) = 'currency custom_links earn_from links name paused_reason program_id promo_code slug working'
       and p->>'custom_links' = '2' and p = pg_temp.listed(pg_temp.links('ada'), 'speaksix')
       and pg_temp.names(p) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast, Blog post'
     from (select pg_temp.kept('removed') as p) x)
@@ -993,7 +993,7 @@ select pg_temp.capture('partner_program_links.two_programs', pg_temp.keep('links
 select pg_temp.check((select jsonb_array_length(a->'programs') = 2
       and a->'programs'->0->>'name' = 'Rival Reader' and a->'programs'->1->>'name' = 'SpeakSix'
       and s - 'links' = jsonb_build_object('program_id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
-        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 3)
+        'currency', 'USD', 'earn_from', 'sales', 'working', true, 'paused_reason', null, 'custom_links', 3, 'promo_code', null)
       and pg_temp.names(s) = 'Main link, TikTok, Instagram, YouTube, Facebook, X, Newsletter, Podcast, Blog post, Old bio'
       -- The last 30 days of Ada's calendar. The refunded sale, the unjudged one and the one that earned nothing are not sales.
       and pg_temp.numbers(s->'links') = 'Main link 2/2/4200, TikTok 3/1/1470, Instagram 2/0/0, Podcast 1/1/600, Blog post 1/0/0'
@@ -1238,7 +1238,8 @@ select pg_temp.check((select pg_temp.keys(a) = 'currency next_before program sal
       -- The last 30 days: the five sales whose commission is held. Ben's is one of them.
       and a->'summary' = '{"days":30,"sales":5,"sales_amount_minor":26900,"commission_minor":6870,"fee_minor":687}'
       and (select bool_and(pg_temp.keys(s) = 'amount_minor commission_minor creator_name currency fee_minor hold_until link_name '
-          || 'match_source member_id paid_at reason refunded_minor sale_id status') from jsonb_array_elements(a->'sales') s)
+          || 'match_source member_id paid_at promotion_code reason refunded_minor sale_id source status store')
+        and bool_and(s @> '{"source":"stripe","store":null,"promotion_code":null}') from jsonb_array_elements(a->'sales') s)
     from (select pg_temp.kept('page1') as a) x),
   'the Sales page names the program, its currency and the last 30 days in one line');
 select pg_temp.check(pg_temp.sold(pg_temp.kept('page1')) in ('c1 s8 s1 b1 s2', 'c1 s8 b1 s1 s2')
@@ -1254,7 +1255,7 @@ select pg_temp.check(pg_temp.sold(pg_temp.kept('page1')) in ('c1 s8 s1 b1 s2', '
 select pg_temp.check((select pg_temp.sold_line(a, 's1') - 'sale_id' = jsonb_build_object('paid_at', now(), 'amount_minor', 4900,
         'currency', 'USD', 'refunded_minor', 0, 'member_id', (pg_temp.member('ada', 'acme')).id, 'creator_name', 'Ada Okafor',
         'link_name', 'TikTok', 'match_source', 'metadata', 'status', 'pending', 'reason', null, 'commission_minor', 1470,
-        'fee_minor', 147, 'hold_until', now() + interval '30 days')
+        'fee_minor', 147, 'hold_until', now() + interval '30 days', 'source', 'stripe', 'store', null, 'promotion_code', null)
       and pg_temp.sold_line(a, 'b1') @> jsonb_build_object('member_id', (pg_temp.member('ben', 'acme')).id,
         'creator_name', 'Ben Creator', 'link_name', 'Main link', 'status', 'pending', 'commission_minor', 600, 'fee_minor', 60)
       and pg_temp.sold_line(a, 's2') @> '{"link_name":"Main link","match_source":"client_reference_id","status":"pending","commission_minor":3000}'

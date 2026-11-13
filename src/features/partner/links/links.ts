@@ -3,6 +3,8 @@ import { oneOf, record, text } from '../../marketplace/model'
 import type { PartnerDataErrorCode, PartnerDataStatus } from '../api/types'
 import { absent, creditedFor, readEarnFrom } from './earnFrom'
 import type { EarnFrom } from './earnFrom'
+import { readPromoCode } from './promoCode'
+import type { PromoCode } from './promoCode'
 
 /**
  * A creator's program links: what the `partner_program_links`, `partner_program_link_create`
@@ -53,6 +55,11 @@ export interface LinkProgram {
   custom_links: number
   /** The main link first, then the channels, then the custom links from the oldest. */
   links: ProgramLink[]
+  /**
+   * The creator's promo code, when the program gives buyers a discount and the code is not
+   * retired. Left out otherwise, and by a database from before promo codes.
+   */
+  promo_code?: PromoCode
 }
 
 export interface LinkChannel {
@@ -189,6 +196,7 @@ export function readLinkProgram(value: unknown): LinkProgram {
   const name = text(row?.name)
   const currency = currencyCode(row?.currency)
   const earnFrom = absent(row?.earn_from) ? undefined : readEarnFrom(row.earn_from)
+  const promoCode = readPromoCode(row?.promo_code)
   if (
     !row ||
     !programId ||
@@ -196,6 +204,7 @@ export function readLinkProgram(value: unknown): LinkProgram {
     !name ||
     !currency ||
     earnFrom === null ||
+    promoCode === null ||
     typeof row.working !== 'boolean' ||
     !Array.isArray(row.links)
   )
@@ -216,6 +225,7 @@ export function readLinkProgram(value: unknown): LinkProgram {
     // Never fewer than the custom links that are on the page.
     custom_links: Math.max(count(row.custom_links) ?? 0, customLinks),
     links,
+    ...(promoCode === undefined ? {} : { promo_code: promoCode }),
   }
 }
 

@@ -140,3 +140,36 @@ test('Vercel keeps original codes and encoded Unicode paths intact for upstream 
     )
   }
 })
+
+// The main domain's own block: checkout links (Phase 8) and the marketplace pages.
+const apexBlock = (file) => {
+  const start = file.indexOf('\nkissmyapps.dev {\n')
+  if (start < 0) return null
+  return file.slice(start + 1, file.indexOf('\n}\n', start + 1) + 2)
+}
+
+test('Checkout links on kissmyapps.dev go to the program-checkout function, GET and HEAD only', () => {
+  const apex = apexBlock(caddy)
+  assert.ok(apex)
+  assert.equal(apexBlock(production), apex)
+  assert.match(apex, /@checkoutWrongMethod \{\s+path \/checkout\/\*\s+not method GET HEAD\s+\}/)
+  assert.match(apex, /respond @checkoutWrongMethod "Method not allowed" 405/)
+  assert.match(apex, /@checkout \{\s+method GET HEAD\s+path \/checkout\/\*\s+\}/)
+  assert.equal((apex.match(/rewrite \* \/functions\/v1\/program-checkout\{uri\}/g) ?? []).length, 1)
+  assert.match(
+    apex,
+    /reverse_proxy https:\/\/mmyruzjemjecqyivhrgr\.supabase\.co \{\n\t+header_up Host \{upstream_hostport\}/,
+  )
+  // Supabase serves text/html from its own domain as text/plain: put it back.
+  assert.match(apex, /header_down Content-Type "\^text\/plain\(\.\*\)\$" "text\/html\$1"/)
+  assert.match(apex, /Cache-Control "no-store, max-age=0"/)
+  // The checkout route comes before the marketplace and the last answer.
+  assert.ok(apex.indexOf('handle @checkout') < apex.indexOf('handle @marketplace'))
+  assert.ok(apex.indexOf('handle @marketplace') < apex.lastIndexOf('respond "Not found" 404'))
+  // No dashboard snippet: its HSTS includeSubDomains would cover every subdomain.
+  assert.doesNotMatch(apex, /import kissmyapps_dashboard|includeSubDomains/)
+  // The pretty tracking paths stay on go.kissmyapps.dev only.
+  assert.doesNotMatch(apex, /tracking-redirect/)
+  // Only the checkout route reaches Supabase from this host.
+  assert.equal((apex.match(/reverse_proxy https:/g) ?? []).length, 1)
+})
