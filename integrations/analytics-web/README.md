@@ -62,8 +62,9 @@ to turn replays off, `data-app-version`. To pass other options, leave out
 ### Where visitors came from (attribution)
 
 Each visit keeps its landing page's UTM tags, the click ID of a KissMyApps link
-(`kma_lc`) and the ad platforms' click IDs (`gclid`, `gbraid`, `wbraid`,
-`fbclid`, `ttclid`, `msclkid`). Arriving from a new ad or link starts a new
+(`kma_lc`), the click ID of a creator's affiliate link (`kma_click`) and the ad
+platforms' click IDs (`gclid`, `gbraid`, `wbraid`, `fbclid`, `ttclid`,
+`msclkid`). Arriving from a new ad or link starts a new
 visit, so each visit has one source. When the project has attribution on, the
 console's **Attribution > Sources** report credits each conversion to the last
 visit with a source in the website window (30 days by default), or to the
@@ -89,6 +90,52 @@ Keeping a visitor's ad source in their browser needs consent in the EU and UK.
 `data-attribution="session"` (or `attribution: 'session'` in `init`) reads
 sources but keeps them only for the visit and leaves out `kma_aid`;
 `data-attribution="off"` reads no click IDs at all. `optOut()` forgets them.
+
+### Crediting creator sales (affiliate program)
+
+A creator's link sends the visitor to your landing page with `kma_click` on the
+address. The SDK keeps it with the visit's source for 30 days and sends it with
+the visit. To credit a sale, pass it to Stripe when you create the payment:
+
+```js
+// In the browser, when the buyer starts checkout. Null when no creator sent them.
+const kmaClick = window.kma?.getClickId?.() ?? null
+await fetch('/api/checkout', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ plan: 'annual', kmaClick }),
+})
+```
+
+```js
+// On your server, with a PaymentIntent
+await stripe.paymentIntents.create({
+  amount: 5000,
+  currency: 'usd',
+  metadata: kmaClick ? { kma_click: kmaClick } : {},
+})
+
+// or with a Checkout Session
+await stripe.checkout.sessions.create({
+  mode: 'subscription',
+  line_items: [{ price: 'price_…', quantity: 1 }],
+  success_url: 'https://example.com/thanks',
+  metadata: kmaClick ? { kma_click: kmaClick } : {},
+})
+```
+
+Where you cannot set metadata, such as a Payment Link, use
+`client_reference_id: 'kma_' + kmaClick` instead.
+
+`kma.getClickId()` returns the click of the visitor's last source, or of their
+first source when the last had none. It answers at once from memory and returns
+`null` when there is no creator click, before `init`, when the browser blocks
+storage and the visitor has moved to another page, after `optOut()`, and with
+`data-attribution="off"`. With `data-attribution="session"` the click lasts for
+the visit only. The `window.kma?.getClickId?.()` form above also covers a
+visitor whose browser blocked the script, so checkout never fails because of it.
+A value that is not a KissMyApps click ID (16 to 128 letters, numbers, `_` or
+`-`) is ignored.
 
 ### Session replay
 

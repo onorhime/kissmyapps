@@ -7,6 +7,7 @@ import {
   Boxes,
   ChartNoAxesCombined,
   CircleAlert,
+  ClipboardCheck,
   DatabaseZap,
   FileText,
   Gauge,
@@ -29,6 +30,7 @@ import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { ProductStatsPage } from './products/ProductStatsPage'
+import { ProgramsPage } from './programs/ProgramsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
 import { PayoutsPage } from './payouts/PayoutsPage'
@@ -38,6 +40,7 @@ import './AdminPortal.css'
 export type AdminPrimaryRoute =
   | 'overview'
   | 'products'
+  | 'programs'
   | 'affiliates'
   | 'funnels-links'
   | 'attribution'
@@ -76,6 +79,7 @@ const navigation: readonly (
 )[] = [
   { id: 'overview', label: 'Overview', icon: Gauge, enabled: true },
   { id: 'products', label: 'Products', icon: Package, enabled: true },
+  { id: 'programs', label: 'Programs', icon: ClipboardCheck, enabled: true },
   { id: 'affiliates', label: 'Affiliates', icon: Users, enabled: true },
   { id: 'funnels-links', label: 'Funnels & Links', icon: Link2, enabled: true },
   { id: 'attribution', label: 'Attribution', icon: Activity, enabled: true },
@@ -89,6 +93,7 @@ const navigation: readonly (
 const routeLabels: Record<AdminRoute, string> = {
   overview: 'Overview',
   products: 'Products',
+  programs: 'Programs',
   affiliates: 'Affiliates',
   'funnels-links': 'Funnels & Links',
   attribution: 'Attribution',
@@ -211,6 +216,10 @@ export function AdminPortalApp({
       (routeId === 'funnels-links' && funnelsLinksRestricted) ||
       ((routeId === 'attribution' || routeId === 'data-health') && observabilityRestricted) ||
       (routeId === 'settings' && settingsRestricted) ||
+      (routeId === 'programs' &&
+        Boolean(context) &&
+        context?.role !== 'owner' &&
+        context?.role !== 'operations') ||
       ((routeId === 'subscriptions' || routeId === 'payouts') && context?.role === 'support')
     )
   }
@@ -567,6 +576,8 @@ export function AdminPortalApp({
                 />
               ) : route === 'payouts' ? (
                 <PayoutsPage key={context.userId} role={context.role} gateway={effectiveGateway} />
+              ) : route === 'programs' ? (
+                <ProgramsPage key={context.userId} role={context.role} gateway={effectiveGateway} />
               ) : route === 'affiliates' || route === 'affiliate-detail' ? (
                 <AffiliatesPage
                   key={context.userId}

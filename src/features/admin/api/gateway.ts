@@ -35,6 +35,13 @@ import {
   type PayoutStatement,
   type PayoutActionResult,
 } from './payouts'
+import {
+  mapAdminProgramReviews,
+  mapAdminProgramStatusChange,
+  mapAdminProgramStatusResult,
+  type AdminProgramReviews,
+  type AdminProgramStatusResult,
+} from './programs'
 import type {
   AdminAffiliate,
   AdminAffiliateDirectoryPage,
@@ -107,6 +114,9 @@ export const ADMIN_RPCS = Object.freeze({
   subscriptions: 'get_admin_subscriptions',
   platformSettings: 'get_admin_platform_settings',
   configureTracking: 'configure_admin_tracking',
+  programReviews: 'list_admin_program_reviews',
+  reviewProgram: 'review_admin_program',
+  setProgramStatus: 'set_admin_program_status',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
@@ -305,6 +315,77 @@ function backendFailure<T>(
   })
 }
 
+const PROGRAM_CHANGED =
+  'This program has changed since the list was loaded. The list has been refreshed.'
+const PROGRAM_REQUEST_REFUSED = 'That request was not accepted. Nothing was changed.'
+
+/**
+ * Program functions name the reason for a refusal in the error's DETAIL. A known reason gets
+ * its own sentence; anything else falls back to the usual mapping by error code.
+ */
+const PROGRAM_REFUSALS: Readonly<Record<string, AdminDataError>> = Object.freeze({
+  stripe_not_connected: {
+    code: 'invalid_state',
+    message:
+      'Stripe is no longer connected for this workspace, so the program cannot go live. The merchant has to reconnect Stripe first.',
+    retryable: false,
+  },
+  agreement_not_read: {
+    code: 'invalid_state',
+    message:
+      'The agreement changed after the merchant read it. Request changes so they read it again.',
+    retryable: false,
+  },
+  status_not_allowed: { code: 'invalid_state', message: PROGRAM_CHANGED, retryable: false },
+  program_not_found: {
+    code: 'invalid_reference',
+    message: 'This program is no longer available. The list has been refreshed.',
+    retryable: false,
+  },
+  invalid_note: {
+    code: 'invalid_input',
+    message: 'Write a note of 5 to 1000 characters.',
+    retryable: false,
+  },
+  invalid_input: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_decision: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_program_id: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_status: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+})
+
+const PROGRAM_FAILURES: FailureMessages = Object.freeze({
+  conflict: PROGRAM_CHANGED,
+  invalidInput: PROGRAM_REQUEST_REFUSED,
+  invalidReference: 'This program is no longer available. The list has been refreshed.',
+  invalidState: PROGRAM_CHANGED,
+})
+
+function programFailure<T>(response: AdminBackendResponse, empty: Empty<T>): AdminDataResult<T> {
+  const refusal = PROGRAM_REFUSALS[response.error?.details?.trim() ?? '']
+  // Access failures keep their own mapping whatever the detail says.
+  const code = response.error?.code ?? ''
+  const access = code === '42501' || code === '28000' || code === 'PGRST301'
+  if (refusal && !access) return result(empty(), 'error', refusal)
+  return backendFailure(response, empty, PROGRAM_FAILURES)
+}
+
+async function programCall<T>(
+  client: AdminSupabaseClient,
+  functionName: string,
+  mapper: (value: unknown) => T,
+  args?: Record<string, unknown>,
+): Promise<AdminDataResult<T | null>> {
+  const called = await call(client, functionName, args)
+  if (!called.ok) return temporaryFailure<T | null>(() => null)
+  const response = called.response
+  if (response.error) return programFailure<T | null>(response, () => null)
+  try {
+    return result<T | null>(mapper(response.data), 'ready')
+  } catch {
+    return invalidResponse<T | null>(() => null)
+  }
+}
+
 async function mappedMutation<T>(
   client: AdminSupabaseClient,
   functionName: string,
@@ -374,8 +455,54 @@ async function call(
 
 export function createAdminGateway(
   client: AdminSupabaseClient | null = supabase as unknown as AdminSupabaseClient | null,
+  // Where public storage objects (program logos) are served from.
+  storageBaseUrl: string | null = import.meta.env.VITE_SUPABASE_URL?.trim() || null,
 ): AdminGateway {
   return {
+    async getProgramReviews() {
+      if (!client) return notConfigured<AdminProgramReviews | null>(() => null)
+      return programCall(client, ADMIN_RPCS.programReviews, (value) =>
+        mapAdminProgramReviews(value, storageBaseUrl),
+      )
+    },
+
+    async reviewProgram(input) {
+      if (!client) return notConfigured<AdminProgramStatusResult | null>(() => null)
+      const programId = input.programId.trim()
+      return programCall(
+        client,
+        ADMIN_RPCS.reviewProgram,
+        (value) =>
+          mapAdminProgramStatusResult(value, programId, [
+            input.decision === 'approve' ? 'live' : 'changes_requested',
+          ]),
+        {
+          p_input: {
+            program_id: programId,
+            decision: input.decision,
+            note: input.note?.trim() || null,
+          },
+        },
+      )
+    },
+
+    async setProgramStatus(input) {
+      if (!client) return notConfigured<AdminProgramStatusResult | null>(() => null)
+      const programId = input.programId.trim()
+      return programCall(
+        client,
+        ADMIN_RPCS.setProgramStatus,
+        (value) => mapAdminProgramStatusChange(value, programId, input.status),
+        {
+          p_input: {
+            program_id: programId,
+            status: input.status,
+            note: input.note?.trim() || null,
+          },
+        },
+      )
+    },
+
     async getAdminContext() {
       if (!client) return notConfigured<AdminContext | null>(() => null)
       const called = await call(client, ADMIN_RPCS.context)

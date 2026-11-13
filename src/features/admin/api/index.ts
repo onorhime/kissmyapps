@@ -1,5 +1,22 @@
 export { ADMIN_EDGE_FUNCTIONS, ADMIN_RPCS, adminGateway, createAdminGateway } from './gateway'
 export {
+  ADMIN_PROGRAM_PAUSE_REASONS,
+  ADMIN_PROGRAM_STATUSES,
+  PROGRAM_NOTE_MAX,
+  PROGRAM_NOTE_MIN,
+} from './programs'
+export type {
+  AdminProgramAgreement,
+  AdminProgramDecision,
+  AdminProgramPauseReason,
+  AdminProgramReview,
+  AdminProgramReviewInput,
+  AdminProgramReviews,
+  AdminProgramStatus,
+  AdminProgramStatusInput,
+  AdminProgramStatusResult,
+} from './programs'
+export {
   ADMIN_AFFILIATE_ACTIVATION_STATUSES,
   ADMIN_AFFILIATE_DIRECTORY_SORTS,
   ADMIN_AFFILIATE_EMAIL_CONFIRMATION_STATUSES,
