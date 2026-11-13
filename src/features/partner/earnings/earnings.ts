@@ -26,12 +26,24 @@ export interface ProgramEarningsRow {
   paid_minor: number
   /** Sales with commission that is pending or approved. */
   sales: number
+  /**
+   * Rewarded events that are pending or approved. Left out by a database from before events
+   * could be rewarded, which reads as none.
+   */
+  events?: number
   /** When the earliest pending commission leaves its hold. */
   next_release_at: string | null
 }
 
+/** What a commission was earned for: a sale, or a rewarded event such as a sign-up. */
+export type CommissionKind = 'sale' | 'reward'
+
 export interface RecentCommission {
   id: string
+  /** Left out by a database from before events could be rewarded: every row is a sale. */
+  kind?: CommissionKind
+  /** What the brand calls the reward: "Account created". Null for a sale. */
+  reward_label?: string | null
   program_id: string | null
   program_name: string
   status: CommissionStatus
@@ -40,7 +52,9 @@ export interface RecentCommission {
   /** What it was worth when the sale happened, before any refund. */
   earned_minor: number
   currency: string
+  /** Null for a reward: there is no sale behind it. */
   sale_amount_minor: number | null
+  /** When the sale was paid, or when the rewarded event happened. */
   paid_at: string | null
   hold_until: string | null
   approved_at: string | null
@@ -115,6 +129,7 @@ function readProgramRow(value: unknown): ProgramEarningsRow {
   const approved = minor(row?.approved_minor)
   if (!row || !programId || !name || !currency || pending === null || approved === null)
     throw new EarningsUnreadable()
+  const events = minor(row.events)
   return {
     program_id: programId,
     slug: text(row.slug),
@@ -125,28 +140,41 @@ function readProgramRow(value: unknown): ProgramEarningsRow {
     paying_minor: minor(row.paying_minor) ?? 0,
     paid_minor: minor(row.paid_minor) ?? 0,
     sales: Math.max(0, minor(row.sales) ?? 0),
+    // Only an answer that counts events has the key, so an older one reads as it always has.
+    ...(events === null ? {} : { events: Math.max(0, events) }),
     next_release_at: moment(row.next_release_at),
   }
 }
 
-/** Null for a status the page has no words for, so the list leaves that row out. */
+/**
+ * Null for a status or a kind the page has no words for, so the list leaves that row out. An
+ * answer from before programs paid for events names no kind: every row of it is a sale.
+ */
 function readCommission(value: unknown): RecentCommission | null {
   const row = record(value)
   const status = oneOf(row?.status, ['held', 'approved', 'reversed'] as const)
-  if (!row || !status) return null
+  const named = row?.kind !== undefined && row?.kind !== null
+  const kind = named ? oneOf(row.kind, ['sale', 'reward'] as const) : 'sale'
+  if (!row || !status || !kind) return null
   const id = text(row.id)
   const currency = currencyCode(row.currency)
   const amount = minor(row.amount_minor)
   if (!id || !currency || amount === null) throw new EarningsUnreadable()
   return {
     id,
+    ...(named
+      ? {
+          kind,
+          reward_label: kind === 'reward' ? (text(row.reward_label)?.trim() ?? null) : null,
+        }
+      : {}),
     program_id: text(row.program_id),
     program_name: text(row.program_name) ?? 'Program',
     status,
     amount_minor: amount,
     earned_minor: minor(row.earned_minor) ?? amount,
     currency,
-    sale_amount_minor: minor(row.sale_amount_minor),
+    sale_amount_minor: kind === 'reward' ? null : minor(row.sale_amount_minor),
     paid_at: moment(row.paid_at),
     hold_until: moment(row.hold_until),
     approved_at: moment(row.approved_at),
@@ -224,14 +252,23 @@ export function readProgramEarnings(value: unknown): ProgramEarnings {
 
 // What there is to show ---------------------------------------------------------------------
 
-/** True when a program has money or sales to show. */
+/** True when a program has money, sales or rewarded events to show. */
 export function programHasEarnings(row: ProgramEarningsRow): boolean {
   return (
     row.pending_minor !== 0 ||
     row.approved_minor !== 0 ||
     row.paying_minor !== 0 ||
     row.paid_minor !== 0 ||
-    row.sales > 0
+    row.sales > 0 ||
+    (row.events ?? 0) > 0
+  )
+}
+
+/** True when any of what is shown was earned for an event rather than a sale. */
+export function hasRewards(earnings: ProgramEarnings): boolean {
+  return (
+    earnings.programs.some((row) => (row.events ?? 0) > 0) ||
+    earnings.recent.some((commission) => commission.kind === 'reward')
   )
 }
 
@@ -293,6 +330,30 @@ export function salesCount(sales: number): string {
   return sales === 1 ? '1 sale' : `${sales.toLocaleString('en-US')} sales`
 }
 
+export function eventsCount(events: number): string {
+  return events === 1 ? '1 event' : `${events.toLocaleString('en-US')} events`
+}
+
+/**
+ * The line under a program's name: "4 sales", "12 events" or "4 sales · 12 events". Events are
+ * named only when there are some, so a program that pays for sales reads as it always has, and
+ * sales are left out when events are all there is.
+ */
+export function programActivity(row: Pick<ProgramEarningsRow, 'sales' | 'events'>): string {
+  const events = row.events ?? 0
+  if (events <= 0) return salesCount(row.sales)
+  if (row.sales <= 0) return eventsCount(events)
+  return `${salesCount(row.sales)} · ${eventsCount(events)}`
+}
+
+/** "Reward: Account created", the line that tells a reward from a sale. Null for a sale. */
+export function rewardLine(
+  commission: Pick<RecentCommission, 'kind' | 'reward_label'>,
+): string | null {
+  if (commission.kind !== 'reward') return null
+  return commission.reward_label ? `Reward: ${commission.reward_label}` : 'Reward'
+}
+
 // Words -------------------------------------------------------------------------------------
 
 const dayAndMonth = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' })
@@ -310,11 +371,15 @@ export function shortDay(time: string, now: Date = new Date()): string {
 
 /** A commission's standing in words: "Pending until 14 Dec", "Approved". */
 export function commissionStatusLine(
-  commission: Pick<RecentCommission, 'status' | 'hold_until'>,
+  commission: Pick<RecentCommission, 'status' | 'hold_until' | 'kind'>,
   now: Date = new Date(),
 ): string {
   if (commission.status === 'approved') return 'Approved'
-  if (commission.status === 'reversed') return 'Returned to the brand after a refund'
+  // A reward has no payment to refund: the brand turned it down during the hold.
+  if (commission.status === 'reversed')
+    return commission.kind === 'reward'
+      ? 'Rejected by the brand'
+      : 'Returned to the brand after a refund'
   // Past its hold and still pending: it is approved on the next pass, or the sale is disputed.
   if (!commission.hold_until || Date.parse(commission.hold_until) <= now.getTime()) return 'Pending'
   return `Pending until ${shortDay(commission.hold_until, now)}`

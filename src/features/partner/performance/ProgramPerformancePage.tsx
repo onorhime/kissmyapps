@@ -8,6 +8,15 @@ import { StatusPill } from '../../marketplace/components'
 import { marketplaceHash } from '../../marketplace/routing'
 import { shortDay } from '../earnings/earnings'
 import {
+  COUNT_LABELS,
+  conversionOf,
+  countKinds,
+  countOf,
+  creditedTitle,
+  earnFromOf,
+} from '../links/earnFrom'
+import type { CountKind, EarnFrom } from '../links/earnFrom'
+import {
   PERFORMANCE_DAYS,
   axisDay,
   axisMoney,
@@ -15,10 +24,14 @@ import {
   changeAmount,
   changeRest,
   channelRows,
+  clicksOr,
   conversionText,
   countText,
   dayAsTime,
   earningsPerClickText,
+  latestEmpty,
+  latestTitle,
+  latestWhat,
   performanceErrorMessage,
   periodLine,
   quietLinksLine,
@@ -40,7 +53,8 @@ import './ProgramPerformance.css'
 /**
  * A creator's results in the programs they joined: earnings, clicks, sales and the two rates
  * for 7, 30 or 90 days, the same three numbers day by day, where they came from, and the
- * program's money to date.
+ * program's money to date. In a program that pays for events, such as sign-ups, events stand
+ * where sales do (beside them when it pays for both), with what each reward brought.
  *
  * It is the whole Performance page for a creator who has only programs. For a creator who also
  * has a product from before programs (`beside`), it is a section above that product's report,
@@ -50,12 +64,23 @@ import './ProgramPerformance.css'
 /** With more programs than this the picker is a list to choose from instead of a row of names. */
 const PROGRAMS_IN_A_ROW = 4
 
-const METRICS = [
-  { value: 'clicks', label: 'Clicks' },
-  { value: 'sales', label: 'Sales' },
-  { value: 'earnings', label: 'Earnings' },
-] as const
-type Metric = (typeof METRICS)[number]['value']
+type Metric = 'clicks' | CountKind | 'earnings'
+
+/** What the chart can show: clicks, what the program pays for, and earnings. */
+function metricsOf(earnFrom: EarnFrom): { value: Metric; label: string }[] {
+  return [
+    { value: 'clicks', label: 'Clicks' },
+    ...countKinds(earnFrom).map((kind) => ({ value: kind, label: COUNT_LABELS[kind] })),
+    { value: 'earnings', label: 'Earnings' },
+  ]
+}
+
+/** "1 sale", "12 events": one of a day's counts, read off the chart. */
+const ONE_AND_MANY: Record<Exclude<Metric, 'earnings'>, [one: string, many: string]> = {
+  clicks: ['click', 'clicks'],
+  sales: ['sale', 'sales'],
+  events: ['event', 'events'],
+}
 
 const DAY_OPTIONS = PERFORMANCE_DAYS.map((days) => ({ value: days, label: `${days} days` }))
 
@@ -263,12 +288,25 @@ function Results({
   /** Another answer is loading: these numbers are about to be replaced. */
   stale: boolean
 }) {
+  const earnFrom = earnFromOf(program)
+  // A program that pays for sales has no rewards, whatever the answer holds.
+  const rewards =
+    earnFrom !== 'sales' && ((answer.rewards?.length ?? 0) > 0 || answer.budget_reached === true)
+  const channels = <Channels answer={answer} currency={program.currency} earnFrom={earnFrom} />
   return (
     <div className={stale ? 'pp-results pp-stale' : 'pp-results'}>
-      <Figures answer={answer} currency={program.currency} />
-      <DailyChart answer={answer} currency={program.currency} />
+      <Figures answer={answer} currency={program.currency} earnFrom={earnFrom} />
+      {/* Keyed by what the program pays for, so the chart never keeps a number it lacks. */}
+      <DailyChart key={earnFrom} answer={answer} currency={program.currency} earnFrom={earnFrom} />
       <div className="pp-columns">
-        <Channels answer={answer} currency={program.currency} />
+        {rewards ? (
+          <div className="pp-stack">
+            {channels}
+            <Rewards answer={answer} currency={program.currency} />
+          </div>
+        ) : (
+          channels
+        )}
         <Money answer={answer} program={program} />
       </div>
     </div>
@@ -314,22 +352,37 @@ function changeLine(
   )
 }
 
-function Figures({ answer, currency }: { answer: ProgramPerformance; currency: string }) {
+function Figures({
+  answer,
+  currency,
+  earnFrom,
+}: {
+  answer: ProgramPerformance
+  currency: string
+  earnFrom: EarnFrom
+}) {
   const { totals, previous, days } = answer
   const money = (minor: number) => formatMoney(minor, currency)
+  const counts = countKinds(earnFrom)
+  const turnsInto = conversionOf(earnFrom)
   return (
-    <dl className="panel pp-figures">
+    <dl className={counts.length > 1 ? 'panel pp-figures pp-figures-six' : 'panel pp-figures'}>
       <Figure label="Earnings" value={money(totals.earnings_minor)} lead>
         {changeLine(totals.earnings_minor, previous.earnings_minor, days, money)}
       </Figure>
       <Figure label="Clicks" value={countText(totals.clicks)}>
         {changeLine(totals.clicks, previous.clicks, days, countText)}
       </Figure>
-      <Figure label="Sales" value={countText(totals.sales)}>
-        {changeLine(totals.sales, previous.sales, days, countText)}
-      </Figure>
-      <Figure label="Conversion rate" value={conversionText(totals.sales, totals.clicks)}>
-        Sales ÷ clicks
+      {counts.map((kind) => (
+        <Figure key={kind} label={COUNT_LABELS[kind]} value={countText(countOf(totals, kind))}>
+          {changeLine(countOf(totals, kind), countOf(previous, kind), days, countText)}
+        </Figure>
+      ))}
+      <Figure
+        label="Conversion rate"
+        value={conversionText(countOf(totals, turnsInto), totals.clicks)}
+      >
+        {COUNT_LABELS[turnsInto]} ÷ clicks
       </Figure>
       <Figure
         label="Earnings per click"
@@ -345,19 +398,33 @@ const plural = (value: number, one: string, many: string) =>
   `${countText(value)} ${value === 1 ? one : many}`
 
 /** One number for every day, as a line, with the same days as a table for a screen reader. */
-function DailyChart({ answer, currency }: { answer: ProgramPerformance; currency: string }) {
+function DailyChart({
+  answer,
+  currency,
+  earnFrom,
+}: {
+  answer: ProgramPerformance
+  currency: string
+  earnFrom: EarnFrom
+}) {
   const [metric, setMetric] = useState<Metric>('clicks')
   const { daily, days } = answer
-  const title = `${METRICS.find((option) => option.value === metric)!.label} per day`
+  const metrics = metricsOf(earnFrom)
+  const counts = countKinds(earnFrom)
+  const title = `${metrics.find((option) => option.value === metric)!.label} per day`
   const value = (row: ProgramPerformance['daily'][number]) =>
-    metric === 'clicks' ? row.clicks : metric === 'sales' ? row.sales : row.earnings_minor
+    metric === 'earnings'
+      ? row.earnings_minor
+      : metric === 'clicks'
+        ? row.clicks
+        : countOf(row, metric)
   const last = daily.length - 1
 
   return (
     <section className="panel pp-card" aria-labelledby="pp-chart-title">
       <div className="pp-card-head">
         <h2 id="pp-chart-title">{title}</h2>
-        <Segmented label="Chart shows" options={METRICS} value={metric} onChange={setMetric} />
+        <Segmented label="Chart shows" options={metrics} value={metric} onChange={setMetric} />
       </div>
       <div className="pp-chart">
         <LineChart
@@ -381,9 +448,7 @@ function DailyChart({ answer, currency }: { answer: ProgramPerformance; currency
           formatValue={(amount) =>
             metric === 'earnings'
               ? formatMoney(amount, currency)
-              : metric === 'sales'
-                ? plural(amount, 'sale', 'sales')
-                : plural(amount, 'click', 'clicks')
+              : plural(amount, ...ONE_AND_MANY[metric])
           }
           formatTick={
             metric === 'earnings' ? (amount) => axisMoney(amount, currency) : formatCompact
@@ -394,12 +459,20 @@ function DailyChart({ answer, currency }: { answer: ProgramPerformance; currency
       {/* The same days for a screen reader. A table cannot be hidden by its own size. */}
       <div className="pe-sr">
         <table>
-          <caption>Clicks, sales and earnings per day</caption>
+          <caption>
+            {earnFrom === 'sales'
+              ? 'Clicks, sales and earnings per day'
+              : `Clicks, ${counts.join(', ')} and earnings per day`}
+          </caption>
           <thead>
             <tr>
               <th scope="col">Day</th>
               <th scope="col">Clicks</th>
-              <th scope="col">Sales</th>
+              {counts.map((kind) => (
+                <th key={kind} scope="col">
+                  {COUNT_LABELS[kind]}
+                </th>
+              ))}
               <th scope="col">Earnings</th>
             </tr>
           </thead>
@@ -408,7 +481,9 @@ function DailyChart({ answer, currency }: { answer: ProgramPerformance; currency
               <tr key={row.day}>
                 <th scope="row">{tooltipDay(row.day)}</th>
                 <td>{countText(row.clicks)}</td>
-                <td>{countText(row.sales)}</td>
+                {counts.map((kind) => (
+                  <td key={kind}>{countText(countOf(row, kind))}</td>
+                ))}
                 <td>{formatMoney(row.earnings_minor, currency)}</td>
               </tr>
             ))}
@@ -419,21 +494,31 @@ function DailyChart({ answer, currency }: { answer: ProgramPerformance; currency
   )
 }
 
-function ChannelRow({ row, currency }: { row: PerformanceChannel; currency: string }) {
+function ChannelRow({
+  row,
+  currency,
+  earnFrom,
+}: {
+  row: PerformanceChannel
+  currency: string
+  earnFrom: EarnFrom
+}) {
   return (
     <tr>
       <th scope="row">
         {row.name}
-        {row.kind === 'none' && <small>Sales we could not tie to a link</small>}
+        {row.kind === 'none' && <small>{creditedTitle(earnFrom)} we could not tie to a link</small>}
       </th>
       <td className="pp-num" data-label="Clicks">
         {countText(row.clicks)}
       </td>
-      <td className="pp-num" data-label="Sales">
-        {countText(row.sales)}
-      </td>
+      {countKinds(earnFrom).map((kind) => (
+        <td key={kind} className="pp-num" data-label={COUNT_LABELS[kind]}>
+          {countText(countOf(row, kind))}
+        </td>
+      ))}
       <td className="pp-num" data-label="Conversion">
-        {conversionText(row.sales, row.clicks)}
+        {conversionText(countOf(row, conversionOf(earnFrom)), row.clicks)}
       </td>
       <td className="pp-num pp-earned" data-label="Earnings">
         {formatMoney(row.earnings_minor, currency)}
@@ -446,25 +531,39 @@ function ChannelRow({ row, currency }: { row: PerformanceChannel; currency: stri
 }
 
 /** The links that brought something, in the order of the Links page. */
-function Channels({ answer, currency }: { answer: ProgramPerformance; currency: string }) {
+function Channels({
+  answer,
+  currency,
+  earnFrom,
+}: {
+  answer: ProgramPerformance
+  currency: string
+  earnFrom: EarnFrom
+}) {
   const { rows, quiet } = channelRows(answer.channels)
-  const quietLine = quietLinksLine(quiet, rows.length, answer.days)
+  const quietLine = quietLinksLine(quiet, rows.length, answer.days, earnFrom)
+  const counts = countKinds(earnFrom)
   return (
     <section className="panel pp-card" aria-labelledby="pp-channels-title">
       <div className="pp-card-head">
         <h2 id="pp-channels-title">By channel</h2>
       </div>
       {rows.length > 0 ? (
-        <table className="pp-table" aria-labelledby="pp-channels-title">
+        <table
+          className={counts.length > 1 ? 'pp-table pp-table-wide' : 'pp-table'}
+          aria-labelledby="pp-channels-title"
+        >
           <thead>
             <tr>
               <th scope="col">Channel</th>
               <th scope="col" className="pp-num">
                 Clicks
               </th>
-              <th scope="col" className="pp-num">
-                Sales
-              </th>
+              {counts.map((kind) => (
+                <th key={kind} scope="col" className="pp-num">
+                  {COUNT_LABELS[kind]}
+                </th>
+              ))}
               <th scope="col" className="pp-num">
                 Conversion
               </th>
@@ -478,17 +577,80 @@ function Channels({ answer, currency }: { answer: ProgramPerformance; currency: 
           </thead>
           <tbody>
             {rows.map((row) => (
-              <ChannelRow key={row.link_id ?? 'none'} row={row} currency={currency} />
+              <ChannelRow
+                key={row.link_id ?? 'none'}
+                row={row}
+                currency={currency}
+                earnFrom={earnFrom}
+              />
             ))}
           </tbody>
         </table>
       ) : (
         <p className="pp-empty">
-          {quietLine ?? `No clicks or sales in these ${answer.days} days.`}{' '}
+          {quietLine ?? `No ${clicksOr(earnFrom)} in these ${answer.days} days.`}{' '}
           <a href="#links">Share one of your links</a> to get your first clicks.
         </p>
       )}
       {rows.length > 0 && quietLine && <p className="pp-note">{quietLine}</p>}
+    </section>
+  )
+}
+
+/**
+ * What each of the program's rewards brought in the days shown. When the brand's budget for
+ * the month is used up, one quiet line says so: no amount, and nothing to act on.
+ */
+function Rewards({ answer, currency }: { answer: ProgramPerformance; currency: string }) {
+  const rewards = answer.rewards ?? []
+  return (
+    <section className="panel pp-card" aria-labelledby="pp-rewards-title">
+      <div className="pp-card-head">
+        <h2 id="pp-rewards-title">Rewards</h2>
+        {answer.budget_reached && <p className="pp-budget">Budget reached for this month</p>}
+      </div>
+      {rewards.length > 0 && (
+        <table className="pp-table pp-rewards" aria-labelledby="pp-rewards-title">
+          <thead>
+            <tr>
+              <th scope="col">Reward</th>
+              <th scope="col" className="pp-num">
+                Each
+              </th>
+              <th scope="col" className="pp-num">
+                Events
+              </th>
+              <th scope="col" className="pp-num">
+                Earnings
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rewards.map((reward) => (
+              <tr key={reward.key}>
+                <th scope="row">{reward.label}</th>
+                <td className="pp-num" data-label="Each">
+                  {formatMoney(reward.amount_minor, currency)}
+                </td>
+                <td
+                  className={reward.count === 0 ? 'pp-num pp-zero' : 'pp-num'}
+                  data-label="Events"
+                >
+                  {countText(reward.count)}
+                </td>
+                <td
+                  className={
+                    reward.earnings_minor === 0 ? 'pp-num pp-earned pp-zero' : 'pp-num pp-earned'
+                  }
+                  data-label="Earnings"
+                >
+                  {formatMoney(reward.earnings_minor, currency)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   )
 }
@@ -542,16 +704,16 @@ function Money({ answer, program }: { answer: ProgramPerformance; program: Perfo
       </dl>
       {notes.length > 0 && <p className="pp-note">{notes.join(' · ')}</p>}
       <div className="pp-latest">
-        <h3 id="pp-latest-title">Latest sales</h3>
+        <h3 id="pp-latest-title">{latestTitle(earnFromOf(program))}</h3>
         {answer.latest.length > 0 ? (
           <ul aria-labelledby="pp-latest-title">
             {answer.latest.map((sale, index) => {
-              const status = saleStatus(sale.status)
+              const status = saleStatus(sale.status, sale.kind)
               return (
                 <li key={index} className={sale.status === 'reversed' ? 'pp-returned' : undefined}>
                   <span className="pp-latest-what">
                     {sale.paid_at && <>{shortDay(sale.paid_at, now)} · </>}
-                    {sale.link_name ?? 'No link'}
+                    {latestWhat(sale)}
                   </span>
                   <span className="pp-latest-amount">{amount(sale.amount_minor)}</span>
                   <StatusPill tone={status.tone}>{status.label}</StatusPill>
@@ -560,7 +722,7 @@ function Money({ answer, program }: { answer: ProgramPerformance; program: Perfo
             })}
           </ul>
         ) : (
-          <p className="pp-empty">No sales yet.</p>
+          <p className="pp-empty">{latestEmpty(earnFromOf(program))}</p>
         )}
       </div>
       <a className="pp-more" href="#payouts">
