@@ -11,6 +11,7 @@ import {
   programInitials,
   programLogoUrl,
   programRewardLine,
+  programRewardsLine,
   programTermsLine,
   readProgram,
   readProgramDetail,
@@ -316,12 +317,25 @@ describe('the words on a card', () => {
     )
   })
 
-  it('says what a program that pays for both pays: the commission, plus the rewards', () => {
-    const [both, sales] = programs(pocketChef, speaksixNow)
-    expect(programHeadline(both)).toBe(
-      '30% of every payment for 12 months, plus $2.00 per Account created',
-    )
+  it('says what a program that pays for both pays: the commission, plus rewards', () => {
+    const [both, sales, events] = programs(pocketChef, speaksixNow, fluent)
+    expect(programHeadline(both)).toBe('30% of every payment for 12 months, plus rewards')
+    expect(programRewardsLine(both)).toBe('$2.00 per Account created')
     expect(programHeadline(sales)).toBe('30% of every payment for 12 months')
+    // Only a program that pays for both has a rewards line: the other headlines say it all.
+    expect(programRewardsLine(sales)).toBeNull()
+    expect(programRewardsLine(events)).toBeNull()
+    const many = { ...both, rewards: [signup, trial, { ...signup, key: 'paid', label: 'Paid' }] }
+    expect(programRewardsLine(many)).toBe(
+      '$2.00 per Account created, $5.00 per Trial started and 1 more reward',
+    )
+  })
+
+  it('names the rewards of a program that pays for both when its commission cannot be read', () => {
+    const [both] = programs(pocketChef)
+    const broken = { ...both, commission_rate_bps: null }
+    expect(programHeadline(broken)).toBe('$2.00 per Account created')
+    expect(programRewardsLine(broken)).toBeNull()
   })
 
   it('writes the small line from the attribution window and the hold', () => {
@@ -562,9 +576,14 @@ describe('public marketplace page', () => {
     ).toBeInTheDocument()
     expect(
       within(await card('Pocket Chef')).getByText(
-        '30% of every payment for 12 months, plus $2.00 per Account created',
+        '30% of every payment for 12 months, plus rewards',
       ),
     ).toBeInTheDocument()
+    expect(
+      within(await card('Pocket Chef')).getByText('$2.00 per Account created'),
+    ).toBeInTheDocument()
+    // The rewards line belongs to a program that pays for both, and to no other card.
+    expect(document.querySelectorAll('.mkt-card-rewards')).toHaveLength(1)
     expect(
       within(await card('Fluent')).getByText('30-day attribution · 30-day hold'),
     ).toBeInTheDocument()
@@ -740,8 +759,9 @@ describe('public marketplace page', () => {
     )
     const side = await screen.findByRole('complementary', { name: 'Join this program' })
     expect(
-      within(side).getByText('30% of every payment for 12 months, plus $2.00 per Account created'),
+      within(side).getByText('30% of every payment for 12 months, plus rewards'),
     ).toBeInTheDocument()
+    expect(within(side).getByText('$2.00 per Account created')).toBeInTheDocument()
   })
 
   it('shows a reward label as plain text, never as markup', async () => {
