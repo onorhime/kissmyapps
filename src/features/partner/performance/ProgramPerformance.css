@@ -1,0 +1,664 @@
+/*
+ * The creator's program results on the partner dashboard's Performance page. Drawn from the
+ * brand colours in index.css, the dashboard's own panels and segmented control, and the
+ * buttons of the program earnings panel. The chart is the merchant console's line chart, given
+ * this dashboard's colours here.
+ */
+
+.pp-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* Above an older product's report: a section of the page, set apart from what follows. */
+.pp-beside {
+  margin-bottom: 32px;
+}
+
+/* The heading: what is shown on the left, what can be picked on the right */
+/* `.page-heading` is the dashboard's; these adjust it, so they name the page to win. */
+.pp-page .pp-heading {
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-bottom: 10px;
+}
+
+.pp-page .pp-heading > div:first-child {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.pp-heading h2 {
+  color: var(--brand-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.pp-heading p {
+  overflow-wrap: anywhere;
+}
+
+.pp-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pp-segmented {
+  max-width: 100%;
+}
+
+/* A long program name is cut short in the picker; the heading says it in full. */
+.pp-segmented button > span {
+  display: block;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-select select {
+  min-height: 44px;
+  max-width: min(100%, 280px);
+  padding: 8px 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--brand-card);
+  color: var(--brand-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* The answer on screen while the next one loads */
+.pp-results {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pp-stale {
+  opacity: 0.55;
+}
+
+/* Five figures in one panel, divided by hairlines */
+.pp-page .pp-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  background: var(--brand-line);
+}
+
+.pp-figure {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 22px 24px;
+  background: var(--brand-card);
+}
+
+.pp-page dt {
+  color: var(--brand-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pp-page dd {
+  margin: 0;
+}
+
+.pp-value {
+  color: var(--brand-text);
+  font-size: 26px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.pp-figure-lead .pp-value {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.pp-sub {
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+/* The sign says which way it went; green only adds to it. */
+.pp-change-up {
+  color: var(--brand-green);
+}
+
+.pp-change-down {
+  color: var(--brand-text);
+}
+
+/* The chart, the channels and the money: a heading over its content */
+.pp-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+  padding: 24px;
+}
+
+.pp-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  min-width: 0;
+}
+
+.pp-card-head h2,
+.pp-state h2 {
+  color: var(--brand-text);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.pp-card-head p {
+  margin-top: 4px;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.pp-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  align-items: start;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* The merchant console's line chart in this dashboard's colours */
+.pp-chart {
+  min-width: 0;
+}
+
+.pp-chart .mc-chart {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.pp-chart .mc-chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.pp-chart .mc-chart-grid {
+  stroke: var(--brand-control);
+  stroke-width: 1;
+}
+
+.pp-chart .mc-chart-base {
+  stroke: #5a5a5a;
+  stroke-width: 1;
+}
+
+.pp-chart .mc-chart-tick {
+  fill: var(--brand-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-chart .mc-chart-cross {
+  stroke: #77777d;
+  stroke-width: 1;
+}
+
+.pp-chart .mc-chart-dot {
+  stroke: var(--brand-card);
+  stroke-width: 2;
+}
+
+.pp-chart .mc-chart-empty {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  /* A band of the panel's ground behind the words, so no gridline runs through them. */
+  background: linear-gradient(var(--brand-card), var(--brand-card)) center / 270px 34px no-repeat;
+  color: var(--brand-muted);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.pp-chart .mc-tooltip {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--brand-line);
+  border-radius: 8px;
+  background: var(--brand-bg-deep);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.pp-chart .mc-tooltip-title {
+  color: var(--brand-muted);
+  font-size: 12px;
+}
+
+.pp-chart .mc-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand-text);
+  font-size: 13px;
+}
+
+.pp-chart .mc-tooltip-row i {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.pp-chart .mc-tooltip-row strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* By channel: a table of rules and alignment, read rather than clicked */
+.pp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.pp-table thead {
+  border: 0;
+  background: none;
+}
+
+.pp-table tbody tr:hover {
+  background: none;
+}
+
+.pp-table thead th {
+  padding: 0 16px 10px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pp-table tbody th,
+.pp-table tbody td {
+  padding: 14px 16px 14px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-text);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pp-table thead th:first-child,
+.pp-table tbody th:first-child {
+  padding-left: 0;
+}
+
+.pp-table tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pp-table tbody th small {
+  display: block;
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.pp-table tbody tr:last-child > * {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.pp-table tr > :last-child {
+  padding-right: 0;
+}
+
+.pp-table .pp-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pp-table .pp-earned {
+  font-weight: 600;
+}
+
+.pp-note,
+.pp-empty {
+  max-width: 60ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pp-note {
+  font-size: 13px;
+}
+
+.pp-empty a,
+.pp-more {
+  color: var(--brand-light-blue);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.pp-empty a {
+  text-decoration-color: currentColor;
+}
+
+.pp-more:hover {
+  text-decoration-color: currentColor;
+}
+
+/* Your money: three figures to date, then the latest sales */
+/* Each amount keeps to one line; a long one moves the last figure to a line of its own. */
+.pp-money-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin: 0;
+}
+
+.pp-money-figures > div {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pp-money-figures .pp-value {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.pp-money .pp-note {
+  margin-top: -6px;
+}
+
+.pp-latest {
+  display: grid;
+  gap: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--brand-line);
+}
+
+.pp-latest h3 {
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.pp-latest ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pp-latest li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  color: var(--brand-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.pp-latest-what {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pp-latest-amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pp-returned .pp-latest-what,
+.pp-returned .pp-latest-amount {
+  color: var(--brand-muted);
+}
+
+.pp-more {
+  justify-self: start;
+  font-size: 14px;
+}
+
+/* No program yet, or could not load */
+.pp-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 24px;
+}
+
+.pp-state p {
+  max-width: 60ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pp-state .pe-btn {
+  margin-top: 8px;
+}
+
+/* What was picked did not arrive: the answer before it is still below */
+.pp-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--brand-orange);
+  border-radius: 10px;
+  background: var(--brand-orange-dark);
+  color: var(--brand-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Loading: bars where the content will be */
+.pp-results .pe-bar {
+  background: var(--brand-control);
+}
+
+/* A narrower page: Earnings takes a line of its own, the money moves under the channels. */
+@media (max-width: 1240px) {
+  .pp-page .pp-figures {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .pp-figure-lead {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1100px) {
+  .pp-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .pp-page .pp-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .pp-page .pp-heading > div:first-child {
+    flex: none;
+  }
+
+  .pp-pickers {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  /* Wide enough to tap without missing. */
+  .pp-page .performance-segmented button {
+    min-height: 40px;
+  }
+
+  /* 16px keeps a phone from zooming into the field. */
+  .pp-select select {
+    font-size: 16px;
+  }
+
+  .pp-page .pp-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pp-figure {
+    padding: 16px 18px;
+  }
+
+  .pp-value {
+    font-size: 22px;
+  }
+
+  .pp-figure-lead .pp-value {
+    font-size: 30px;
+  }
+
+  .pp-money-figures .pp-value {
+    font-size: 19px;
+  }
+
+  .pp-card,
+  .pp-state {
+    padding: 18px;
+  }
+
+  /* Each channel becomes a short block: its name and earnings, then the four numbers. */
+  .pp-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pp-table,
+  .pp-table tbody {
+    display: block;
+  }
+
+  .pp-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      'name name name earned'
+      'clicks sales rate each';
+    gap: 8px 10px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+
+  .pp-table tbody tr:first-child {
+    padding-top: 0;
+  }
+
+  .pp-table tbody tr:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .pp-table tbody th,
+  .pp-table tbody td {
+    padding: 0;
+    border: 0;
+  }
+
+  .pp-table tbody th {
+    grid-area: name;
+  }
+
+  .pp-table tbody td.pp-num {
+    text-align: left;
+  }
+
+  .pp-table tbody td:nth-child(2) {
+    grid-area: clicks;
+  }
+
+  .pp-table tbody td:nth-child(3) {
+    grid-area: sales;
+  }
+
+  .pp-table tbody td:nth-child(4) {
+    grid-area: rate;
+  }
+
+  .pp-table tbody td:nth-child(5) {
+    grid-area: earned;
+    text-align: right;
+  }
+
+  .pp-table tbody td:nth-child(6) {
+    grid-area: each;
+  }
+
+  .pp-table tbody td:not(.pp-earned)::before {
+    display: block;
+    color: var(--brand-muted);
+    font-size: 12px;
+    content: attr(data-label);
+  }
+
+  .pp-failed .pe-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-results,
+  .pp-more {
+    transition: none;
+  }
+}

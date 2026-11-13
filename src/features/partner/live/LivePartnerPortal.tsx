@@ -24,6 +24,8 @@ import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 import { PartnerMarketplace } from '../marketplace/PartnerMarketplace'
 import { ProgramEarningsPanel } from '../earnings/ProgramEarningsPanel'
+import { ProgramPerformancePage } from '../performance/ProgramPerformancePage'
+import { useProgramPerformance } from '../performance/useProgramPerformance'
 
 const pageCopy = {
   performance: {
@@ -120,6 +122,7 @@ export function LivePartnerPortal({
 }) {
   const navigateSafely = useContext(NavigationGuardContext)
   const workspace = usePartnerLiveWorkspace()
+  const programResults = useProgramPerformance(workspace.gateway, page === 'performance')
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
   const context = toPartnerLiveWorkspaceContext(snapshot, selectedProductId)
   // The marketplace does not depend on a product: a creator with none yet joins their first here.
@@ -145,9 +148,24 @@ export function LivePartnerPortal({
   const showEmptyState =
     snapshot.status === 'ready-empty' ||
     (Boolean(snapshot.availability.emptyReason) && !canRenderOperationalPage)
+  // Program results are the whole Performance page, unless a product from before programs is
+  // reported on below them or this database has no program results to give.
+  const programsOnly = loading || (productsKnown && context.products.length === 0)
+  if (page === 'performance' && programsOnly && programResults.state.status !== 'hidden')
+    return (
+      <ProgramPerformancePage
+        performance={programResults}
+        notice={
+          !loading && (
+            <AgreementSignBanner gateway={workspace.gateway} onCompleted={actions.refresh} />
+          )
+        }
+      />
+    )
 
   return (
     <>
+      {page === 'performance' && <ProgramPerformancePage performance={programResults} beside />}
       {page !== 'profile' && (
         <section className="workspace-context" aria-label="Product and partnership context">
           <label className="workspace-product">

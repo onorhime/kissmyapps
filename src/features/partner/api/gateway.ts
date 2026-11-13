@@ -27,6 +27,8 @@ import {
 } from '../marketplace/programs'
 import { readProgramEarnings } from '../earnings/earnings'
 import type { ProgramEarnings } from '../earnings/earnings'
+import { readProgramPerformance } from '../performance/performance'
+import type { PerformanceQuery, ProgramPerformance } from '../performance/performance'
 import type {
   PartnerMarketplace,
   PartnerProgramError,
@@ -159,6 +161,10 @@ export interface PartnerDataGateway {
   leaveProgram?: (programId: string) => Promise<PartnerProgramResult<ProgramMembership | null>>
   /** Optional: program money may be absent in older deployments. */
   getProgramEarnings?: () => Promise<PartnerDataResult<ProgramEarnings | null>>
+  /** Optional: program results may be absent in older deployments. */
+  getProgramPerformance?: (
+    query: PerformanceQuery,
+  ) => Promise<PartnerDataResult<ProgramPerformance | null>>
 }
 
 const emptyMetrics = () => ({
@@ -829,6 +835,33 @@ export function createPartnerDataGateway(
             earnings,
             earnings.programs.length + earnings.recent.length > 0 ? 'ready' : 'empty',
           )
+        } catch {
+          return invalidResponse(() => null)
+        }
+      } catch {
+        return thrownFailure(() => null)
+      }
+    },
+
+    async getProgramPerformance(query) {
+      if (!client) return noClientSingle<ProgramPerformance>()
+      try {
+        const response = await client.rpc(PARTNER_RPCS.programPerformance, {
+          p_input: { slug: query.slug, days: query.days },
+        })
+        if (response.error) {
+          // A slug that is not the creator's: the page goes back to their first program.
+          if (response.error.code === 'P0002')
+            return dataResult(null, 'error', {
+              code: 'not_found',
+              message: 'That program was not found.',
+              retryable: false,
+            })
+          return backendFailure(response.error, response.status, () => null)
+        }
+        try {
+          const performance = readProgramPerformance(response.data)
+          return dataResult(performance, performance.program ? 'ready' : 'empty')
         } catch {
           return invalidResponse(() => null)
         }
