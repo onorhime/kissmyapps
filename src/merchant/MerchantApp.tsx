@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import type { Project } from './api'
+import { captureStripeReturn, hasStripeReturn } from './connections'
 import { href, isAuthRoute, navigate, parseRoute } from './routes'
 import type { Route } from './routes'
 import { MerchantStoreProvider, useStore } from './store'
 import { AttributionScreen } from './screens/Attribution'
 import { AuthScreen } from './screens/Auth'
 import { BotsScreen } from './screens/Bots'
+import { ConnectionsScreen } from './screens/Connections'
 import { EventDetailScreen, EventsScreen } from './screens/Events'
 import { FunnelScreen, FunnelsScreen } from './screens/Funnels'
 import { RetentionScreen } from './screens/Retention'
@@ -28,6 +30,7 @@ const titles: Record<Route['name'], string> = {
   'confirm-email': 'Confirm your email',
   home: 'Home',
   workspace: 'Settings',
+  connections: 'Connections',
   overview: 'Overview',
   users: 'Users',
   person: 'User',
@@ -71,7 +74,7 @@ function rememberedProject(projects: Project[]): Project | undefined {
 
 function Screens() {
   const route = useRoute()
-  const { status, error, projects, refreshContext } = useStore()
+  const { status, error, projects, workspace, refreshContext } = useStore()
   const projectId = 'projectId' in route ? route.projectId : undefined
   const project = projectId ? projects.find((item) => item.id === projectId) : undefined
 
@@ -84,7 +87,8 @@ function Screens() {
       route.name !== 'new-password' &&
       route.name !== 'confirm-email'
     )
-      navigate({ name: 'home' }, true)
+      // Someone who came back from Stripe signed out finishes connecting once signed in.
+      navigate(hasStripeReturn() ? { name: 'connections' } : { name: 'home' }, true)
     if (status === 'ready' && route.name === 'home') {
       const next = rememberedProject(projects)
       navigate(
@@ -152,11 +156,15 @@ function Screens() {
     project ??
     (route.name === 'workspace'
       ? (projects.find((item) => item.id === route.projectId) ?? rememberedProject(projects))
-      : undefined)
+      : route.name === 'connections'
+        ? rememberedProject(projects)
+        : undefined)
   let content
   if (route.name === 'workspace') {
     content =
       route.section === 'members' ? <MembersScreen /> : <ProjectsScreen create={route.create} />
+  } else if (route.name === 'connections') {
+    content = <ConnectionsScreen key={workspace?.id} />
   } else if (!project) {
     content = (
       <div className="mc-page">
@@ -261,6 +269,8 @@ function Booting() {
 }
 
 export function MerchantApp() {
+  // Before the first route is read: Stripe's answer leaves the address bar and opens Connections.
+  useState(captureStripeReturn)
   return (
     <MerchantStoreProvider>
       <div className="mc-app">
