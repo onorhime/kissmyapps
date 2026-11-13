@@ -180,8 +180,8 @@ card of your own. Every step moves real money; the amounts below are the smalles
    amount to 10.00. Within about a minute expect exactly one new off-session payment of
    10.00 in Stripe, a top-up of kind `auto` with status `succeeded`, and 60.00 available.
    Wait three more minutes and confirm there is no second charge. (A minimum far above the
-   balance means one charge per minute until it is reached: choose these two numbers with
-   care.)
+   balance means one charge per minute until it is reached or five charges have been made
+   in the day: choose these two numbers with care.)
 6. Card change. On the Balance page choose to change the card, enter another card on
    Stripe's page (nothing is charged), return to `#balance?card=done`. Expect the new brand
    and last four digits on the page, and in Stripe the old card removed from the customer.
@@ -328,9 +328,10 @@ relied on and were confirmed only against Stripe's documentation, not against St
   only returned by refunding its card payment in Stripe, which the balance then follows.
 - Stripe's processing fee on a deposit is paid by KissMyApps: the balance is credited with
   the full amount charged.
-- Automatic top-up has no daily cap. Each run charges an account at most once, for the
-  amount the merchant chose; while the balance stays below the minimum the next run charges
-  again. The retry schedule only limits failed charges.
+- Automatic top-up charges a card at most five times in any 24 hours (charges that went
+  through; failed ones have the retry schedule). After the fifth the account waits until
+  the oldest of the five is a day old, the Balance page says when that is, and the merchant
+  can still add funds by hand. The number is `kma_internal.program_topup_day_limit()`.
 - A dispute moves the balance only when it is lost. Stripe withdraws a disputed amount when
   the dispute opens; until it closes the balance is ahead of what KissMyApps holds.
 - A refund that later fails or is canceled at Stripe is not put back into the balance.
