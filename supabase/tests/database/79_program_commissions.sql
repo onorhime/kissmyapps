@@ -1104,10 +1104,11 @@ select pg_temp.capture('partner_program_earnings_ben', pg_temp.call('ben', 'sele
 select pg_temp.check((select jsonb_array_length(e->'programs') = 2
       and e->'programs'->0->>'name' = 'Rival Reader' and e->'programs'->1->>'name' = 'SpeakSix'
       and (select bool_and((select array_agg(k order by k) from jsonb_object_keys(p) k) = array['approved_minor', 'currency',
-          'name', 'next_release_at', 'paid_minor', 'paying_minor', 'pending_minor', 'program_id', 'sales', 'slug'])
+          'events', 'name', 'next_release_at', 'paid_minor', 'paying_minor', 'pending_minor', 'program_id', 'sales', 'slug'])
         from jsonb_array_elements(e->'programs') p)
       and (select bool_and((select array_agg(k order by k) from jsonb_object_keys(r) k) = array['amount_minor', 'approved_at',
-          'currency', 'earned_minor', 'hold_until', 'id', 'paid_at', 'program_id', 'program_name', 'sale_amount_minor', 'status'])
+          'currency', 'earned_minor', 'hold_until', 'id', 'kind', 'paid_at', 'program_id', 'program_name', 'reward_label',
+          'sale_amount_minor', 'status'])
         from jsonb_array_elements(e->'recent') r)
     from pg_temp.call('ada', 'select public.partner_program_earnings()') e),
   'a creator gets one line for each program they earned in, by name, and their recent commissions, with exactly the '

@@ -506,15 +506,15 @@ select pg_temp.capture('creators_one_active', pg_temp.creators('owner', 'acme'))
 select pg_temp.check((select r - 'creators' = jsonb_build_object('can_manage', true,
       'program', jsonb_build_object('id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix', 'status', 'live',
         'approval_mode', 'automatic', 'marketplace_listed', true),
-      'currency', 'USD',
-      'totals', '{"clicks":2,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}'::jsonb,
+      'currency', 'USD', 'earn_from', 'sales',
+      'totals', '{"clicks":2,"sales":0,"events":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}'::jsonb,
       'counts', '{"pending":0,"active":1,"ended":0}'::jsonb)
     and jsonb_array_length(r->'creators') = 1
     and (r->'creators'->0) - 'requested_at' - 'activated_at' - 'last_click_at' = jsonb_build_object(
       'member_id', (pg_temp.member('ada', 'acme')).id, 'status', 'active', 'name', 'Ada Okafor', 'handle', 'ada-okafor',
       'country_code', 'NG', 'channels', '["tiktok","instagram"]'::jsonb, 'website_url', null,
       'ended_at', null, 'decision_note', null, 'terms_version', 1, 'needs_new_terms', false, 'clicks', 2, 'sales', 0,
-      'sales_amount_minor', 0, 'commission_minor', 0, 'pending_minor', 0)
+      'events', 0, 'sales_amount_minor', 0, 'commission_minor', 0, 'pending_minor', 0)
     and (r->'creators'->0->>'activated_at')::timestamptz = (pg_temp.member('ada', 'acme')).activated_at
     and (r->'creators'->0->>'last_click_at')::timestamptz = (select max(occurred_at) from public.clicks)
   from pg_temp.creators('owner', 'acme') r),
@@ -534,8 +534,8 @@ select pg_temp.check(pg_temp.try('rival_owner', format('select public.workspace_
   and (pg_temp.member('ada', 'acme')).status = 'active',
   'a member of another workspace cannot see or change these creators, and an analyst cannot change them');
 select pg_temp.check(pg_temp.creators('draft_owner', 'draft') - 'program'
-    = '{"can_manage":true,"counts":{"pending":0,"active":0,"ended":0},"creators":[],"currency":"USD",
-      "totals":{"clicks":0,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
+    = '{"can_manage":true,"counts":{"pending":0,"active":0,"ended":0},"creators":[],"currency":"USD","earn_from":"sales",
+      "totals":{"clicks":0,"sales":0,"events":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
   and pg_temp.creators('draft_owner', 'draft')->'program' = jsonb_build_object('id', (pg_temp.program('draft')).id,
     'slug', 'draft-thing', 'name', 'Draft Thing', 'status', 'draft', 'approval_mode', 'automatic', 'marketplace_listed', true),
   'a program that is still a draft has no creators');
@@ -569,7 +569,7 @@ select pg_temp.check((select r->'counts' = '{"pending":3,"active":0,"ended":0}'
     and r->'program' @> '{"slug":"rival-reader","approval_mode":"manual","status":"live"}'
     and (r->'creators'->0) - 'member_id' - 'requested_at' = '{"status":"pending","name":"Ben Creator","handle":"ben-creator",
       "country_code":"GB","channels":["youtube"],"website_url":"https://ben.example.com","activated_at":null,"ended_at":null,
-      "decision_note":null,"terms_version":1,"needs_new_terms":false,"clicks":0,"sales":0,"last_click_at":null,
+      "decision_note":null,"terms_version":1,"needs_new_terms":false,"clicks":0,"sales":0,"events":0,"last_click_at":null,
       "sales_amount_minor":0,"commission_minor":0,"pending_minor":0}'::jsonb
   from pg_temp.creators('rival_owner', 'rival') r),
   'the merchant sees the waiting creators, the oldest request first');
@@ -981,7 +981,8 @@ select pg_temp.check(pg_temp.service('select public.marketplace_program(''quiet-
   and pg_temp.try('ben', pg_temp.join_sql('quiet')) = '22023 program_not_open'
   and pg_temp.call('ada', pg_temp.leave_sql('quiet'))->'membership' @> '{"status":"left","program_status":"archived"}'
   and pg_temp.creators('quiet_owner', 'quiet') = '{"can_manage":true,"program":null,"counts":{"pending":0,"active":0,"ended":0},"creators":[],
-    "currency":null,"totals":{"clicks":0,"sales":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
+    "currency":null,"earn_from":"sales",
+    "totals":{"clicks":0,"sales":0,"events":0,"sales_amount_minor":0,"commission_minor":0,"pending_minor":0}}'::jsonb
   and pg_temp.try('quiet_owner', pg_temp.decide_sql('quiet', 'dee', 'remove')) = '22023 not_a_member',
   'an archived program is gone for everyone but its members, who can still see their membership and leave');
 

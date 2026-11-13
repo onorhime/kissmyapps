@@ -607,7 +607,7 @@ select pg_temp.check((select pg_temp.keys(e) = array['payout', 'payouts', 'progr
       and e->'payouts' = '[]'::jsonb
       and e->'payout' = '{"enabled":false,"min_payout_minor":2500,"platform_account_id":"acct_KMAPlatform",
         "payable":[{"currency":"EUR","amount_minor":3000},{"currency":"USD","amount_minor":4410}]}'::jsonb
-      and (select bool_and(pg_temp.keys(p) = array['approved_minor', 'currency', 'name', 'next_release_at', 'paid_minor',
+      and (select bool_and(pg_temp.keys(p) = array['approved_minor', 'currency', 'events', 'name', 'next_release_at', 'paid_minor',
           'paying_minor', 'pending_minor', 'program_id', 'sales', 'slug']) from jsonb_array_elements(e->'programs') p)
       and pg_temp.line(e, 'SpeakSix') @> '{"currency":"USD","pending_minor":0,"approved_minor":3000,"paying_minor":0,"paid_minor":0,"sales":1}'
       and pg_temp.line(e, 'Lingot') @> '{"currency":"EUR","approved_minor":3000,"paying_minor":0,"paid_minor":0}'
