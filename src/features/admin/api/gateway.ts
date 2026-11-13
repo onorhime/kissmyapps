@@ -25,6 +25,15 @@ import {
   mapAdminAgreementOperationsHealth,
 } from './observabilityMappers'
 import { mapAdminPlatformSettings } from './settingsMappers'
+import {
+  PROGRAM_FEE_BPS_MAX,
+  PROGRAM_MIN_DEPOSIT_MINOR_MAX,
+  PROGRAM_MIN_DEPOSIT_MINOR_MIN,
+  PROGRAM_MONEY_CHANGED,
+  mapAdminProgramMoney,
+  programMoneyRefusal,
+} from './programMoney'
+import type { AdminProgramMoney } from './programMoney'
 import { mapAdminProcessingHealth, type AdminProcessingHealth } from './processingHealth'
 import { mapAdminSubscriptionPage, type AdminSubscriptionPage } from './subscriptions'
 import {
@@ -117,6 +126,8 @@ export const ADMIN_RPCS = Object.freeze({
   programReviews: 'list_admin_program_reviews',
   reviewProgram: 'review_admin_program',
   setProgramStatus: 'set_admin_program_status',
+  programMoney: 'get_admin_program_money',
+  configureProgramMoney: 'configure_admin_program_money',
 })
 
 export const ADMIN_EDGE_FUNCTIONS = Object.freeze({
@@ -691,6 +702,71 @@ export function createAdminGateway(
           invalidState: 'Complete the required product configuration before enabling tracking.',
         },
       )
+    },
+
+    async getProgramMoney() {
+      if (!client) return notConfigured<AdminProgramMoney | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.programMoney, mapAdminProgramMoney)
+    },
+
+    async configureProgramMoney(input) {
+      if (!client) return notConfigured<AdminProgramMoney | null>(() => null)
+      const refused = (message: string) =>
+        result<AdminProgramMoney | null>(null, 'error', {
+          code: 'invalid_input',
+          message,
+          retryable: false,
+        })
+      if (
+        !Number.isInteger(input.feeBps) ||
+        input.feeBps < 0 ||
+        input.feeBps > PROGRAM_FEE_BPS_MAX
+      ) {
+        return refused('The fee must be between 0% and 50%.')
+      }
+      if (
+        !Number.isInteger(input.minDepositMinor) ||
+        input.minDepositMinor < PROGRAM_MIN_DEPOSIT_MINOR_MIN ||
+        input.minDepositMinor > PROGRAM_MIN_DEPOSIT_MINOR_MAX
+      ) {
+        return refused('The minimum first deposit must be between 1.00 and 1,000,000.00.')
+      }
+      if (
+        input.expectedUpdatedAt !== null &&
+        (typeof input.expectedUpdatedAt !== 'string' ||
+          !input.expectedUpdatedAt.trim() ||
+          Number.isNaN(Date.parse(input.expectedUpdatedAt)))
+      ) {
+        return refused('Refresh platform settings before trying this change again.')
+      }
+      const called = await call(client, ADMIN_RPCS.configureProgramMoney, {
+        p_input: {
+          enabled: input.enabled,
+          fee_bps: input.feeBps,
+          min_deposit_minor: input.minDepositMinor,
+          expected_updated_at: input.expectedUpdatedAt,
+        },
+      })
+      if (!called.ok) return temporaryFailure<AdminProgramMoney | null>(() => null)
+      const response = called.response
+      if (response.error) {
+        // Access failures keep their own mapping whatever the detail says.
+        const code = response.error.code ?? ''
+        const access = code === '42501' || code === '28000' || code === 'PGRST301'
+        const refusal = access ? null : programMoneyRefusal(response.error.details)
+        if (refusal) return result<AdminProgramMoney | null>(null, 'error', refusal)
+        return backendFailure<AdminProgramMoney | null>(response, () => null, {
+          conflict: PROGRAM_MONEY_CHANGED,
+          invalidInput: 'Check the fee and the minimum first deposit, then try again.',
+          invalidState:
+            'Program money cannot be changed right now. Refresh settings and try again.',
+        })
+      }
+      try {
+        return result<AdminProgramMoney | null>(mapAdminProgramMoney(response.data), 'ready')
+      } catch {
+        return invalidResponse<AdminProgramMoney | null>(() => null)
+      }
     },
 
     async getProductConfiguration(productId) {

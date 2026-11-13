@@ -36,7 +36,18 @@ export type Route =
   | { name: 'program' }
   /** The creators of that program: who is waiting, who is promoting, who has left. */
   | { name: 'creators' }
+  /**
+   * The prepaid balance creators are paid from. Stripe's payment page sends the person back
+   * here saying how it ended: a deposit, or a change of card, done or cancelled.
+   */
+  | { name: 'balance'; deposit?: StripeOutcome; card?: StripeOutcome }
   | ProjectRoute
+
+export type StripeOutcome = 'done' | 'canceled'
+
+function outcome(value: string | null): StripeOutcome | undefined {
+  return value === 'done' || value === 'canceled' ? value : undefined
+}
 
 function decode(segment: string | undefined): string | undefined {
   if (!segment) return undefined
@@ -83,6 +94,11 @@ export function parseRoute(hash: string): Route {
       return { name: 'program' }
     case 'creators':
       return { name: 'creators' }
+    case 'balance': {
+      const deposit = outcome(params.get('deposit'))
+      const card = outcome(params.get('card'))
+      return { name: 'balance', ...(deposit ? { deposit } : {}), ...(card ? { card } : {}) }
+    }
     case 'p':
       break
     default:
@@ -165,6 +181,13 @@ export function href(route: Route): string {
       return '#program'
     case 'creators':
       return '#creators'
+    case 'balance': {
+      const params = new URLSearchParams()
+      if (route.deposit) params.set('deposit', route.deposit)
+      if (route.card) params.set('card', route.card)
+      const query = params.toString()
+      return `#balance${query ? `?${query}` : ''}`
+    }
   }
   const base = `#p/${encodeURIComponent(route.projectId)}`
   switch (route.name) {

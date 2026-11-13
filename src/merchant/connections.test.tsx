@@ -340,10 +340,11 @@ describe('connections page', () => {
     expect(screen.queryByRole('button', { name: 'Connect Stripe' })).not.toBeInTheDocument()
     // The rows that are not available yet are there from the start, with nothing to press.
     const more = screen.getByRole('region', { name: 'More connections' })
-    expect(within(more).getByRole('heading', { name: 'Balance' })).toBeInTheDocument()
+    // The balance has its own page now, so it is not promised here.
+    expect(within(more).queryByRole('heading', { name: 'Balance' })).not.toBeInTheDocument()
     expect(within(more).getByRole('heading', { name: 'Analytics tools' })).toBeInTheDocument()
     expect(within(more).getByText(/Amplitude and Adapty/)).toBeInTheDocument()
-    expect(within(more).getAllByText('Coming soon')).toHaveLength(2)
+    expect(within(more).getAllByText('Coming soon')).toHaveLength(1)
     expect(within(more).queryByRole('button')).not.toBeInTheDocument()
     expect(within(more).queryByRole('link')).not.toBeInTheDocument()
     expect(sent('status')).toEqual([{ action: 'status', workspace_id: 'ws-1' }])

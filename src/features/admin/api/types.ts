@@ -878,6 +878,13 @@ export interface AdminGateway {
   getDataHealth?: AdminObservabilityGateway['getDataHealth']
   getPlatformSettings?: AdminSettingsGateway['getPlatformSettings']
   configureTracking?: AdminSettingsGateway['configureTracking']
+  /** Optional: program money may be absent in older deployments. */
+  getProgramMoney?: () => Promise<
+    AdminDataResult<import('./programMoney').AdminProgramMoney | null>
+  >
+  configureProgramMoney?: (
+    input: import('./programMoney').AdminProgramMoneyUpdate,
+  ) => Promise<AdminDataResult<import('./programMoney').AdminProgramMoney | null>>
 }
 
 /** Aggregate-only operational reads used by Attribution and Data Health. */

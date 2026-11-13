@@ -5492,3 +5492,391 @@ ul.mc-panel.mc-crt-list > li:first-child {
     min-height: 44px;
   }
 }
+
+/* Balance: what is free to spend, what is set aside, the card that tops it up, and every movement. */
+.mc-bal-none {
+  color: var(--mc-muted);
+}
+.mc-bal-none .mc-link {
+  white-space: nowrap;
+}
+.mc-bal-note {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--mc-surface);
+}
+.mc-bal-wait {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.mc-bal-wait > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--mc-muted);
+}
+.mc-bal-problem {
+  flex-wrap: wrap;
+}
+.mc-bal-problem > span {
+  flex: 1 1 240px;
+}
+
+/* What needs the merchant now. The words on the left, the ways out on the right. */
+.mc-bal-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 14px 16px 14px 18px;
+  border: 1px solid #4b3d22;
+  border-radius: 12px;
+  background: #241f15;
+  line-height: 20px;
+}
+.mc-bal-alert-text {
+  display: grid;
+  flex: 1 1 420px;
+  gap: 6px;
+  min-width: 0;
+  max-width: 820px;
+  text-wrap: pretty;
+}
+.mc-bal-alert strong {
+  font-weight: 600;
+}
+.mc-bal-alert-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/*
+ * One container split by hairlines. The available amount leads: it is the figure the page is
+ * about, so it is the largest one on it. 1.3fr + 3 x 1fr with no gaps fills the canvas.
+ */
+.mc-bal-summary {
+  border-radius: var(--mc-radius);
+  background: var(--mc-surface);
+}
+.mc-bal-summary dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+.mc-bal-figure {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 18px 20px;
+}
+.mc-bal-figure + .mc-bal-figure {
+  border-left: 1px solid var(--mc-rule);
+}
+.mc-bal-figure dt {
+  color: var(--mc-muted);
+  font-size: 13px;
+}
+.mc-bal-figure dd {
+  margin: 0;
+}
+.mc-bal-value {
+  font-size: 26px;
+  line-height: 34px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.mc-bal-figure.is-lead .mc-bal-value {
+  font-size: 34px;
+  line-height: 40px;
+}
+.mc-bal-about {
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-bal-rule {
+  padding: 10px 20px 12px;
+  border-top: 1px solid var(--mc-rule);
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* The ledger takes the width; the card and its rule sit beside it. On a narrow screen they come first. */
+.mc-bal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+  align-items: start;
+  gap: var(--mc-gap);
+}
+.mc-bal-layout > .mc-bal-settings {
+  grid-column: 2;
+  grid-row: 1;
+}
+.mc-bal-layout > .mc-bal-activity {
+  grid-column: 1;
+  grid-row: 1;
+}
+.mc-bal-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px 10px 10px 14px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-well);
+}
+.mc-bal-card > svg {
+  flex: none;
+  color: var(--mc-muted);
+}
+.mc-bal-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.mc-bal-card-text strong {
+  display: block;
+  font-weight: 600;
+}
+.mc-bal-topup {
+  display: grid;
+  gap: 14px;
+}
+.mc-bal-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 24px;
+  font-weight: 500;
+}
+.mc-bal-hint,
+.mc-bal-readonly {
+  color: var(--mc-muted);
+}
+.mc-bal-hint {
+  font-size: 13px;
+  line-height: 18px;
+}
+/* One sentence over two lines, each ending in its amount: the two fields share a right edge. */
+.mc-bal-sentence {
+  display: grid;
+  gap: 8px;
+}
+.mc-bal-sentence > label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.mc-bal-money {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  width: 112px;
+  height: 40px;
+  border: 1px solid var(--mc-control);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  transition: border-color 150ms ease-out;
+}
+/* A currency written after the amount needs the room its three letters take. */
+.mc-bal-money:not(.is-prefix) {
+  width: 140px;
+}
+.mc-bal-money:hover {
+  border-color: #55555b;
+}
+.mc-bal-money:focus-within {
+  border-color: var(--mc-link);
+}
+.mc-bal-money.has-error {
+  border-color: #ff6767;
+}
+.mc-bal-money > span {
+  flex: none;
+  padding: 0 12px 0 0;
+  color: var(--mc-muted);
+  font-size: 14px;
+}
+.mc-bal-money.is-prefix > span {
+  padding: 0 0 0 12px;
+}
+.mc-bal-money > input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--mc-text);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+.mc-bal-money.is-prefix > input {
+  padding-left: 2px;
+}
+.mc-bal-errors {
+  display: grid;
+  gap: 4px;
+}
+
+/* Before the first deposit: what the balance is for on the left, the amount on the right. */
+.mc-bal-first {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 400px);
+  align-items: start;
+  gap: 20px 48px;
+  padding: 24px;
+}
+.mc-bal-first-text {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.mc-bal-first h2 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+.mc-bal-first-text > p {
+  max-width: 58ch;
+  color: var(--mc-muted);
+}
+
+/* The ledger: what happened and when, then what it did to the balance, figures flush right. */
+.mc-bal-table td:first-child {
+  width: 44%;
+}
+.mc-bal-table strong {
+  display: block;
+}
+.mc-bal-table .mc-sub {
+  overflow-wrap: anywhere;
+}
+.mc-bal-when {
+  color: var(--mc-muted);
+  white-space: nowrap;
+}
+.mc-bal-after {
+  color: var(--mc-muted);
+}
+.mc-bal-after-label {
+  display: none;
+}
+.mc-bal-activity > .mc-bal-more {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-bal-loading {
+  display: grid;
+  gap: var(--mc-gap);
+}
+
+@media (max-width: 1180px) {
+  .mc-bal-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-bal-layout > .mc-bal-settings,
+  .mc-bal-layout > .mc-bal-activity {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+@media (max-width: 960px) {
+  .mc-bal-first {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The lead keeps its own row; the three beside it become label on the left, figure on the right. */
+  .mc-bal-summary dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-bal-figure + .mc-bal-figure {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 2px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--mc-rule);
+    border-left: 0;
+  }
+  .mc-bal-figure + .mc-bal-figure .mc-bal-value {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    font-size: 18px;
+    line-height: 24px;
+  }
+}
+@media (max-width: 720px) {
+  .mc-bal-first {
+    padding: 16px;
+  }
+  .mc-bal-figure,
+  .mc-bal-figure + .mc-bal-figure {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .mc-bal-rule {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .mc-bal-alert-actions {
+    flex: 1 1 100%;
+  }
+  /* One movement in two lines: what it was and its amount, then when and the balance it left. */
+  .mc-bal-table tbody tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 16px;
+    padding: 12px 16px;
+  }
+  .mc-bal-table tbody td:first-child {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+  }
+  .mc-bal-table tbody td.mc-bal-amount {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+  .mc-bal-table tbody td.mc-bal-when {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .mc-bal-table tbody td.mc-bal-after {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 13px;
+    line-height: 18px;
+    text-align: right;
+  }
+  .mc-bal-after-label {
+    display: inline;
+  }
+  .mc-bal-activity > .mc-bal-more {
+    padding: 12px 16px 16px;
+  }
+}
+@media (pointer: coarse) {
+  .mc-bal-alert-actions .mc-btn,
+  .mc-bal-card .mc-btn,
+  .mc-bal-topup .mc-btn,
+  .mc-bal-deposit .mc-btn,
+  .mc-bal-more .mc-btn,
+  .mc-bal-problem .mc-text-btn,
+  .mc-bal-money {
+    min-height: 44px;
+  }
+  .mc-bal-toggle {
+    min-height: 44px;
+  }
+}

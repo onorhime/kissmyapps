@@ -36,7 +36,6 @@ type Notice =
   | { tone: 'news'; message: string }
 
 const soon: Array<{ name: string; about: string }> = [
-  { name: 'Balance', about: 'Add funds once. Creator commissions are paid from your balance.' },
   {
     name: 'Analytics tools',
     about: 'See creator sales in Amplitude and Adapty, next to the numbers you already track.',

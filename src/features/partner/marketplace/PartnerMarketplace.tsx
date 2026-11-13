@@ -13,6 +13,10 @@ import {
 import { programHeadline } from '../../marketplace/model'
 import { marketplaceHash } from '../../marketplace/routing'
 import type { PartnerDataGateway } from '../api'
+import { earningsLine, earningsOfProgram } from '../earnings/earnings'
+import type { ProgramEarnings } from '../earnings/earnings'
+import { useProgramEarnings } from '../earnings/useProgramEarnings'
+import '../earnings/ProgramEarnings.css'
 import {
   brandOf,
   membershipStanding,
@@ -188,6 +192,9 @@ function MarketplaceList({ gateway }: { gateway: PartnerDataGateway }) {
 
   const data = state.status === 'ready' ? state.data : null
   const memberships = data?.memberships ?? []
+  // Earnings are an extra line on a card: the list never waits for them or fails with them.
+  const earningsState = useProgramEarnings(gateway).state
+  const earnings = earningsState.status === 'ready' ? earningsState.earnings : null
 
   return (
     <>
@@ -230,7 +237,7 @@ function MarketplaceList({ gateway }: { gateway: PartnerDataGateway }) {
               <h2 id="pmk-yours">Your programs</h2>
               <div className="pmk-memberships">
                 {memberships.map((membership) => (
-                  <MembershipCard key={membership.id} membership={membership} />
+                  <MembershipCard key={membership.id} membership={membership} earnings={earnings} />
                 ))}
               </div>
             </section>
@@ -277,8 +284,17 @@ function membershipLine(membership: ProgramMembership): string | null {
   return null
 }
 
-function MembershipCard({ membership }: { membership: ProgramMembership }) {
+function MembershipCard({
+  membership,
+  earnings,
+}: {
+  membership: ProgramMembership
+  earnings: ProgramEarnings | null
+}) {
   const { program } = membership
+  const earned = earningsLine(
+    earningsOfProgram(earnings, { id: membership.program_id, slug: program.slug }),
+  )
   const standing = membershipStanding(
     membership.status,
     membership.program_status,
@@ -303,6 +319,7 @@ function MembershipCard({ membership }: { membership: ProgramMembership }) {
       {membership.status === 'active' && membership.link && (
         <LinkCopy url={shareableLink(membership.link)} label={`Your ${program.name} link`} />
       )}
+      {earned && <p className="pe-card-line">{earned}</p>}
       {line && <p className="pmk-member-line">{line}</p>}
       {!current && membership.decision_note && (
         <p className="pmk-quote">{membership.decision_note}</p>

@@ -1,0 +1,397 @@
+/*
+ * Program earnings on the partner dashboard's Payouts page. It sits on the page's own panel
+ * and is drawn from the brand tokens in index.css.
+ */
+
+.pe-panel {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+  margin-bottom: 18px;
+  padding: 24px;
+}
+
+.pe-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pe-head {
+  display: grid;
+  gap: 6px;
+}
+
+.pe-head h2 {
+  color: var(--brand-text);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.pe-head p,
+.pe-note {
+  max-width: 72ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-control);
+  color: var(--brand-text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pe-btn:hover:not(:disabled) {
+  background: var(--brand-line);
+}
+
+/* Per program: the name, then what is pending and what is approved */
+.pe-programs {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--brand-line);
+}
+
+.pe-program {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) auto;
+  justify-content: start;
+  align-items: start;
+  gap: 16px 40px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--brand-line);
+}
+
+.pe-program-name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--brand-text);
+  font-size: 16px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.pe-program-name a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pe-program-name small {
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.pe-program dl {
+  display: flex;
+  gap: 40px;
+  margin: 0;
+}
+
+.pe-program dl > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 132px;
+}
+
+.pe-program dt {
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pe-program dd {
+  margin: 0;
+  color: var(--brand-text);
+  font-size: 22px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.pe-program dd.pe-sub {
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* Recent commissions */
+.pe-recent {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pe-recent h3,
+.pe-state h3 {
+  color: var(--brand-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.pe-recent table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+/* The dashboard's tables carry a dark header bar and a row hover; this list is read, not
+   clicked, and sits inside a panel, so it keeps neither. */
+.pe-recent thead {
+  border: 0;
+  background: none;
+}
+
+.pe-recent tbody tr:hover {
+  background: none;
+}
+
+.pe-recent thead th {
+  padding: 8px 16px 8px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pe-recent thead th:first-child {
+  padding-left: 0;
+}
+
+/* Fixed widths for the short columns, so the program's name takes what is left. */
+.pe-recent thead th:nth-child(1) {
+  width: 110px;
+}
+
+.pe-recent thead th:nth-child(3) {
+  width: 150px;
+}
+
+.pe-recent thead th:nth-child(4) {
+  width: 200px;
+}
+
+.pe-recent thead th:nth-child(5) {
+  width: 320px;
+  padding-left: 24px;
+}
+
+.pe-recent tbody td:nth-child(5) {
+  padding-left: 24px;
+}
+
+.pe-recent tbody th,
+.pe-recent tbody td {
+  padding: 12px 16px 12px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-text);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pe-recent tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pe-recent tbody td:first-child {
+  color: var(--brand-muted);
+  white-space: nowrap;
+}
+
+.pe-recent tr > :last-child {
+  padding-right: 0;
+}
+
+.pe-recent .pe-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pe-recent td small {
+  display: block;
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pe-amount {
+  font-weight: 600;
+}
+
+.pe-status-approved {
+  color: var(--brand-green);
+}
+
+.pe-status-reversed,
+.pe-returned .pe-amount {
+  color: var(--brand-muted);
+}
+
+.pe-recent .pe-btn {
+  margin-top: 6px;
+}
+
+/* Nothing yet, or could not load */
+.pe-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.pe-state p {
+  max-width: 60ch;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pe-state .pe-btn {
+  margin-top: 8px;
+}
+
+/* Loading */
+.pe-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.pe-skeleton .pe-program {
+  grid-template-columns: minmax(0, 360px) auto auto;
+  align-items: center;
+  border-top: 1px solid var(--brand-line);
+}
+
+.pe-bar {
+  display: block;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--brand-control);
+}
+
+/* The Marketplace page: one line on a "Your programs" card */
+.pe-card-line {
+  color: var(--brand-text);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  .pe-panel {
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .pe-program {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .pe-skeleton .pe-program {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pe-program dl {
+    flex-wrap: wrap;
+    gap: 12px 28px;
+  }
+
+  .pe-program dl > div {
+    min-width: 120px;
+  }
+
+  /* Each commission becomes a short block: program and amount, the sale, then its status. */
+  .pe-recent thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pe-recent table,
+  .pe-recent tbody {
+    display: block;
+  }
+
+  .pe-recent tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'program amount'
+      'date sale'
+      'status status';
+    gap: 2px 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+
+  .pe-recent tbody tr:first-child {
+    border-top: 1px solid var(--brand-line);
+  }
+
+  .pe-recent tbody th,
+  .pe-recent tbody td {
+    padding: 0;
+    border: 0;
+  }
+
+  .pe-recent tbody th {
+    grid-area: program;
+  }
+
+  .pe-recent tbody td:nth-child(1) {
+    grid-area: date;
+  }
+
+  .pe-recent tbody td:nth-child(3) {
+    grid-area: sale;
+    color: var(--brand-muted);
+  }
+
+  .pe-recent tbody td:nth-child(3)::before {
+    content: 'Sale ';
+  }
+
+  .pe-recent tbody td:nth-child(4) {
+    grid-area: amount;
+  }
+
+  .pe-recent tbody td:nth-child(5) {
+    grid-area: status;
+    margin-top: 4px;
+    padding-left: 0;
+  }
+
+  .pe-btn {
+    width: 100%;
+  }
+}

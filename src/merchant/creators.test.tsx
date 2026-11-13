@@ -301,7 +301,7 @@ describe('creators route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators'])
+    ).toEqual(['Program', 'Creators', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
