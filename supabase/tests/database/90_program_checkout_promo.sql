@@ -424,6 +424,7 @@ select pg_temp.check(
   and (select s->'program'->'promo_codes' = '{"pending":0,"active":2,"failed":0,"last_error":null}' from pg_temp.state() s),
   'both codes are active; reporting the same code again changes nothing, and another promotion code for it is refused');
 select pg_temp.capture('partner_program_links.with_code', pg_temp.links('anna'));
+select pg_temp.capture('partner_program_detail.with_code', pg_temp.detail('ben'));
 select pg_temp.check(
   (select l->'programs'->0->'promo_code' = '{"code":"ANNA10","discount_bps":1000,"status":"active"}' from pg_temp.links('anna') l)
   and (select d->'membership'->'promo_code' = '{"code":"BENRIVERS102","discount_bps":1000,"status":"active"}' from pg_temp.detail('ben') d)
