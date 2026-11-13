@@ -338,15 +338,13 @@ describe('connections page', () => {
     expect(within(stripe).getByRole('status', { name: 'Loading your Stripe connection' }))
     expect(stripe).toHaveAttribute('aria-busy', 'true')
     expect(screen.queryByRole('button', { name: 'Connect Stripe' })).not.toBeInTheDocument()
-    // The rows that are not available yet are there from the start, with nothing to press.
-    const more = screen.getByRole('region', { name: 'More connections' })
-    // The balance has its own page now, so it is not promised here.
-    expect(within(more).queryByRole('heading', { name: 'Balance' })).not.toBeInTheDocument()
-    expect(within(more).getByRole('heading', { name: 'Analytics tools' })).toBeInTheDocument()
-    expect(within(more).getByText(/Amplitude and Adapty/)).toBeInTheDocument()
-    expect(within(more).getAllByText('Coming soon')).toHaveLength(1)
-    expect(within(more).queryByRole('button')).not.toBeInTheDocument()
-    expect(within(more).queryByRole('link')).not.toBeInTheDocument()
+    // The tools that once were promised as coming soon are cards of their own now (Phase 8;
+    // connections.tools.test.tsx), and nothing is promised for later any more.
+    expect(screen.queryByRole('region', { name: 'More connections' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Analytics tools' })).not.toBeInTheDocument()
+    for (const tool of ['RevenueCat', 'Adapty', 'Amplitude'])
+      expect(screen.getByRole('heading', { name: tool, level: 2 })).toBeInTheDocument()
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
     expect(sent('status')).toEqual([{ action: 'status', workspace_id: 'ws-1' }])
     expect(fake.state.calls[0].name).toBe('workspace-stripe-connect')
   })

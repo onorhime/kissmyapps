@@ -29,6 +29,11 @@ export type SaleStatus =
   /** A status this page has no words for yet: still a sale, so it is still listed. */
   | 'other'
 
+/** Where a sale was reported from: Stripe, or an in-app purchase tool. */
+export type SaleSource = 'stripe' | 'revenuecat' | 'adapty'
+/** The store an in-app purchase was made in, as RevenueCat or Adapty report it. */
+export type SaleStore = 'app_store' | 'play_store' | 'stripe' | 'amazon' | 'other'
+
 export interface Sale {
   sale_id: string
   paid_at: string
@@ -47,6 +52,14 @@ export interface Sale {
   commission_minor: number | null
   fee_minor: number | null
   hold_until: string | null
+  /**
+   * Where the sale was reported from. An answer from before in-app purchases says nothing, and
+   * every sale then came from Stripe; null is a source this page has no words for yet.
+   */
+  source: SaleSource | null
+  store: SaleStore | null
+  /** The creator's promo code the buyer used, when the sale came with one of the program's codes. */
+  promotion_code: string | null
 }
 
 export interface SalesProgram {
@@ -108,6 +121,11 @@ const SALE_STATUSES: ReadonlyArray<Exclude<SaleStatus, 'other'>> = [
   'not_judged',
 ]
 
+const SALE_SOURCES: readonly SaleSource[] = ['stripe', 'revenuecat', 'adapty']
+const SALE_STORES: readonly SaleStore[] = ['app_store', 'play_store', 'stripe', 'amazon', 'other']
+/** A promo code as Stripe and the program store it: capitals and digits, 3 to 20. */
+const PROMO_CODE = /^[A-Z0-9]{3,20}$/
+
 function programFrom(value: unknown): SalesProgram | null {
   if (value === null || value === undefined) return null
   const row = record(value)
@@ -144,6 +162,15 @@ function saleFrom(value: unknown): Sale | null {
     commission_minor: minor(row.commission_minor),
     fee_minor: minor(row.fee_minor),
     hold_until: moment(row.hold_until),
+    source:
+      row.source === undefined
+        ? 'stripe'
+        : (SALE_SOURCES.find((item) => item === row.source) ?? null),
+    store: SALE_STORES.find((item) => item === row.store) ?? null,
+    promotion_code:
+      typeof row.promotion_code === 'string' && PROMO_CODE.test(row.promotion_code)
+        ? row.promotion_code
+        : null,
   }
 }
 
@@ -306,6 +333,29 @@ export function hasCommission(sale: Pick<Sale, 'status' | 'commission_minor'>): 
     sale.commission_minor !== null &&
     (sale.status === 'pending' || sale.status === 'approved' || sale.status === 'returned')
   )
+}
+
+const storeWords: Record<SaleStore, string> = {
+  app_store: 'App Store',
+  play_store: 'Google Play',
+  stripe: 'Stripe',
+  amazon: 'Amazon Appstore',
+  other: '',
+}
+const toolWords: Record<Exclude<SaleSource, 'stripe'>, string> = {
+  revenuecat: 'RevenueCat',
+  adapty: 'Adapty',
+}
+
+/**
+ * Where the buyer paid, in a word: "Stripe", "App Store", "Google Play". An in-app purchase from
+ * a store this page has no word for is named by the tool that reported it. Null when the source
+ * is not known.
+ */
+export function saleSource(sale: Pick<Sale, 'source' | 'store'>): string | null {
+  if (!sale.source) return null
+  if (sale.source === 'stripe') return 'Stripe'
+  return (sale.store && storeWords[sale.store]) || toolWords[sale.source]
 }
 
 /** "$10.00 refunded" under the amount of a sale that was partly or wholly refunded. */

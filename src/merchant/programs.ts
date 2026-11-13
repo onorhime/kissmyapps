@@ -101,6 +101,18 @@ export interface Program {
    * a web page. Missing in an answer from before programs could send people to an app.
    */
   app_link?: ProgramAppLink | null
+  /**
+   * How buyers pay, the product of a checkout link and the buyer discount of creator codes.
+   * Missing in an answer from before Phase 8: the program uses its own checkout and has no codes.
+   */
+  payment_mode?: PaymentMode
+  checkout?: ProgramCheckout | null
+  buyer_discount_bps?: number | null
+  /**
+   * How the creators' codes stand on the business's Stripe account; null when the program has
+   * no discount. Missing in an older answer, which reads as null.
+   */
+  promo_codes?: PromoCodeCounts | null
 }
 
 export interface Checklist {
@@ -125,6 +137,11 @@ export interface ProgramState {
    * answer from before programs could send people to an app.
    */
   app_links_available?: boolean
+  /**
+   * Whether the connected Stripe account can take payments, which a checkout link needs.
+   * Missing in an answer from before Phase 8.
+   */
+  stripe_charges_enabled?: boolean
 }
 
 /** An event KissMyApps has already received from the business's site or app. */
@@ -187,6 +204,11 @@ export interface ProgramInput {
   /** The whole list, replacing what was saved. */
   rewards?: Reward[]
   reward_budget_minor?: number | null
+  payment_mode?: PaymentMode
+  /** A checkout link's product; any part may still be missing in a draft. */
+  checkout?: ProgramCheckout | null
+  /** The discount buyers get with a creator's code, 100 to 9000; null for no codes. */
+  buyer_discount_bps?: number | null
 }
 
 export class ProgramError extends Error {
@@ -312,6 +334,7 @@ function readProgram(value: unknown): Program | null {
     updated_at: moment(row.updated_at),
     ...readEarning(row),
     ...readProgramAppLink(row),
+    ...readPayment(row),
   }
 }
 
@@ -339,6 +362,9 @@ export function readState(value: unknown): ProgramState {
     ...(body.app_links_available === undefined
       ? {}
       : { app_links_available: body.app_links_available === true }),
+    ...(body.stripe_charges_enabled === undefined
+      ? {}
+      : { stripe_charges_enabled: body.stripe_charges_enabled === true }),
   }
 }
 
@@ -625,6 +651,18 @@ export interface ProgramDraft {
   /** Never empty: a list with nothing in it holds one blank row, ready to be filled in. */
   rewards?: RewardRow[]
   budget?: string
+  /**
+   * The next ones are only in a form that asks how buyers pay (see offersCheckout). Left out,
+   * the program keeps its own checkout and codes stay as they are.
+   */
+  paymentMode?: PaymentMode
+  productName?: string
+  productPrice?: string
+  productInterval?: CheckoutBilling
+  successUrl?: string
+  /** Whether creators get promo codes; the discount is kept as typed while they are off. */
+  codes?: boolean
+  discount?: string
 }
 
 /** A reward as it is typed: the amount in normal money, nothing converted yet. */
@@ -656,6 +694,11 @@ type NamedField =
   | 'earnFrom'
   | 'rewards'
   | 'budget'
+  | 'paymentMode'
+  | 'productName'
+  | 'productPrice'
+  | 'successUrl'
+  | 'discount'
 export type DraftField = NamedField | RewardField
 export type DraftErrors = Partial<Record<DraftField, string>>
 
@@ -687,7 +730,11 @@ const isBlank = (row: RewardRow) => !row.key.trim() && !row.label.trim() && !row
  * The form for a saved program, or the defaults a new one starts with. `earning` adds the
  * question of what creators earn from, with the rewards and their budget.
  */
-export function draftFromProgram(program: Program | null, earning = false): ProgramDraft {
+export function draftFromProgram(
+  program: Program | null,
+  earning = false,
+  paying = false,
+): ProgramDraft {
   const rewards = (program?.rewards ?? []).map((reward) => ({
     key: reward.key,
     label: reward.label,
@@ -702,6 +749,7 @@ export function draftFromProgram(program: Program | null, earning = false): Prog
           budget: program?.reward_budget_minor ? minorToDollars(program.reward_budget_minor) : '',
         }
       : {}),
+    ...(paying ? paymentDraft(program) : {}),
   }
 }
 
@@ -743,6 +791,11 @@ export const fieldMessages: Record<NamedField, string> = {
   earnFrom: 'Choose Sales, Events or Both.',
   rewards: 'Check the rewards. Each needs its own event, its own words for creators and an amount.',
   budget: 'Enter a monthly budget of at least 1.00 that covers your largest reward.',
+  paymentMode: 'Choose how buyers pay.',
+  productName: 'Enter a product name up to 80 characters.',
+  productPrice: 'Enter a price like 9.99, up to 1,000,000.00.',
+  successUrl: 'Enter the page buyers see after paying. It starts with https://',
+  discount: 'Enter a whole percent from 1 to 90.',
 }
 const FIXED_AMOUNT = 'Enter an amount like 20.00.'
 
@@ -881,7 +934,10 @@ export function validateDraft(draft: ProgramDraft, published = false): DraftErro
   if (name.length > 120 || (published && !name)) errors.name = fieldMessages.name
   if (published && !draft.category) errors.category = fieldMessages.category
   if (tagline.length > 160 || (published && !tagline)) errors.tagline = fieldMessages.tagline
-  if (landing ? !httpsUrl(landing) : published) errors.landingUrl = fieldMessages.landingUrl
+  // A checkout link's address is made by KissMyApps, so there is no landing page to check.
+  if (draft.paymentMode !== 'kma_checkout' && (landing ? !httpsUrl(landing) : published))
+    errors.landingUrl = fieldMessages.landingUrl
+  Object.assign(errors, validatePayment(draft, published))
   const earnFrom = draft.earnFrom ?? 'sales'
   // Only what the program pays for is checked: the rest is not on the page and is not sent.
   if (earnFrom !== 'events') {
@@ -923,15 +979,19 @@ export function draftProgress(
     validateBudget(draft.budget ?? '', rows, draft.currency, true) === null
   return {
     details: Boolean(draft.name.trim() && draft.category && draft.tagline.trim()),
-    landing_page: httpsUrl(draft.landingUrl),
+    // A checkout link is the landing page once its product is complete.
+    landing_page:
+      draft.paymentMode === 'kma_checkout' ? checkoutComplete(draft) : httpsUrl(draft.landingUrl),
     commission:
       earnFrom === 'sales' ? commission : earnFrom === 'events' ? rewards : commission && rewards,
   }
 }
 
 type EarningKey = 'earn_from' | 'rewards' | 'reward_budget_minor'
-/** Everything the form holds; what creators earn from only when the form asks it. */
-export type DraftInput = Required<Omit<ProgramInput, EarningKey>> & Pick<ProgramInput, EarningKey>
+type PaymentKey = 'payment_mode' | 'checkout' | 'buyer_discount_bps'
+/** Everything the form holds; what creators earn from and how buyers pay only when it asks. */
+export type DraftInput = Required<Omit<ProgramInput, EarningKey | PaymentKey>> &
+  Pick<ProgramInput, EarningKey | PaymentKey>
 
 /** The form as the database takes it. Call only for a draft that passes validateDraft. */
 export function inputFromDraft(draft: ProgramDraft): DraftInput {
@@ -966,6 +1026,7 @@ export function inputFromDraft(draft: ProgramDraft): DraftInput {
               ? budget
               : null,
         }),
+    ...(draft.paymentMode === undefined ? {} : paymentInput(draft)),
   }
 }
 
@@ -983,10 +1044,19 @@ const unusedKeys: Record<EarnFrom, string[]> = {
 }
 
 /** What a program has before anything is saved, where that is not simply nothing. */
-const unsaved: Record<string, unknown> = { earn_from: 'sales', rewards: [] }
+const unsaved: Record<string, unknown> = {
+  earn_from: 'sales',
+  rewards: [],
+  payment_mode: 'own_checkout',
+}
 
 const sameValue = (a: unknown, b: unknown) =>
-  a === b || (Array.isArray(a) && Array.isArray(b) && JSON.stringify(a) === JSON.stringify(b))
+  a === b ||
+  (typeof a === 'object' &&
+    typeof b === 'object' &&
+    a !== null &&
+    b !== null &&
+    JSON.stringify(a) === JSON.stringify(b))
 
 /**
  * Only what differs from the saved program is sent, with its revision; a new program sends
@@ -998,6 +1068,9 @@ export function changedInput(
 ): ProgramInput & { revision?: number } {
   const next = inputFromDraft(draft) as Record<string, unknown>
   for (const key of unusedKeys[draft.earnFrom ?? 'sales']) delete next[key]
+  // KissMyApps makes a checkout link's address; one's own checkout keeps the product as saved.
+  if (draft.paymentMode === 'kma_checkout') delete next.landing_url
+  if (draft.paymentMode === 'own_checkout') delete next.checkout
   const saved = program as unknown as Record<string, unknown> | null
   const changed: Record<string, unknown> = {}
   for (const key of Object.keys(next)) {
@@ -1037,6 +1110,10 @@ export function changesAgreement(draft: ProgramDraft, program: Program | null): 
     // The budget is not here: it is the business's own limit, not something creators agree to.
     'earn_from',
     'rewards',
+    // How buyers pay and what they are offered are terms too: codes are made anew on a change.
+    'payment_mode',
+    'checkout',
+    'buyer_discount_bps',
   ].some((key) => key in changed)
 }
 
@@ -1274,6 +1351,14 @@ const invalidFields: Record<string, NamedField> = {
   invalid_earn_from: 'earnFrom',
   invalid_rewards: 'rewards',
   invalid_reward_budget_minor: 'budget',
+  invalid_payment_mode: 'paymentMode',
+  invalid_checkout: 'productName',
+  invalid_checkout_name: 'productName',
+  invalid_checkout_amount_minor: 'productPrice',
+  invalid_checkout_interval: 'productPrice',
+  invalid_checkout_success_url: 'successUrl',
+  invalid_success_url: 'successUrl',
+  invalid_buyer_discount_bps: 'discount',
 }
 
 /** What is missing before publishing, for a program that pays for more than sales. */
@@ -1315,6 +1400,11 @@ export const problemMessages: Record<string, Omit<ProgramProblem, 'code'>> = {
   balance_required: {
     message: 'Add funds before you publish.',
     recovery: 'balance',
+  },
+  stripe_charges_disabled: {
+    message:
+      'Your Stripe account cannot take payments yet, so a checkout link would not work. Finish setting it up in Stripe, then publish.',
+    recovery: 'connections',
   },
   agreement_not_read: {
     message: 'The agreement has changed. Read it again before you publish.',
@@ -1377,6 +1467,7 @@ export function describeProblem(
   problem: unknown,
   step: ProgramStep,
   earnFrom: EarnFrom = 'sales',
+  paymentMode: PaymentMode = 'own_checkout',
 ): ProgramProblem {
   const code = problem instanceof ProgramError ? problem.code : 'unknown'
   // The browser's own refusal of a file already says what to choose instead.
@@ -1386,13 +1477,20 @@ export function describeProblem(
   if (field)
     return {
       code,
-      message: code === 'invalid_commission_fixed_minor' ? FIXED_AMOUNT : fieldMessages[field],
+      message:
+        code === 'invalid_commission_fixed_minor'
+          ? FIXED_AMOUNT
+          : code === 'invalid_checkout'
+            ? CHECKOUT_INCOMPLETE
+            : fieldMessages[field],
       recovery: 'none',
       field,
     }
   // The answer to "what do creators earn from" is the one thing the person can change about it.
   if (code === 'events_unavailable')
     return { code, message: rewardMessages.eventsUnavailable, recovery: 'none', field: 'earnFrom' }
+  if (code === 'program_incomplete' && paymentMode === 'kma_checkout')
+    return { code, message: CHECKOUT_INCOMPLETE_PUBLISH, recovery: 'none' }
   const incomplete = code === 'program_incomplete' ? incompleteMessages[earnFrom] : null
   if (incomplete) return { code, message: incomplete, recovery: 'none' }
   // A paused program is resumed, not published: the same refusal, said for what was pressed.
@@ -1558,4 +1656,284 @@ export function withRewardEvent(
     row.label === labelFromEvent(row.key) ||
     row.label === suggestedRewardLabel(row.key, events)
   return { ...row, key, label: untouched ? suggestedRewardLabel(key, events) : row.label }
+}
+
+// Checkout link and promo codes (Phase 8) ---------------------------------------------------
+
+/** How buyers pay: on the business's own checkout, or on a checkout link KissMyApps opens. */
+export type PaymentMode = 'own_checkout' | 'kma_checkout'
+export type CheckoutInterval = 'month' | 'year'
+/** How often a checkout link's product is paid for, as the form asks it. */
+export type CheckoutBilling = 'once' | CheckoutInterval
+
+/** The one product a checkout link sells, in the program's currency. */
+export interface ProgramCheckout {
+  name: string | null
+  amount_minor: number | null
+  /** Null for a one-time payment. */
+  interval: CheckoutInterval | null
+  /** The page buyers land on once they have paid. */
+  success_url: string | null
+}
+
+const PAYMENT_MODES = ['own_checkout', 'kma_checkout'] as const
+const CHECKOUT_NAME_MAX = 80
+const PRICE_MAX_MINOR = 100_000_000
+export const DISCOUNT_MIN_BPS = 100
+export const DISCOUNT_MAX_BPS = 9000
+const CHECKOUT_INCOMPLETE = 'Check the product: a name, a price and the page after payment.'
+const CHECKOUT_INCOMPLETE_PUBLISH =
+  'Fill in the product card, the checkout product and what creators earn before you publish.'
+
+/** How many creator codes are ready, still being made, or could not be made, and why the last failed. */
+export interface PromoCodeCounts {
+  active: number
+  pending: number
+  failed: number
+  /** A short reason such as code_taken; null when no code failed or none was given. */
+  last_error: string | null
+}
+
+/** The address of a program's checkout link, as KissMyApps makes it. */
+export const CHECKOUT_LINK_PREFIX = 'https://kissmyapps.dev/checkout/'
+
+/** A product exactly as the database stores it. Any part that is there must read right. */
+function readCheckout(value: unknown): ProgramCheckout | null {
+  if (value === null) return null
+  const row = record(value)
+  if (!row) throw unreadable()
+  const part = <T>(key: string, read: (item: unknown) => T | null): T | null => {
+    const item = row[key]
+    if (item === null || item === undefined) return null
+    const found = read(item)
+    if (found === null) throw unreadable()
+    return found
+  }
+  return {
+    name: part('name', (item) => {
+      const name = typeof item === 'string' ? item.trim() : ''
+      return name && name.length <= CHECKOUT_NAME_MAX ? name : null
+    }),
+    amount_minor: part('amount_minor', (item) =>
+      typeof item === 'number' && Number.isInteger(item) && item >= 1 && item <= PRICE_MAX_MINOR
+        ? item
+        : null,
+    ),
+    interval: part('interval', (item) => oneOf(item, ['month', 'year'] as const)),
+    success_url: part('success_url', (item) =>
+      typeof item === 'string' && httpsUrl(item) ? item : null,
+    ),
+  }
+}
+
+/** The creators' codes as the answer counts them. Counts that are there must read right. */
+function readPromoCodes(value: unknown): PromoCodeCounts | null {
+  if (value === null) return null
+  const row = record(value)
+  if (!row) throw unreadable()
+  const count = (key: string) => {
+    const item = row[key]
+    if (typeof item !== 'number' || !Number.isInteger(item) || item < 0) throw unreadable()
+    return item
+  }
+  const error = row.last_error
+  if (error !== null && error !== undefined && typeof error !== 'string') throw unreadable()
+  return {
+    active: count('active'),
+    pending: count('pending'),
+    failed: count('failed'),
+    last_error: typeof error === 'string' && error.trim() ? error.trim() : null,
+  }
+}
+
+/**
+ * How buyers pay and the buyer discount, when the answer says. A sale's money depends on them,
+ * so a value that is there but cannot be read refuses the whole answer, as with readEarning.
+ */
+function readPayment(
+  row: Record<string, unknown>,
+): Pick<Program, 'payment_mode' | 'checkout' | 'buyer_discount_bps' | 'promo_codes'> {
+  const read: Pick<Program, 'payment_mode' | 'checkout' | 'buyer_discount_bps' | 'promo_codes'> = {}
+  if (row.payment_mode !== undefined) {
+    const mode = oneOf(row.payment_mode, PAYMENT_MODES)
+    if (!mode) throw unreadable()
+    read.payment_mode = mode
+  }
+  if (row.checkout !== undefined) read.checkout = readCheckout(row.checkout)
+  if (row.buyer_discount_bps !== undefined) {
+    const bps = row.buyer_discount_bps
+    if (
+      bps !== null &&
+      !(
+        typeof bps === 'number' &&
+        Number.isInteger(bps) &&
+        bps >= DISCOUNT_MIN_BPS &&
+        bps <= DISCOUNT_MAX_BPS
+      )
+    )
+      throw unreadable()
+    read.buyer_discount_bps = bps as number | null
+  }
+  // An older answer has no codes key, which the form reads as no codes.
+  if (row.promo_codes !== undefined) read.promo_codes = readPromoCodes(row.promo_codes)
+  return read
+}
+
+/** Why the last code could not be made, in words for the business; null for a reason not known. */
+export function promoErrorWords(code: string | null): string | null {
+  switch (code) {
+    case 'code_taken':
+      return 'A code with that name already exists on your Stripe account.'
+    case 'stripe_account_denied':
+      return 'KissMyApps can no longer reach your Stripe account. Reconnect it in Connections.'
+    case 'stripe_unreachable':
+    case 'stripe_unavailable':
+    case 'stripe_unreadable':
+      return 'Stripe could not be reached.'
+    default:
+      return null
+  }
+}
+
+/** The codes in plain words, such as "12 codes ready, 1 being made". */
+export function promoCountLine(counts: PromoCodeCounts): string {
+  const codes = (n: number) => `${n} ${n === 1 ? 'code' : 'codes'}`
+  if (counts.active === 0 && counts.pending === 0)
+    return counts.failed > 0
+      ? 'No code is ready yet.'
+      : 'No creator has a code yet. Each one gets a code when they join.'
+  const parts: string[] = []
+  if (counts.active > 0) parts.push(`${codes(counts.active)} ready`)
+  if (counts.pending > 0)
+    parts.push(
+      parts.length ? `${counts.pending} being made` : `${codes(counts.pending)} being made`,
+    )
+  return parts.join(', ')
+}
+
+/** The warning when some codes could not be made, or null when none failed. */
+export function promoFailureLine(counts: PromoCodeCounts): string | null {
+  if (counts.failed <= 0) return null
+  return `${counts.failed} ${counts.failed === 1 ? 'code' : 'codes'} could not be made on your Stripe account.`
+}
+
+/**
+ * Whether the form asks how buyers pay and about promo codes: for a new program, and for a
+ * saved one whose answer says how its buyers pay. An answer from an older database does not,
+ * and its form stays as it was.
+ */
+export function offersCheckout(state: Pick<ProgramState, 'program'> | undefined): boolean {
+  if (!state) return false
+  return state.program === null || state.program.payment_mode !== undefined
+}
+
+/** The address of a saved checkout link, once there is one. */
+export function checkoutLinkOf(program: Program | null | undefined): string | null {
+  return program?.payment_mode === 'kma_checkout' ? program.landing_url : null
+}
+
+function paymentDraft(program: Program | null): Partial<ProgramDraft> {
+  const checkout = program?.checkout ?? null
+  const bps = program?.buyer_discount_bps ?? null
+  return {
+    paymentMode: program?.payment_mode ?? 'own_checkout',
+    productName: checkout?.name ?? '',
+    productPrice: checkout?.amount_minor ? minorToDollars(checkout.amount_minor) : '',
+    // A saved product with no interval is paid once; a new one starts as a monthly plan.
+    productInterval: checkout ? (checkout.interval ?? 'once') : 'month',
+    successUrl: checkout?.success_url ?? '',
+    codes: bps !== null,
+    discount: bps !== null ? bpsToPercent(bps) : '',
+  }
+}
+
+/** "9.99" → 999. Null when it is not a price from 0.01 to 1,000,000.00. */
+export function checkoutPrice(value: string): number | null {
+  const minor = dollarsToMinor(value)
+  return minor !== null && minor >= 1 && minor <= PRICE_MAX_MINOR ? minor : null
+}
+
+/** "10" → 1000. Null when it is not a whole percent from 1 to 90. */
+export function discountBps(value: string): number | null {
+  const match = /^(\d{1,2})%?$/.exec(value.trim())
+  if (!match) return null
+  const bps = Number(match[1]) * 100
+  return bps >= DISCOUNT_MIN_BPS && bps <= DISCOUNT_MAX_BPS ? bps : null
+}
+
+function checkoutComplete(draft: ProgramDraft): boolean {
+  const name = (draft.productName ?? '').trim()
+  return (
+    Boolean(name) &&
+    name.length <= CHECKOUT_NAME_MAX &&
+    checkoutPrice(draft.productPrice ?? '') !== null &&
+    httpsUrl(draft.successUrl ?? '')
+  )
+}
+
+/** What is wrong with how buyers pay and the discount. A draft's product may be unfinished. */
+function validatePayment(draft: ProgramDraft, published: boolean): DraftErrors {
+  const errors: DraftErrors = {}
+  if (draft.paymentMode === 'kma_checkout') {
+    const name = (draft.productName ?? '').trim()
+    const price = (draft.productPrice ?? '').trim()
+    const success = (draft.successUrl ?? '').trim()
+    if (name.length > CHECKOUT_NAME_MAX || (published && !name))
+      errors.productName = fieldMessages.productName
+    if (price ? checkoutPrice(price) === null : published)
+      errors.productPrice = fieldMessages.productPrice
+    if (success ? !httpsUrl(success) : published) errors.successUrl = fieldMessages.successUrl
+  }
+  if (draft.codes && discountBps(draft.discount ?? '') === null)
+    errors.discount = fieldMessages.discount
+  return errors
+}
+
+function paymentInput(draft: ProgramDraft): Pick<ProgramInput, PaymentKey> {
+  const name = (draft.productName ?? '').trim()
+  const price = checkoutPrice(draft.productPrice ?? '')
+  const success = (draft.successUrl ?? '').trim()
+  const interval = draft.productInterval === 'once' ? null : (draft.productInterval ?? null)
+  return {
+    payment_mode: draft.paymentMode ?? 'own_checkout',
+    // A product with nothing typed in it is no product; a draft may hold part of one.
+    checkout:
+      !name && price === null && !success
+        ? null
+        : {
+            name: name || null,
+            amount_minor: price,
+            interval,
+            success_url: success && httpsUrl(success) ? success : null,
+          },
+    buyer_discount_bps: draft.codes ? discountBps(draft.discount ?? '') : null,
+  }
+}
+
+/** The form's product as a creator reads it, for the preview. */
+export function draftCheckout(draft: ProgramDraft): ProgramCheckout | null {
+  if (draft.paymentMode !== 'kma_checkout') return null
+  return paymentInput(draft).checkout ?? null
+}
+
+export const billingWords: Record<CheckoutBilling, string> = {
+  once: 'One time',
+  month: 'Monthly',
+  year: 'Yearly',
+}
+
+/** "Fluent Pro, $9.99 a month": a checkout link's product in one line. Null until it has a price. */
+export function productLine(
+  checkout: Pick<ProgramCheckout, 'name' | 'amount_minor' | 'interval'> | null | undefined,
+  currency: string,
+): string | null {
+  if (!checkout?.amount_minor) return null
+  const price = formatMoney(checkout.amount_minor, currency)
+  const paid = checkout.interval ? `${price} a ${checkout.interval}` : `${price} once`
+  return checkout.name ? `${checkout.name}, ${paid}` : paid
+}
+
+/** "Buyers get 10% off with a creator's code" */
+export function discountLine(bps: number): string {
+  return `Buyers get ${bpsToPercent(bps)}% off with a creator’s code`
 }
