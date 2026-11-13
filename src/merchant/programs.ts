@@ -17,7 +17,7 @@ const LOGO_TYPES: Record<string, string> = {
 
 export type ProgramStatus =
   'draft' | 'in_review' | 'changes_requested' | 'live' | 'paused' | 'archived'
-export type PauseReason = 'merchant' | 'stripe_disconnected' | 'admin'
+export type PauseReason = 'merchant' | 'stripe_disconnected' | 'admin' | 'balance_empty'
 export type CommissionType = 'percent' | 'fixed'
 export type CommissionDuration = 'first_payment' | 'months' | 'lifetime'
 export type ApprovalMode = 'automatic' | 'manual'
@@ -184,7 +184,12 @@ function readProgram(value: unknown): Program | null {
     id: row.id,
     revision,
     status,
-    pause_reason: oneOf(row.pause_reason, ['merchant', 'stripe_disconnected', 'admin'] as const),
+    pause_reason: oneOf(row.pause_reason, [
+      'merchant',
+      'stripe_disconnected',
+      'admin',
+      'balance_empty',
+    ] as const),
     review_note: text(row.review_note),
     slug: text(row.slug),
     name: text(row.name),
@@ -813,10 +818,11 @@ export const trackingSnippetNote =
 export type ProgramStep = 'load' | 'save' | 'agreement' | 'read' | 'publish' | 'status' | 'logo'
 
 /**
- * How the person gets past a problem: try the same thing again, connect Stripe, sign in
- * again, or nothing they can do alone. `reload` means the page has fetched the latest copy.
+ * How the person gets past a problem: try the same thing again, connect Stripe, add funds to
+ * the balance, sign in again, or nothing they can do alone. `reload` means the page has
+ * fetched the latest copy.
  */
-export type ProgramRecovery = 'retry' | 'reload' | 'connections' | 'sign-in' | 'none'
+export type ProgramRecovery = 'retry' | 'reload' | 'connections' | 'balance' | 'sign-in' | 'none'
 
 export interface ProgramProblem {
   code: string
@@ -871,6 +877,10 @@ export const problemMessages: Record<string, Omit<ProgramProblem, 'code'>> = {
   stripe_not_connected: {
     message: 'Connect Stripe first, so sales can be tracked.',
     recovery: 'connections',
+  },
+  balance_required: {
+    message: 'Add funds before you publish.',
+    recovery: 'balance',
   },
   agreement_not_read: {
     message: 'The agreement has changed. Read it again before you publish.',
@@ -942,6 +952,9 @@ export function describeProblem(problem: unknown, step: ProgramStep): ProgramPro
       recovery: 'none',
       field,
     }
+  // A paused program is resumed, not published: the same refusal, said for what was pressed.
+  if (code === 'balance_required' && step === 'status')
+    return { code, message: 'Add funds before you resume.', recovery: 'balance' }
   const known = problemMessages[code]
   if (known) return { code, ...known, ...(step === 'logo' ? { field: 'logo' as const } : {}) }
   return {

@@ -7,6 +7,7 @@ import type { Route } from './routes'
 import { MerchantStoreProvider, useStore } from './store'
 import { AttributionScreen } from './screens/Attribution'
 import { AuthScreen } from './screens/Auth'
+import { BalanceScreen } from './screens/Balance'
 import { BotsScreen } from './screens/Bots'
 import { ConnectionsScreen } from './screens/Connections'
 import { CreatorsScreen } from './screens/Creators'
@@ -35,6 +36,7 @@ const titles: Record<Route['name'], string> = {
   connections: 'Connections',
   program: 'Program',
   creators: 'Creators',
+  balance: 'Balance',
   overview: 'Overview',
   users: 'Users',
   person: 'User',
@@ -160,7 +162,10 @@ function Screens() {
     project ??
     (route.name === 'workspace'
       ? (projects.find((item) => item.id === route.projectId) ?? rememberedProject(projects))
-      : route.name === 'connections' || route.name === 'program' || route.name === 'creators'
+      : route.name === 'connections' ||
+          route.name === 'program' ||
+          route.name === 'creators' ||
+          route.name === 'balance'
         ? rememberedProject(projects)
         : undefined)
   let content
@@ -173,6 +178,8 @@ function Screens() {
     content = <ProgramScreen key={workspace?.id} />
   } else if (route.name === 'creators') {
     content = <CreatorsScreen key={workspace?.id} />
+  } else if (route.name === 'balance') {
+    content = <BalanceScreen key={workspace?.id} deposit={route.deposit} card={route.card} />
   } else if (!project) {
     content = (
       <div className="mc-page">

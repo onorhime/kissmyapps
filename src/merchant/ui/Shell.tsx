@@ -99,6 +99,7 @@ function groups(project: Project | undefined): NavGroup[] {
   const affiliates: NavItem[] = [
     { label: 'Program', route: { name: 'program' }, match: (r) => r.name === 'program' },
     { label: 'Creators', route: { name: 'creators' }, match: (r) => r.name === 'creators' },
+    { label: 'Balance', route: { name: 'balance' }, match: (r) => r.name === 'balance' },
   ]
   const settings: NavItem[] = [
     {
