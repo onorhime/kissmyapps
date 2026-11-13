@@ -350,7 +350,7 @@ select pg_temp.check((select jsonb_array_length(r->'programs') = 2 and r->'progr
       'commission_type', 'percent', 'commission_rate_bps', 3000, 'commission_fixed_minor', null, 'currency', 'USD',
       'commission_duration', 'months', 'commission_months', 12,
       'attribution_window_days', 30, 'hold_days', 30, 'minimum_payout_minor', 2000,
-      'approval_mode', 'automatic', 'terms_version', 1)
+      'approval_mode', 'automatic', 'terms_version', 1, 'earn_from', 'sales', 'rewards', '[]'::jsonb)
     and r->'programs'->0 @> '{"name":"Rival Reader","brand_name":"Rival Media","logo_path":null,"commission_type":"fixed",
       "commission_rate_bps":null,"commission_fixed_minor":500,"commission_duration":"first_payment","commission_months":null,
       "approval_mode":"manual","terms_version":1}'

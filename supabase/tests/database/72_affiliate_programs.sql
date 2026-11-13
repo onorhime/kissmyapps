@@ -121,7 +121,8 @@ create function pg_temp.terms(overrides jsonb default '{}') returns jsonb langua
   select '{"program_name":"SpeakSix","brand_name":"SpeakSix Ltd","landing_url":"https://speaksix.com/start",
     "commission_type":"percent","commission_rate_bps":3000,"commission_fixed_minor":null,"currency":"USD",
     "commission_duration":"months","commission_months":12,"attribution_window_days":30,"hold_days":30,
-    "minimum_payout_minor":2000,"approval_mode":"automatic","extra_terms":null}'::jsonb || overrides
+    "minimum_payout_minor":2000,"approval_mode":"automatic","extra_terms":null,
+    "earn_from":"sales","rewards":[]}'::jsonb || overrides
 $$;
 create function pg_temp.doc(overrides jsonb default '{}') returns jsonb language sql as $$
   select kma_internal.program_agreement(pg_temp.terms(overrides))
@@ -249,7 +250,7 @@ select pg_temp.check(pg_temp.try('owner', 'select public.workspace_program_get(n
   and pg_temp.try('rival_owner', pg_temp.sql('workspace_program_agreement', 'acme')) like 'P0002%'
   and pg_temp.try('rival_owner', pg_temp.sql('workspace_program_save', 'acme', '''{"name":"Mine"}''::jsonb')) like 'P0002%',
   'people outside the workspace cannot see or change its program');
-select pg_temp.check(pg_temp.state('owner', 'acme') = '{"can_manage":true,"stripe_connected":false,"brand_name":null,"program":null,
+select pg_temp.check(pg_temp.state('owner', 'acme') = '{"can_manage":true,"stripe_connected":false,"brand_name":null,"events_available":false,"program":null,
     "checklist":{"stripe_connected":false,"details":false,"landing_page":false,"commission":false,"agreement_read":false},
     "can_submit":false}'::jsonb, 'a workspace with no program gets an empty state');
 select pg_temp.check((pg_temp.state('analyst', 'acme')->>'can_manage')::boolean = false
@@ -289,7 +290,8 @@ select pg_temp.check(
     "commission_fixed_minor":null,"currency":"USD","commission_duration":null,"commission_months":null,
     "attribution_window_days":30,"hold_days":30,"minimum_payout_minor":2000,"approval_mode":"automatic",
     "marketplace_listed":true,"extra_terms":null,"agreement_read":false,"has_unpublished_changes":false,
-    "live_terms_version":null,"submitted_at":null,"first_published_at":null}'::jsonb,
+    "live_terms_version":null,"submitted_at":null,"first_published_at":null,
+    "earn_from":"sales","rewards":[],"reward_budget_minor":null}'::jsonb,
   'the first save creates a draft with the form''s defaults and an address made from the name');
 select pg_temp.check((select p.created_by = pg_temp.q('owner') and p.updated_by = pg_temp.q('owner') and p.payment_mode = 'own_checkout'
     from pg_temp.program('acme') p) and pg_temp.audits('acme', 'affiliate_program_created') = 1,
