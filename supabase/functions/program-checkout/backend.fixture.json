@@ -1,0 +1,22 @@
+{
+  "program_checkout_target.ok": {
+    "ok": true,
+    "click": "bd776e86167e71568e686f879a95f4736b81408144ce2fda",
+    "product": {
+      "name": "Fluent Pro",
+      "interval": "month",
+      "amount_minor": 999
+    },
+    "currency": "USD",
+    "account_id": "acct_P8Checkout",
+    "cancel_url": "https://fluent-app.io/",
+    "success_url": "https://fluent-app.io/welcome",
+    "program_name": "Fluent",
+    "promotion_code_id": "promo_P8Anna",
+    "buyer_discount_bps": 1000
+  },
+  "program_checkout_target.not_live": {
+    "ok": false,
+    "reason": "not_live"
+  }
+}

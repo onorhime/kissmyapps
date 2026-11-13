@@ -41,7 +41,7 @@ export interface PromoClaim {
 export type PromoFinish =
   | { id: string; kind: "made"; couponId: string; promotionCodeId: string }
   | { id: string; kind: "deactivated" }
-  | { id: string; kind: "error"; error: string };
+  | { id: string; kind: "error"; error: string; couponId?: string };
 
 export interface PromoStore {
   claim(limit: number): Promise<PromoClaim>;
@@ -69,9 +69,11 @@ export function finishInput(outcome: PromoFinish): Json {
     case "deactivated":
       return { id: outcome.id, deactivated: true };
     case "error":
-      // Also sent for a retired code Stripe would not switch off: the
-      // contract names no shape for that case.
-      return { id: outcome.id, error: outcome.error };
+      // Also sent for a retired code Stripe would not switch off. A coupon
+      // made before the promotion code failed is kept for the next try.
+      return outcome.couponId
+        ? { id: outcome.id, error: outcome.error, coupon_id: outcome.couponId }
+        : { id: outcome.id, error: outcome.error };
   }
 }
 

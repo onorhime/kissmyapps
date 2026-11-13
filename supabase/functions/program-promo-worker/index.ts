@@ -137,6 +137,8 @@ export function createProgramPromoWorker(
       const deadline = deps.now() + WORK_BUDGET_MS;
       // The coupon of each account, program and discount, once known.
       const coupons = new Map<string, string>();
+      // The coupon each code got before its promotion code failed, if any.
+      const couponsMade = new Map<string, string>();
       // A code is worked on once per run, even if a claim hands it out again.
       const seen = new Set<string>();
 
@@ -193,6 +195,7 @@ export function createProgramPromoWorker(
             `kma-promo-code-${code.id}-${code.code}`,
           );
         let couponId = await coupon(code, false);
+        couponsMade.set(code.id, couponId);
         let promotionCodeId: string;
         try {
           promotionCodeId = await promotion(couponId);
@@ -204,6 +207,7 @@ export function createProgramPromoWorker(
             error.kind !== "rejected" || error.code !== "resource_missing"
           ) throw error;
           couponId = await coupon(code, true);
+          couponsMade.set(code.id, couponId);
           promotionCodeId = await promotion(couponId);
         }
         return { id: code.id, kind: "made", couponId, promotionCodeId };
@@ -245,7 +249,10 @@ export function createProgramPromoWorker(
             // left to the database's next claim, attempts untouched.
             throw new RunStopped();
           }
-          outcome = { id, kind: "error", error: errorCode(error) };
+          const couponId = couponsMade.get(id);
+          outcome = couponId
+            ? { id, kind: "error", error: errorCode(error), couponId }
+            : { id, kind: "error", error: errorCode(error) };
         }
         await finish(outcome);
       };

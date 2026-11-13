@@ -363,12 +363,17 @@ Deno.test("Stripe errors end the code with a short code, and the run goes on", a
   const { status, body } = await f.run();
   assertEquals(status, 200);
   assertEquals(f.finished, [
-    { id: uuid(20), error: "code_taken" },
-    { id: uuid(21), error: "code_taken" },
-    { id: uuid(22), error: "parameter_invalid_string_blank" },
-    { id: uuid(23), error: "stripe_account_denied" },
-    { id: uuid(24), error: "stripe_unavailable" },
-    { id: uuid(25), error: "stripe_unreachable" },
+    // The coupon made before the promotion code failed is kept for the next try.
+    { id: uuid(20), error: "code_taken", coupon_id: "cpn1" },
+    { id: uuid(21), error: "code_taken", coupon_id: "cpn1" },
+    {
+      id: uuid(22),
+      error: "parameter_invalid_string_blank",
+      coupon_id: "cpn1",
+    },
+    { id: uuid(23), error: "stripe_account_denied", coupon_id: "cpn1" },
+    { id: uuid(24), error: "stripe_unavailable", coupon_id: "cpn1" },
+    { id: uuid(25), error: "stripe_unreachable", coupon_id: "cpn1" },
   ]);
   assertEquals(body.errors, 6);
   assertEquals(body.made, 0);
@@ -526,6 +531,15 @@ Deno.test("finish inputs have exactly the contract's shapes", () => {
       id: uuid(1),
       error: "code_taken",
     },
+  );
+  assertEquals(
+    finishInput({
+      id: uuid(1),
+      kind: "error",
+      error: "code_taken",
+      couponId: "cpn1",
+    }),
+    { id: uuid(1), error: "code_taken", coupon_id: "cpn1" },
   );
   assertEquals(claimInput(10), { limit: 10 });
   assertMatch(JSON.stringify(parseClaim({ codes: [] })), /"deactivate":\[\]/);
