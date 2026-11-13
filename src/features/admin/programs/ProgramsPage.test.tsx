@@ -11,7 +11,17 @@ import {
   type AdminProgramStatusResult,
 } from '../api/programs'
 import { ProgramsPage } from './ProgramsPage'
-import { fixedProgramRow, programRow, reviewedRows, reviewsResponse } from './fixtures'
+import { programReviewsBackendFixture } from './reviews-backend.fixture'
+import {
+  bothProgramRow,
+  eventsProgramRow,
+  fixedProgramRow,
+  programRow,
+  reviewedRows,
+  reviewsResponse,
+  rewardRows,
+  salesProgramRow,
+} from './fixtures'
 
 type Reviews = AdminDataResult<AdminProgramReviews | null>
 type Outcome = AdminDataResult<AdminProgramStatusResult | null>
@@ -135,6 +145,153 @@ describe('Admin program review', () => {
     expect(copy).not.toMatch(/3000|2000|bps|minor|basis point/i)
     expect(copy).not.toMatch(/test mode|sandbox|livemode/i)
     expect(copy).not.toContain('—')
+  })
+
+  /** The value under a fact's label in a card. */
+  const fact = (card: HTMLElement, label: string) =>
+    within(card).getByText(label, { selector: 'dt' }).nextElementSibling as HTMLElement
+
+  it('shows what an events listing pays: no commission, each reward and the monthly budget', async () => {
+    setup({ list: vi.fn(async () => ready([eventsProgramRow()])) })
+    const card = (await screen.findByRole('heading', { name: 'Fluent' })).closest('article')!
+    expect(fact(card, 'Creators earn from')).toHaveTextContent(/^Events$/)
+    expect(fact(card, 'Commission')).toHaveTextContent(/^None$/)
+    expect(fact(card, 'Monthly budget')).toHaveTextContent(/^\$500\.00$/)
+
+    const rewards = within(card).getByRole('table', { name: 'Rewards of Fluent' })
+    expect(
+      within(rewards)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
+    ).toEqual(['Shown to creators', 'Event', 'Amount'])
+    expect(
+      within(rewards)
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) =>
+          within(row)
+            .getAllByRole('cell')
+            .map((cell) => cell.textContent),
+        ),
+    ).toEqual([
+      ['Account created', 'signup_completed', '$2.00'],
+      ['Trial started', 'trial_started', '$5.00'],
+    ])
+
+    // The rest of the listing is still there, and nothing is in raw units.
+    expect(fact(card, 'Category')).toHaveTextContent('Education')
+    expect(fact(card, 'Stripe account')).toHaveTextContent('Fluent Labs')
+    expect(within(card).getByRole('button', { name: 'Approve Fluent' })).toBeEnabled()
+    const copy = card.textContent ?? ''
+    expect(copy).not.toMatch(/50000|(?<!\$)\b(200|500)\b|bps|minor/i)
+    expect(copy).not.toMatch(/test mode|sandbox|livemode/i)
+    expect(copy).not.toContain('—')
+  })
+
+  it('reviews the real events listing by what it pays, not by the commission it once had', async () => {
+    setup({
+      list: vi.fn(async () => ({
+        data: mapAdminProgramReviews(programReviewsBackendFixture),
+        status: 'ready' as const,
+        error: null,
+      })),
+    })
+    const card = (await screen.findByRole('heading', { name: 'Fluent' })).closest('article')!
+    expect(fact(card, 'Creators earn from')).toHaveTextContent(/^Events$/)
+    expect(fact(card, 'Commission')).toHaveTextContent(/^None$/)
+    expect(fact(card, 'Monthly budget')).toHaveTextContent(/^\$500\.00$/)
+    expect(within(card).queryByText(/30% of every payment/)).not.toBeInTheDocument()
+    expect(within(card).getByRole('table', { name: 'Rewards of Fluent' })).toHaveTextContent(
+      'Account createdsignup_completed$2.00Trial startedtrial_started$5.00',
+    )
+    const reviewed = screen.getByRole('complementary', { name: 'Recently reviewed' })
+    expect(within(reviewed).getByText('Quiet Club')).toBeVisible()
+    expect(within(reviewed).queryByText(/reward|budget/i)).not.toBeInTheDocument()
+  })
+
+  it('shows what a listing that pays for both pays: the commission and the rewards', async () => {
+    setup({ list: vi.fn(async () => ready([bothProgramRow()])) })
+    const card = (await screen.findByRole('heading', { name: 'Pocket Chef' })).closest('article')!
+    expect(fact(card, 'Creators earn from')).toHaveTextContent(/^Sales and events$/)
+    expect(fact(card, 'Commission')).toHaveTextContent(/^20% of every payment$/)
+    expect(fact(card, 'Monthly budget')).toHaveTextContent(/^\$1,200\.00$/)
+    const rewards = within(card).getByRole('table', { name: 'Rewards of Pocket Chef' })
+    expect(within(rewards).getAllByRole('row')).toHaveLength(2)
+    expect(within(rewards).getByText('signup_completed')).toBeVisible()
+    expect(within(rewards).getByText('$1.50')).toBeVisible()
+  })
+
+  it('draws a sales listing exactly as before, with or without the new keys', async () => {
+    const old = setup({ list: vi.fn(async () => ready([programRow()])) })
+    await screen.findByRole('heading', { name: 'SpeakSix' })
+    expect(screen.queryByText('Creators earn from')).not.toBeInTheDocument()
+    expect(screen.queryByText('Monthly budget')).not.toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(
+      [...old.container.querySelectorAll('.admin-prog-card dt')].map((label) => label.textContent),
+    ).toEqual([
+      'Commission',
+      'Landing page',
+      'Category',
+      'Workspace',
+      'Stripe account',
+      'Marketplace',
+    ])
+    const strip = (html: string) => html.replace(/ (id|aria-labelledby|aria-controls)="[^"]*"/g, '')
+    const before = strip(old.container.querySelector('.admin-prog-card')!.outerHTML)
+    old.unmount()
+
+    // A stored budget and rewards are not used by a program that pays for sales only.
+    const now = setup({
+      list: vi.fn(async () =>
+        ready([salesProgramRow({ rewards: rewardRows, reward_budget_minor: 50000 })]),
+      ),
+    })
+    await screen.findByRole('heading', { name: 'SpeakSix' })
+    expect(strip(now.container.querySelector('.admin-prog-card')!.outerHTML)).toBe(before)
+  })
+
+  it('shows the gaps in an events listing instead of hiding them', async () => {
+    setup({
+      list: vi.fn(async () =>
+        ready([
+          eventsProgramRow({
+            rewards: [{ key: 'trial_started', label: null, amount_minor: null }, {}],
+            reward_budget_minor: null,
+          }),
+          bothProgramRow({ rewards: [], commission_type: null, agreement: null }),
+        ]),
+      ),
+    })
+    const card = (await screen.findByRole('heading', { name: 'Fluent' })).closest('article')!
+    expect(fact(card, 'Monthly budget')).toHaveTextContent('Not set')
+    const rows = within(within(card).getByRole('table')).getAllByRole('row').slice(1)
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Not settrial_startedNot set',
+      'Not setNot setNot set',
+    ])
+    const second = screen.getByRole('heading', { name: 'Pocket Chef' }).closest('article')!
+    expect(fact(second, 'Commission')).toHaveTextContent('Not set')
+    expect(within(second).getByText('No rewards set')).toBeVisible()
+    expect(within(second).queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('keeps long reward words, long event names and five rewards inside the card', async () => {
+    const rewards = Array.from({ length: 5 }, (_, index) => ({
+      key: `onboarding.questionnaire_step_${index}:${'completed_'.repeat(4)}ok`,
+      label: `Finished onboarding questionnaire step ${index}`,
+      amount_minor: 100_000_000,
+    }))
+    setup({
+      list: vi.fn(async () =>
+        ready([eventsProgramRow({ rewards, reward_budget_minor: 100_000_000 })]),
+      ),
+    })
+    const card = (await screen.findByRole('heading', { name: 'Fluent' })).closest('article')!
+    const table = within(card).getByRole('table')
+    expect(within(table).getAllByRole('row')).toHaveLength(6)
+    expect(within(table).getAllByText('$1,000,000.00')).toHaveLength(5)
+    expect(within(table).getByText(rewards[4].key)).toBeVisible()
   })
 
   it('flags a program whose workspace has no Stripe account and tolerates missing details', async () => {
@@ -582,5 +739,16 @@ describe('Admin program review', () => {
       rules: { 'color-contrast': { enabled: false } },
     })
     expect(dialog.violations).toEqual([])
+  })
+
+  it('has no accessibility violations in listings that pay per event', async () => {
+    const { container } = setup({
+      list: vi.fn(async () =>
+        ready([eventsProgramRow(), bothProgramRow(), eventsProgramRow({ id: 'x', rewards: [] })]),
+      ),
+    })
+    await screen.findByRole('heading', { name: 'Pocket Chef' })
+    const page = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } })
+    expect(page.violations).toEqual([])
   })
 })

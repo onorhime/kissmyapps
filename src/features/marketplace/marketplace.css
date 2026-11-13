@@ -311,6 +311,21 @@
   overflow-wrap: anywhere;
 }
 
+/* Rewards in a headline: break between them, not in the middle of one. */
+.mkt-headline-rewards {
+  text-wrap: balance;
+}
+
+/* The rewards of a program that pays for both, close under its "plus rewards" headline. */
+.mkt-card-rewards {
+  margin-top: -8px;
+  color: #d4d4d8;
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
 .mkt-card-foot {
   display: flex;
   align-items: center;
@@ -431,6 +446,19 @@
 
 .mkt-doc-facts > div + div {
   border-left: 1px solid var(--brand-line);
+}
+
+/* An agreement with more than four facts starts a second row. */
+.mkt-doc-facts > div:nth-child(4n + 1) {
+  border-left: 0;
+}
+
+.mkt-doc-facts > div:nth-child(n + 5) {
+  border-top: 1px solid var(--brand-line);
+}
+
+.mkt-doc-facts > div:nth-child(4n + 1):last-child {
+  grid-column: 1 / -1;
 }
 
 .mkt-doc-facts dt {
@@ -705,6 +733,12 @@
 .mkt-side p strong {
   color: var(--brand-text);
   font-weight: 600;
+}
+
+.mkt-side .mkt-side-rewards {
+  margin-top: -8px;
+  color: #d4d4d8;
+  text-wrap: balance;
 }
 
 .mkt-side .mkt-side-headline {

@@ -10,6 +10,8 @@ import {
   programHeadline,
   programInitials,
   programLogoUrl,
+  programRewardLine,
+  programRewardsLine,
   programTermsLine,
   readProgram,
   readProgramDetail,
@@ -98,13 +100,152 @@ const detail = {
   agreement_sha256: SHA,
 }
 
+const signup = { key: 'signup_completed', label: 'Account created', amount_minor: 200 }
+const trial = { key: 'trial_started', label: 'Trial started', amount_minor: 500 }
+
+/** A sales program as the backend sends it now that a program can pay for events. */
+const speaksixNow = { ...speaksix, earn_from: 'sales', rewards: [] }
+
+/** A program that pays for events only: no commission at all. */
+const fluent = {
+  ...speaksix,
+  slug: 'fluent',
+  name: 'Fluent',
+  tagline: 'Five minutes of Spanish a day.',
+  logo_path: null,
+  brand_name: 'Fluent Labs',
+  commission_type: null,
+  commission_rate_bps: null,
+  commission_fixed_minor: null,
+  commission_duration: null,
+  commission_months: null,
+  approval_mode: 'manual',
+  earn_from: 'events',
+  rewards: [signup, trial],
+}
+
+/** A program that pays a commission and one reward. */
+const pocketChef = {
+  ...speaksix,
+  slug: 'pocket-chef',
+  name: 'Pocket Chef',
+  category: 'food_drink',
+  tagline: 'Dinner planned in the time it takes to boil water.',
+  logo_path: null,
+  brand_name: 'Pocket Chef Inc',
+  earn_from: 'both',
+  rewards: [signup],
+}
+
 function programs(...rows: unknown[]): MarketplaceProgram[] {
   return readProgramList({ programs: rows })
 }
 
 describe('reading marketplace answers', () => {
   it('reads a card and keeps every field the page shows', () => {
-    expect(readProgram(speaksix)).toEqual({ ...speaksix, membership_status: null })
+    expect(readProgram(speaksix)).toEqual({
+      ...speaksix,
+      earn_from: 'sales',
+      rewards: [],
+      membership_status: null,
+    })
+  })
+
+  it('reads an answer from before programs could pay for events as a sales program', () => {
+    expect(readProgram(speaksix)).toMatchObject({ earn_from: 'sales', rewards: [] })
+    expect(readProgram({ ...speaksix, earn_from: null, rewards: null })).toMatchObject({
+      earn_from: 'sales',
+      rewards: [],
+    })
+    expect(readProgram(speaksixNow)).toEqual(readProgram(speaksix))
+  })
+
+  it('reads a program that pays for events, and one that pays for both', () => {
+    expect(readProgram(fluent)).toMatchObject({
+      commission_type: null,
+      earn_from: 'events',
+      rewards: [signup, trial],
+    })
+    expect(readProgram(pocketChef)).toMatchObject({
+      commission_type: 'percent',
+      earn_from: 'both',
+      rewards: [signup],
+    })
+  })
+
+  it('keeps only the three fields of a reward and tidies its label', () => {
+    const read = readProgram({
+      ...fluent,
+      rewards: [{ ...signup, label: '  Account created ', person_id: 'p-1', count: 41 }],
+    })
+    expect(read?.rewards).toEqual([signup])
+  })
+
+  it.each([
+    ['a commission is missing from a sales program', { ...speaksixNow, commission_type: null }],
+    [
+      'a commission is missing from a program that pays for both',
+      { ...pocketChef, commission_type: null },
+    ],
+    ['an events program has a commission', { ...fluent, commission_type: 'percent' }],
+    [
+      'an events program has a commission type the page does not know',
+      { ...fluent, commission_type: 'tiered' },
+    ],
+    ['an events program has no reward', { ...fluent, rewards: [] }],
+    ['a program that pays for both has no reward', { ...pocketChef, rewards: [] }],
+    ['a sales program has a reward', { ...speaksixNow, rewards: [signup] }],
+    ['it earns from something the page does not know', { ...fluent, earn_from: 'installs' }],
+    ['only one of the two keys is there', { ...speaksix, earn_from: 'sales' }],
+    ['the rewards are not a list', { ...fluent, rewards: { 0: signup } }],
+    [
+      'there are more than five rewards',
+      {
+        ...fluent,
+        rewards: Array.from({ length: 6 }, (_, index) => ({ ...signup, key: `event_${index}` })),
+      },
+    ],
+    ['a reward is not an object', { ...fluent, rewards: ['signup_completed'] }],
+    [
+      'a reward has no event name',
+      { ...fluent, rewards: [{ label: 'Account created', amount_minor: 200 }] },
+    ],
+    [
+      'a reward has an event name that cannot be one',
+      { ...fluent, rewards: [{ ...signup, key: '9 lives' }] },
+    ],
+    [
+      'two rewards are for the same event',
+      { ...fluent, rewards: [signup, { ...trial, key: signup.key }] },
+    ],
+    ['a reward has an empty label', { ...fluent, rewards: [{ ...signup, label: '   ' }] }],
+    [
+      'a reward has a label longer than 40 characters',
+      { ...fluent, rewards: [{ ...signup, label: 'a'.repeat(41) }] },
+    ],
+    ['a reward pays nothing', { ...fluent, rewards: [{ ...signup, amount_minor: 0 }] }],
+    [
+      'a reward pays a fraction of a cent',
+      { ...fluent, rewards: [{ ...signup, amount_minor: 199.5 }] },
+    ],
+    ['a reward amount is text', { ...fluent, rewards: [{ ...signup, amount_minor: '200' }] }],
+    [
+      'a reward pays more than the most a reward can',
+      { ...fluent, rewards: [{ ...signup, amount_minor: 100_000_001 }] },
+    ],
+  ])('refuses a card when %s', (_name, row) => {
+    expect(readProgram(row)).toBeNull()
+    expect(programs(speaksix, row).map((program) => program.slug)).toEqual(['speaksix'])
+    expect(() => readProgramDetail({ ...detail, ...row })).toThrow(MarketplaceUnreadable)
+  })
+
+  it('reads a reward at the limits: five of them, a 40-character label, the largest amount', () => {
+    const rewards = Array.from({ length: 5 }, (_, index) => ({
+      key: `step.${index}:done-ok_`,
+      label: 'é'.repeat(40),
+      amount_minor: index === 0 ? 1 : 100_000_000,
+    }))
+    expect(readProgram({ ...fluent, rewards })?.rewards).toEqual(rewards)
   })
 
   it('leaves out a row with no usable slug or name and refuses a body that is not a list', () => {
@@ -157,6 +298,44 @@ describe('the words on a card', () => {
   it('shows money in normal units, never minor units or basis points', () => {
     expect(programHeadline(percent)).toBe('30% of every payment for 12 months')
     expect(programHeadline(fixed)).toBe('$8.00 on the first payment')
+  })
+
+  it('says what an events program pays: its rewards, the first two named', () => {
+    const [events] = programs(fluent)
+    expect(programHeadline(events)).toBe('$2.00 per Account created, $5.00 per Trial started')
+    expect(programHeadline({ ...events, rewards: [signup] })).toBe('$2.00 per Account created')
+    const third = { key: 'subscribed', label: 'Subscribed', amount_minor: 1000 }
+    expect(programHeadline({ ...events, rewards: [signup, trial, third] })).toBe(
+      '$2.00 per Account created, $5.00 per Trial started and 1 more reward',
+    )
+    const fourth = { key: 'renewed', label: 'Renewed', amount_minor: 1250 }
+    expect(programHeadline({ ...events, rewards: [signup, trial, third, fourth] })).toBe(
+      '$2.00 per Account created, $5.00 per Trial started and 2 more rewards',
+    )
+    expect(programRewardLine({ ...signup, amount_minor: 125050 }, 'EUR')).toBe(
+      '1,250.50 EUR per Account created',
+    )
+  })
+
+  it('says what a program that pays for both pays: the commission, plus rewards', () => {
+    const [both, sales, events] = programs(pocketChef, speaksixNow, fluent)
+    expect(programHeadline(both)).toBe('30% of every payment for 12 months, plus rewards')
+    expect(programRewardsLine(both)).toBe('$2.00 per Account created')
+    expect(programHeadline(sales)).toBe('30% of every payment for 12 months')
+    // Only a program that pays for both has a rewards line: the other headlines say it all.
+    expect(programRewardsLine(sales)).toBeNull()
+    expect(programRewardsLine(events)).toBeNull()
+    const many = { ...both, rewards: [signup, trial, { ...signup, key: 'paid', label: 'Paid' }] }
+    expect(programRewardsLine(many)).toBe(
+      '$2.00 per Account created, $5.00 per Trial started and 1 more reward',
+    )
+  })
+
+  it('names the rewards of a program that pays for both when its commission cannot be read', () => {
+    const [both] = programs(pocketChef)
+    const broken = { ...both, commission_rate_bps: null }
+    expect(programHeadline(broken)).toBe('$2.00 per Account created')
+    expect(programRewardsLine(broken)).toBeNull()
   })
 
   it('writes the small line from the attribution window and the hold', () => {
@@ -377,6 +556,65 @@ describe('public marketplace page', () => {
     expect(document.title).toBe('Marketplace · KissMyApps')
   })
 
+  it('shows what each program pays on its card: sales, events and both', async () => {
+    open(
+      '/marketplace',
+      api({
+        loadPrograms: vi.fn(async () => ({
+          status: 'ready' as const,
+          data: programs(speaksixNow, fluent, pocketChef),
+        })),
+      }),
+    )
+    const card = async (name: string) =>
+      (await screen.findByRole('heading', { name, level: 3 })).closest('article')!
+    expect(
+      within(await card('SpeakSix')).getByText('30% of every payment for 12 months'),
+    ).toBeInTheDocument()
+    expect(
+      within(await card('Fluent')).getByText('$2.00 per Account created, $5.00 per Trial started'),
+    ).toBeInTheDocument()
+    expect(
+      within(await card('Pocket Chef')).getByText(
+        '30% of every payment for 12 months, plus rewards',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(await card('Pocket Chef')).getByText('$2.00 per Account created'),
+    ).toBeInTheDocument()
+    // The rewards line belongs to a program that pays for both, and to no other card.
+    expect(document.querySelectorAll('.mkt-card-rewards')).toHaveLength(1)
+    expect(
+      within(await card('Fluent')).getByText('30-day attribution · 30-day hold'),
+    ).toBeInTheDocument()
+    // Money is in normal units and the event's own name is never on the page.
+    expect(document.body).not.toHaveTextContent(/signup_completed|trial_started|\b200\b|\b500\b/)
+  })
+
+  it('draws a card from before programs could pay for events exactly as one that says sales', async () => {
+    const old = open(
+      '/marketplace',
+      api({
+        loadPrograms: vi.fn(async () => ({ status: 'ready' as const, data: programs(speaksix) })),
+      }),
+    )
+    await screen.findByRole('heading', { name: 'SpeakSix', level: 3 })
+    const before = old.container.innerHTML
+    old.unmount()
+    const now = open(
+      '/marketplace',
+      api({
+        loadPrograms: vi.fn(async () => ({
+          status: 'ready' as const,
+          data: programs(speaksixNow),
+        })),
+      }),
+    )
+    await screen.findByRole('heading', { name: 'SpeakSix', level: 3 })
+    const strip = (html: string) => html.replace(/(id|for)="[^"]*"/g, '')
+    expect(strip(now.container.innerHTML)).toBe(strip(before))
+  })
+
   it('offers Sign in and Become a creator, both into the partner app, and nothing else', async () => {
     open('/marketplace')
     await screen.findByRole('heading', { name: 'SpeakSix', level: 3 })
@@ -496,6 +734,55 @@ describe('public marketplace page', () => {
       `${window.location.origin}/?program=speaksix#auth/sign-up`,
     )
     expect(screen.queryByText(/download pdf|partner terms|documents/i)).toBeNull()
+  })
+
+  it('shows what an events program pays beside Join program, the same words as its card', async () => {
+    const events = readProgramDetail({ ...detail, ...fluent })
+    open(
+      '/marketplace/fluent',
+      api({ loadProgram: vi.fn(async () => ({ status: 'ready' as const, data: events })) }),
+    )
+    const side = await screen.findByRole('complementary', { name: 'Join this program' })
+    expect(
+      within(side).getByText('$2.00 per Account created, $5.00 per Trial started'),
+    ).toBeInTheDocument()
+    expect(within(side).getByText('30-day attribution · 30-day hold')).toBeInTheDocument()
+    expect(within(side).getByRole('link', { name: 'Join program' })).toBeInTheDocument()
+    expect(within(side).queryByText(/of every payment|on the first payment/)).toBeNull()
+  })
+
+  it('shows what a program that pays for both pays beside Join program', async () => {
+    const both = readProgramDetail({ ...detail, ...pocketChef })
+    open(
+      '/marketplace/pocket-chef',
+      api({ loadProgram: vi.fn(async () => ({ status: 'ready' as const, data: both })) }),
+    )
+    const side = await screen.findByRole('complementary', { name: 'Join this program' })
+    expect(
+      within(side).getByText('30% of every payment for 12 months, plus rewards'),
+    ).toBeInTheDocument()
+    expect(within(side).getByText('$2.00 per Account created')).toBeInTheDocument()
+  })
+
+  it('shows a reward label as plain text, never as markup', async () => {
+    const label = '<img src=x onerror=alert(1)>'
+    const markup = { ...fluent, rewards: [{ ...signup, label }] }
+    open(
+      '/marketplace',
+      api({
+        loadPrograms: vi.fn(async () => ({ status: 'ready' as const, data: programs(markup) })),
+        loadProgram: vi.fn(async () => ({
+          status: 'ready' as const,
+          data: readProgramDetail({ ...detail, ...markup }),
+        })),
+      }),
+    )
+    expect(await screen.findByText(`$2.00 per ${label}`)).toBeInTheDocument()
+    expect(document.querySelector('.mkt-main img')).toBeNull()
+    await userEvent.setup().click(screen.getByRole('link', { name: 'View program: Fluent' }))
+    const side = await screen.findByRole('complementary', { name: 'Join this program' })
+    expect(within(side).getByText(`$2.00 per ${label}`)).toBeInTheDocument()
+    expect(document.querySelector('.mkt-main img')).toBeNull()
   })
 
   it('says who approves when the program approves each creator', async () => {

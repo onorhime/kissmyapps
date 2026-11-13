@@ -7,7 +7,13 @@ import {
   ProgramGridSkeleton,
   ProgramLogo,
 } from './components'
-import { categoryLabel, programHeadline, programTermsLine } from './model'
+import {
+  categoryLabel,
+  programHeadline,
+  programHeadlineClass,
+  programRewardsLine,
+  programTermsLine,
+} from './model'
 import type { MarketplaceProgram, MarketplaceProgramDetail } from './model'
 import { loadMarketplaceProgram, loadMarketplacePrograms } from './publicApi'
 import type { MarketplaceFailure, MarketplaceLoad } from './publicApi'
@@ -263,6 +269,7 @@ function ProgramPage({
   const brand = program.brand_name ?? program.name
   const category = categoryLabel(program.category)
   const headline = programHeadline(program)
+  const rewards = programRewardsLine(program)
   const open = program.status === 'live'
   return (
     <>
@@ -282,7 +289,10 @@ function ProgramPage({
         </header>
 
         <aside className="mkt-side" aria-label="Join this program">
-          {headline && <p className="mkt-side-headline">{headline}</p>}
+          {headline && (
+            <p className={`mkt-side-headline${programHeadlineClass(program)}`}>{headline}</p>
+          )}
+          {rewards && <p className="mkt-side-rewards">{rewards}</p>}
           <p>{programTermsLine(program)}</p>
           {open ? (
             <>

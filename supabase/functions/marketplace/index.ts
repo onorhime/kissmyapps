@@ -1,7 +1,8 @@
 // Public marketplace: the live affiliate programs, and one program by its
 // address. Read only, signed out, no cookies and no request body. Everything
 // it answers comes from two service-only database functions and is copied
-// field by field into the two public shapes in programs.ts.
+// field by field into the two public shapes in programs.ts. A program says
+// what creators earn from (sales, events or both) and lists its rewards.
 //
 // GET /marketplace              -> 200 {"programs": [ProgramCard, ...]}
 // GET /marketplace?slug=<slug>  -> 200 {"program": ProgramDetail} or 404

@@ -7,8 +7,10 @@ import {
   categoryLabel,
   filterPrograms,
   programHeadline,
+  programHeadlineClass,
   programInitials,
   programLogoUrl,
+  programRewardsLine,
   programTermsLine,
   projectBaseUrl,
   sectionParts,
@@ -81,6 +83,7 @@ export function ProgramCard({
   onOpen?: (event: React.MouseEvent<HTMLAnchorElement>) => void
 }) {
   const headline = programHeadline(program)
+  const rewards = programRewardsLine(program)
   const category = categoryLabel(program.category)
   return (
     <article className="mkt-card">
@@ -93,7 +96,10 @@ export function ProgramCard({
         {status}
       </header>
       {program.tagline && <p className="mkt-card-tagline">{program.tagline}</p>}
-      {headline && <p className="mkt-card-headline">{headline}</p>}
+      {headline && (
+        <p className={`mkt-card-headline${programHeadlineClass(program)}`}>{headline}</p>
+      )}
+      {rewards && <p className="mkt-card-rewards">{rewards}</p>}
       <footer className="mkt-card-foot">
         <span>{programTermsLine(program)}</span>
         <a
