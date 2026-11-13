@@ -28,6 +28,7 @@ import {
   otherLinks,
 } from './links'
 import type { LinkProgram, ProgramLink, ProgramLinks } from './links'
+import { PromoCodeBody } from './PromoCode'
 import { useProgramLinks } from './useProgramLinks'
 import type { LinkChange } from './useProgramLinks'
 import './ProgramLinks.css'
@@ -368,6 +369,15 @@ function ProgramLinksView({
           )}
         </div>
       </section>
+
+      {program.promo_code && (
+        <section className="panel pl-panel p8-promo" aria-labelledby={`${id}-promo`}>
+          <header className="pl-head">
+            <h2 id={`${id}-promo`}>Promo code</h2>
+          </header>
+          <PromoCodeBody promo={program.promo_code} />
+        </section>
+      )}
 
       <Results
         id={id}
