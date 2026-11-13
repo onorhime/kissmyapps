@@ -661,10 +661,12 @@ end $$;
 -- What a merchant reads ---------------------------------------------------------------------------
 
 -- A member's numbers to date: clicks on every link they have for the program's product,
--- the sales credited to them, what those sales came to (the payments as they were made,
--- before refunds, in the program's currency: one made in another currency is counted as
--- a sale and left out of the sum), and what their commissions are worth now (held or
--- approved) with the part still held.
+-- their sales by the same rule the creator's own pages and the Sales summary use (a sale
+-- credited to them whose commission is held or approved: a refunded sale and one that
+-- earned nothing are listed on the Sales page and not counted here), what those sales came
+-- to (the payments as they were made), and what their commissions are worth now with the
+-- part still held. A sale recorded while program money was off has no commission to judge
+-- it by and counts as it always did.
 create function kma_internal.program_link_member_stats(m public.affiliate_program_members,
   out clicks bigint, out last_click_at timestamptz, out sales bigint, out sales_amount_minor bigint,
   out commission_minor bigint, out pending_minor bigint)
@@ -678,9 +680,8 @@ language sql stable set search_path = '' as $$
     join public.affiliate_links l on l.id = k.affiliate_link_id and coalesce(l.tracking_environment, 'live') = 'live'
     where p.id = m.program_id) c
   cross join (
-    select count(*) as sales,
-      coalesce(sum(s.amount_minor) filter (where s.currency = (
-        select kma_internal.program_link_currency(p) from public.affiliate_programs p where p.id = m.program_id)), 0)::bigint
+    select count(*) filter (where x.id is null or x.status in ('held', 'approved')) as sales,
+      coalesce(sum(s.amount_minor) filter (where x.id is null or x.status in ('held', 'approved')), 0)::bigint
         as sales_amount_minor,
       coalesce(sum(x.amount_minor) filter (where x.status in ('held', 'approved')), 0)::bigint as commission_minor,
       coalesce(sum(x.amount_minor) filter (where x.status = 'held'), 0)::bigint as pending_minor

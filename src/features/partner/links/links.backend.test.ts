@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { linksBackendFixture as backend } from '../../../merchant/links-backend.fixture'
+import { mapPartnerProduct } from '../api/mappers'
+import { isLegacyProduct } from './legacyLinks'
 import {
   addedLink,
   customLinksLeft,
@@ -113,5 +115,15 @@ describe('creator links read from real database output', () => {
     expect(removed.links.filter((link) => link.kind === 'custom').map((link) => link.name)).toEqual(
       ['Podcast', 'Blog post'],
     )
+  })
+})
+
+describe('the creator product list read from real database output', () => {
+  it('holds a program’s product, which is not a product from before programs', () => {
+    const rows = backend.partner_product_directory_program_only as unknown[]
+    const products = rows.map(mapPartnerProduct)
+    expect(products.map((product) => product.slug).sort()).toEqual(['rival-reader', 'speaksix'])
+    // So the Links and Performance pages show the program pages alone for this creator.
+    expect(products.filter(isLegacyProduct)).toEqual([])
   })
 })

@@ -95,8 +95,8 @@ describe('merchant sales and the real backend answers', () => {
     expect(state.currency).toBe('USD')
     expect(state.totals).toEqual({
       clicks: 19,
-      sales: 12,
-      sales_amount_minor: 49700,
+      sales: 8,
+      sales_amount_minor: 40300,
       commission_minor: 10140,
       pending_minor: 6870,
     })
@@ -104,8 +104,8 @@ describe('merchant sales and the real backend answers', () => {
     expect(ada).toMatchObject({
       status: 'active',
       clicks: 16,
-      sales: 9,
-      sales_amount_minor: 46200,
+      sales: 7,
+      sales_amount_minor: 38300,
       commission_minor: 9540,
       pending_minor: 6270,
     })

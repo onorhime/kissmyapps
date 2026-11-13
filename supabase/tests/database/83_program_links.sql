@@ -1181,25 +1181,27 @@ select pg_temp.check((select bool_and(answer::text !~* 'p5buyer|pi_|ch_p5|cs_p5|
 select pg_temp.capture('workspace_program_creators.with_money', pg_temp.keep('creators', pg_temp.creators('owner', 'acme')));
 select pg_temp.check((select pg_temp.keys(a) = 'can_manage counts creators currency program totals'
       and a @> '{"can_manage":true,"currency":"USD","counts":{"pending":0,"active":2,"ended":1},
-        "totals":{"clicks":19,"sales":12,"sales_amount_minor":49700,"commission_minor":10140,"pending_minor":6870}}'
+        "totals":{"clicks":19,"sales":8,"sales_amount_minor":40300,"commission_minor":10140,"pending_minor":6870}}'
       and a->'program' = jsonb_build_object('id', (pg_temp.program('acme')).id, 'slug', 'speaksix', 'name', 'SpeakSix',
         'status', 'live', 'approval_mode', 'automatic', 'marketplace_listed', true)
       and (select bool_and(pg_temp.keys(c) = 'activated_at channels clicks commission_minor country_code decision_note '
           || 'ended_at handle last_click_at member_id name needs_new_terms pending_minor requested_at sales '
           || 'sales_amount_minor status terms_version website_url') from jsonb_array_elements(a->'creators') c)
-      -- Ada: 16 clicks on six links; nine sales credited to her, four of them worth nothing now.
-      and pg_temp.creator(a, 'ada-okafor') @> '{"status":"active","clicks":16,"sales":9,"sales_amount_minor":46200,
+      -- Ada: 16 clicks on six links. Nine sales were credited to her: six earn (held or approved),
+      -- one is from before program money and counts as it did then, and the refunded one and the
+      -- one made while the program was paused are on the Sales page only.
+      and pg_temp.creator(a, 'ada-okafor') @> '{"status":"active","clicks":16,"sales":7,"sales_amount_minor":38300,
         "commission_minor":9540,"pending_minor":6270}'
       and (pg_temp.creator(a, 'ada-okafor')->>'last_click_at')::timestamptz = now()
-      -- Ben's sale in euros is a sale; its amount is not added to dollars.
-      and pg_temp.creator(a, 'ben-creator') @> '{"status":"active","clicks":1,"sales":2,"sales_amount_minor":2000,
+      -- Ben's sale in euros earned nothing, so it is not counted and not added to dollars.
+      and pg_temp.creator(a, 'ben-creator') @> '{"status":"active","clicks":1,"sales":1,"sales_amount_minor":2000,
         "commission_minor":600,"pending_minor":600}'
-      and pg_temp.creator(a, 'cy-park') @> '{"status":"left","clicks":2,"sales":1,"sales_amount_minor":1500,
+      and pg_temp.creator(a, 'cy-park') @> '{"status":"left","clicks":2,"sales":0,"sales_amount_minor":0,
         "commission_minor":0,"pending_minor":0}'
-      and (select sum((c->>'clicks')::bigint) = 19 and sum((c->>'sales_amount_minor')::bigint) = 49700
+      and (select sum((c->>'clicks')::bigint) = 19 and sum((c->>'sales_amount_minor')::bigint) = 40300
         from jsonb_array_elements(a->'creators') c)
     from (select pg_temp.kept('creators') as a) x),
-  'the Creators page: each creator''s clicks on all their links, the sales credited to them and what those came to, their '
+  'the Creators page: each creator''s clicks on all their links, their sales that earn and what those came to, their '
     || 'commission as it is worth now with the part still held, and the totals');
 select pg_temp.check(pg_temp.creators('analyst', 'acme') = pg_temp.kept('creators') || '{"can_manage":false}'
   and pg_temp.try('rival_owner', format('select public.workspace_program_creators(%L)', pg_temp.q('acme'))) = 'P0002'
@@ -1355,6 +1357,18 @@ select set_config('request.jwt.claims', '', true);
 -- Which products belong to a program, as the admin app reads it (20261118101000).
 select pg_temp.capture('get_admin_program_products.listed',
   pg_temp.call('kma_owner', 'select public.get_admin_program_products()'));
+
+-- The creator's product list holds a program's product too, because their links point at it.
+-- The creator app tells it from a product of before programs by what this row leaves empty.
+select pg_temp.capture('partner_product_directory.program_only', pg_temp.keep('ada_products',
+  pg_temp.call('ada', 'select coalesce(jsonb_agg(to_jsonb(d) order by d.slug), ''[]''::jsonb) from public.partner_product_directory d')));
+select pg_temp.check(
+  jsonb_array_length(pg_temp.kept('ada_products')) = 2
+  and not exists (select 1 from jsonb_array_elements(pg_temp.kept('ada_products')) d
+    where d->>'agreement_status' is not null or d->>'main_tracking_url' is not null or d->>'main_short_url' is not null
+      or d->>'test_main_tracking_url' is not null or d->>'test_main_short_url' is not null
+      or d->>'tracking_mode' <> 'commercial'),
+  'a program''s product is in the creator''s product list with no agreement and no main link of its own');
 
 select 'ok ' || count(*) || ' program link assertions' from link_assertions;
 rollback;

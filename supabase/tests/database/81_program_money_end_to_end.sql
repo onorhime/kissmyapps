@@ -7,8 +7,10 @@
 -- Then part two, paying the creator: KissMyApps switches payouts on; the creator sets up a
 -- payout account; an admin pays what is approved; the worker claims the payout, begins it
 -- and reports Stripe's transfer; a second payout that Stripe will not take gives the money
--- back. Stripe is never called: each service function is given what its edge function
--- passes after reading Stripe.
+-- back. Then Phase 5, links and results: a buyer comes through the creator's TikTok link, and
+-- the creator's Links and Performance pages, the merchant's Creators and Sales pages and the
+-- balance all tell the same sale. Stripe is never called: each service function is given
+-- what its edge function passes after reading Stripe.
 begin;
 set local time zone 'UTC';
 create temporary table e2e_assertions(label text);
@@ -491,6 +493,120 @@ select pg_temp.check(
   and (select a.available_minor = 26766 from pg_temp.account() a)
   and public.program_balance_health()->>'ledger_mismatches' = '0',
   'every payout matches its entries, and the merchant''s balance is untouched by paying the creator');
+select set_config('request.jwt.claims', '', true);
+
+-- Phase 5: links by channel, and the same money on every results page ---------------------------
+create function pg_temp.links() returns jsonb language sql as $$
+  select pg_temp.call('creator', 'select public.partner_program_links()')->'programs'->0
+$$;
+create function pg_temp.link(p_name text) returns jsonb language sql as $$
+  select l from jsonb_array_elements(pg_temp.links()->'links') l where l->>'name' = p_name
+$$;
+create function pg_temp.results() returns jsonb language sql as $$
+  select pg_temp.call('creator', 'select public.partner_program_performance(''{"days":7}'')')
+$$;
+create function pg_temp.channel(p_results jsonb, p_name text) returns jsonb language sql as $$
+  select c from jsonb_array_elements(p_results->'channels') c where c->>'name' = p_name
+$$;
+create function pg_temp.sales_page() returns jsonb language sql as $$
+  select pg_temp.call('owner', format('select public.workspace_program_sales(%L, %L)', pg_temp.q('workspace'), '{}'::jsonb))
+$$;
+-- A visitor opens one of the creator's links by its readable address.
+create function pg_temp.visit(p_url text) returns text language plpgsql as $$
+declare result text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  set local role service_role;
+  select r.click_id into result
+  from public.register_short_tracking_click(replace(p_url, 'https://go.kissmyapps.dev', ''), '{}'::jsonb) r;
+  reset role;
+  return result;
+end $$;
+-- That visitor pays: the same receipt and sale as pay(), tagged with the click of that visit.
+create function pg_temp.pay_from(k text, amount bigint, p_tag text) returns jsonb language plpgsql as $$
+declare v jsonb;
+begin
+  perform pg_temp.receipt('evt_' || k, 'payment_intent.succeeded', 'pi_' || k, 'pi_' || k, amount, p_tag);
+  v := public.record_program_sale(pg_temp.ref('evt_' || k) || jsonb_build_object(
+    'livemode', true, 'payment_intent_id', 'pi_' || k, 'charge_id', 'ch_' || k, 'amount_minor', amount, 'currency', 'usd',
+    'refunded_minor', 0, 'paid_at', pg_temp.epoch(clock_timestamp()), 'kma_click', p_tag, 'tag_source', 'metadata'));
+  perform public.finish_program_sale_receipt(pg_temp.ref('evt_' || k) || '{"action":"done","code":"recorded"}');
+  perform pg_temp.flush();
+  return v;
+end $$;
+
+-- Joining gave the creator a link per channel beside the main one. Until now every visit came
+-- through the main link: five of them, and the two sales that earn (the refunded one and the
+-- one the balance could not cover are not counted).
+select pg_temp.check(
+  (select l @> '{"slug":"fluent","currency":"USD","working":true,"paused_reason":null,"custom_links":0}'
+      and (select array_agg(x->>'name' order by o) = array['Main link', 'TikTok', 'Instagram', 'YouTube', 'Facebook', 'X', 'Newsletter']
+        from jsonb_array_elements(l->'links') with ordinality as t(x, o))
+    from pg_temp.links() l)
+  and pg_temp.link('Main link') @> '{"kind":"main","url":"https://go.kissmyapps.dev/fluent/e2e-money-creator",
+    "clicks":5,"sales":2,"earnings_minor":2940}'
+  and pg_temp.link('TikTok') @> '{"kind":"channel","channel":"tiktok","url":"https://go.kissmyapps.dev/fluent/e2e-money-creator/tiktok",
+    "clicks":0,"sales":0,"earnings_minor":0,"removable":false}',
+  'the creator has a main link and one link per channel, and so far everything came through the main link');
+
+-- A buyer comes from the TikTok link and pays 20.00: 6.00 for the creator, 0.60 fee.
+insert into qa select 'tiktok_click', pg_temp.visit(pg_temp.link('TikTok')->>'url');
+select pg_temp.check(pg_temp.t('tiktok_click') is not null
+  and pg_temp.pay_from('tiktok', 2000, pg_temp.t('tiktok_click')) @> '{"recorded":true,"created":true}'
+  and (select c.status = 'held' and c.amount_minor = 600 and c.fee_minor = 60 from pg_temp.commission('tiktok') c)
+  and (select a.available_minor = 26106 from pg_temp.account() a),
+  'a visit on the TikTok link is credited, and the buyer''s payment sets 6.00 and a 0.60 fee aside');
+select pg_temp.check(
+  pg_temp.link('TikTok') @> '{"clicks":1,"sales":1,"earnings_minor":600}'
+  and pg_temp.link('Main link') @> '{"clicks":5,"sales":2,"earnings_minor":2940}'
+  and (select pg_temp.channel(r, 'TikTok') @> '{"kind":"channel","clicks":1,"sales":1,"earnings_minor":600}'
+      and pg_temp.channel(r, 'Main link') @> '{"clicks":5,"sales":2,"earnings_minor":2940}'
+      and r->'totals' = '{"clicks":6,"sales":3,"earnings_minor":3540}'::jsonb
+      and r->'daily'->6 @> '{"clicks":6,"sales":3,"earnings_minor":3540}'
+      and r->'money' @> '{"pending_minor":600,"approved_minor":1470,"paying_minor":0,"paid_minor":1470}'
+      -- The suite's sales fall in the same second, so which one is first is not asked.
+      and (select count(*) = 1 from jsonb_array_elements(r->'latest') x
+        where x @> '{"status":"held","link_name":"TikTok","amount_minor":600}')
+      and r::text !~* 'pi_|ch_|cus_|acct_|fluent\.example|@'
+    from pg_temp.results() r)
+  and (select e->'programs'->0 @> '{"pending_minor":600,"approved_minor":1470,"paid_minor":1470,"sales":3}' from pg_temp.earnings() e),
+  'the creator sees the sale under TikTok on the Links and Performance pages, and the totals match their earnings');
+select pg_temp.check(
+  (select c->'creators'->0 @> '{"name":"Mira Maker","clicks":6,"sales":3,"sales_amount_minor":11800,"commission_minor":3540,"pending_minor":600}'
+      and c->'totals' = '{"clicks":6,"sales":3,"sales_amount_minor":11800,"commission_minor":3540,"pending_minor":600}'::jsonb
+      and c->>'currency' = 'USD'
+    from pg_temp.call('owner', format('select public.workspace_program_creators(%L)', pg_temp.q('workspace'))) c)
+  and (select (select count(*) = 1 from jsonb_array_elements(s->'sales') x
+        where x @> '{"status":"pending","link_name":"TikTok","creator_name":"Mira Maker","amount_minor":2000,
+          "currency":"USD","commission_minor":600,"fee_minor":60,"refunded_minor":0}')
+      and s->'summary' = '{"days":30,"sales":3,"sales_amount_minor":11800,"commission_minor":3540,"fee_minor":354}'::jsonb
+      and jsonb_array_length(s->'sales') = 5
+      and (select array_agg(distinct x->>'status' order by x->>'status') = array['approved', 'not_earned', 'pending', 'returned']
+        from jsonb_array_elements(s->'sales') x)
+      and s::text !~* 'pi_|ch_tiktok|cus_|creators\.example|@'
+    from pg_temp.sales_page() s),
+  'the merchant sees the same three sales, 118.00 and 35.40 on the Creators page and in the Sales summary, with the channel of each sale');
+
+-- A link of the creator's own.
+insert into qa select 'podcast', pg_temp.call('creator',
+  'select public.partner_program_link_create(''{"slug":"fluent","name":"Podcast"}'')')::text;
+select pg_temp.check(
+  (select x @> '{"kind":"custom","url":"https://go.kissmyapps.dev/fluent/e2e-money-creator/podcast","removable":true,"clicks":0}'
+    from jsonb_array_elements(pg_temp.t('podcast')::jsonb->'links') x where x->>'name' = 'Podcast')
+  and pg_temp.t('podcast')::jsonb @> '{"custom_links":1}'
+  and pg_temp.try('creator', 'select public.partner_program_link_create(''{"slug":"fluent","name":"podcast"}'')') = '22023 name_taken'
+  and pg_temp.visit(pg_temp.link('Podcast')->>'url') is not null
+  and pg_temp.link('Podcast') @> '{"clicks":1,"removable":false}'
+  and pg_temp.try('creator', format('select public.partner_program_link_remove(%L)',
+    jsonb_build_object('link_id', pg_temp.link('Podcast')->>'link_id'))) = '22023 link_in_use',
+  'the creator adds a Podcast link; its name is theirs alone, it credits visits, and once opened it stays');
+
+-- The admin app knows this product is a program's, so its setup wizard stays out of the way.
+select pg_temp.check(
+  pg_temp.call('kma_owner', 'select public.get_admin_program_products()')->'products'
+    @> jsonb_build_array(jsonb_build_object('product_id', (pg_temp.program()).product_id, 'program_id', (pg_temp.program()).id,
+      'program_name', 'Fluent', 'program_slug', 'fluent', 'program_status', 'live')),
+  'KissMyApps sees the product as a program''s');
 select set_config('request.jwt.claims', '', true);
 
 select 'ok ' || count(*) || ' program money end to end assertions' from e2e_assertions;
