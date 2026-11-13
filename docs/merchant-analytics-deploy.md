@@ -448,6 +448,56 @@ Rollback: pause the links in the console (people go to the website, uncounted), 
 restore the previous `links.mjs`, `server.mjs` and functions. The migration only adds
 columns and tables; the previous console and SDK ignore them.
 
+### Attribution, app installs
+
+Not deployed yet; it goes out after the two attribution releases above, before the 1.1.0
+app SDKs are published. On an app's first launch the SDK calls
+`POST /v1/attribution/install`, and when a link opens the app `POST /v1/attribution/open`
+(bodies in the `attribution` section of `integrations/analytics-mobile/contract/app-events.json`).
+The ingest function checks the body, swaps an Apple Ads token for Apple's answer and asks
+the database which link brought the install. The link service keeps a creator's
+`kma_click` on the click and can show iPhones a "Get the app" page that copies the click.
+
+Do the steps in this order: an older function would take an attribution call for an empty
+batch of events and answer 200, which the SDK would read as done.
+
+1. Apply this release's migrations first (listed here by their owners). Until
+   `public.attribution_install` and `public.attribution_open` exist, both calls answer 503
+   `unavailable` and the SDKs try again on the next launch.
+2. Deploy the ingest function. It needs no new secret. For an Apple Ads token it calls
+   `https://api-adservices.apple.com/api/v1/` (3 seconds at most, once more after a second
+   on 404) and passes on only Apple's answer; the token is never stored or logged.
+
+   ```sh
+   supabase functions deploy analytics-ingest --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   ```
+
+3. Geo relay: copy the new `deploy/geo-relay/relay.mjs` to
+   `/srv/kissmyapps/deploy/geo-relay/` and run
+   `docker compose -p kissmyapps-dashboard -f <host copy>/compose.yaml up -d --force-recreate geo`
+   (`node scripts/kma-release.mjs apply` does both). It now passes the two paths on exactly
+   as it passes `/v1/events`.
+4. Edge Caddy: in the live Caddyfile's `events.kissmyapps.dev` block, the matcher becomes
+   `@ingest path /v1/events /v1/replay /v1/attribution/install /v1/attribution/open`
+   (as in `deploy/hostinger/Caddyfile.production`). Back up, validate the full candidate
+   and restart only `dramapal-caddy-1`, as the hosting README requires.
+5. Link service: copy the new `links.mjs` to `/srv/kissmyapps/deploy/link-service/` and
+   restart `links` as in the smart-links release, step 3.
+6. Smoke test, with the `kmatest` project and one of its links:
+   - `curl -i -X POST -H 'content-type: application/json' -d '{}' https://events.kissmyapps.dev/v1/attribution/install`
+     answers 401 `invalid_key`; with the project's development client key in
+     `-H 'authorization: Bearer ...'` it answers 400 `missing_field`, and with
+     `-d '{"anonymous_id":"smoke-1","session_id":"smoke-1","platform":"android","installed_at":"2026-12-01T10:00:00.000Z","sdk":"curl/1"}'`
+     it answers 200 with `"matched"` and `"method"` (`"off"` while attribution is off).
+   - `curl -s -o /dev/null -w '%{redirect_url}\n' -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' 'https://kmatest.go.kissmyapps.dev/<path>?kma_click=<48 hex characters>'`
+     prints the website with that `kma_click` on it; an iPhone user agent still goes
+     straight to the App Store until "clipboard handoff for iPhone" is on, then gets the
+     "Get the app" page.
+
+Rollback: put the previous `@ingest` line back and restart only `dramapal-caddy-1` (the
+two paths then answer 404 and the SDKs try again on later launches, at most three times);
+the relay, function and link service can stay, as events and links work as before.
+
 ## Not in this release
 
 - Replays for apps: the mobile SDKs record events, sessions and screens, not replays.
