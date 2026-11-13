@@ -38,6 +38,20 @@ Addresses can carry settings for one use, which replace the link's own on that c
 `src`, `cmp`, `chn`, `adset`, `ad`, `sub1` to `sub5`, `dl` (the in-app screen), and
 `kma_aid` and `kma_from`, which the web SDK's `appLink()` adds.
 
+A creator's affiliate link for an app program lands on the merchant's link with
+`kma_click` (the creator's click, 48 lowercase hex characters). It is kept on the click as
+`params.creator_click`, so an install matched to the click names the creator, and it is
+added to the website address (also the website button of the in-app browser page), never
+to a store address. Any other `kma_click` value is ignored.
+
+Clipboard handoff for iPhone: when the project turned it on (`ios_clipboard_handoff` in
+the host's answer), an iPhone on its way to the App Store gets a small page instead of the
+redirect: the app's name and a "Get the app" button. The button copies `kma:<click ID>`
+and then opens the App Store, so an app with clipboard handoff on in its SDK can read the
+click on first launch. The page loads nothing else and sends nothing (its only script is
+allowed by hash in its Content-Security-Policy); without JavaScript the button is a plain
+link to the App Store. Robots, in-app browsers, Android and computers are not affected.
+
 A request for a host marks it seen in the database, at most hourly. That is how a
 merchant's own domain goes live in the console: the request could only have reached us
 over HTTPS if its DNS points here and Caddy got a certificate for it.
