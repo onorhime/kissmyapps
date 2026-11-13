@@ -171,7 +171,7 @@ export type ProductConfigurationPageProps = Readonly<{
    * Set for a product that belongs to a merchant's program. Such a product has no setup
    * steps: the page explains that and points to Programs, and reads no configuration.
    */
-  program?: Readonly<{ productName: string | null; onOpenPrograms?: () => void }> | null
+  program?: Readonly<{ name: string; onOpenPrograms?: () => void }> | null
 }>
 
 function ConfigurationState({
@@ -220,7 +220,7 @@ export function ProductConfigurationPage(props: ProductConfigurationPageProps) {
   if (props.program) {
     return (
       <ProgramProductNotice
-        productName={props.program.productName}
+        programName={props.program.name}
         onBack={props.onBack}
         onOpenPrograms={props.program.onOpenPrograms}
         onOpenStats={props.onOpenStats}

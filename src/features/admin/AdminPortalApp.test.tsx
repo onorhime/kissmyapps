@@ -11,8 +11,10 @@ import type {
   AdminGateway,
   AdminProduct,
   AdminProductConfiguration,
+  AdminProgramProduct,
 } from './api'
 import { AdminPortalApp } from './AdminPortalApp'
+import { programProductEntry } from './products/programProducts.fixture'
 
 const context: AdminContext = {
   userId: 'admin-1',
@@ -414,9 +416,12 @@ describe('Admin portal shell', () => {
       name: 'SpeakSix',
       slug: 'speaksix',
       status: 'active',
-      programId: 'program-speaksix',
     }
-
+    const programs: AdminDataResult<AdminProgramProduct[] | null> = {
+      data: [programProductEntry(programProduct.id)],
+      status: 'ready',
+      error: null,
+    }
     function programGateway(role: AdminContext['role'] = 'owner') {
       const getProductConfiguration = vi.fn(async () => ({
         data: { ...productConfiguration, product: programProduct },
@@ -429,6 +434,7 @@ describe('Admin portal shell', () => {
           { data: [product, programProduct], status: 'ready', error: null },
         ),
         getProductConfiguration,
+        getProgramProducts: vi.fn(async () => programs),
       }
       return { gateway, getProductConfiguration }
     }
@@ -541,17 +547,153 @@ describe('Admin portal shell', () => {
     })
 
     it('leaves the Overview without setup prompts when it is the only kind of product', async () => {
-      const gateway = gatewayWith(undefined, {
-        data: [programProduct],
-        status: 'ready',
-        error: null,
-      })
+      const gateway: AdminGateway = {
+        ...gatewayWith(undefined, { data: [programProduct], status: 'ready', error: null }),
+        getProgramProducts: vi.fn(async () => programs),
+      }
       const { props } = renderPortal({ gateway })
 
       expect(await screen.findByRole('heading', { name: 'Nothing to set up here' })).toBeVisible()
       expect(screen.queryByRole('heading', { name: 'Connect the launch journey' })).toBeNull()
       await userEvent.setup().click(screen.getByRole('button', { name: 'Open Programs' }))
       expect(props.onNavigate).toHaveBeenCalledWith('programs')
+    })
+  })
+
+  describe('reading which products belong to a program', () => {
+    const programProduct: AdminProduct = { ...product, id: 'product-speaksix', name: 'SpeakSix' }
+    const products: AdminDataResult<AdminProduct[]> = {
+      data: [product, programProduct],
+      status: 'ready',
+      error: null,
+    }
+    const read: AdminDataResult<AdminProgramProduct[] | null> = {
+      data: [programProductEntry(programProduct.id)],
+      status: 'ready',
+      error: null,
+    }
+    const notRead = (
+      code: 'contract_unavailable' | 'temporarily_unavailable' | 'invalid_response',
+    ): AdminDataResult<AdminProgramProduct[] | null> => ({
+      data: null,
+      status: 'error',
+      error: { code, message: 'Not read.', retryable: code === 'temporarily_unavailable' },
+    })
+
+    it('reads it once, together with the products', async () => {
+      const getProgramProducts = vi.fn(async () => read)
+      const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+      const { props, rerender } = renderPortal({ route: 'products', gateway })
+
+      const row = await screen.findByRole('row', { name: /SpeakSix/ })
+      // The mark is there on the first paint of the list: Setup is never offered in between.
+      expect(within(row).getByText('Program')).toBeVisible()
+      expect(gateway.getProducts).toHaveBeenCalledOnce()
+      rerender(<AdminPortalApp {...props} route="overview" />)
+      rerender(<AdminPortalApp {...props} route="products" />)
+      await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(getProgramProducts).toHaveBeenCalledOnce()
+    })
+
+    it('behaves as before on a database that does not have the function yet', async () => {
+      const getProgramProducts = vi.fn(async () => notRead('contract_unavailable'))
+      const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+      const { props, rerender } = renderPortal({ route: 'products', gateway })
+
+      const row = await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(within(row).queryByText('Program')).toBeNull()
+      expect(within(row).getByRole('button', { name: 'Set up SpeakSix' })).toBeVisible()
+      expect(screen.queryByRole('alert')).toBeNull()
+
+      rerender(<AdminPortalApp {...props} route="overview" />)
+      expect(
+        await screen.findByRole('heading', { name: 'Connect the launch journey' }),
+      ).toBeVisible()
+      rerender(
+        <AdminPortalApp {...props} route="product-configuration" productId={programProduct.id} />,
+      )
+      expect(await screen.findByText('CUSTOM DEAL SETUP')).toBeVisible()
+      expect(getProgramProducts).toHaveBeenCalledOnce()
+    })
+
+    it('keeps Products working when the read fails, and tries again on the next page', async () => {
+      const getProgramProducts = vi
+        .fn(async () => read)
+        .mockResolvedValueOnce(notRead('temporarily_unavailable'))
+      const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+      const { props, rerender } = renderPortal({ route: 'products', gateway })
+
+      const row = await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(within(row).queryByText('Program')).toBeNull()
+      expect(within(row).getByRole('button', { name: 'Set up SpeakSix' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Set up Daily Planner' })).toBeVisible()
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(getProgramProducts).toHaveBeenCalledOnce()
+
+      rerender(<AdminPortalApp {...props} route="overview" />)
+      await waitFor(() => expect(getProgramProducts).toHaveBeenCalledTimes(2))
+      rerender(<AdminPortalApp {...props} route="products" />)
+      const marked = await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(await within(marked).findByText('Program')).toBeVisible()
+      expect(within(marked).queryByRole('button', { name: 'Set up SpeakSix' })).toBeNull()
+      expect(gateway.getProducts).toHaveBeenCalledOnce()
+
+      // Once it is read there is nothing left to try again.
+      rerender(<AdminPortalApp {...props} route="overview" />)
+      rerender(<AdminPortalApp {...props} route="products" />)
+      await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(getProgramProducts).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps trying on later pages while the read keeps failing', async () => {
+      const getProgramProducts = vi.fn(async () => notRead('temporarily_unavailable'))
+      const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+      const { props, rerender } = renderPortal({ route: 'products', gateway })
+
+      await screen.findByRole('row', { name: /SpeakSix/ })
+      rerender(<AdminPortalApp {...props} route="overview" />)
+      await waitFor(() => expect(getProgramProducts).toHaveBeenCalledTimes(2))
+      rerender(<AdminPortalApp {...props} route="products" />)
+      await waitFor(() => expect(getProgramProducts).toHaveBeenCalledTimes(3))
+      expect(
+        within(screen.getByRole('row', { name: /SpeakSix/ })).getByRole('button', {
+          name: 'Set up SpeakSix',
+        }),
+      ).toBeVisible()
+    })
+
+    it('marks nothing from an answer it cannot trust, or when the read throws', async () => {
+      for (const getProgramProducts of [
+        vi.fn(async () => notRead('invalid_response')),
+        vi.fn(async (): Promise<AdminDataResult<AdminProgramProduct[] | null>> => {
+          throw new Error('network')
+        }),
+      ]) {
+        const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+        const { unmount } = renderPortal({ route: 'products', gateway })
+
+        const row = await screen.findByRole('row', { name: /SpeakSix/ })
+        expect(within(row).queryByText('Program')).toBeNull()
+        expect(within(row).getByRole('button', { name: 'Set up SpeakSix' })).toBeVisible()
+        unmount()
+      }
+    })
+
+    it('reads it again when the products are loaded again', async () => {
+      const getProgramProducts = vi.fn(async () => read)
+      const failedProducts: AdminDataResult<AdminProduct[]> = {
+        data: [],
+        status: 'error',
+        error: { code: 'temporarily_unavailable', message: 'Unavailable.', retryable: true },
+      }
+      const gateway = { ...gatewayWith(undefined, products), getProgramProducts }
+      gateway.getProducts = vi.fn(async () => products).mockResolvedValueOnce(failedProducts)
+      renderPortal({ route: 'products', gateway })
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Retry' }))
+      const row = await screen.findByRole('row', { name: /SpeakSix/ })
+      expect(within(row).getByText('Program')).toBeVisible()
+      expect(getProgramProducts).toHaveBeenCalledTimes(2)
     })
   })
 

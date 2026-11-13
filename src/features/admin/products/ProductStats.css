@@ -465,6 +465,13 @@
   gap: 8px;
 }
 
+/* A program's product: the mark sits under the name, so it never widens the table. */
+.admin-product-named {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
 /* Marks a product that belongs to a merchant's program. Quieter than a status badge. */
 .admin-product-kind {
   padding: 3px 7px;

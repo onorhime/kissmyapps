@@ -2,7 +2,7 @@ import { ArrowLeft, ChartNoAxesColumn, ClipboardCheck } from 'lucide-react'
 import './ProductStats.css'
 
 export type ProgramProductNoticeProps = Readonly<{
-  productName: string | null
+  programName: string
   onBack: () => void
   /** Opens program review. Left out for a role that cannot review programs. */
   onOpenPrograms?: () => void
@@ -14,7 +14,7 @@ export type ProgramProductNoticeProps = Readonly<{
  * merchant set the program up, so there is nothing to set up here.
  */
 export function ProgramProductNotice({
-  productName,
+  programName,
   onBack,
   onOpenPrograms,
   onOpenStats,
@@ -28,9 +28,7 @@ export function ProgramProductNotice({
         <span className="admin-state-icon">
           <ClipboardCheck size={30} aria-hidden="true" />
         </span>
-        <h1 id="admin-program-product-title">
-          {productName ? `${productName} is a program` : 'This product is a program'}
-        </h1>
+        <h1 id="admin-program-product-title">{programName} is a program</h1>
         <p>
           Its merchant set it up in their own console, so there are no setup steps here.{' '}
           {onOpenPrograms

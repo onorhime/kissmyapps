@@ -279,8 +279,14 @@ export function ProductsPage({
                             <span className="admin-product-symbol">
                               <Box size={16} aria-hidden="true" />
                             </span>
-                            {product.name}
-                            {program && <span className="admin-product-kind">Program</span>}
+                            {program ? (
+                              <span className="admin-product-named">
+                                {product.name}
+                                <span className="admin-product-kind">Program</span>
+                              </span>
+                            ) : (
+                              product.name
+                            )}
                           </span>
                         </th>
                         <td>

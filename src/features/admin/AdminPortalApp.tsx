@@ -30,7 +30,7 @@ import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { ProductStatsPage } from './products/ProductStatsPage'
-import { programProductIds } from './products/programProducts'
+import { programProductsById } from './products/programProducts'
 import { ProgramsPage } from './programs/ProgramsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
@@ -192,7 +192,7 @@ export function AdminPortalApp({
   onSwitchToPartner,
 }: AdminPortalAppProps) {
   const effectiveGateway = gateway ?? defaultAdminGateway
-  const { state, retry, createProduct, replaceProduct } = useAdminWorkspace({
+  const { state, retry, retryProgramProducts, createProduct, replaceProduct } = useAdminWorkspace({
     sessionUserId,
     gateway: effectiveGateway,
   })
@@ -212,7 +212,11 @@ export function AdminPortalApp({
   const observabilityRestricted = context?.role === 'support'
   const settingsRestricted = context?.role === 'support'
   // A program's product was set up by its merchant: no page offers the setup wizard for it.
-  const programProducts = useMemo(() => programProductIds(state.products), [state.products])
+  const programProducts = useMemo(
+    () => programProductsById(state.programProducts),
+    [state.programProducts],
+  )
+  const program = productId ? programProducts.get(productId) : undefined
 
   function isRestrictedRoute(routeId: string): boolean {
     return (
@@ -239,6 +243,11 @@ export function AdminPortalApp({
       previousRoute.current = route
     }
   }, [route])
+
+  // A failed read of the program products is tried again on the way to another page.
+  useEffect(() => {
+    retryProgramProducts()
+  }, [retryProgramProducts, route])
 
   async function safelySwitchToPartner() {
     setShellError('')
@@ -448,14 +457,7 @@ export function AdminPortalApp({
                     gateway={effectiveGateway}
                     onBack={() => navigate('products')}
                     program={
-                      programProducts.has(productId)
-                        ? {
-                            productName:
-                              state.products.find((product) => product.id === productId)?.name ??
-                              null,
-                            onOpenPrograms: openPrograms,
-                          }
-                        : null
+                      program ? { name: program.programName, onOpenPrograms: openPrograms } : null
                     }
                     onProductRead={replaceProduct}
                     onOpenSettings={settingsRestricted ? undefined : () => navigate('settings')}
@@ -493,7 +495,7 @@ export function AdminPortalApp({
                   gateway={effectiveGateway}
                   onBack={() => navigate('products')}
                   onOpenSetup={() => onOpenProductConfiguration(productId)}
-                  program={programProducts.has(productId)}
+                  program={Boolean(program)}
                   onOpenPrograms={openPrograms}
                   onOpenSubscriptions={
                     context.role === 'support' ? undefined : () => navigate('subscriptions')

@@ -65,7 +65,6 @@ export function mapAdminContext(value: unknown): AdminContext {
 export function mapAdminProduct(value: unknown): AdminProduct {
   const row = object(value)
   const rawTrackingMode = row.tracking_mode ?? row.trackingMode ?? 'commercial'
-  const programId = nullableString(row, 'program_id')
   return {
     id: string(row, 'id'),
     name: string(row, 'name'),
@@ -83,8 +82,6 @@ export function mapAdminProduct(value: unknown): AdminProduct {
     ),
     createdAt: string(row, 'created_at'),
     updatedAt: string(row, 'updated_at'),
-    // Only a program's product carries the key, so a custom deal reads exactly as before.
-    ...(programId ? { programId } : {}),
   }
 }
 

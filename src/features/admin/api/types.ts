@@ -54,11 +54,6 @@ export type AdminProduct = Readonly<{
   trackingOnlyApprovedAt: string | null
   createdAt: string
   updatedAt: string
-  /**
-   * The merchant program this product was created for at first-listing approval. Missing or
-   * null for a custom deal, the only kind of product the setup wizard is for.
-   */
-  programId?: string | null
 }>
 
 /** Product creation is deliberately draft-only and has no funnel fields. */
@@ -819,6 +814,10 @@ export type AdminAgreementOperationsHealth = Readonly<{
 export interface AdminGateway {
   getProgramReviews?: () => Promise<
     AdminDataResult<import('./programs').AdminProgramReviews | null>
+  >
+  /** Which products belong to a merchant's program. Readable by every role that reads Products. */
+  getProgramProducts?: () => Promise<
+    AdminDataResult<import('./programProducts').AdminProgramProduct[] | null>
   >
   reviewProgram?: (
     input: import('./programs').AdminProgramReviewInput,

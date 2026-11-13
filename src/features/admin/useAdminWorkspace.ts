@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   adminGateway,
   type AdminContext,
@@ -7,6 +7,7 @@ import {
   type AdminGateway,
   type AdminProduct,
   type AdminProductCreate,
+  type AdminProgramProduct,
 } from './api'
 
 export type AdminWorkspaceStatus =
@@ -21,6 +22,8 @@ export type AdminWorkspaceState = Readonly<{
   status: AdminWorkspaceStatus
   context: AdminContext | null
   products: readonly AdminProduct[]
+  /** Which of the products belong to a merchant's program. Empty when that could not be read. */
+  programProducts: readonly AdminProgramProduct[]
   error: AdminDataError | null
 }>
 
@@ -28,14 +31,33 @@ const idleMutation: AdminMutationState = { status: 'idle', error: null }
 
 function initialState(sessionUserId: string | null): AdminWorkspaceState {
   return sessionUserId
-    ? { status: 'loading', context: null, products: [], error: null }
-    : { status: 'unauthenticated', context: null, products: [], error: null }
+    ? { status: 'loading', context: null, products: [], programProducts: [], error: null }
+    : { status: 'unauthenticated', context: null, products: [], programProducts: [], error: null }
 }
 
 function workspaceStatus(status: string): AdminWorkspaceStatus {
   if (status === 'unauthorized') return 'unauthorized'
   if (status === 'unconfigured') return 'unconfigured'
   return 'error'
+}
+
+/**
+ * Which products belong to a program. This read never fails the workspace: without it every
+ * product is treated as a custom deal, which is how the admin app behaved before programs.
+ * `again` says whether another try can help. It cannot when the database has no such
+ * function yet or the role may not call it; it can after a failed or dropped request.
+ */
+async function readProgramProducts(
+  gateway: AdminGateway,
+): Promise<Readonly<{ entries: readonly AdminProgramProduct[]; again: boolean }>> {
+  if (!gateway.getProgramProducts) return { entries: [], again: false }
+  try {
+    const read = await gateway.getProgramProducts()
+    if (read.status === 'ready' && read.data) return { entries: read.data, again: false }
+    return { entries: [], again: Boolean(read.error?.retryable) }
+  } catch {
+    return { entries: [], again: true }
+  }
 }
 
 function unavailableProductResult(): AdminDataResult<AdminProduct | null> {
@@ -74,6 +96,8 @@ export function useAdminWorkspace({
     value: AdminMutationState
   }>(() => ({ scope, value: idleMutation }))
   const state = scopedState.scope === scope ? scopedState.value : initialState(sessionUserId)
+  // The latest read of program products: its number, and whether it is worth repeating.
+  const programRead = useRef({ number: 0, again: false })
   const mutation = scopedMutation.scope === scope ? scopedMutation.value : idleMutation
 
   useEffect(() => {
@@ -91,14 +115,21 @@ export function useAdminWorkspace({
             status: workspaceStatus(contextResult.status),
             context: null,
             products: [],
+            programProducts: [],
             error: contextResult.error,
           },
         })
         return
       }
 
-      const productsResult = await gateway.getProducts()
+      const number = ++programRead.current.number
+      programRead.current.again = false
+      const [productsResult, programs] = await Promise.all([
+        gateway.getProducts(),
+        readProgramProducts(gateway),
+      ])
       if (!active) return
+      if (number === programRead.current.number) programRead.current.again = programs.again
       if (productsResult.status === 'ready' || productsResult.status === 'empty') {
         setScopedState({
           scope,
@@ -106,6 +137,7 @@ export function useAdminWorkspace({
             status: productsResult.data.length ? 'ready' : 'empty',
             context: contextResult.data,
             products: orderedProducts(productsResult.data),
+            programProducts: programs.entries,
             error: null,
           },
         })
@@ -118,6 +150,7 @@ export function useAdminWorkspace({
           status: workspaceStatus(productsResult.status),
           context: contextResult.data,
           products: [],
+          programProducts: [],
           error: productsResult.error,
         },
       })
@@ -133,6 +166,24 @@ export function useAdminWorkspace({
     setScopedMutation({ scope, value: idleMutation })
     setRefreshVersion((version) => version + 1)
   }, [scope, sessionUserId])
+
+  // Tries the read of program products once more when the last one failed in a way that can
+  // pass, so a dropped request does not leave programs unmarked until the page is reloaded.
+  const retryProgramProducts = useCallback(() => {
+    if (!programRead.current.again) return
+    const number = ++programRead.current.number
+    programRead.current.again = false
+    void readProgramProducts(gateway).then((programs) => {
+      if (number !== programRead.current.number) return
+      programRead.current.again = programs.again
+      if (programs.again) return
+      setScopedState((current) =>
+        current.scope === scope
+          ? { scope, value: { ...current.value, programProducts: programs.entries } }
+          : current,
+      )
+    })
+  }, [gateway, scope])
 
   const createProduct = useCallback(
     async (input: AdminProductCreate): Promise<AdminDataResult<AdminProduct | null>> => {
@@ -200,5 +251,5 @@ export function useAdminWorkspace({
     [scope],
   )
 
-  return { state, mutation, retry, createProduct, replaceProduct }
+  return { state, mutation, retry, retryProgramProducts, createProduct, replaceProduct }
 }

@@ -34,6 +34,7 @@ import {
   programMoneyRefusal,
 } from './programMoney'
 import type { AdminProgramMoney } from './programMoney'
+import { mapAdminProgramProducts, type AdminProgramProduct } from './programProducts'
 import {
   PROGRAM_PAYOUT_FAILURES,
   mapAdminProgramPayouts,
@@ -132,6 +133,7 @@ export const ADMIN_RPCS = Object.freeze({
   platformSettings: 'get_admin_platform_settings',
   configureTracking: 'configure_admin_tracking',
   programReviews: 'list_admin_program_reviews',
+  programProducts: 'get_admin_program_products',
   reviewProgram: 'review_admin_program',
   setProgramStatus: 'set_admin_program_status',
   programMoney: 'get_admin_program_money',
@@ -514,6 +516,11 @@ export function createAdminGateway(
       return programCall(client, ADMIN_RPCS.programReviews, (value) =>
         mapAdminProgramReviews(value, storageBaseUrl),
       )
+    },
+
+    async getProgramProducts() {
+      if (!client) return notConfigured<AdminProgramProduct[] | null>(() => null)
+      return mappedObject(client, ADMIN_RPCS.programProducts, mapAdminProgramProducts)
     },
 
     async reviewProgram(input) {

@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminProduct } from './api'
 import { AdminOverview } from './AdminOverview'
+import { programProductsOf } from './products/programProducts.fixture'
 
-function product(id: string, status: AdminProduct['status'], programId?: string): AdminProduct {
+function product(id: string, status: AdminProduct['status']): AdminProduct {
   return {
     id,
     name: `Product ${id}`,
@@ -14,13 +15,12 @@ function product(id: string, status: AdminProduct['status'], programId?: string)
     trackingOnlyApprovedAt: null,
     createdAt: '2026-11-10T10:00:00.000Z',
     updatedAt: '2026-11-10T10:00:00.000Z',
-    ...(programId ? { programId } : {}),
   }
 }
 
 const customDeal = product('deal', 'draft')
-const programOne = product('one', 'active', 'program-1')
-const programTwo = product('two', 'active', 'program-2')
+const programOne = product('one', 'active')
+const programTwo = product('two', 'active')
 
 describe('Admin overview', () => {
   it('keeps the setup prompts as they are when no product belongs to a program', () => {
@@ -44,7 +44,7 @@ describe('Admin overview', () => {
     render(
       <AdminOverview
         products={[programOne, programTwo]}
-        programProducts={new Set([programOne.id, programTwo.id])}
+        programProducts={programProductsOf(programOne.id, programTwo.id)}
         onOpenProducts={vi.fn()}
         onOpenPrograms={onOpenPrograms}
       />,
@@ -70,7 +70,7 @@ describe('Admin overview', () => {
     render(
       <AdminOverview
         products={[programOne]}
-        programProducts={new Set([programOne.id])}
+        programProducts={programProductsOf(programOne.id)}
         onOpenProducts={vi.fn()}
       />,
     )
@@ -84,7 +84,7 @@ describe('Admin overview', () => {
     render(
       <AdminOverview
         products={[customDeal, programOne]}
-        programProducts={new Set([programOne.id])}
+        programProducts={programProductsOf(programOne.id)}
         onOpenProducts={vi.fn()}
         onOpenPrograms={vi.fn()}
       />,

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminContext, AdminDataResult, AdminProduct, AdminProductCreate } from '../api'
 import { ProductsPage } from './ProductsPage'
+import { programProductsOf } from './programProducts.fixture'
 
 const ownerContext: AdminContext = {
   userId: 'admin-1',
@@ -30,7 +31,6 @@ const programProduct: AdminProduct = {
   name: 'SpeakSix',
   slug: 'speaksix',
   status: 'active',
-  programId: 'program-1',
 }
 
 function readyCreation(product = createdProduct): AdminDataResult<AdminProduct | null> {
@@ -114,7 +114,7 @@ describe('Admin Products page', () => {
       <ProductsPage
         context={ownerContext}
         products={[programProduct, createdProduct]}
-        programProducts={new Set([programProduct.id])}
+        programProducts={programProductsOf(programProduct.id)}
         onCreate={vi.fn()}
         {...handlers}
       />,
@@ -142,7 +142,7 @@ describe('Admin Products page', () => {
       <ProductsPage
         context={{ ...ownerContext, role: 'finance' }}
         products={[programProduct, createdProduct]}
-        programProducts={new Set([programProduct.id])}
+        programProducts={programProductsOf(programProduct.id)}
         onCreate={vi.fn()}
         onConfigure={vi.fn()}
         onViewStats={vi.fn()}
@@ -166,7 +166,7 @@ describe('Admin Products page', () => {
     render(
       <ProductsPage
         context={ownerContext}
-        products={[{ ...programProduct, programId: null }, createdProduct]}
+        products={[programProduct, createdProduct]}
         onCreate={vi.fn()}
         onConfigure={onConfigure}
         onViewStats={vi.fn()}

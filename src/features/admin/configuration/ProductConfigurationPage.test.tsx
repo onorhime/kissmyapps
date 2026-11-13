@@ -148,7 +148,7 @@ describe('Product configuration page', () => {
         context={owner}
         gateway={gateway}
         onBack={vi.fn()}
-        program={{ productName: 'SpeakSix', onOpenPrograms }}
+        program={{ name: 'SpeakSix', onOpenPrograms }}
       />,
     )
 

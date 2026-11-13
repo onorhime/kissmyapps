@@ -1,17 +1,17 @@
-import type { AdminProduct } from '../api'
+import type { AdminProgramProduct } from '../api'
 
 /**
- * The ids of the products that belong to a merchant's program. A program creates its own
- * product and landing page when its first listing is approved, so such a product is never
- * set up through the product setup wizard: only a custom deal is.
+ * The products that belong to a merchant's program, by product id. A program creates its
+ * own product and landing page when its first listing is approved, so such a product is
+ * never set up through the product setup wizard: only a custom deal is.
  *
- * Every admin screen asks this set and nothing else, so where the answer comes from is
- * decided here alone. It is read from `program_id` on the rows of `get_admin_products`.
+ * Every admin screen asks this and nothing else. It is built from the answer of
+ * `get_admin_program_products`, which the workspace reads together with the products.
  */
-export type ProgramProducts = ReadonlySet<string>
+export type ProgramProducts = ReadonlyMap<string, AdminProgramProduct>
 
-export const NO_PROGRAM_PRODUCTS: ProgramProducts = new Set<string>()
+export const NO_PROGRAM_PRODUCTS: ProgramProducts = new Map<string, AdminProgramProduct>()
 
-export function programProductIds(products: readonly AdminProduct[]): ProgramProducts {
-  return new Set(products.filter((product) => product.programId).map((product) => product.id))
+export function programProductsById(entries: readonly AdminProgramProduct[]): ProgramProducts {
+  return new Map(entries.map((entry) => [entry.productId, entry]))
 }
