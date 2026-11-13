@@ -1,0 +1,168 @@
+{
+  "marketplace_programs": {
+    "programs": [
+      {
+        "name": "Rival Reader",
+        "slug": "rival-reader",
+        "tagline": "Stories worth an evening.",
+        "category": "entertainment",
+        "currency": "USD",
+        "hold_days": 30,
+        "logo_path": null,
+        "brand_name": "Rival Media",
+        "approval_mode": "manual",
+        "terms_version": 1,
+        "commission_type": "fixed",
+        "commission_months": null,
+        "commission_duration": "first_payment",
+        "commission_rate_bps": null,
+        "minimum_payout_minor": 2000,
+        "commission_fixed_minor": 500,
+        "attribution_window_days": 30
+      },
+      {
+        "name": "SpeakSix",
+        "slug": "speaksix",
+        "tagline": "Speak English with confidence in six weeks.",
+        "category": "education",
+        "currency": "USD",
+        "hold_days": 30,
+        "logo_path": "059e4796-6268-4734-99b5-6df8f74b2edf/logo.png",
+        "brand_name": "SpeakSix Ltd",
+        "approval_mode": "automatic",
+        "terms_version": 1,
+        "commission_type": "percent",
+        "commission_months": 12,
+        "commission_duration": "months",
+        "commission_rate_bps": 3000,
+        "minimum_payout_minor": 2000,
+        "commission_fixed_minor": null,
+        "attribution_window_days": 30
+      }
+    ]
+  },
+  "marketplace_program": {
+    "program": {
+      "id": "ffd99d2b-7de8-4861-9c3d-42b0d07731c5",
+      "name": "SpeakSix",
+      "slug": "speaksix",
+      "status": "live",
+      "tagline": "Speak English with confidence in six weeks.",
+      "category": "education",
+      "currency": "USD",
+      "agreement": {
+        "title": "SpeakSix Affiliate Agreement",
+        "summary": [
+          {
+            "label": "Commission",
+            "value": "30% of every payment for 12 months"
+          },
+          { "label": "Attribution window", "value": "30 days" },
+          { "label": "Hold before payout", "value": "30 days" },
+          { "label": "Minimum payout", "value": "$20.00" }
+        ],
+        "sections": [
+          {
+            "heading": "1. Who this agreement is between",
+            "paragraphs": [
+              "This agreement is between you, the creator, and SpeakSix Ltd, the business behind SpeakSix. KissMyApps is the platform the program runs on. It tracks sales and pays commission on behalf of SpeakSix Ltd.",
+              "You sign this agreement by accepting it on KissMyApps. SpeakSix Ltd agreed to these terms when it published them, so nobody needs to countersign."
+            ]
+          },
+          {
+            "heading": "2. What you promote",
+            "paragraphs": [
+              "You promote SpeakSix. KissMyApps gives you your own link, and people who click it land on https://speaksix.com/start.",
+              "You can start as soon as you accept this agreement."
+            ]
+          },
+          {
+            "heading": "3. Commission",
+            "paragraphs": [
+              "You earn 30% of every payment credited to you, for 12 months counted from the customer's first payment. Payments after that do not earn commission.",
+              "Section 4 explains which payments are credited to you."
+            ]
+          },
+          {
+            "heading": "4. How a sale is credited to you",
+            "paragraphs": [
+              "A sale is credited to you when a customer clicks your link and pays SpeakSix Ltd within 30 days of that click.",
+              "If the customer clicked more than one creator's link in that time, the sale goes to the last link they clicked before paying.",
+              "When a sale credited to you starts a subscription, the renewals of that subscription are credited to you as well.",
+              "Only sales that KissMyApps has tracked and confirmed as paid count. A sale that cannot be traced to your link earns no commission."
+            ]
+          },
+          {
+            "heading": "5. Hold, refunds and chargebacks",
+            "paragraphs": [
+              "Commission is held for 30 days after each payment before it can be paid out. This leaves time for refunds and disputes.",
+              "If a payment is refunded, disputed or charged back, the commission on it is cancelled, or reduced to match a partial refund.",
+              "If that commission was already paid to you, the amount is taken out of your later commission."
+            ]
+          },
+          {
+            "heading": "6. Payouts",
+            "paragraphs": [
+              "KissMyApps pays your commission on behalf of SpeakSix Ltd, to the payout account you connect on KissMyApps.",
+              "Commission becomes payable once it has passed the hold. It is paid when your payable commission reaches $20.00.",
+              "KissMyApps pays out only from money SpeakSix Ltd has provided for commission. Until SpeakSix Ltd provides it, the commission is owed to you by SpeakSix Ltd, not by KissMyApps."
+            ]
+          },
+          {
+            "heading": "7. How you may promote",
+            "paragraphs": [
+              "Be honest. Only say things about SpeakSix that are true.",
+              "Tell your audience clearly that you earn commission when they buy through your link.",
+              "Do not send spam. Do not bid on the SpeakSix or SpeakSix Ltd name in paid search ads. Do not buy through your own link. Do not send fake, automated or paid-for clicks or sign-ups.",
+              "Sales that break these rules earn no commission."
+            ]
+          },
+          {
+            "heading": "8. The SpeakSix name and logo",
+            "paragraphs": [
+              "While this agreement is in force you may use the SpeakSix name and logo, unchanged, to promote it. Do not present yourself as SpeakSix Ltd or suggest that you speak for it. Stop using the name and logo when this agreement ends."
+            ]
+          },
+          {
+            "heading": "9. Changes to these terms",
+            "paragraphs": [
+              "SpeakSix Ltd can change these terms by publishing a new version. KissMyApps will ask you to accept it.",
+              "Commission you have already earned keeps the terms it was earned under."
+            ]
+          },
+          {
+            "heading": "10. Ending this agreement",
+            "paragraphs": [
+              "You or SpeakSix Ltd can end this agreement at any time.",
+              "Commission you earned before it ended is still paid once it has passed the hold.",
+              "Payments made after it ends do not earn commission."
+            ]
+          },
+          {
+            "heading": "11. Independent relationship",
+            "paragraphs": [
+              "You promote SpeakSix as an independent creator. You are not an employee, agent or partner of SpeakSix Ltd or of KissMyApps, and you cannot make commitments on their behalf."
+            ]
+          }
+        ],
+        "brand_name": "SpeakSix Ltd",
+        "extra_terms": null,
+        "program_name": "SpeakSix"
+      },
+      "hold_days": 30,
+      "logo_path": "059e4796-6268-4734-99b5-6df8f74b2edf/logo.png",
+      "brand_name": "SpeakSix Ltd",
+      "landing_url": "https://speaksix.com/start",
+      "approval_mode": "automatic",
+      "terms_version": 1,
+      "commission_type": "percent",
+      "agreement_sha256": "1114402db03dc1255af2bbfa2e72acbe5b4da072d34c55f7a88647015f5f6845",
+      "commission_months": 12,
+      "commission_duration": "months",
+      "commission_rate_bps": 3000,
+      "minimum_payout_minor": 2000,
+      "commission_fixed_minor": null,
+      "attribution_window_days": 30
+    }
+  }
+}

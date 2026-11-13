@@ -352,7 +352,7 @@ describe('arriving signed out to join a program', () => {
     expect(getProgram).not.toHaveBeenCalled()
 
     await user.type(await screen.findByLabelText('Email address'), 'ana@example.com')
-    await user.type(screen.getByLabelText('Password'), 'existing-password')
+    await user.type(screen.getByLabelText('Password'), 'long-enough-phrase')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
     await user.click(await screen.findByRole('button', { name: 'Open partner dashboard' }))
 
@@ -396,7 +396,7 @@ describe('arriving signed out to join a program', () => {
       }),
     })
     openDashboard(
-      '/?auth_action=signup&type=email&token_hash=confirmation-secret',
+      '/?auth_action=signup&type=email&token_hash=confirmation-value',
       gateway,
       service,
     )
@@ -405,7 +405,7 @@ describe('arriving signed out to join a program', () => {
       await screen.findByRole('heading', { level: 1, name: 'Join SpeakSix' }),
     ).toBeInTheDocument()
     expect(window.location.hash).toBe('#marketplace/speaksix')
-    expect(window.location.href).not.toContain('confirmation-secret')
+    expect(window.location.href).not.toContain('confirmation-value')
     expect(getProgram).toHaveBeenCalledWith('speaksix')
     expect(peekWantedProgram()).toBeNull()
   })
@@ -422,7 +422,7 @@ describe('arriving signed out to join a program', () => {
     openDashboard('/#auth/sign-in', gateway, service)
 
     await user.type(await screen.findByLabelText('Email address'), 'ana@example.com')
-    await user.type(screen.getByLabelText('Password'), 'existing-password')
+    await user.type(screen.getByLabelText('Password'), 'long-enough-phrase')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
     await user.click(await screen.findByRole('button', { name: 'Open partner dashboard' }))
 

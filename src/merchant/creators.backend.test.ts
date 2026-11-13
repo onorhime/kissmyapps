@@ -14,7 +14,7 @@ describe('creator readers and the real backend answers', () => {
       approval_mode: 'manual',
       marketplace_listed: true,
     })
-    expect(inviteLink(state.program!.slug)).toBe('https://kissmyapps.dev/marketplace/rival-reader')
+    expect(inviteLink(state.program!.slug!)).toBe('https://kissmyapps.dev/marketplace/rival-reader')
     expect(state.counts).toEqual({ pending: 2, active: 2, ended: 0 })
     expect(state.creators).toHaveLength(4)
     const groups = groupCreators(state.creators)
