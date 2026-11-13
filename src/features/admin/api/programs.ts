@@ -17,6 +17,22 @@ export type AdminProgramStatus = (typeof ADMIN_PROGRAM_STATUSES)[number]
 export const ADMIN_PROGRAM_PAUSE_REASONS = ['merchant', 'stripe_disconnected', 'admin'] as const
 export type AdminProgramPauseReason = (typeof ADMIN_PROGRAM_PAUSE_REASONS)[number]
 
+export const ADMIN_PROGRAM_EARN_FROM = ['sales', 'events', 'both'] as const
+/** What creators earn from: a commission on sales, an amount per event, or both. */
+export type AdminProgramEarnFrom = (typeof ADMIN_PROGRAM_EARN_FROM)[number]
+
+/**
+ * One event a program pays for. A part the merchant has not filled in, or that cannot be
+ * read, is null, so the reviewer sees the gap instead of a shorter list.
+ */
+export type AdminProgramReward = Readonly<{
+  /** The event's name in the merchant's analytics. */
+  key: string | null
+  /** The words creators read. */
+  label: string | null
+  amountMinor: number | null
+}>
+
 export type AdminProgramCommissionType = 'percent' | 'fixed'
 export type AdminProgramCommissionDuration = 'first_payment' | 'months' | 'lifetime'
 
@@ -51,6 +67,12 @@ export type AdminProgramReview = Readonly<{
   currency: string
   commissionDuration: AdminProgramCommissionDuration | null
   commissionMonths: number | null
+  /** `sales` for an answer from before programs could pay for events. */
+  earnFrom: AdminProgramEarnFrom
+  /** In the merchant's order. Empty for an answer from before programs could pay for events. */
+  rewards: readonly AdminProgramReward[]
+  /** What rewards may add up to in a calendar month, in the program's currency. */
+  rewardBudgetMinor: number | null
   marketplaceListed: boolean | null
   extraTerms: string | null
   workspaceId: string | null
@@ -128,6 +150,25 @@ function wholeNumber(row: Record<string, unknown>, key: string): number | null {
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | null {
   return typeof value === 'string' && allowed.includes(value as T) ? (value as T) : null
+}
+
+/** Missing reads as a sales program. A value this screen does not know is never guessed. */
+function mapEarnFrom(value: unknown): AdminProgramEarnFrom {
+  if (value === undefined || value === null) return 'sales'
+  const earnFrom = oneOf(value, ADMIN_PROGRAM_EARN_FROM)
+  if (!earnFrom) throw new Error('Invalid earn_from.')
+  return earnFrom
+}
+
+/** Missing reads as no rewards. Every reward in the answer is kept, whole or not. */
+function mapRewards(value: unknown): AdminProgramReward[] {
+  if (value === undefined || value === null) return []
+  if (!Array.isArray(value)) throw new Error('Invalid rewards.')
+  return value.map((item) => {
+    const row = record(item)
+    const amount = wholeNumber(row, 'amount_minor')
+    return { key: text(row, 'key'), label: text(row, 'label'), amountMinor: amount || null }
+  })
 }
 
 /**
@@ -209,6 +250,9 @@ export function mapAdminProgramReview(
       'lifetime',
     ] as const),
     commissionMonths: wholeNumber(row, 'commission_months'),
+    earnFrom: mapEarnFrom(row.earn_from),
+    rewards: mapRewards(row.rewards),
+    rewardBudgetMinor: wholeNumber(row, 'reward_budget_minor') || null,
     marketplaceListed: typeof row.marketplace_listed === 'boolean' ? row.marketplace_listed : null,
     extraTerms: text(row, 'extra_terms'),
     workspaceId: text(row, 'workspace_id'),

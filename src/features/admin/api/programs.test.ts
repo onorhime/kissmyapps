@@ -8,10 +8,14 @@ import {
 } from './programs'
 import type { AdminBackendResponse, AdminSupabaseClient } from './types'
 import {
+  bothProgramRow,
+  eventsProgramRow,
   fixedProgramRow,
   programRow,
   programWorkspaceId,
   reviewsResponse,
+  rewardRows,
+  salesProgramRow,
 } from '../programs/fixtures'
 
 const storage = 'https://project.supabase.co'
@@ -201,6 +205,77 @@ describe('admin program review gateway', () => {
       agreement: null,
       currency: 'USD',
     })
+  })
+
+  it('reads an answer from before programs could pay per event as a sales program', () => {
+    const old = mapAdminProgramReview(programRow())
+    expect(old).toMatchObject({ earnFrom: 'sales', rewards: [], rewardBudgetMinor: null })
+    expect(mapAdminProgramReview(salesProgramRow())).toEqual(old)
+    expect(
+      mapAdminProgramReview(
+        programRow({ earn_from: null, rewards: null, reward_budget_minor: null }),
+      ),
+    ).toEqual(old)
+  })
+
+  it('reads what an events program and a both program pay, and the monthly budget', () => {
+    expect(mapAdminProgramReview(eventsProgramRow())).toMatchObject({
+      name: 'Fluent',
+      earnFrom: 'events',
+      // The stored commission stays in the row, as the database sends it.
+      commissionType: 'percent',
+      rewards: [
+        { key: 'signup_completed', label: 'Account created', amountMinor: 200 },
+        { key: 'trial_started', label: 'Trial started', amountMinor: 500 },
+      ],
+      rewardBudgetMinor: 50000,
+    })
+    expect(mapAdminProgramReview(bothProgramRow())).toMatchObject({
+      earnFrom: 'both',
+      commissionType: 'percent',
+      commissionRateBps: 2000,
+      rewards: [{ key: 'signup_completed', label: 'Account created', amountMinor: 150 }],
+      rewardBudgetMinor: 120000,
+    })
+  })
+
+  it('keeps every reward of a listing, with the parts it cannot read as not set', () => {
+    const program = mapAdminProgramReview(
+      eventsProgramRow({
+        rewards: [
+          rewardRows[0],
+          { key: 'trial_started', label: '   ', amount_minor: 0 },
+          { key: 7, label: ' Subscribed ', amount_minor: '500', person_id: 'p-1' },
+          {},
+        ],
+        reward_budget_minor: 0,
+      }),
+    )
+    expect(program.rewards).toEqual([
+      { key: 'signup_completed', label: 'Account created', amountMinor: 200 },
+      { key: 'trial_started', label: null, amountMinor: null },
+      { key: null, label: 'Subscribed', amountMinor: null },
+      { key: null, label: null, amountMinor: null },
+    ])
+    expect(program.rewardBudgetMinor).toBeNull()
+    // A draft that says events before any reward is listed.
+    expect(mapAdminProgramReview(eventsProgramRow({ rewards: [] })).rewards).toEqual([])
+  })
+
+  it('refuses a row whose earn-from it does not know or whose rewards are not a list', () => {
+    expect(() => mapAdminProgramReview(programRow({ earn_from: 'installs' }))).toThrow(
+      'Invalid earn_from.',
+    )
+    expect(() => mapAdminProgramReview(programRow({ earn_from: ['events'] }))).toThrow()
+    expect(() => mapAdminProgramReview(eventsProgramRow({ rewards: 'signup_completed' }))).toThrow(
+      'Invalid rewards.',
+    )
+    expect(() =>
+      mapAdminProgramReview(eventsProgramRow({ rewards: { 0: rewardRows[0] } })),
+    ).toThrow()
+    expect(() =>
+      mapAdminProgramReview(eventsProgramRow({ rewards: ['signup_completed'] })),
+    ).toThrow()
   })
 
   it('refuses a list it cannot trust', async () => {

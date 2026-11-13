@@ -195,6 +195,45 @@
   font-size: 12px;
 }
 
+/*
+ * What a program that pays per event pays: three facts, then its rewards under them. The
+ * rewards use the facts' columns, so every column of the card lines up.
+ */
+.admin-prog-reward-row {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.admin-prog-rewards {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.admin-prog-reward-row {
+  display: grid;
+  align-items: baseline;
+  gap: 2px 24px;
+}
+
+.admin-prog-reward-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-prog-reward-head {
+  color: var(--prog-muted);
+  font-size: 12px;
+}
+
+.admin-prog-reward-event code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.admin-prog-reward-amount {
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-prog-missing {
   color: var(--prog-muted);
 }
@@ -549,6 +588,35 @@
 @media (max-width: 720px) {
   .admin-prog-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* A reward on a narrow card: the event under the words, the amount beside both. */
+  .admin-prog-reward-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-prog-reward-row > .admin-prog-reward-event {
+    grid-column: 1;
+    grid-row: 2;
+    color: var(--prog-muted);
+  }
+
+  .admin-prog-reward-row > .admin-prog-reward-amount {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-prog-reward-head > .admin-prog-reward-event {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-prog-rewards {
+    gap: 10px;
   }
 
   .admin-prog-card-head {

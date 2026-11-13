@@ -23,9 +23,11 @@ import {
   categoryLabel,
   commissionLine,
   countryName,
+  earnFromLabel,
   fullDate,
   landingLink,
   monogram,
+  programMoney,
   programStatus,
   relativeTime,
 } from './programPresentation'
@@ -339,6 +341,39 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 const notSet = <span className="admin-prog-missing">Not set</span>
 
+/**
+ * The rewards of a program that pays per event: what creators read, the merchant's event it
+ * stands for, and what it pays. The three columns sit under the three facts above them.
+ */
+function Rewards({ program }: { program: AdminProgramReview }) {
+  if (program.rewards.length === 0)
+    return <p className="admin-prog-rewards admin-prog-warning">No rewards set</p>
+  return (
+    <div className="admin-prog-rewards" role="table" aria-label={`Rewards of ${program.name}`}>
+      <div className="admin-prog-reward-row admin-prog-reward-head" role="row">
+        <span role="columnheader">Shown to creators</span>
+        <span className="admin-prog-reward-event" role="columnheader">
+          Event
+        </span>
+        <span className="admin-prog-reward-amount" role="columnheader">
+          Amount
+        </span>
+      </div>
+      {program.rewards.map((reward, index) => (
+        <div className="admin-prog-reward-row" role="row" key={index}>
+          <span role="cell">{reward.label ?? notSet}</span>
+          <span className="admin-prog-reward-event" role="cell">
+            {reward.key ? <code>{reward.key}</code> : notSet}
+          </span>
+          <span className="admin-prog-reward-amount" role="cell">
+            {reward.amountMinor ? programMoney(reward.amountMinor, program.currency) : notSet}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ReviewCard({
   program,
   now,
@@ -356,6 +391,44 @@ function ReviewCard({
   const link = landingLink(program.landingUrl)
   const submitted = relativeTime(program.submittedAt, now)
   const country = countryName(program.stripeCountry)
+  const earnFrom = earnFromLabel(program.earnFrom)
+  const listing = (
+    <>
+      <Fact label="Landing page">
+        {link ? (
+          <a href={link.href} title={link.href} target="_blank" rel="noopener noreferrer">
+            <span>{link.label}</span>
+            <ExternalLink size={14} aria-hidden="true" />
+            <span className="admin-prog-sr">(opens in a new tab)</span>
+          </a>
+        ) : (
+          (program.landingUrl ?? notSet)
+        )}
+      </Fact>
+      <Fact label="Category">{categoryLabel(program.category) ?? notSet}</Fact>
+      <Fact label="Workspace">{program.workspaceName ?? notSet}</Fact>
+      <Fact label="Stripe account">
+        {program.stripeAccountId ? (
+          <>
+            {program.brandName && <span>{program.brandName}</span>}
+            <span className="admin-prog-fact-sub">
+              <code>{program.stripeAccountId}</code>
+              {country && <span>{country}</span>}
+            </span>
+          </>
+        ) : (
+          <span className="admin-prog-warning">Not connected</span>
+        )}
+      </Fact>
+      <Fact label="Marketplace">
+        {program.marketplaceListed === null
+          ? notSet
+          : program.marketplaceListed
+            ? 'Listed'
+            : 'Not listed'}
+      </Fact>
+    </>
+  )
   return (
     <article className="admin-panel admin-prog-card" aria-labelledby={titleId}>
       <header className="admin-prog-card-head">
@@ -371,42 +444,29 @@ function ReviewCard({
         )}
       </header>
 
-      <dl className="admin-prog-facts">
-        <Fact label="Commission">{commissionLine(program) ?? notSet}</Fact>
-        <Fact label="Landing page">
-          {link ? (
-            <a href={link.href} title={link.href} target="_blank" rel="noopener noreferrer">
-              <span>{link.label}</span>
-              <ExternalLink size={14} aria-hidden="true" />
-              <span className="admin-prog-sr">(opens in a new tab)</span>
-            </a>
-          ) : (
-            (program.landingUrl ?? notSet)
-          )}
-        </Fact>
-        <Fact label="Category">{categoryLabel(program.category) ?? notSet}</Fact>
-        <Fact label="Workspace">{program.workspaceName ?? notSet}</Fact>
-        <Fact label="Stripe account">
-          {program.stripeAccountId ? (
-            <>
-              {program.brandName && <span>{program.brandName}</span>}
-              <span className="admin-prog-fact-sub">
-                <code>{program.stripeAccountId}</code>
-                {country && <span>{country}</span>}
-              </span>
-            </>
-          ) : (
-            <span className="admin-prog-warning">Not connected</span>
-          )}
-        </Fact>
-        <Fact label="Marketplace">
-          {program.marketplaceListed === null
-            ? notSet
-            : program.marketplaceListed
-              ? 'Listed'
-              : 'Not listed'}
-        </Fact>
-      </dl>
+      {earnFrom ? (
+        <>
+          {/* What it pays first: a program that pays per event is judged on its rewards. */}
+          <dl className="admin-prog-facts">
+            <Fact label="Creators earn from">{earnFrom}</Fact>
+            <Fact label="Commission">
+              {program.earnFrom === 'events' ? 'None' : (commissionLine(program) ?? notSet)}
+            </Fact>
+            <Fact label="Monthly budget">
+              {program.rewardBudgetMinor
+                ? programMoney(program.rewardBudgetMinor, program.currency)
+                : notSet}
+            </Fact>
+          </dl>
+          <Rewards program={program} />
+          <dl className="admin-prog-facts">{listing}</dl>
+        </>
+      ) : (
+        <dl className="admin-prog-facts">
+          <Fact label="Commission">{commissionLine(program) ?? notSet}</Fact>
+          {listing}
+        </dl>
+      )}
 
       <div className="admin-prog-card-foot">
         <div className="admin-prog-agreement-toggle">

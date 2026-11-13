@@ -6,6 +6,7 @@ import {
   commissionHeadline,
   commissionLine,
   countryName,
+  earnFromLabel,
   landingLink,
   monogram,
   programMoney,
@@ -75,6 +76,14 @@ describe('program presentation', () => {
     expect(
       commissionHeadline(program({ commission_duration: 'months', commission_months: null })),
     ).toBeNull()
+  })
+
+  it('says what creators earn from only when it is more than sales', () => {
+    expect(earnFromLabel('sales')).toBeNull()
+    expect(earnFromLabel('events')).toBe('Events')
+    expect(earnFromLabel('both')).toBe('Sales and events')
+    // An answer from before programs could pay per event is a sales program.
+    expect(earnFromLabel(program().earnFrom)).toBeNull()
   })
 
   it('links only to https landing pages', () => {

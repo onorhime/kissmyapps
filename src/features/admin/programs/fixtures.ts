@@ -119,6 +119,108 @@ export function fixedProgramRow(overrides: Record<string, unknown> = {}) {
   })
 }
 
+/**
+ * The rows above are answers from before programs could pay per event: they have no
+ * `earn_from`, `rewards` or `reward_budget_minor`. The three below are written by hand to the
+ * Phase 6 contract, which adds those keys to every row.
+ */
+export function salesProgramRow(overrides: Record<string, unknown> = {}) {
+  return programRow({ earn_from: 'sales', rewards: [], reward_budget_minor: null, ...overrides })
+}
+
+export const rewardRows = [
+  { key: 'signup_completed', label: 'Account created', amount_minor: 200 },
+  { key: 'trial_started', label: 'Trial started', amount_minor: 500 },
+]
+
+/**
+ * A listing that pays for events only: two rewards and a monthly budget, shaped like the captured
+ * row in reviews-backend.fixture.ts. Like that row it still carries the commission the merchant
+ * once typed (inherited from programRow), which an events program does not pay.
+ */
+export function eventsProgramRow(overrides: Record<string, unknown> = {}) {
+  return programRow({
+    id: 'a1b2c3d4-0000-4000-8000-000000000003',
+    slug: 'fluent',
+    name: 'Fluent',
+    tagline: 'Five minutes of Spanish a day.',
+    logo_path: null,
+    landing_url: 'https://fluent.example.test/start',
+    hold_days: 14,
+    approval_mode: 'manual',
+    earn_from: 'events',
+    rewards: rewardRows,
+    reward_budget_minor: 50000,
+    submitted_at: '2026-11-14T06:45:00.218340+00:00',
+    workspace_id: '5e4d3c2b-2222-4333-8444-555566667777',
+    workspace_name: 'Fluent',
+    brand_name: 'Fluent Labs',
+    stripe_account_id: 'acct_1RB2mNFluent03',
+    stripe_country: 'US',
+    agreement: {
+      ...agreementFixture,
+      title: 'Fluent Affiliate Agreement',
+      brand_name: 'Fluent Labs',
+      program_name: 'Fluent',
+      summary: [
+        { label: 'Rewards', value: '$2.00 per Account created, $5.00 per Trial started' },
+        { label: 'Attribution window', value: '30 days' },
+        { label: 'Hold before payout', value: '14 days' },
+        { label: 'Minimum payout', value: '$20.00' },
+      ],
+      sections: [
+        agreementFixture.sections[0],
+        {
+          heading: '2. Rewards',
+          paragraphs: [
+            'You earn a reward when a person who opened your link does one of these on Fluent:',
+            'Account created: $2.00.',
+            'Trial started: $5.00.',
+            'Sales do not earn anything in this program.',
+          ],
+        },
+      ],
+    },
+    ...overrides,
+  })
+}
+
+/** A listing that pays a commission and one reward. */
+export function bothProgramRow(overrides: Record<string, unknown> = {}) {
+  return programRow({
+    id: 'a1b2c3d4-0000-4000-8000-000000000004',
+    slug: 'pocket-chef',
+    name: 'Pocket Chef',
+    category: 'food_drink',
+    tagline: 'Dinner planned in the time it takes to boil water.',
+    logo_path: null,
+    landing_url: 'https://pocketchef.example.test/',
+    commission_rate_bps: 2000,
+    commission_duration: 'lifetime',
+    commission_months: null,
+    earn_from: 'both',
+    rewards: [{ key: 'signup_completed', label: 'Account created', amount_minor: 150 }],
+    reward_budget_minor: 120000,
+    submitted_at: '2026-11-13T19:10:00.731902+00:00',
+    workspace_id: '6f5e4d3c-3333-4444-8555-666677778888',
+    workspace_name: 'Pocket Chef',
+    brand_name: 'Pocket Chef Inc',
+    stripe_account_id: 'acct_1SC3nPPocketChef04',
+    stripe_country: 'CA',
+    agreement: {
+      ...agreementFixture,
+      title: 'Pocket Chef Affiliate Agreement',
+      brand_name: 'Pocket Chef Inc',
+      program_name: 'Pocket Chef',
+      summary: [
+        { label: 'Commission', value: '20% of every payment' },
+        { label: 'Rewards', value: '$1.50 per Account created' },
+      ],
+    },
+    ...overrides,
+  })
+}
+
 export function reviewedRows(): Record<string, unknown>[] {
   return [
     programRow({
