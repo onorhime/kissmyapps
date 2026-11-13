@@ -242,15 +242,27 @@ function rewardsHeadline(rewards: readonly ProgramReward[], currency: string): s
 }
 
 /**
- * What a program pays, in one line, the same wherever a program is shown.
- * Sales: "30% of every payment for 12 months". Events: "$2.00 per Account created", the
- * first two rewards named and the rest counted. Both: the commission, "plus" the rewards.
+ * What a program pays, in one line, the same wherever a program is shown and in the same words
+ * as the program form and the agreement. Sales: "30% of every payment for 12 months". Events:
+ * "$2.00 per Account created, $5.00 per Trial started", the first two rewards named and the
+ * rest counted. Both: "30% of every payment for 12 months, plus rewards".
  */
 export function programHeadline(program: MarketplaceProgram): string | null {
-  const commission = program.earn_from === 'events' ? null : commissionHeadline(program)
-  const rewards =
-    program.earn_from === 'sales' ? null : rewardsHeadline(program.rewards, program.currency)
-  return commission && rewards ? `${commission}, plus ${rewards}` : (commission ?? rewards)
+  const rewards = rewardsHeadline(program.rewards, program.currency)
+  if (program.earn_from === 'events') return rewards
+  const commission = commissionHeadline(program)
+  if (program.earn_from === 'both' && commission) return `${commission}, plus rewards`
+  return commission ?? (program.earn_from === 'both' ? rewards : null)
+}
+
+/**
+ * The rewards of a program that pays for both, for one quiet line under its headline:
+ * "$1.50 per First chapter read". Null for any other program, whose headline already says
+ * everything it pays.
+ */
+export function programRewardsLine(program: MarketplaceProgram): string | null {
+  if (program.earn_from !== 'both' || !commissionHeadline(program)) return null
+  return rewardsHeadline(program.rewards, program.currency)
 }
 
 /**
