@@ -192,7 +192,7 @@ create function kma_internal.program_balance_post(
 ) returns bigint language plpgsql volatile security definer set search_path = '' as $$
 declare v_available bigint;
 begin
-  select a.available_minor into v_available from public.program_balance_accounts a where a.id = p_account for update;
+  select a.available_minor into v_available from public.program_balance_accounts a where a.id = p_account for no key update;
   if not found then
     raise exception 'Balance account not found' using errcode = 'P0002';
   end if;
