@@ -37,6 +37,7 @@ const suites = [
   ['68_merchant_attribution_links.sql', /^ok \d+ merchant attribution link assertions$/m],
   ['69_workspace_stripe_connect.sql', /^ok \d+ workspace stripe connect assertions$/m],
   ['70_merchant_payment_events.sql', /^ok \d+ merchant payment event assertions$/m],
+  ['71_merchant_event_active_connection.sql', /^ok \d+ merchant event active connection assertions$/m],
 ]
 
 const bin = postgresBin()
