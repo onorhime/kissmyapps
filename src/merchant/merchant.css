@@ -6870,3 +6870,56 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
 }
 /* ---- end of Rewards ---------------------------------------------------------------------- */
+
+/*
+ * ---- Program form for apps (Phase 7): every class in this block starts with mc-pga- --------
+ * The landing page of a program can be one of the workspace's smart links: a choice of a web
+ * page or the app, then the link, the address it opens and the platforms its app is on.
+ */
+.mc-pga-kind {
+  display: flex;
+}
+.mc-pga-wait .mc-skeleton {
+  display: block;
+  border-radius: var(--mc-radius-inner);
+}
+.mc-pga-link {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.mc-pga-link .mc-select-box {
+  display: flex;
+  min-width: 0;
+}
+.mc-pga-link .mc-select-box select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-pga-link .mc-field.has-error select {
+  border-color: #ff6767;
+}
+.mc-pga-chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+  color: var(--mc-muted);
+  font-size: 13px;
+  line-height: 22px;
+}
+.mc-pga-chosen > .mc-mono {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mc-pga-marks {
+  display: inline-flex;
+  gap: 6px;
+}
+/* A link at the end of a sentence moves to the next line whole. */
+.mc-pga-go {
+  white-space: nowrap;
+}
+/* ---- end of Program form for apps -------------------------------------------------------- */

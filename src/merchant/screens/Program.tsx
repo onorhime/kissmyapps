@@ -4,6 +4,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Check, ChevronDown, Circle, ImageIcon, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import {
   agreementReady,
+  appPlatforms,
   asksEarnFrom,
   blankReward,
   categoryLabels,
@@ -23,6 +24,10 @@ import {
   formatDay,
   formatMoney,
   initials,
+  isAppLink,
+  landingKindOf,
+  linkAddress,
+  offersAppLanding,
   optionFields,
   optionsSummary,
   ProgramError,
@@ -32,16 +37,19 @@ import {
   trackingSnippet,
   trackingSnippetNote,
   validateDraft,
-  withRewardKey,
+  withRewardEvent,
 } from '../programs'
 import type {
   AgreementDoc,
+  AppLink,
   Category,
   Checklist,
   DraftErrors,
   DraftField,
   EarnFrom,
+  LandingKind,
   Program,
+  ProgramAppLink,
   ProgramDraft,
   ProgramProblem,
   ProgramState,
@@ -126,16 +134,31 @@ function ProgramPage({
   const latest = useRef(0)
   // Whether the person set creator approval themselves since the form was last filled.
   const approvalChosen = useRef(false)
+  // Where creator links send people, and the address each choice last held, so switching
+  // between a web page and the app loses nothing.
+  const [landingKind, setLandingKind] = useState<LandingKind>('web')
+  const landingKept = useRef<Record<LandingKind, string>>({ web: '', app: '' })
+
+  /** The landing page as the program has it saved. */
+  const keepLanding = useCallback((saved: Program | null) => {
+    const kind = landingKindOf(saved)
+    setLandingKind(kind)
+    landingKept.current = { web: '', app: '', [kind]: saved?.landing_url ?? '' }
+  }, [])
 
   /** Everything on the page follows the server's latest answer, the form included. */
-  const adopt = useCallback((next: ProgramState) => {
-    latest.current += 1
-    setState(next)
-    setDraft(draftFromProgram(next.program, asksEarnFrom(next)))
-    setErrors({})
-    approvalChosen.current = false
-    setLoadProblem(undefined)
-  }, [])
+  const adopt = useCallback(
+    (next: ProgramState) => {
+      latest.current += 1
+      setState(next)
+      setDraft(draftFromProgram(next.program, asksEarnFrom(next)))
+      keepLanding(next.program)
+      setErrors({})
+      approvalChosen.current = false
+      setLoadProblem(undefined)
+    },
+    [keepLanding],
+  )
 
   const load = useCallback(
     async (quiet = false) => {
@@ -166,6 +189,9 @@ function ProgramPage({
   const saved = useMemo(() => draftFromProgram(program, asks), [program, asks])
   const dirty = Boolean(state) && !sameDraft(draft, saved)
   const editable = Boolean(state?.can_manage) && status !== 'in_review'
+  // Asked when the workspace has smart links of an app; otherwise the landing page is a web page.
+  const offersApp = offersAppLanding(state)
+  const appLanding = offersApp && landingKind === 'app'
 
   // A review ends without the person doing anything, so the page looks for the answer itself.
   useEffect(() => {
@@ -218,6 +244,28 @@ function ProgramPage({
       ? { status: 'failed' }
       : { status: 'loading' }
 
+  // The smart links a program can send people to, read once the form offers an app.
+  const appLinks = useRpc(
+    `program-app-links:${workspaceId}`,
+    () => programs.appLinks(workspaceId),
+    { enabled: offersApp },
+  )
+  const linkChoices: AppLinks = appLinks.data
+    ? { status: 'ready', links: appLinks.data }
+    : appLinks.error
+      ? { status: 'failed' }
+      : { status: 'loading' }
+  const savedLink = program?.app_link ?? null
+  // The saved link as the list has it, found by its id.
+  const savedUrl =
+    savedLink && (appLinks.data?.find((link) => isAppLink(savedLink, link))?.url ?? savedLink.url)
+  // The saved link stands for the saved address, which may carry more than the link itself.
+  const chosenUrl =
+    savedUrl && draft.landingUrl === program?.landing_url ? savedUrl : draft.landingUrl
+  const chosenLink = appLinks.data?.find((link) => link.url === chosenUrl)
+  // Attribution is set up per app: the chosen link's, else the first that has links.
+  const appProject = chosenLink?.project_id || appLinks.data?.[0]?.project_id || projects[0]?.id
+
   // The buttons in a notice run the newest version of each action.
   const actions = useRef<Record<Action, () => void>>({
     save: () => {},
@@ -260,6 +308,20 @@ function ProgramPage({
       return { ...current, rewards: rows.length ? rows : [blankReward()] }
     })
 
+  const chooseLanding = (kind: LandingKind) => {
+    if (kind === landingKind) return
+    landingKept.current[landingKind] = draft.landingUrl
+    setLandingKind(kind)
+    set('landingUrl', landingKept.current[kind], 'landingUrl')
+  }
+
+  const chooseLink = (url: string) =>
+    set(
+      'landingUrl',
+      savedUrl && program?.landing_url && url === savedUrl ? program.landing_url : url,
+      'landingUrl',
+    )
+
   const changeReward = (index: number, patch: Partial<RewardRow>) => {
     setRewards((rows) =>
       rows.map((row, at) =>
@@ -267,7 +329,7 @@ function ProgramPage({
           ? row
           : patch.key === undefined
             ? { ...row, ...patch }
-            : { ...withRewardKey(row, patch.key), ...patch },
+            : { ...withRewardEvent(row, patch.key, received.data), ...patch },
       ),
     )
     // The fields that were edited are no longer known to be wrong, nor is the list as a whole.
@@ -534,6 +596,30 @@ function ProgramPage({
   // The agreement needs less than publishing does: a name, a landing page and a commission.
   const readable = agreementReady(draft)
 
+  const saleTracking = state && (
+    <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
+      <div className="mc-prog-label">
+        <h2 id="mc-prog-track">Sale tracking</h2>
+        <p>How a sale is tied to a creator</p>
+      </div>
+      <div className="mc-prog-fields">
+        <p className="mc-prog-about">
+          Creator links add a click ID to your landing page. Pass it to Stripe when a customer pays,
+          and the sale is credited to that creator.
+        </p>
+        <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
+        <p className="mc-prog-about">{trackingSnippetNote}</p>
+        <TrackingStatus
+          connected={state.stripe_connected}
+          tracking={tracking.data}
+          failed={Boolean(tracking.error) && !tracking.data}
+          onRetry={() => void tracking.refresh()}
+          now={now}
+        />
+      </div>
+    </section>
+  )
+
   return (
     <div className="mc-page mc-prog" ref={root}>
       <PageHeader
@@ -605,9 +691,26 @@ function ProgramPage({
                   onSave={() => void save()}
                   onDiscard={() => {
                     setDraft(saved)
+                    keepLanding(program)
                     setErrors({})
                     approvalChosen.current = false
                   }}
+                  landingKind={offersApp ? landingKind : undefined}
+                  onLandingKind={chooseLanding}
+                  appPicker={
+                    <AppLinkPicker
+                      links={linkChoices}
+                      value={chosenUrl}
+                      saved={savedLink}
+                      error={errors.landingUrl && 'Choose the smart link creators send people to.'}
+                      linksHref={
+                        projects[0] &&
+                        href({ name: 'attribution', projectId: projects[0].id, section: 'links' })
+                      }
+                      onChoose={chooseLink}
+                      onRetry={() => void appLinks.refresh()}
+                    />
+                  }
                   asks={asks}
                   onEarnFrom={chooseEarnFrom}
                   rewards={
@@ -622,6 +725,7 @@ function ProgramPage({
                         projects[0] &&
                         href({ name: 'settings', projectId: projects[0].id, section: 'install' })
                       }
+                      app={appLanding}
                       onRow={changeReward}
                       onAdd={() => setRewards((rows) => [...rows, blankReward()])}
                       onRemove={removeReward}
@@ -631,7 +735,17 @@ function ProgramPage({
                   }
                 />
 
-                {earnFrom === 'events' ? (
+                {earnFrom !== 'sales' && appLanding ? (
+                  <>
+                    {earnFrom === 'both' && saleTracking}
+                    <AppTracking
+                      setupHref={
+                        appProject &&
+                        href({ name: 'attribution', projectId: appProject, section: 'setup' })
+                      }
+                    />
+                  </>
+                ) : earnFrom === 'events' ? (
                   <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
                     <div className="mc-prog-label">
                       <h2 id="mc-prog-track">Event tracking</h2>
@@ -646,27 +760,7 @@ function ProgramPage({
                     </div>
                   </section>
                 ) : (
-                  <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
-                    <div className="mc-prog-label">
-                      <h2 id="mc-prog-track">Sale tracking</h2>
-                      <p>How a sale is tied to a creator</p>
-                    </div>
-                    <div className="mc-prog-fields">
-                      <p className="mc-prog-about">
-                        Creator links add a click ID to your landing page. Pass it to Stripe when a
-                        customer pays, and the sale is credited to that creator.
-                      </p>
-                      <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
-                      <p className="mc-prog-about">{trackingSnippetNote}</p>
-                      <TrackingStatus
-                        connected={state.stripe_connected}
-                        tracking={tracking.data}
-                        failed={Boolean(tracking.error) && !tracking.data}
-                        onRetry={() => void tracking.refresh()}
-                        now={now}
-                      />
-                    </div>
-                  </section>
+                  saleTracking
                 )}
               </div>
 
@@ -946,6 +1040,9 @@ function ProgramForm({
   onUpload,
   onSave,
   onDiscard,
+  landingKind,
+  onLandingKind,
+  appPicker,
   asks,
   onEarnFrom,
   rewards,
@@ -963,6 +1060,11 @@ function ProgramForm({
   onUpload: (file: File) => void
   onSave: () => void
   onDiscard: () => void
+  /** Where creator links send people, when the form asks. Without it, to a web page. */
+  landingKind?: LandingKind
+  onLandingKind: (kind: LandingKind) => void
+  /** The smart link to send people to, shown when they go to the app. */
+  appPicker: ReactNode
   /** Whether the form asks what creators earn from. Without it, the program pays for sales. */
   asks: boolean
   onEarnFrom: (value: EarnFrom) => void
@@ -1111,22 +1213,39 @@ function ProgramForm({
             <p>Where creator links send people</p>
           </div>
           <div className="mc-prog-fields">
-            <Bare label="Landing page address" error={errors.landingUrl}>
-              {(props) => (
-                <input
-                  {...props}
-                  type="url"
-                  inputMode="url"
-                  value={draft.landingUrl}
-                  placeholder="https://"
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  maxLength={2000}
-                  onChange={(event) => set('landingUrl', event.target.value, 'landingUrl')}
+            {landingKind && (
+              <div className="mc-pga-kind">
+                <Segmented
+                  label="Where creator links send people"
+                  value={landingKind}
+                  options={[
+                    { value: 'web', label: 'A web page' },
+                    { value: 'app', label: 'Your app' },
+                  ]}
+                  onChange={onLandingKind}
                 />
-              )}
-            </Bare>
+              </div>
+            )}
+            {landingKind === 'app' ? (
+              appPicker
+            ) : (
+              <Bare label="Landing page address" error={errors.landingUrl}>
+                {(props) => (
+                  <input
+                    {...props}
+                    type="url"
+                    inputMode="url"
+                    value={draft.landingUrl}
+                    placeholder="https://"
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    maxLength={2000}
+                    onChange={(event) => set('landingUrl', event.target.value, 'landingUrl')}
+                  />
+                )}
+              </Bare>
+            )}
           </div>
         </section>
 
@@ -1435,6 +1554,164 @@ function ProgramForm({
         </div>
       )}
     </form>
+  )
+}
+
+/** The smart links a program can send people to: still loading, the list, or that it failed. */
+type AppLinks = { status: 'loading' } | { status: 'ready'; links: AppLink[] } | { status: 'failed' }
+
+/**
+ * The smart link creator links send people to, when they go to the app: one of the workspace's
+ * links, grouped by app, with the address it opens and the platforms the app is on.
+ */
+function AppLinkPicker({
+  links,
+  value,
+  saved,
+  error,
+  linksHref,
+  onChoose,
+  onRetry,
+}: {
+  links: AppLinks
+  /** The address the landing page is now. */
+  value: string
+  /** The link the program has saved, kept selectable when it is no longer listed. */
+  saved: ProgramAppLink | null
+  error?: string
+  /** Where smart links are made, when the workspace has a project to make them in. */
+  linksHref?: string
+  onChoose: (url: string) => void
+  onRetry: () => void
+}) {
+  const listed = links.status === 'ready' ? links.links : []
+  const unlisted = saved && !listed.some((link) => isAppLink(saved, link)) ? saved : null
+  const known = listed.find((link) => link.url === value)
+  const chosen = known ?? (unlisted?.url === value ? unlisted : undefined)
+  // Links of one app sit under its name, which says the platforms it is on.
+  const apps: Array<{ key: string; label: string; links: AppLink[] }> = []
+  for (const link of listed) {
+    const label = [link.project_name || 'Your app', appPlatforms(link)].filter(Boolean).join(' · ')
+    const key = `${link.project_id}:${label}`
+    const last = apps[apps.length - 1]
+    if (last?.key === key) last.links.push(link)
+    else apps.push({ key, label, links: [link] })
+  }
+
+  return (
+    <>
+      {links.status === 'failed' && (
+        <p className="mc-error-note mc-prog-problem" role="alert">
+          <TriangleAlert size={16} aria-hidden="true" />
+          <span>Your smart links could not be loaded.</span>
+          <button type="button" className="mc-text-btn" onClick={onRetry}>
+            Retry
+          </button>
+        </p>
+      )}
+      {links.status === 'loading' && !unlisted ? (
+        <span className="mc-pga-wait" role="status" aria-label="Loading your smart links">
+          <Skeleton width="100%" height={40} />
+        </span>
+      ) : listed.length === 0 && !unlisted ? (
+        links.status === 'ready' && (
+          <p className="mc-prog-about">
+            Your apps have no active smart links yet. Make one in Attribution, then choose it here.
+            {linksHref && (
+              <>
+                {' '}
+                <a className="mc-link mc-pga-go" href={linksHref}>
+                  Make a smart link
+                </a>
+              </>
+            )}
+          </p>
+        )
+      ) : (
+        <div className="mc-pga-link">
+          <Field label="Smart link" error={error}>
+            {(props) => (
+              <span className="mc-select-box">
+                <select
+                  {...props}
+                  value={chosen ? chosen.url : ''}
+                  onChange={(event) => onChoose(event.target.value)}
+                >
+                  <option value="" disabled={Boolean(chosen)}>
+                    Choose a link
+                  </option>
+                  {unlisted && (
+                    <option value={unlisted.url}>
+                      {unlisted.name} · {linkAddress(unlisted.url)}
+                    </option>
+                  )}
+                  {apps.map((app) => (
+                    <optgroup key={app.key} label={app.label}>
+                      {app.links.map((link) => (
+                        <option key={link.id} value={link.url}>
+                          {link.name} · {linkAddress(link.url)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <ChevronDown size={16} aria-hidden="true" />
+              </span>
+            )}
+          </Field>
+          {/* Only a listed link says which app it is for and the platforms that app is on. */}
+          {known && (
+            <p className="mc-pga-chosen">
+              {appPlatforms(known) ? (
+                <>
+                  <span>For {known.project_name || 'your app'} on</span>
+                  <span className="mc-pga-marks">
+                    {known.ios && <Pill tone="neutral">iOS</Pill>}
+                    {known.android && <Pill tone="neutral">Android</Pill>}
+                  </span>
+                </>
+              ) : (
+                <span>
+                  {known.project_name || 'This app'} has no iPhone or Android app in its attribution
+                  setup yet, so the link cannot open it.
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+/** How an install is tied to a creator, for a program that sends people to an app. */
+function AppTracking({ setupHref }: { setupHref?: string }) {
+  return (
+    <section className="mc-panel mc-prog-track" aria-labelledby="mc-pga-track">
+      <div className="mc-prog-label">
+        <h2 id="mc-pga-track">Event tracking</h2>
+        <p>How an install is tied to a creator</p>
+      </div>
+      <div className="mc-prog-fields">
+        <p className="mc-prog-about">
+          Creator links open your smart link with a click ID. The KissMyApps SDK{'\u00a0'}1.1 or
+          later in your app matches each install to that click, so the install and what the person
+          does next in the app are credited to the creator.
+        </p>
+        <p className="mc-prog-about">
+          Your smart links must open the app: add Associated Domains on iPhone and App Links on
+          Android.
+          {setupHref && (
+            <>
+              {' '}
+              <a className="mc-link mc-pga-go" href={setupHref}>
+                Set up attribution
+              </a>
+            </>
+          )}
+        </p>
+      </div>
+    </section>
   )
 }
 
