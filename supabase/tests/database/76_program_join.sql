@@ -350,7 +350,8 @@ select pg_temp.check((select jsonb_array_length(r->'programs') = 2 and r->'progr
       'commission_type', 'percent', 'commission_rate_bps', 3000, 'commission_fixed_minor', null, 'currency', 'USD',
       'commission_duration', 'months', 'commission_months', 12,
       'attribution_window_days', 30, 'hold_days', 30, 'minimum_payout_minor', 2000,
-      'approval_mode', 'automatic', 'terms_version', 1, 'earn_from', 'sales', 'rewards', '[]'::jsonb)
+      'approval_mode', 'automatic', 'terms_version', 1, 'earn_from', 'sales', 'rewards', '[]'::jsonb,
+      'payment_mode', 'own_checkout', 'checkout', null, 'buyer_discount_bps', null)
     and r->'programs'->0 @> '{"name":"Rival Reader","brand_name":"Rival Media","logo_path":null,"commission_type":"fixed",
       "commission_rate_bps":null,"commission_fixed_minor":500,"commission_duration":"first_payment","commission_months":null,
       "approval_mode":"manual","terms_version":1}'
@@ -434,7 +435,7 @@ select pg_temp.check((select m - 'id' - 'link' - 'accepted_at' - 'requested_at' 
       'program_id', (pg_temp.program('acme')).id,
       'program', pg_temp.service('select public.marketplace_programs()')->'programs'->1,
       'program_status', 'live', 'status', 'active', 'terms_version', 1, 'needs_new_terms', false,
-      'ended_at', null, 'decision_note', null)
+      'ended_at', null, 'decision_note', null, 'promo_code', null)
     and m->>'id' = (pg_temp.member('ada', 'acme')).id::text
     and (m->>'accepted_at')::timestamptz = (m->>'requested_at')::timestamptz
     and (m->>'activated_at')::timestamptz = (m->>'requested_at')::timestamptz
