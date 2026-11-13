@@ -311,8 +311,9 @@ accept them: there is nothing to migrate or redeploy for them. The ingest functi
 
 `.github/workflows/mobile-sdks.yml` tests every SDK and builds the Android library, the iOS
 package and the Flutter example app (for Android, and for iOS with both CocoaPods and Swift
-Package Manager) whenever they change. The Flutter tests also run on Flutter 3.24, the
-oldest version the package supports.
+Package Manager). It runs only when started by hand (Actions, Mobile SDKs, Run workflow),
+because Actions minutes cost money: run it before publishing an SDK release. The Flutter
+tests also run on Flutter 3.24, the oldest version the package supports.
 
 ### Attribution, foundation
 
