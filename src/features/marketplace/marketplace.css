@@ -311,6 +311,11 @@
   overflow-wrap: anywhere;
 }
 
+/* Rewards in a headline: break between them, not in the middle of one. */
+.mkt-headline-rewards {
+  text-wrap: balance;
+}
+
 .mkt-card-foot {
   display: flex;
   align-items: center;
@@ -431,6 +436,19 @@
 
 .mkt-doc-facts > div + div {
   border-left: 1px solid var(--brand-line);
+}
+
+/* An agreement with more than four facts starts a second row. */
+.mkt-doc-facts > div:nth-child(4n + 1) {
+  border-left: 0;
+}
+
+.mkt-doc-facts > div:nth-child(n + 5) {
+  border-top: 1px solid var(--brand-line);
+}
+
+.mkt-doc-facts > div:nth-child(4n + 1):last-child {
+  grid-column: 1 / -1;
 }
 
 .mkt-doc-facts dt {

@@ -1,6 +1,7 @@
 import {
   categoryLabels,
   commissionHeadline,
+  formatMoney,
   initials,
   readAgreement,
 } from '../../merchant/programs'
@@ -22,6 +23,17 @@ import { isProgramSlug } from './routing'
 export type MembershipStatus = 'pending' | 'active' | 'declined' | 'removed' | 'left'
 export type ProgramListingStatus = 'live' | 'paused' | 'archived'
 
+/** What creators earn from: a commission on sales, a fixed amount per event, or both. */
+export type EarnFrom = 'sales' | 'events' | 'both'
+
+/** One thing a program pays for besides sales: what creators read and what it pays. */
+export interface ProgramReward {
+  /** The event's name on the merchant's site. It tells rewards apart; creators read `label`. */
+  key: string
+  label: string
+  amount_minor: number
+}
+
 export interface MarketplaceProgram {
   slug: string
   name: string
@@ -40,6 +52,10 @@ export interface MarketplaceProgram {
   minimum_payout_minor: number
   approval_mode: ApprovalMode
   terms_version: number | null
+  /** `sales` for a program from before programs could pay for events. */
+  earn_from: EarnFrom
+  /** In the merchant's order. Empty when the program pays for sales only. */
+  rewards: ProgramReward[]
   /** Set only on the signed-in creator's list: where they stand with this program. */
   membership_status: MembershipStatus | null
 }
@@ -61,6 +77,13 @@ export class MarketplaceUnreadable extends Error {
 }
 
 const MEMBERSHIP_STATUSES = ['pending', 'active', 'declined', 'removed', 'left'] as const
+const COMMISSION_TYPES = ['percent', 'fixed'] as const
+const EARN_FROM = ['sales', 'events', 'both'] as const
+const REWARD_KEY = /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/
+
+export const MAXIMUM_REWARDS = 5
+const MAXIMUM_REWARD_LABEL = 40
+const MAXIMUM_REWARD_MINOR = 100_000_000
 
 export function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -76,11 +99,60 @@ export function oneOf<T extends string>(value: unknown, allowed: readonly T[]): 
   return allowed.includes(value as T) ? (value as T) : null
 }
 
-/** One card. Null when the row has no usable slug or name, so a list can leave it out. */
+/** The rewards of a card, or null when the list or any reward in it is not well formed. */
+function readRewards(value: unknown): ProgramReward[] | null {
+  if (!Array.isArray(value) || value.length > MAXIMUM_REWARDS) return null
+  const rewards: ProgramReward[] = []
+  for (const item of value) {
+    const row = record(item)
+    const label = typeof row?.label === 'string' ? row.label.trim() : ''
+    const amount = row?.amount_minor
+    if (
+      !row ||
+      typeof row.key !== 'string' ||
+      !REWARD_KEY.test(row.key) ||
+      rewards.some((reward) => reward.key === row.key) ||
+      label === '' ||
+      [...label].length > MAXIMUM_REWARD_LABEL ||
+      typeof amount !== 'number' ||
+      !Number.isSafeInteger(amount) ||
+      amount < 1 ||
+      amount > MAXIMUM_REWARD_MINOR
+    )
+      return null
+    rewards.push({ key: row.key, label, amount_minor: amount })
+  }
+  return rewards
+}
+
+/**
+ * What the card says creators earn from. An answer from before programs could pay for events
+ * has neither key and pays for sales. With the keys, the card must be whole: a commission
+ * unless it pays for events only, and at least one reward unless it pays for sales only.
+ */
+function readEarnFrom(
+  row: Record<string, unknown>,
+): Pick<MarketplaceProgram, 'earn_from' | 'rewards'> | null {
+  if (row.earn_from == null && row.rewards == null) return { earn_from: 'sales', rewards: [] }
+  const earnFrom = oneOf(row.earn_from, EARN_FROM)
+  const rewards = readRewards(row.rewards)
+  if (!earnFrom || !rewards) return null
+  const hasCommission = oneOf(row.commission_type, COMMISSION_TYPES) !== null
+  if (earnFrom === 'events' ? row.commission_type !== null : !hasCommission) return null
+  if ((earnFrom === 'sales') !== (rewards.length === 0)) return null
+  return { earn_from: earnFrom, rewards }
+}
+
+/**
+ * One card. Null when the row has no usable slug or name, or when what it pays for cannot be
+ * trusted, so a list can leave it out.
+ */
 export function readProgram(value: unknown): MarketplaceProgram | null {
   const row = record(value)
   const name = text(row?.name)
   if (!row || !isProgramSlug(row.slug) || !name) return null
+  const pays = readEarnFrom(row)
+  if (!pays) return null
   return {
     slug: row.slug,
     name,
@@ -88,7 +160,7 @@ export function readProgram(value: unknown): MarketplaceProgram | null {
     tagline: text(row.tagline),
     logo_path: text(row.logo_path),
     brand_name: text(row.brand_name),
-    commission_type: oneOf(row.commission_type, ['percent', 'fixed'] as const),
+    commission_type: oneOf(row.commission_type, COMMISSION_TYPES),
     commission_rate_bps: whole(row.commission_rate_bps),
     commission_fixed_minor: whole(row.commission_fixed_minor),
     currency: text(row.currency) ?? 'USD',
@@ -103,6 +175,7 @@ export function readProgram(value: unknown): MarketplaceProgram | null {
     minimum_payout_minor: whole(row.minimum_payout_minor) ?? 0,
     approval_mode: row.approval_mode === 'manual' ? 'manual' : 'automatic',
     terms_version: whole(row.terms_version),
+    ...pays,
     membership_status: oneOf(row.membership_status, MEMBERSHIP_STATUSES),
   }
 }
@@ -150,9 +223,42 @@ export function categoryLabel(category: string | null): string | null {
   return category && category in categoryLabels ? categoryLabels[category as Category] : null
 }
 
-/** "30% of every payment for 12 months" */
+/** "$2.00 per Account created": one reward as a creator reads it. */
+export function programRewardLine(reward: ProgramReward, currency: string): string {
+  return `${formatMoney(reward.amount_minor, currency)} per ${reward.label}`
+}
+
+/** How many rewards the headline names before it counts the rest. */
+const HEADLINE_REWARDS = 2
+
+function rewardsHeadline(rewards: readonly ProgramReward[], currency: string): string | null {
+  if (rewards.length === 0) return null
+  const named = rewards
+    .slice(0, HEADLINE_REWARDS)
+    .map((reward) => programRewardLine(reward, currency))
+    .join(', ')
+  const more = rewards.length - HEADLINE_REWARDS
+  return more > 0 ? `${named} and ${more} more ${more === 1 ? 'reward' : 'rewards'}` : named
+}
+
+/**
+ * What a program pays, in one line, the same wherever a program is shown.
+ * Sales: "30% of every payment for 12 months". Events: "$2.00 per Account created", the
+ * first two rewards named and the rest counted. Both: the commission, "plus" the rewards.
+ */
 export function programHeadline(program: MarketplaceProgram): string | null {
-  return commissionHeadline(program)
+  const commission = program.earn_from === 'events' ? null : commissionHeadline(program)
+  const rewards =
+    program.earn_from === 'sales' ? null : rewardsHeadline(program.rewards, program.currency)
+  return commission && rewards ? `${commission}, plus ${rewards}` : (commission ?? rewards)
+}
+
+/**
+ * The class to add after a headline's own. A headline that names rewards runs to two or three
+ * lines, so its lines are evened out; a sales headline keeps the class it always had.
+ */
+export function programHeadlineClass(program: MarketplaceProgram): string {
+  return program.earn_from === 'sales' ? '' : ' mkt-headline-rewards'
 }
 
 /** "30-day attribution · 30-day hold": the small line under the commission. */

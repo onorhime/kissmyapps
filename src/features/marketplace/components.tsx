@@ -7,6 +7,7 @@ import {
   categoryLabel,
   filterPrograms,
   programHeadline,
+  programHeadlineClass,
   programInitials,
   programLogoUrl,
   programTermsLine,
@@ -93,7 +94,9 @@ export function ProgramCard({
         {status}
       </header>
       {program.tagline && <p className="mkt-card-tagline">{program.tagline}</p>}
-      {headline && <p className="mkt-card-headline">{headline}</p>}
+      {headline && (
+        <p className={`mkt-card-headline${programHeadlineClass(program)}`}>{headline}</p>
+      )}
       <footer className="mkt-card-foot">
         <span>{programTermsLine(program)}</span>
         <a
