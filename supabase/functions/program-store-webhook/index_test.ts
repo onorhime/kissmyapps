@@ -135,8 +135,10 @@ function fixture(
     sale_id: "sale-1",
     subscription_sequence: 1,
   },
+  revenueResult: unknown = { outcome: "recorded" },
 ) {
   const calls: StoreEventCall[] = [], logs: ProgramStoreLogEntry[] = [];
+  const revenueCalls: StoreEventCall[] = [];
   const handler = createProgramStoreWebhook({
     enabled: () => true,
     log: (entry) => logs.push(entry),
@@ -144,9 +146,13 @@ function fixture(
       calls.push(call);
       return result;
     },
+    revenue: async (call) => {
+      revenueCalls.push(call);
+      return revenueResult;
+    },
     ...overrides,
   });
-  return { handler, calls, logs };
+  return { handler, calls, revenueCalls, logs };
 }
 
 async function sha256(value: string): Promise<string> {
@@ -207,6 +213,7 @@ Deno.test("only the exact value true in the environment turns the webhook on", a
       calls.push(call);
       return { received: true, duplicate: false, outcome: "sale" };
     },
+    revenue: async () => ({ outcome: "recorded" }),
   });
   const consoleLog = console.log;
   console.log = () => {};
@@ -358,6 +365,7 @@ Deno.test("a RevenueCat purchase becomes one plain call, keyed by the header has
     request_id: "req-store-0001",
     provider: "revenuecat",
     event_type: "initial_purchase",
+    revenue: "recorded",
   }]);
   assertQuietLogs(f.logs);
 });
@@ -776,4 +784,133 @@ Deno.test("an answer from the database that is not the expected shape fails clos
     assertEquals(response.status, 503, JSON.stringify(result));
     await response.body?.cancel();
   }
+});
+
+Deno.test("after the sale call, the same body goes to the revenue call and only its outcome is logged", async () => {
+  for (
+    const [result, revenue] of [
+      [{ outcome: "recorded" }, "recorded"],
+      [{ outcome: "duplicate" }, "duplicate"],
+      [{ outcome: "skipped", reason: "no_person" }, "skipped"],
+      [{ outcome: "ignored", reason: "sandbox" }, "ignored"],
+    ] as const
+  ) {
+    const f = fixture({}, undefined, result);
+    const response = await f.handler(
+      request("revenuecat", revenueCat(), {
+        headers: { "X-Request-ID": "req-store-0002" },
+      }),
+    );
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      received: true,
+      outcome: "sale",
+      duplicate: false,
+      request_id: "req-store-0002",
+    });
+    assertEquals(f.revenueCalls, f.calls);
+    assertEquals(f.calls.length, 1);
+    assertEquals(f.logs, [{
+      level: "info",
+      worker: "program-store-webhook",
+      outcome: "sale",
+      request_id: "req-store-0002",
+      provider: "revenuecat",
+      event_type: "initial_purchase",
+      revenue,
+    }]);
+    assertQuietLogs(f.logs);
+  }
+});
+
+Deno.test("a repeated event still goes to the revenue call, which says duplicate", async () => {
+  const f = fixture(
+    {},
+    { received: true, duplicate: true, outcome: "sale_exists" },
+    { outcome: "duplicate" },
+  );
+  const response = await f.handler(request("adapty", adapty()));
+  assertEquals(response.status, 200);
+  const body = await response.json();
+  assertEquals([body.outcome, body.duplicate], ["sale_exists", true]);
+  assertEquals(f.revenueCalls, f.calls);
+  assertEquals(f.logs.map((entry) => [entry.outcome, entry.revenue]), [[
+    "duplicate",
+    "duplicate",
+  ]]);
+});
+
+Deno.test("a failed revenue call is logged with its code only and the tool gets the same answer", async () => {
+  const cases: [() => Promise<unknown>, string | undefined][] = [
+    [async () => {
+      throw new DatabaseBoundaryError("40P01");
+    }, "40P01"],
+    [async () => {
+      throw new DatabaseBoundaryError();
+    }, undefined],
+    [async () => {
+      throw new Error("boom with u-ann and ann@example.test");
+    }, undefined],
+    [async () => null, undefined],
+    [async () => ({ outcome: "maybe" }), undefined],
+    [async () => ({ recorded: true }), undefined],
+  ];
+  for (const [revenue, code] of cases) {
+    const f = fixture({ revenue });
+    const response = await f.handler(
+      request("revenuecat", revenueCat(), {
+        headers: { "X-Request-ID": "req-store-0003" },
+      }),
+    );
+    assertEquals(response.status, 200);
+    assertEquals(await response.json(), {
+      received: true,
+      outcome: "sale",
+      duplicate: false,
+      request_id: "req-store-0003",
+    });
+    assertEquals(f.logs, [
+      {
+        level: "warning",
+        worker: "program-store-webhook",
+        outcome: "revenue_failed",
+        request_id: "req-store-0003",
+        provider: "revenuecat",
+        event_type: "initial_purchase",
+        ...(code ? { database_code: code } : {}),
+      },
+      {
+        level: "info",
+        worker: "program-store-webhook",
+        outcome: "sale",
+        request_id: "req-store-0003",
+        provider: "revenuecat",
+        event_type: "initial_purchase",
+        revenue: "failed",
+      },
+    ]);
+    assertQuietLogs(f.logs);
+  }
+});
+
+Deno.test("no revenue call when the sale call fails or for Adapty's address check", async () => {
+  const failing = fixture({
+    record: async () => {
+      throw new DatabaseBoundaryError("28000");
+    },
+  });
+  const refused = await failing.handler(request("revenuecat", revenueCat()));
+  assertEquals(refused.status, 401);
+  await refused.body?.cancel();
+  assertEquals(failing.revenueCalls.length, 0);
+  const malformed = fixture({}, { outcome: "sale" });
+  const closed = await malformed.handler(request("revenuecat", revenueCat()));
+  assertEquals(closed.status, 503);
+  await closed.body?.cancel();
+  assertEquals(malformed.revenueCalls.length, 0);
+  const check = fixture();
+  const verified = await check.handler(request("adapty", {}));
+  assertEquals(verified.status, 200);
+  await verified.body?.cancel();
+  assertEquals(check.revenueCalls.length, 0);
 });
