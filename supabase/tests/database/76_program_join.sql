@@ -553,6 +553,10 @@ select pg_temp.check((select m @> '{"status":"pending","program_status":"live","
   'accepting a program that approves each creator records the acceptance and waits; no link is issued, so it needs no tracking');
 select pg_temp.check(pg_temp.try('ben', pg_temp.join_sql('rival')) = '22023 already_member', 'a waiting creator cannot ask twice');
 select pg_temp.call('cy', pg_temp.join_sql('rival'));
+update public.affiliates set public_name = ' ' where id = pg_temp.q('creator_dee');
+select pg_temp.check(pg_temp.try('dee', pg_temp.join_sql('rival')) = '22023 invalid_accept_name'
+  and (pg_temp.member('dee', 'rival')).id is null, 'a creator with no name on their profile cannot accept an agreement');
+update public.affiliates set public_name = 'Dee Vale' where id = pg_temp.q('creator_dee');
 select pg_temp.call('dee', pg_temp.join_sql('rival'));
 select pg_temp.capture('creators_pending', pg_temp.creators('rival_owner', 'rival'));
 select pg_temp.check((select r->'counts' = '{"pending":3,"active":0,"ended":0}'
@@ -767,8 +771,12 @@ select pg_temp.check((select d->'program' @> '{"tagline":"Six weeks to confident
     @> '{"tagline":"Six weeks to confident English.","commission_rate_bps":3000,"hold_days":30,"approval_mode":"automatic"}'
   and pg_temp.creators('owner', 'acme')->'program'->>'approval_mode' = 'automatic'
   and pg_temp.membership('ada', 'acme') @> '{"needs_new_terms":false,"terms_version":1}'
-  and pg_temp.call('cy', pg_temp.join_sql('acme'))->'membership' @> '{"status":"active","terms_version":1}',
-  'while edits are unpublished the card keeps the published commission and options, and a join still follows the published terms');
+  and (select pg_temp.call('cy', format('select public.partner_program_join(%L)', jsonb_build_object('slug', d->'program'->'slug',
+        'terms_version', d->'program'->'terms_version', 'agreement_sha256', d->'program'->'agreement_sha256')))->'membership'
+      @> '{"status":"active","terms_version":1}'
+    from pg_temp.call('cy', 'select public.partner_program_detail(''speaksix'')') d),
+  'while edits are unpublished the card keeps the published commission and options, and a join with what the program page '
+    || 'showed still follows the published terms');
 select pg_temp.publish('owner', 'acme', '{"landing_url":"https://speaksix.com/start"}');
 select pg_temp.check((pg_temp.program('acme')).live_terms_version = 2
   and pg_temp.service('select public.marketplace_program(''speaksix'')')->'program'
@@ -796,7 +804,12 @@ select pg_temp.check(
     = '40001 terms_changed'
   and (pg_temp.member('ada', 'acme')).terms_version = 1,
   'accepting or joining with the version that was replaced is refused as changed terms');
-insert into qa select 'ada_accepted', pg_temp.call('ada', pg_temp.accept_sql('acme'))::text;
+-- The request is built only from what the program page returned: the program's id, the
+-- version and the hash that were shown.
+insert into qa select 'ada_accepted', pg_temp.call('ada', format('select public.partner_program_accept_terms(%L)',
+  jsonb_build_object('program_id', d->'program'->'id', 'terms_version', d->'program'->'terms_version',
+    'agreement_sha256', d->'program'->'agreement_sha256')))::text
+from pg_temp.call('ada', 'select public.partner_program_detail(''speaksix'')') d;
 select pg_temp.capture('accept_terms', (select value::jsonb from qa where key = 'ada_accepted'));
 select pg_temp.check((select m @> '{"status":"active","terms_version":2,"needs_new_terms":false}' and m->'link'->'working' = 'true'
       and (m->>'accepted_at')::timestamptz > (m->>'requested_at')::timestamptz
@@ -868,17 +881,38 @@ select pg_temp.check(pg_temp.call('owner', pg_temp.decide_sql('acme', 'dee', 'de
   and pg_temp.call('owner', pg_temp.decide_sql('acme', 'cy', 'remove'))->'creator'->>'status' = 'removed'
   and pg_temp.call('cy', pg_temp.leave_sql('rival'))->'membership' @> '{"status":"left"}',
   'the merchant can still decline and remove while paused, and a creator can still leave');
+select pg_temp.check((select m->>'program_id' = (pg_temp.program('acme')).id::text
+      and pg_temp.call('ada', format('select public.partner_program_leave(%L)', jsonb_build_object('program_id', m->'program_id')))
+        ->'membership' @> '{"status":"left","program_status":"paused"}'
+    from (select pg_temp.call('ada', 'select public.partner_marketplace()')->'memberships'->0 as m) x)
+  and pg_temp.try('ada', pg_temp.join_sql('acme')) = '22023 program_not_open'
+  and (pg_temp.link('ada', 'acme')).status = 'paused',
+  'the program id on a membership is what leaving takes; a creator who left a paused program cannot come back until it is live');
+select pg_temp.set_status('owner', 'acme', 'live');
+select pg_temp.check(pg_temp.call('ada', pg_temp.join_sql('acme'))->'membership' @> '{"status":"pending","terms_version":3}'
+  and pg_temp.membership('ada', 'acme')->'link'->'working' = 'false'
+  and pg_temp.click('ada', 'acme')->'click_id' = 'null'
+  and pg_temp.call('owner', pg_temp.decide_sql('acme', 'ada', 'approve'))->'creator' @> '{"status":"active","terms_version":3,"clicks":4}'
+  and (pg_temp.member('ada', 'acme')).main_link_id = pg_temp.q('ada_link')
+  and pg_temp.membership('ada', 'acme')->'link'->'working' = 'true'
+  and pg_temp.click('ada', 'acme')->>'click_id' ~ '^[0-9a-f]{48}$'
+  and pg_temp.n(format('public.affiliate_program_acceptances where member_id = %L', (pg_temp.member('ada', 'acme')).id)) = 3,
+  'once the program is live again they can ask again under the current terms; their old link stays off until the merchant approves');
+select pg_temp.set_status('owner', 'acme', 'paused');
 select pg_temp.set_status('owner', 'acme', 'live');
 select pg_temp.check(pg_temp.membership('ada', 'acme')->'link'->'working' = 'true'
   and pg_temp.click('ada', 'acme')->>'click_id' ~ '^[0-9a-f]{48}$',
-  'when the program is resumed the member''s link works again with nothing to do');
+  'when a program is paused and resumed an active member''s link works again with nothing to do');
 
 -- An unlisted program, and a link from the admin flow ------------------------------------------------------------------
--- Dee already has a main link on the product, switched off, as the admin flow would have left it.
+-- Dee already has a main link on the product, switched off, as the admin flow would have left
+-- it. It is an old one with no short address.
+alter table public.affiliate_links disable trigger affiliate_links_allocate_alias;
 insert into public.affiliate_links(id, affiliate_id, product_id, funnel_id, name, public_code, tracking_url, is_main, status)
 select 'f8000000-0000-4000-8000-000000000001', pg_temp.q('creator_dee'), p.product_id, p.funnel_id, 'Quiet Club · Main',
   'join_fixture_old_main_link', 'https://go.kissmyapps.dev/r/dee-vale/join_fixture_old_main_link', true, 'paused'
 from pg_temp.program('quiet') p;
+alter table public.affiliate_links enable trigger affiliate_links_allocate_alias;
 select pg_temp.check((select not exists (select 1 from jsonb_array_elements(r->'programs') c where c->>'slug' = 'quiet-club')
     from pg_temp.call('ada', 'select public.partner_marketplace()') r)
   and pg_temp.call('ada', 'select public.partner_program_detail(''quiet-club'')')->'program' @> '{"slug":"quiet-club","status":"live"}',
@@ -892,14 +926,15 @@ select pg_temp.check((select m @> '{"status":"active","program_status":"live"}'
     from pg_temp.call('ada', 'select public.partner_marketplace()') r),
   'and it can be joined by that address like any other');
 select pg_temp.check((select m @> '{"status":"active"}' and m->'link' = '{"url":"https://go.kissmyapps.dev/r/dee-vale/join_fixture_old_main_link",
-      "short_url":"https://go.kissmyapps.dev/quiet-club/dee-vale","working":true}'::jsonb
+      "short_url":null,"working":true}'::jsonb
     from (select pg_temp.call('dee', pg_temp.join_sql('quiet'))->'membership' as m) x)
   and (select m.main_link_id = 'f8000000-0000-4000-8000-000000000001' from pg_temp.member('dee', 'quiet') m)
   and (pg_temp.link('dee', 'quiet')).status = 'active'
   and pg_temp.n(format('public.affiliate_links where affiliate_id = %L and product_id = %L',
     pg_temp.q('creator_dee'), (pg_temp.program('quiet')).product_id)) = 1
   and pg_temp.click('dee', 'quiet')->>'click_id' ~ '^[0-9a-f]{48}$',
-  'a creator who already has a main link for the product keeps it: the join switches that link on instead of issuing a second');
+  'a creator who already has a main link for the product keeps it: the join switches that link on instead of issuing a '
+    || 'second, and a link with no short address is shown without one');
 
 -- What a creator and a merchant see, in order ----------------------------------------------------------------------------
 -- Ada: active in Quiet Club and SpeakSix. Dee: active in Quiet Club, waiting at Rival Reader, declined by SpeakSix.

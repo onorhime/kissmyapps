@@ -93,8 +93,10 @@ language sql stable set search_path = '' as $$
   from public.affiliate_programs p
   join public.affiliates a on a.id = m.affiliate_id
   cross join lateral (
+    -- A link's clicks are all its creator's; naming the creator lets the clicks index find them.
     select count(*) as clicks, max(k.occurred_at) as last_click_at
-    from public.clicks k where k.affiliate_link_id = m.main_link_id and not k.is_bot) c
+    from public.clicks k
+    where k.affiliate_id = m.affiliate_id and k.affiliate_link_id = m.main_link_id and not k.is_bot) c
   where p.id = m.program_id
 $$;
 
