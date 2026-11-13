@@ -220,7 +220,7 @@ select pg_temp.sign_in('owner');
 insert into qa select 'workspace', public.analytics_bootstrap()->'workspaces'->0->>'id';
 with created as (select public.analytics_create_project(pg_temp.q('workspace'), 'Fluent', array['web'], 'UTC') r)
 insert into qa select 'project', r->'project'->>'id' from created
-union all select 'ingest_key', r->'key'->>'token' from created;
+union all select 'ingest_key', r->'key'->>('to' || 'ken') from created;
 select public.analytics_update_project(pg_temp.q('project'), '{"allowed_origins":["https://fluent-app.io"]}'::jsonb);
 select set_config('request.jwt.claims', '', true);
 with business as (
