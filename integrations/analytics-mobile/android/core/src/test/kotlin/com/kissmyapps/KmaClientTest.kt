@@ -16,6 +16,7 @@ import java.nio.file.Files
 import java.util.Date
 
 private const val KEY = "kma_pk_live_ABCDEFGHJKLMNPQRSTUVWXYZ"
+internal const val ATTRIBUTION_OFF = """{"matched":false,"method":"off","deep_link":null}"""
 private fun minutes(n: Int) = n * 60_000L
 
 /** A clock and timers the test moves forward by hand. Tasks run on the test's thread. */
@@ -105,8 +106,10 @@ class KmaClientTest {
 
     private val transport = object : Transport {
         override fun post(url: String, key: String, body: String): Response {
-            assertEquals("https://events.kissmyapps.dev/v1/events", url)
             assertEquals(KEY, key)
+            // The first launch's install call: AttributionTest covers it.
+            if (url == "https://events.kissmyapps.dev/v1/attribution/install") return Response(200, ATTRIBUTION_OFF)
+            assertEquals("https://events.kissmyapps.dev/v1/events", url)
             sent.add(JSONObject(body))
             return answer()
         }
@@ -127,7 +130,7 @@ class KmaClientTest {
         options: KissMyAppsOptions = KissMyAppsOptions(appVersion = "2.4.0", build = "120"),
         key: String = KEY,
     ): KmaClient {
-        val platform = Platform(store, transport, scheduler, { pixel }, "kma-android/1.0.0", { scheduler.now }, { logs.add(it) })
+        val platform = Platform(store, transport, scheduler, { pixel }, "kma-android/$SDK_VERSION", { scheduler.now }, { logs.add(it) })
         return KmaClient(key, options, platform).also { clients.add(it) }
     }
 
@@ -171,7 +174,7 @@ class KmaClientTest {
             assertEquals(client.getSessionId(), body.getJSONObject("session").getString("id"))
             val context = body.getJSONObject("context")
             assertEquals("android", context.getString("platform"))
-            assertEquals("kma-android/1.0.0", context.getString("sdk"))
+            assertEquals("kma-android/1.1.0", context.getString("sdk"))
             assertEquals("2.4.0", context.getString("app_version"))
             assertEquals("Home", context.getString("page_path"))
             assertEquals("Pixel 7", context.getString("device_model"))

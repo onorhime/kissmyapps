@@ -19,7 +19,18 @@ class RealDeliveryTest {
         val bodies = Collections.synchronizedList(ArrayList<JSONObject>())
         val headers = Collections.synchronizedList(ArrayList<String>())
         val backgrounded = CountDownLatch(1)
+        val installs = Collections.synchronizedList(ArrayList<JSONObject>())
+        val deepLinks = Collections.synchronizedList(ArrayList<DeepLink>())
+        val deepLinked = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/attribution/install") { exchange ->
+            installs.add(JSONObject(exchange.requestBody.bufferedReader().readText()))
+            headers.add(exchange.requestHeaders.getFirst("Authorization"))
+            val reply = """{"matched":true,"method":"install_referrer","source":"tiktok","deep_link":{"value":"lesson","params":{"id":"4"},"deferred":true}}"""
+                .toByteArray()
+            exchange.sendResponseHeaders(200, reply.size.toLong())
+            exchange.responseBody.use { it.write(reply) }
+        }
         server.createContext("/v1/events") { exchange ->
             val body = JSONObject(exchange.requestBody.bufferedReader().readText())
             bodies.add(body)
@@ -40,17 +51,28 @@ class RealDeliveryTest {
                 ExecutorScheduler { logs.add(it) },
                 { pixel },
                 "kma-android/$SDK_VERSION",
+                attribution = object : AttributionSource {
+                    override fun deviceKey() = deviceKeyFor("8f3c2a1b0d9e7f65")
+                    override fun installReferrer(done: (InstallReferrer?) -> Unit) {
+                        Thread { done(InstallReferrer("kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ", 1761818300, 1761818320)) }.start()
+                    }
+                },
             )
             val client = KmaClient(
                 key,
                 KissMyAppsOptions(appVersion = "1.0.0", endpoint = "http://127.0.0.1:${server.address.port}/", debug = true),
                 platform,
             )
+            client.onDeepLink {
+                deepLinks.add(it)
+                deepLinked.countDown()
+            }
             client.foreground()
             client.screen("Home", emptyMap())
             client.track("lesson_completed", mapOf("lesson" to 1))
             client.background()
             assertTrue("nothing arrived: $logs", backgrounded.await(10, TimeUnit.SECONDS))
+            assertTrue("no deep link: $logs", deepLinked.await(10, TimeUnit.SECONDS))
 
             val names = bodies.flatMap { body ->
                 val events = body.getJSONArray("events")
@@ -63,6 +85,11 @@ class RealDeliveryTest {
             assertEquals(listOf("Bearer $key"), headers.distinct())
             bodies.forEach { expectContract(it) }
             assertEquals(client.getSessionId(), bodies[0].getJSONObject("session").getString("id"))
+            assertEquals(1, installs.size)
+            expectAttributionContract("install", installs[0])
+            assertEquals(client.getSessionId(), installs[0].getString("session_id"))
+            assertEquals("kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ", installs[0].getString("referrer"))
+            assertEquals(listOf(DeepLink("lesson", mapOf("id" to "4"), deferred = true, url = null)), deepLinks)
             client.shutdown()
         } finally {
             server.stop(0)
@@ -85,6 +112,8 @@ class RealDeliveryTest {
         val recording = object : Transport {
             override fun post(url: String, key: String, body: String): Response {
                 val response = http.post(url, key, body)
+                // The ingest may not serve the attribution calls yet; only events are checked here.
+                if (!url.endsWith("/v1/events")) return response
                 replies.add(JSONObject(response.text).put("status", response.status))
                 if (body.contains("app_backgrounded")) done.countDown()
                 return response
