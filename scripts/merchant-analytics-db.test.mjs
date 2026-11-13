@@ -54,6 +54,7 @@ const suites = [
   ['85_program_reward_engine.sql', /^ok \d+ program reward engine assertions$/m],
   ['86_program_reward_numbers.sql', /^ok \d+ program reward numbers assertions$/m],
   ['87_program_rewards_end_to_end.sql', /^ok \d+ program rewards end to end assertions$/m],
+  ['88_attribution_installs.sql', /^ok \d+ attribution install assertions$/m],
 ]
 
 const bin = postgresBin()
