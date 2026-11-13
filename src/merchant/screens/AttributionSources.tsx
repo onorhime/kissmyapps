@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { ArrowLeft, ChevronRight, Download } from 'lucide-react'
 import { api } from '../api'
-import type { AttributionModel, AttributionSources, Project, Range, SourceRow } from '../api'
-import { sourceHint, sourceLabel } from '../attribution'
+import type {
+  Attribution,
+  AttributionModel,
+  AttributionSources,
+  Project,
+  Range,
+  SourceRow,
+} from '../api'
+import { hasApp, sourceHint, sourceInstalls, sourceLabel, totalInstalls } from '../attribution'
 import { downloadCsv, toCsv } from '../csv'
 import { formatCount, formatPercent, plural } from '../format'
 import { rangeOptions, rangePhrase } from '../ranges'
@@ -20,7 +27,9 @@ function rate(row: Pick<SourceRow, 'converters' | 'people'>): string {
   return row.people ? formatPercent(row.converters, row.people) : '—'
 }
 
-export function SourcesScreen({ project }: { project: Project }) {
+export function SourcesScreen({ project, view }: { project: Project; view?: Attribution }) {
+  // Installs only mean something for a project with an app.
+  const apps = hasApp(project, view?.settings ?? null)
   const [range, setRange] = useState<Range>('30d')
   const [model, setModel] = useState<AttributionModel>('last')
   // A source opened to see its campaigns; null lists every source.
@@ -40,6 +49,7 @@ export function SourcesScreen({ project }: { project: Project }) {
         sources.rows.map((row) => ({
           [source ? 'campaign' : 'source']: row.key ?? (source ? '' : 'direct'),
           link_clicks: row.clicks,
+          ...(apps ? { installs: sourceInstalls(row) } : {}),
           visits: row.visits,
           people: row.people,
           conversions: row.conversions,
@@ -85,7 +95,7 @@ export function SourcesScreen({ project }: { project: Project }) {
       )}
 
       <div
-        className="mc-kpis mc-kpis-4"
+        className={apps ? 'mc-kpis mc-kpis-5' : 'mc-kpis mc-kpis-4'}
         role="group"
         aria-label={source ? `${sourceLabel(source)} totals` : 'Totals'}
       >
@@ -96,6 +106,15 @@ export function SourcesScreen({ project }: { project: Project }) {
           </strong>
           <span className="mc-sub">on your smart links</span>
         </div>
+        {apps && (
+          <div className="mc-kpi">
+            <span className="mc-kpi-label">Installs</span>
+            <strong className="mc-kpi-value mc-num">
+              {data ? formatCount(totalInstalls(data)) : <Skeleton width={60} height={28} />}
+            </strong>
+            <span className="mc-sub">of your app</span>
+          </div>
+        )}
         <div className="mc-kpi">
           <span className="mc-kpi-label">Visits</span>
           <strong className="mc-kpi-value mc-num">
@@ -127,8 +146,10 @@ export function SourcesScreen({ project }: { project: Project }) {
         title={source ? `Campaigns from ${sourceLabel(source)}` : 'Sources'}
         description={
           source
-            ? `${sourceLabel(source)}'s visits and conversions ${rangePhrase[range]}, by campaign.`
-            : `Where visitors came from ${rangePhrase[range]}, and the conversions each source earned.`
+            ? `${sourceLabel(source)}'s ${apps ? 'installs, visits' : 'visits'} and conversions ${rangePhrase[range]}, by campaign.`
+            : apps
+              ? `Where installs and visitors came from ${rangePhrase[range]}, and the conversions each source earned.`
+              : `Where visitors came from ${rangePhrase[range]}, and the conversions each source earned.`
         }
         id="mc-attr-sources"
         actions={
@@ -144,16 +165,27 @@ export function SourcesScreen({ project }: { project: Project }) {
           <Empty>
             {source
               ? `Nothing from ${sourceLabel(source)} ${rangePhrase[range]}.`
-              : `No visits ${rangePhrase[range]} yet. Share a link, or tag your ads with utm_source, and visitors show here by where they came from.`}
+              : `No ${apps ? 'installs or visits' : 'visits'} ${rangePhrase[range]} yet. Share a link, or tag your ads with utm_source, and ${apps ? 'people' : 'visitors'} show here by where they came from.`}
           </Empty>
         ) : (
-          <table className="mc-table mc-attr-sources-table">
+          <table
+            className={
+              apps
+                ? 'mc-table mc-attr-sources-table mc-at2-sources'
+                : 'mc-table mc-attr-sources-table'
+            }
+          >
             <thead>
               <tr>
                 <th scope="col">{source ? 'Campaign' : 'Source'}</th>
                 <th scope="col" className="mc-num-col">
                   Link clicks
                 </th>
+                {apps && (
+                  <th scope="col" className="mc-num-col">
+                    Installs
+                  </th>
+                )}
                 <th scope="col" className="mc-num-col">
                   Visits
                 </th>
@@ -172,7 +204,7 @@ export function SourcesScreen({ project }: { project: Project }) {
               {!data &&
                 [0, 1, 2, 3].map((index) => (
                   <tr key={index} aria-hidden="true">
-                    {[140, 40, 40, 40, 40, 40].map((width, cell) => (
+                    {[140, ...Array<number>(apps ? 6 : 5).fill(40)].map((width, cell) => (
                       <td key={cell}>
                         <Skeleton width={width} />
                       </td>
@@ -203,6 +235,11 @@ export function SourcesScreen({ project }: { project: Project }) {
                     <td data-label="Link clicks" className="mc-num mc-num-col">
                       {formatCount(row.clicks)}
                     </td>
+                    {apps && (
+                      <td data-label="Installs" className="mc-num mc-num-col">
+                        {formatCount(sourceInstalls(row))}
+                      </td>
+                    )}
                     <td data-label="Visits" className="mc-num mc-num-col">
                       {formatCount(row.visits)}
                     </td>
@@ -223,12 +260,20 @@ export function SourcesScreen({ project }: { project: Project }) {
         )}
       </Panel>
 
-      <HowCreditWorks model={model} days={data?.web_lookback_days ?? 30} />
+      <HowCreditWorks model={model} days={data?.web_lookback_days ?? 30} apps={apps} />
     </>
   )
 }
 
-function HowCreditWorks({ model, days }: { model: AttributionModel; days: number }) {
+function HowCreditWorks({
+  model,
+  days,
+  apps,
+}: {
+  model: AttributionModel
+  days: number
+  apps: boolean
+}) {
   return (
     <section className="mc-panel" aria-labelledby="mc-attr-credit">
       <div className="mc-panel-head">
@@ -247,6 +292,18 @@ function HowCreditWorks({ model, days }: { model: AttributionModel; days: number
             a sign-up on a laptop.
           </span>
         </li>
+        {apps && (
+          <li>
+            <strong>App installs</strong>
+            <span className="mc-muted">
+              An install counts once, for the click that brought it: the link that opened the app,
+              the click Google Play passes on, an Apple Ads tap, the click a link&rsquo;s iPhone
+              page copied, or a link tapped on the web by the same person before they signed in. A
+              reinstall on the same phone is not a new install, and installs with no link count
+              under Direct or unknown.
+            </span>
+          </li>
+        )}
         <li>
           <strong>What a source is</strong>
           <span className="mc-muted">

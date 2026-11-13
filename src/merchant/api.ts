@@ -218,6 +218,8 @@ export interface PersonDetail {
   sessions: Session[]
   top_events: { name: string; count: number; last: string }[]
   recent_events: EventRow[]
+  /** Where an app install came from; null without one, missing from older databases. */
+  acquisition?: Acquisition | null
 }
 
 export interface SessionDetail {
@@ -597,6 +599,11 @@ export interface AttributionSettings {
   conversion_events: string[]
   /** How many days a website visit's source counts for a later conversion. */
   web_lookback_days: number
+  /**
+   * iPhone: a link's page copies the click before opening the App Store, so the app can match
+   * the install on its first launch. Missing from a database older than app installs.
+   */
+  ios_clipboard_handoff?: boolean
   enabled_at: string
   disabled_at: string | null
   updated_at: string
@@ -622,7 +629,10 @@ export interface Attribution {
   domains: AttributionDomain[]
   /** The project's events, newest first, to choose conversions from. */
   events: Array<{ name: string; last_seen: string }>
+  /** sdk: true once the first app install has arrived. */
   setup: Record<AttributionStep, boolean>
+  /** App installs matched so far. Missing from a database older than app installs. */
+  installs?: { total: number; last_at: string | null }
 }
 
 export interface AttributionLink {
@@ -652,6 +662,9 @@ export interface AttributionLink {
   clicks?: number
   visits?: number
   conversions?: number
+  /** App installs and re-engagements the link brought in the range; missing from older databases. */
+  installs?: number
+  reengagements?: number
 }
 
 export type AttributionLinkFields = Partial<
@@ -695,6 +708,8 @@ export interface SourceRow {
   people: number
   conversions: number
   converters: number
+  /** Counted app installs (rejected ones never count); missing from older databases. */
+  installs?: number
 }
 
 export interface AttributionSources {
@@ -709,8 +724,33 @@ export interface AttributionSources {
     people: number
     conversions: number
     converters: number
+    installs?: number
   }
   rows: SourceRow[]
+}
+
+/** How an app install was matched to the click that brought it. */
+export type InstallMethod =
+  'link_open' | 'install_referrer' | 'apple_ads' | 'clipboard' | 'login' | 'organic' | 'reinstall'
+
+/** What `attribution_test_device` saw for one link over the last 30 minutes. */
+export interface AttributionTestDevice {
+  link: { id: string; url: string | null }
+  click: { at: string; platform: 'ios' | 'android' | 'desktop' } | null
+  install: { at: string; method: InstallMethod; platform: 'ios' | 'android'; exact: boolean } | null
+  deep_link_delivered: boolean
+}
+
+/** Where a person who installed the app came from. */
+export interface Acquisition {
+  source: string | null
+  campaign: string | null
+  method: InstallMethod
+  exact: boolean
+  installed_at: string | null
+  link_name: string | null
+  /** counted; flagged (counts, marked for review); rejected (never counts). */
+  verdict: 'counted' | 'flagged' | 'rejected'
 }
 
 export interface SubdomainCheck {
@@ -1000,6 +1040,9 @@ export const api = {
     }),
   removeDomain: (domain: string) =>
     rpc<Attribution>('attribution_remove_domain', { p_domain: domain }),
+  /** Raw: read it with readTestDevice, which tolerates a missing or partial answer. */
+  attributionTestDevice: (project: string, link: string) =>
+    rpc<unknown>('attribution_test_device', { p_project: project, p_link: link }),
 }
 
 export type Api = typeof api

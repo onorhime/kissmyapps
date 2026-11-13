@@ -5,11 +5,9 @@ import { api } from '../api'
 import type { Attribution, AttributionPatch, Project, Role, SubdomainCheck } from '../api'
 import {
   CURRENCIES,
-  androidIntentFilter,
-  associatedDomains,
   fingerprintList,
+  hasApp,
   kmaDomain,
-  liveHosts,
   subdomainOf,
   suggestedSubdomain,
   validFingerprint,
@@ -18,18 +16,10 @@ import { formatAgo, plural } from '../format'
 import { href } from '../routes'
 import type { AttributionSection } from '../routes'
 import { canDo, useStore } from '../store'
-import {
-  CodeBlock,
-  CopyButton,
-  ErrorNote,
-  Field,
-  PageHeader,
-  Pill,
-  Select,
-  Skeleton,
-} from '../ui/Primitives'
+import { CopyButton, ErrorNote, Field, PageHeader, Pill, Select, Skeleton } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
 import { LinksScreen } from './AttributionLinks'
+import { SdkStep } from './AttributionSdk'
 import { SourcesScreen } from './AttributionSources'
 import { SettingsRow } from './Settings'
 
@@ -92,7 +82,7 @@ export function AttributionScreen({
           on && section === 'links'
             ? `One link for each place you share ${project.name}. Each sends people to the right store or page and says where they came from.`
             : on && section === 'sources'
-              ? `Where the people who visit ${project.name} came from, and which sources bring conversions.`
+              ? `Where the people who ${hasApp(project, view?.settings ?? null) ? 'install and visit' : 'visit'} ${project.name} came from, and which sources bring conversions.`
               : `Which links, ads and partners bring the people who install ${project.name} and sign up.`
         }
       />
@@ -130,7 +120,7 @@ export function AttributionScreen({
       ) : section === 'links' ? (
         <LinksScreen project={project} view={view} role={role} />
       ) : section === 'sources' ? (
-        <SourcesScreen project={project} />
+        <SourcesScreen project={project} view={view} />
       ) : (
         <Setup project={project} view={view} role={role} onChange={state.refresh} />
       )}
@@ -313,11 +303,6 @@ function HowItWorks() {
 
 const LATER_STEPS: Array<{ key: string; title: string; text: string; ios?: boolean }> = [
   {
-    key: 'sdk',
-    title: 'SDK and a test device',
-    text: 'Update the SDK, tap a test link on your phone, and watch the install arrive.',
-  },
-  {
     key: 'revenue',
     title: 'Revenue and ad spend',
     text: 'Add revenue to conversions and what each campaign cost, to see what it earned back.',
@@ -337,17 +322,23 @@ const LATER_STEPS: Array<{ key: string; title: string; text: string; ios?: boole
 
 function StepList({ project, view }: { project: Project; view: Attribution | null }) {
   const later = LATER_STEPS.filter((step) => !step.ios || project.platforms.includes('ios'))
+  const ready = setupSteps(project, null).map((step) => step.title)
   return (
     <section className="mc-panel" aria-labelledby="mc-attr-plan">
       <div className="mc-panel-head">
         <div>
           <h2 id="mc-attr-plan">{view ? 'Coming next' : 'What you will set up'}</h2>
-          {!view && <p>The first three steps are ready now; the rest arrive in later releases.</p>}
+          {!view && (
+            <p>
+              The first {ready.length === 4 ? 'four' : 'three'} steps are ready now; the rest arrive
+              in later releases.
+            </p>
+          )}
         </div>
       </div>
       <ol className="mc-check-list mc-attr-plan">
         {!view &&
-          ['Your apps and website', 'Link domain', 'Conversions'].map((title) => (
+          ready.map((title) => (
             <li key={title}>
               <span className="mc-status-dot is-on" aria-hidden="true" />
               <span className="mc-attr-plan-text">
@@ -371,9 +362,26 @@ function StepList({ project, view }: { project: Project; view: Attribution | nul
   )
 }
 
+type SetupStep = 'apps' | 'domain' | 'sdk' | 'conversions'
+
+/** The steps that can be set up now, in order: the SDK one only for a project with an app. */
+function setupSteps(
+  project: Project,
+  view: Attribution | null,
+): Array<{ key: SetupStep; title: string }> {
+  return [
+    { key: 'apps' as const, title: 'Your apps and website' },
+    { key: 'domain' as const, title: 'Link domain' },
+    ...(hasApp(project, view?.settings ?? null)
+      ? [{ key: 'sdk' as const, title: 'SDK and deep links' }]
+      : []),
+    { key: 'conversions' as const, title: 'Conversions' },
+  ]
+}
+
 function Setup({ project, view, role, onChange }: Props) {
-  const steps = [view.setup.apps, view.setup.domain, view.setup.conversions]
-  const done = steps.filter(Boolean).length
+  const steps = setupSteps(project, view)
+  const done = steps.filter((step) => view.setup[step.key]).length
   return (
     <div className="mc-install mc-attr-layout">
       <div className="mc-attr-main">
@@ -395,7 +403,7 @@ function Setup({ project, view, role, onChange }: Props) {
                   and share it to see where people come from.
                 </>
               ) : (
-                ' · All three can be set up now.'
+                ' · Each one can be set up now.'
               )}
             </span>
           </p>
@@ -403,15 +411,24 @@ function Setup({ project, view, role, onChange }: Props) {
             <span style={{ width: `${(done / steps.length) * 100}%` }} />
           </span>
         </div>
-        <Step number={1} title="Your apps and website" done={view.setup.apps}>
-          <AppsForm project={project} view={view} role={role} onChange={onChange} />
-        </Step>
-        <Step number={2} title="Link domain" done={view.setup.domain}>
-          <Domains project={project} view={view} role={role} onChange={onChange} />
-        </Step>
-        <Step number={3} title="Conversions" done={view.setup.conversions}>
-          <ConversionsForm project={project} view={view} role={role} onChange={onChange} />
-        </Step>
+        {steps.map((step, index) => (
+          <Step
+            key={step.key}
+            number={index + 1}
+            title={step.title}
+            done={Boolean(view.setup[step.key])}
+          >
+            {step.key === 'apps' ? (
+              <AppsForm project={project} view={view} role={role} onChange={onChange} />
+            ) : step.key === 'domain' ? (
+              <Domains project={project} view={view} role={role} onChange={onChange} />
+            ) : step.key === 'sdk' ? (
+              <SdkStep project={project} view={view} role={role} onChange={onChange} />
+            ) : (
+              <ConversionsForm project={project} view={view} role={role} onChange={onChange} />
+            )}
+          </Step>
+        ))}
         <StepList project={project} view={view} />
       </div>
       <aside className="mc-install-rail" aria-label="What your link domain answers">
@@ -514,11 +531,6 @@ function AppsForm({ project, view, role, onChange }: Props) {
     platforms.includes('ios') || Boolean(saved.ios_bundle_id || saved.ios_app_store_id)
   const showAndroid = platforms.includes('android') || Boolean(saved.android_package)
   const showWeb = platforms.includes('web') || Boolean(saved.web_url)
-  const hosts = liveHosts(view)
-  const iosReady = Boolean(view.settings?.ios_bundle_id && view.settings?.ios_team_id)
-  const androidReady = Boolean(
-    view.settings?.android_package && view.settings.android_sha256.length,
-  )
 
   const save = (event: FormEvent) => {
     event.preventDefault()
@@ -650,27 +662,6 @@ function AppsForm({ project, view, role, onChange }: Props) {
           >
             Save apps and website
           </button>
-        </div>
-      )}
-      {(iosReady || androidReady) && hosts.length > 0 && (
-        <div className="mc-attr-snippets">
-          <h3>Then let your app open these links</h3>
-          {iosReady && (
-            <div>
-              <p className="mc-muted">
-                In Xcode, under Signing &amp; Capabilities, add Associated Domains with:
-              </p>
-              <CodeBlock label="Associated Domains" code={associatedDomains(hosts)} />
-            </div>
-          )}
-          {androidReady && (
-            <div>
-              <p className="mc-muted">
-                In AndroidManifest.xml, inside the activity that opens links:
-              </p>
-              <CodeBlock label="Intent filter" code={androidIntentFilter(hosts)} />
-            </div>
-          )}
         </div>
       )}
     </form>
@@ -1195,8 +1186,8 @@ function AttributionSettings({ project, view, role, onChange }: Props) {
               How long after someone taps a link, or sees an ad, an install still counts for it.
             </p>
             <p>
-              They apply to app installs, which arrive in the next release. Website visits use the
-              website window under Conversions.
+              App installs are matched now: an install counts for the link tapped within the click
+              window before it. Website visits use the website window under Conversions.
             </p>
           </>
         }
