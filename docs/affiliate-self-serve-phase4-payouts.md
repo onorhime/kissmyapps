@@ -8,13 +8,14 @@ platform account to the creator's account. Nothing is paid by itself.
 
 This sends real money to real bank accounts. Deploy only with the owner.
 
-Written and tested locally only: the two functions against a Stripe and a database that
-live in memory. Nothing in this document has been applied to hosted Supabase or tried
-against real Stripe. The database functions were written at the same time as the two
-functions, to the same written contract; where this document names a database function,
-schedule or column, check it against the migration before running it. The section "Only a
-live transfer can confirm" lists every Stripe behaviour the code relies on and no local
-test can prove.
+Written and tested locally only. The two functions run against a Stripe that lives in
+memory, and read answers captured from the real database functions
+(`supabase/functions/program-payout-worker/backend_test.ts`). The database side runs on a
+local Postgres: its own suite (`82_program_payouts.sql`) and the whole path from a sale to
+a paid and a refused payout (`81_program_money_end_to_end.sql`). Nothing in this document
+has been applied to hosted Supabase or tried against real Stripe. The section "Only a live
+transfer can confirm" lists every Stripe behaviour the code relies on and no local test
+can prove.
 
 ## What ships
 
@@ -297,6 +298,21 @@ id.
 If a payout stays `approved`: is the schedule row enabled, does `cron.job` have
 `kma-program-payouts`, is `PROGRAM_PAYOUTS_ENABLED` exactly `true`, and what does a call by
 hand answer?
+
+The schedule says what it decided when it is run by hand:
+
+```sql
+select kma_internal.tick_program_payout_schedule();
+```
+
+| Answer                    | Meaning                                                               |
+| ------------------------- | --------------------------------------------------------------------- |
+| `paused`                  | the schedule row is not enabled                                       |
+| `payouts_disabled`        | payouts are switched off in the admin app                             |
+| `idle`                    | no payout is due                                                      |
+| `scheduler_value_missing` | Vault has no `kma_program_payout_scheduler` of at least 32 characters |
+| `locked`                  | another tick is running                                               |
+| `dispatched`              | the worker was called                                                 |
 
 ## How a payout ends
 

@@ -480,6 +480,9 @@ export const payoutMoney = (minor: number, code: string) => formatMoney(minor, c
 export function payoutFailureWords(code: string | null): string | null {
   if (!code) return null
   const value = code.toLowerCase()
+  if (/key_refused/.test(value)) return 'Stripe key was refused'
+  if (/destination/.test(value)) return 'Payout account changed'
+  if (/mismatch|reconciliation/.test(value)) return 'Needs a check in Stripe'
   if (/balance|insufficient/.test(value)) return 'Platform balance too low'
   if (/currenc/.test(value)) return 'Account cannot receive this currency'
   if (/country|cross_border|route/.test(value)) return 'Account country cannot be paid'

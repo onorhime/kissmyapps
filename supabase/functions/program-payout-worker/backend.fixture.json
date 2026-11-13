@@ -1,0 +1,138 @@
+{
+  "program_creator_payout_context": {
+    "id": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+    "status": "not_connected",
+    "country": null,
+    "livemode": true,
+    "revision": 1,
+    "created_at": "2026-11-13T16:35:24.41661+00:00",
+    "account_key": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+    "verified_at": null,
+    "affiliate_id": "a3000000-0000-4000-8000-000000000001",
+    "charges_enabled": false,
+    "disabled_reason": null,
+    "payouts_enabled": false,
+    "requirements_due": [],
+    "details_submitted": false,
+    "transfers_enabled": false,
+    "connect_account_id": null,
+    "platform_account_id": "acct_KMAPlatform",
+    "account_creation_prefill": {},
+    "first_account_attempt_at": null
+  },
+  "claim_program_payouts": {
+    "payouts": [
+      {
+        "status": "approved",
+        "attempts": 0,
+        "currency": "USD",
+        "payout_id": "829ef2a3-4b78-45ab-8ed1-74a451db002a",
+        "account_key": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+        "lookup_only": false,
+        "transfer_id": null,
+        "affiliate_id": "a3000000-0000-4000-8000-000000000001",
+        "amount_minor": 7410,
+        "failure_code": null,
+        "account_status": "ready",
+        "next_attempt_at": null,
+        "first_attempt_at": null,
+        "connect_account_id": "acct_AdaPay",
+        "platform_account_id": "acct_KMAPlatform"
+      }
+    ]
+  },
+  "begin_program_payout": {
+    "status": "processing",
+    "attempts": 1,
+    "currency": "USD",
+    "payout_id": "829ef2a3-4b78-45ab-8ed1-74a451db002a",
+    "account_key": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+    "lookup_only": false,
+    "transfer_id": null,
+    "affiliate_id": "a3000000-0000-4000-8000-000000000001",
+    "amount_minor": 7410,
+    "failure_code": null,
+    "account_status": "ready",
+    "next_attempt_at": null,
+    "first_attempt_at": "2026-11-13T16:35:24.586496+00:00",
+    "connect_account_id": "acct_AdaPay",
+    "platform_account_id": "acct_KMAPlatform"
+  },
+  "finish_program_payout_retry": {
+    "status": "processing",
+    "attempts": 2,
+    "currency": "USD",
+    "payout_id": "829ef2a3-4b78-45ab-8ed1-74a451db002a",
+    "account_key": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+    "lookup_only": false,
+    "transfer_id": null,
+    "affiliate_id": "a3000000-0000-4000-8000-000000000001",
+    "amount_minor": 7410,
+    "failure_code": "platform_balance_insufficient",
+    "account_status": "ready",
+    "next_attempt_at": "2026-11-13T16:45:24.602159+00:00",
+    "first_attempt_at": "2026-11-13T16:35:24.586496+00:00",
+    "connect_account_id": "acct_AdaPay",
+    "platform_account_id": "acct_KMAPlatform"
+  },
+  "finish_program_payout_paid": {
+    "status": "paid",
+    "attempts": 10,
+    "currency": "USD",
+    "payout_id": "829ef2a3-4b78-45ab-8ed1-74a451db002a",
+    "account_key": "52163001-3c30-4cf7-8b3e-a933aa281e88",
+    "lookup_only": true,
+    "transfer_id": "tr_AdaOne",
+    "affiliate_id": "a3000000-0000-4000-8000-000000000001",
+    "amount_minor": 7410,
+    "failure_code": null,
+    "account_status": "ready",
+    "next_attempt_at": null,
+    "first_attempt_at": "2026-11-12T17:34:24.613774+00:00",
+    "connect_account_id": "acct_AdaPay",
+    "platform_account_id": "acct_KMAPlatform"
+  },
+  "finish_program_payout_failed": {
+    "status": "failed",
+    "attempts": 1,
+    "currency": "USD",
+    "payout_id": "bd58a170-fca6-485a-a031-b32ac13fc8e8",
+    "account_key": "87652ada-92c4-4e30-934f-632022469ed1",
+    "lookup_only": false,
+    "transfer_id": null,
+    "affiliate_id": "a3000000-0000-4000-8000-000000000005",
+    "amount_minor": 4000,
+    "failure_code": "account_cannot_receive",
+    "account_status": "ready",
+    "next_attempt_at": null,
+    "first_attempt_at": "2026-11-13T16:35:24.623249+00:00",
+    "connect_account_id": "acct_EvePay",
+    "platform_account_id": "acct_KMAPlatform"
+  },
+  "program_payout_health": {
+    "enabled": true,
+    "payouts": {
+      "paid": 1,
+      "failed": 2,
+      "approved": 1,
+      "canceled": 2,
+      "processing": 1
+    },
+    "failures": {
+      "account_not_ready": 1,
+      "account_cannot_receive": 1
+    },
+    "schedule": {
+      "enabled": true,
+      "last_tick_at": "2026-11-13T16:35:24.702622+00:00",
+      "last_dispatch_at": null
+    },
+    "platforms": 1,
+    "open_payouts": {
+      "due": 0,
+      "lookup_only": 0,
+      "oldest_created_at": "2026-11-13T16:35:24.661638+00:00"
+    },
+    "ledger_mismatches": 0
+  }
+}
