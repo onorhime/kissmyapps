@@ -449,11 +449,14 @@ class MainActivity : ComponentActivity() {
         KissMyApps.onDeepLink { link ->
             link.value?.let { screen -> navController.navigate(screen) }
         }
-        KissMyApps.handleDeepLink(intent)
+        // Once per link: not again when the activity is recreated, such as after a rotation.
+        if (savedInstanceState == null) KissMyApps.handleDeepLink(intent)
     }
 
+    // A link that opens the app while this activity is already running.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         KissMyApps.handleDeepLink(intent)
     }
 }`,
