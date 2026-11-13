@@ -33,6 +33,7 @@ import { discardScopeDrafts, markFormSaved } from '../../../components/useFormNa
 import { ConfigurationReview } from './ConfigurationReview'
 import { ConfigurationErrorContext } from './configurationErrorContext'
 import { MerchantConnectionsSection } from '../../merchant-connections/MerchantConnectionsSection'
+import { ProgramProductNotice } from '../products/ProgramProductNotice'
 import { SetupProgress, SetupStepFooter, SetupStepList, SetupStepPanel } from './SetupWizard'
 import { initialSetupStep, setupSteps, stepForBlocker, type SetupStepId } from './setupSteps'
 import './ProductSetup.css'
@@ -166,6 +167,11 @@ export type ProductConfigurationPageProps = Readonly<{
   onProductRead?: (product: AdminProduct) => void
   onOpenStats?: () => void
   onOpenSettings?: () => void
+  /**
+   * Set for a product that belongs to a merchant's program. Such a product has no setup
+   * steps: the page explains that and points to Programs, and reads no configuration.
+   */
+  program?: Readonly<{ productName: string | null; onOpenPrograms?: () => void }> | null
 }>
 
 function ConfigurationState({
@@ -211,6 +217,16 @@ function ConfigurationState({
 }
 
 export function ProductConfigurationPage(props: ProductConfigurationPageProps) {
+  if (props.program) {
+    return (
+      <ProgramProductNotice
+        productName={props.program.productName}
+        onBack={props.onBack}
+        onOpenPrograms={props.program.onOpenPrograms}
+        onOpenStats={props.onOpenStats}
+      />
+    )
+  }
   return (
     <ProductConfigurationContent
       key={`${props.context.userId}:${props.context.role}:${props.productId}`}
@@ -479,12 +495,12 @@ function ProductConfigurationContent({
       </button>
       <header className="admin-page-heading admin-config-page-heading">
         <div>
-          <p className="admin-eyebrow">PRODUCT SETUP</p>
+          <p className="admin-eyebrow">CUSTOM DEAL SETUP</p>
           <h1 id="admin-product-config-title">{configuration?.product.name ?? 'Product setup'}</h1>
           <p>
             {trackingOnlySelected
               ? 'Tracking-only product: redirects and attribution run, but checkout, commissions, and payouts stay off.'
-              : 'Set up this product one step at a time. Nothing goes live until you confirm it on the Go live step.'}
+              : 'Set up this custom deal one step at a time. Nothing goes live until you confirm it on the Go live step.'}
           </p>
         </div>
         <div className="admin-setup-heading-meta">

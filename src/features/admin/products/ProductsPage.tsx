@@ -6,6 +6,7 @@ import { markFormSaved } from '../../../components/useFormNavigationGuard'
 import {
   Box,
   ChartNoAxesColumn,
+  ClipboardCheck,
   LoaderCircle,
   PackagePlus,
   Settings2,
@@ -19,6 +20,7 @@ import {
   type ProductDraftErrors,
   type ProductDraftField,
 } from './productValidation'
+import { NO_PROGRAM_PRODUCTS, type ProgramProducts } from './programProducts'
 
 function formattedDate(value: string): string {
   const date = new Date(value)
@@ -37,6 +39,10 @@ export type ProductsPageProps = Readonly<{
   onCreate: (input: AdminProductCreate) => Promise<AdminDataResult<AdminProduct | null>>
   onConfigure?: (productId: string) => void
   onViewStats?: (productId: string) => void
+  /** Products that belong to a merchant's program: marked, and never sent to setup. */
+  programProducts?: ProgramProducts
+  /** Opens program review. Left out for a role that cannot review programs. */
+  onOpenPrograms?: () => void
 }>
 
 export function ProductsPage({
@@ -45,6 +51,8 @@ export function ProductsPage({
   onCreate,
   onConfigure,
   onViewStats,
+  programProducts = NO_PROGRAM_PRODUCTS,
+  onOpenPrograms,
 }: ProductsPageProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -131,9 +139,6 @@ export function ProductsPage({
         <div>
           <p className="admin-eyebrow">PRODUCT CATALOG</p>
           <h1 id="admin-products-title">Products</h1>
-          <p>
-            Create the product record first. Funnel configuration remains a separate later step.
-          </p>
         </div>
         <span className="admin-heading-chip">
           <ShieldCheck size={16} aria-hidden="true" /> RPC protected
@@ -148,7 +153,7 @@ export function ProductsPage({
             </span>
             <div>
               <h2>Add a product</h2>
-              <p>Every new product starts safely in Draft.</p>
+              <p>Merchants publish programs themselves, so this is only for a custom deal.</p>
             </div>
           </div>
 
@@ -265,56 +270,72 @@ export function ProductsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <th scope="row">
-                        <span className="admin-product-name-cell">
-                          <span className="admin-product-symbol">
-                            <Box size={16} aria-hidden="true" />
+                  {products.map((product) => {
+                    const program = programProducts.has(product.id)
+                    return (
+                      <tr key={product.id}>
+                        <th scope="row">
+                          <span className="admin-product-name-cell">
+                            <span className="admin-product-symbol">
+                              <Box size={16} aria-hidden="true" />
+                            </span>
+                            {product.name}
+                            {program && <span className="admin-product-kind">Program</span>}
                           </span>
-                          {product.name}
-                        </span>
-                      </th>
-                      <td>
-                        <code>{product.slug}</code>
-                      </td>
-                      <td>
-                        <span className={`admin-status-badge admin-status-${product.status}`}>
-                          {product.status}
-                        </span>
-                      </td>
-                      <td>{formattedDate(product.createdAt)}</td>
-                      <td>{formattedDate(product.updatedAt)}</td>
-                      {(onConfigure || onViewStats) && (
+                        </th>
                         <td>
-                          <span className="admin-table-actions">
-                            {onConfigure && (
-                              <button
-                                className="admin-table-action"
-                                type="button"
-                                aria-label={`${canCreate ? 'Set up' : 'View setup for'} ${product.name}`}
-                                onClick={() => onConfigure(product.id)}
-                              >
-                                <Settings2 size={15} aria-hidden="true" />
-                                {canCreate ? 'Setup' : 'View setup'}
-                              </button>
-                            )}
-                            {onViewStats && (
-                              <button
-                                className="admin-table-action"
-                                type="button"
-                                aria-label={`View stats for ${product.name}`}
-                                onClick={() => onViewStats(product.id)}
-                              >
-                                <ChartNoAxesColumn size={15} aria-hidden="true" />
-                                Stats
-                              </button>
-                            )}
+                          <code>{product.slug}</code>
+                        </td>
+                        <td>
+                          <span className={`admin-status-badge admin-status-${product.status}`}>
+                            {product.status}
                           </span>
                         </td>
-                      )}
-                    </tr>
-                  ))}
+                        <td>{formattedDate(product.createdAt)}</td>
+                        <td>{formattedDate(product.updatedAt)}</td>
+                        {(onConfigure || onViewStats) && (
+                          <td>
+                            <span className="admin-table-actions">
+                              {program
+                                ? onOpenPrograms && (
+                                    <button
+                                      className="admin-table-action"
+                                      type="button"
+                                      aria-label={`Open ${product.name} in Programs`}
+                                      onClick={onOpenPrograms}
+                                    >
+                                      <ClipboardCheck size={15} aria-hidden="true" />
+                                      Programs
+                                    </button>
+                                  )
+                                : onConfigure && (
+                                    <button
+                                      className="admin-table-action"
+                                      type="button"
+                                      aria-label={`${canCreate ? 'Set up' : 'View setup for'} ${product.name}`}
+                                      onClick={() => onConfigure(product.id)}
+                                    >
+                                      <Settings2 size={15} aria-hidden="true" />
+                                      {canCreate ? 'Setup' : 'View setup'}
+                                    </button>
+                                  )}
+                              {onViewStats && (
+                                <button
+                                  className="admin-table-action"
+                                  type="button"
+                                  aria-label={`View stats for ${product.name}`}
+                                  onClick={() => onViewStats(product.id)}
+                                >
+                                  <ChartNoAxesColumn size={15} aria-hidden="true" />
+                                  Stats
+                                </button>
+                              )}
+                            </span>
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1,5 +1,5 @@
 import { useFormNavigationGuard } from '../../components/useFormNavigationGuard'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   ArrowRightLeft,
@@ -30,6 +30,7 @@ import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { ProductStatsPage } from './products/ProductStatsPage'
+import { programProductIds } from './products/programProducts'
 import { ProgramsPage } from './programs/ProgramsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
@@ -210,6 +211,8 @@ export function AdminPortalApp({
   const funnelsLinksRestricted = context?.role === 'support'
   const observabilityRestricted = context?.role === 'support'
   const settingsRestricted = context?.role === 'support'
+  // A program's product was set up by its merchant: no page offers the setup wizard for it.
+  const programProducts = useMemo(() => programProductIds(state.products), [state.products])
 
   function isRestrictedRoute(routeId: string): boolean {
     return (
@@ -264,6 +267,8 @@ export function AdminPortalApp({
     if (nextRoute === route) return
     guard.request(() => onNavigate(nextRoute))
   }
+
+  const openPrograms = isRestrictedRoute('programs') ? undefined : () => navigate('programs')
 
   return (
     <div
@@ -442,6 +447,16 @@ export function AdminPortalApp({
                     context={context}
                     gateway={effectiveGateway}
                     onBack={() => navigate('products')}
+                    program={
+                      programProducts.has(productId)
+                        ? {
+                            productName:
+                              state.products.find((product) => product.id === productId)?.name ??
+                              null,
+                            onOpenPrograms: openPrograms,
+                          }
+                        : null
+                    }
                     onProductRead={replaceProduct}
                     onOpenSettings={settingsRestricted ? undefined : () => navigate('settings')}
                     onOpenStats={
@@ -478,6 +493,8 @@ export function AdminPortalApp({
                   gateway={effectiveGateway}
                   onBack={() => navigate('products')}
                   onOpenSetup={() => onOpenProductConfiguration(productId)}
+                  program={programProducts.has(productId)}
+                  onOpenPrograms={openPrograms}
                   onOpenSubscriptions={
                     context.role === 'support' ? undefined : () => navigate('subscriptions')
                   }
@@ -488,6 +505,8 @@ export function AdminPortalApp({
                   products={state.products}
                   onCreate={createProduct}
                   onConfigure={(id) => guard.request(() => onOpenProductConfiguration(id))}
+                  programProducts={programProducts}
+                  onOpenPrograms={openPrograms}
                   onViewStats={
                     onOpenProductStats
                       ? (id) => guard.request(() => onOpenProductStats(id))
@@ -619,6 +638,8 @@ export function AdminPortalApp({
               ) : (
                 <AdminOverview
                   products={state.products}
+                  programProducts={programProducts}
+                  onOpenPrograms={openPrograms}
                   onOpenProducts={() => navigate('products')}
                 />
               )

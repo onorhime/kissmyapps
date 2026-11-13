@@ -54,6 +54,11 @@ export type AdminProduct = Readonly<{
   trackingOnlyApprovedAt: string | null
   createdAt: string
   updatedAt: string
+  /**
+   * The merchant program this product was created for at first-listing approval. Missing or
+   * null for a custom deal, the only kind of product the setup wizard is for.
+   */
+  programId?: string | null
 }>
 
 /** Product creation is deliberately draft-only and has no funnel fields. */

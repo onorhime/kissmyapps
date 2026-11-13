@@ -464,3 +464,24 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Marks a product that belongs to a merchant's program. Quieter than a status badge. */
+.admin-product-kind {
+  padding: 3px 7px;
+  border: 1px solid var(--admin-line);
+  border-radius: 6px;
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* The two ways on from a program's setup address. They stack instead of breaking a label. */
+.admin-program-product-actions {
+  flex-wrap: wrap;
+}
+
+.admin-program-product-actions button {
+  white-space: nowrap;
+}

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { AdminContext, AdminDataResult, AdminProduct, AdminProductCreate } from '../api'
@@ -21,6 +21,16 @@ const createdProduct: AdminProduct = {
   trackingOnlyApprovedAt: null,
   createdAt: '2026-08-28T10:00:00.000Z',
   updatedAt: '2026-08-28T10:00:00.000Z',
+}
+
+/** The product a program got when its first listing was approved. */
+const programProduct: AdminProduct = {
+  ...createdProduct,
+  id: 'product-program',
+  name: 'SpeakSix',
+  slug: 'speaksix',
+  status: 'active',
+  programId: 'program-1',
 }
 
 function readyCreation(product = createdProduct): AdminDataResult<AdminProduct | null> {
@@ -87,6 +97,88 @@ describe('Admin Products page', () => {
     ).toBeVisible()
     expect(screen.getByLabelText('Product name')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Create draft product' })).toBeDisabled()
+  })
+
+  it('says in one sentence that the form is only for a custom deal', () => {
+    render(<ProductsPage context={ownerContext} products={[]} onCreate={vi.fn()} />)
+
+    expect(
+      screen.getByText('Merchants publish programs themselves, so this is only for a custom deal.'),
+    ).toBeVisible()
+  })
+
+  it('marks a program product and opens program review instead of setup', async () => {
+    const user = userEvent.setup()
+    const handlers = { onConfigure: vi.fn(), onViewStats: vi.fn(), onOpenPrograms: vi.fn() }
+    render(
+      <ProductsPage
+        context={ownerContext}
+        products={[programProduct, createdProduct]}
+        programProducts={new Set([programProduct.id])}
+        onCreate={vi.fn()}
+        {...handlers}
+      />,
+    )
+
+    const program = screen.getByRole('row', { name: /SpeakSix/ })
+    expect(within(program).getByText('Program')).toBeVisible()
+    expect(within(program).queryByRole('button', { name: /set ?up/i })).toBeNull()
+    await user.click(within(program).getByRole('button', { name: 'Open SpeakSix in Programs' }))
+    expect(handlers.onOpenPrograms).toHaveBeenCalledOnce()
+    expect(handlers.onConfigure).not.toHaveBeenCalled()
+    await user.click(within(program).getByRole('button', { name: 'View stats for SpeakSix' }))
+    expect(handlers.onViewStats).toHaveBeenCalledWith(programProduct.id)
+
+    // The custom deal next to it is untouched: no mark, and Setup opens the wizard.
+    const customDeal = screen.getByRole('row', { name: /Daily Planner/ })
+    expect(within(customDeal).queryByText('Program')).toBeNull()
+    expect(within(customDeal).queryByRole('button', { name: /Programs/ })).toBeNull()
+    await user.click(within(customDeal).getByRole('button', { name: 'Set up Daily Planner' }))
+    expect(handlers.onConfigure).toHaveBeenCalledWith(createdProduct.id)
+  })
+
+  it('offers a program product no setup to a role that cannot review programs', () => {
+    render(
+      <ProductsPage
+        context={{ ...ownerContext, role: 'finance' }}
+        products={[programProduct, createdProduct]}
+        programProducts={new Set([programProduct.id])}
+        onCreate={vi.fn()}
+        onConfigure={vi.fn()}
+        onViewStats={vi.fn()}
+      />,
+    )
+
+    const program = screen.getByRole('row', { name: /SpeakSix/ })
+    expect(within(program).getByText('Program')).toBeVisible()
+    expect(within(program).getAllByRole('button')).toHaveLength(1)
+    expect(within(program).getByRole('button', { name: 'View stats for SpeakSix' })).toBeVisible()
+    expect(
+      within(screen.getByRole('row', { name: /Daily Planner/ })).getByRole('button', {
+        name: 'View setup for Daily Planner',
+      }),
+    ).toBeVisible()
+  })
+
+  it('treats every product as today when no product belongs to a program', async () => {
+    const user = userEvent.setup()
+    const onConfigure = vi.fn()
+    render(
+      <ProductsPage
+        context={ownerContext}
+        products={[{ ...programProduct, programId: null }, createdProduct]}
+        onCreate={vi.fn()}
+        onConfigure={onConfigure}
+        onViewStats={vi.fn()}
+        onOpenPrograms={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('Program')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Programs/ })).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Set up SpeakSix' }))
+    expect(onConfigure).toHaveBeenCalledWith(programProduct.id)
+    expect(screen.getByRole('button', { name: 'Set up Daily Planner' })).toBeVisible()
   })
 
   it('shows a safe fallback when creation throws', async () => {
