@@ -1,8 +1,80 @@
 # Affiliate self-serve, Phase 8: deploy steps
 
+Phase 8 adds four things to the affiliate programs of Phases 1 to 7:
+
+- **A checkout link**: a program can sell one product (name, price, one-time, monthly or
+  yearly) through a Stripe Checkout that KissMyApps opens on the merchant's own Stripe
+  account. A creator's link opens it with the creator's click on it.
+- **Creator promo codes**: a program can give buyers 1% to 90% off. Each active creator then
+  gets a code such as `ANNA10`, made on the merchant's Stripe account. A sale that used a
+  creator's code goes to that creator, even when another creator's link was clicked first.
+- **In-app subscriptions** bought through the App Store or Google Play, reported by
+  RevenueCat or Adapty. Commission is paid on the store's proceeds (after the store's cut and
+  tax).
+- **Amplitude**: matched app installs of identified people are sent to the merchant's own
+  Amplitude project as user properties and an event.
+
+Nothing here is live until it is deployed, and every new function is closed by a flag until
+it is switched on. Deploy Phase 8 only after Phases 0 to 7, in this order:
+
+1. Apply the four migrations in order: `20261121100000_program_phase8_base.sql`,
+   `20261121101000_program_checkout_promo.sql`, `20261121102000_program_store_sales.sql`,
+   `20261121103000_analytics_destinations.sql`.
+2. Set the new function secrets of sections B, C and D with every flag unset.
+3. Deploy `program-checkout`, `program-promo-worker`, `program-store-webhook` and
+   `analytics-destinations-worker`, and redeploy `program-sales-worker`.
+4. Store the two scheduler values in Vault and install the two schedules (sections C and D).
+5. Release the dashboard build (merchant console and creator pages).
+6. Merge the `kissmyapps.dev/checkout/*` route into the edge Caddy (section C).
+7. Switch the flags on one at a time, each followed by its first live check:
+   `PROGRAM_PROMO_CODES_ENABLED`, `PROGRAM_CHECKOUT_ENABLED`, `PROGRAM_STORE_WEBHOOK_ENABLED`,
+   `ANALYTICS_DESTINATIONS_ENABLED`.
+
+| Flag                             | Closes                                                     |
+| -------------------------------- | ---------------------------------------------------------- |
+| `PROGRAM_PROMO_CODES_ENABLED`    | making and retiring promo codes on Stripe (codes wait)     |
+| `PROGRAM_CHECKOUT_ENABLED`       | checkout links (the page says checkout is not available)   |
+| `PROGRAM_STORE_WEBHOOK_ENABLED`  | RevenueCat and Adapty events (503, nothing stored)         |
+| `ANALYTICS_DESTINATIONS_ENABLED` | sending installs to Amplitude (installs wait in the queue) |
+
 ## A. Program rules and promo codes
 
-(Piece A's notes go here.)
+Migration `20261121101000_program_checkout_promo.sql`. No edge function and no secret of its
+own: the workers of section C act on what it stores.
+
+What it adds:
+
+- Program fields, saved from the program form, kept in the terms creators accept, written into
+  the agreement, shown on the marketplace and in the admin review: `payment_mode`
+  (`own_checkout`, the default, or `kma_checkout`), the product of a checkout link
+  (`checkout_name`, `checkout_amount_minor`, `checkout_interval`, `checkout_success_url`) and
+  `buyer_discount_bps`.
+- A checkout-link program's landing page is set by the database to
+  `https://kissmyapps.dev/checkout/<program slug>` and cannot be edited. Submitting it for
+  review and approving it both need a Stripe connection that can take charges
+  (`stripe_charges_disabled` otherwise). A program that pays only for app events cannot have
+  a checkout link or a discount.
+- Promo codes (`program_promo_codes`): when a program with a discount is published, each
+  active creator gets a pending code made from their public name and the percent; a creator
+  who leaves has their code retired; a new discount retires every code and makes new ones on
+  publish, and creators accept the new terms again. `claim_program_promo_codes` and
+  `finish_program_promo_code` hand codes to the promo worker with a 10-minute lease; a code
+  Stripe refuses is retried with backoff and marked failed after the fifth try (a code name
+  already taken on the merchant's account is renamed, `ANNA10` to `ANNA102`, and tried at
+  once). The merchant's program page shows how many codes are ready, being made and failed.
+- Sales: `record_program_sale` stores the promotion code a Stripe payment used. A creator code
+  of the program that was live at the payment overrides a link tag or an email match, also
+  when the code arrives on a later receipt of the same payment. The sale is tied to a click
+  on that creator's main link, made once per sale (`program_promo_code_uses`), so commissions
+  work unchanged. These clicks count in click numbers.
+- `program_checkout_target` gives the checkout function the product, the merchant's account,
+  the click and that creator's code.
+
+Known limit: when a payment's code arrives after its commission was already approved (after
+the hold), the sale moves to the code's creator but the approved commission stays with the
+first one. In practice the receipts of one payment arrive seconds apart and the hold is days.
+
+Existing programs are unchanged: they read as `own_checkout` with no discount and no codes.
 
 ## B. Store subscriptions (RevenueCat and Adapty)
 
