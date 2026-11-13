@@ -1,3 +1,5 @@
+// Flutter after 3.47 moves Material to package:material_ui; the SDK still supports 3.24.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:kissmyapps/kissmyapps.dart';
 
