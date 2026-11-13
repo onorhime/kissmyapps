@@ -494,6 +494,11 @@ verify_jwt = false
 # verifies Stripe HMAC; disabled unless CONNECT_PAYMENTS_WEBHOOK_ENABLED=true.
 [functions.connect-payments-webhook]
 verify_jwt = false
+# Sale tracking: turns those receipts into program sales by reading the payment back from
+# the merchant's Stripe account (GET only). Called by the webhook and by a database
+# schedule, each with its own secret; disabled unless PROGRAM_SALES_ENABLED=true.
+[functions.program-sales-worker]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false

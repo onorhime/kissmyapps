@@ -3,6 +3,11 @@
 // commission, no ledger and no call back to Stripe. Only identifiers, the
 // amount, the currency and the creator tag leave this function; names, emails,
 // card data and the raw payload are never stored or logged.
+//
+// After a new receipt of a connected account is stored, the sale worker is
+// told there is work (program-sales-worker). That call is never waited for
+// and can never change the answer Stripe gets: the receipt is already stored
+// and the worker's schedule picks up whatever a lost call left behind.
 import {
   ConfigurationError,
   DatabaseBoundaryError,
@@ -20,12 +25,16 @@ import {
   stripeSignedBodySha256,
   verifyStripeSignature,
 } from "../_shared/stripe.ts";
+import { requiredEnv, requiredSecret } from "../_shared/env.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { isPlainObject } from "../_shared/validation.ts";
 
 const WORKER = "connect-payments-webhook";
+const SALES_WORKER = "program-sales-worker";
 const MAXIMUM_BODY_BYTES = 512 * 1024;
 const FUTURE_TOLERANCE_SECONDS = 300;
+/** Longer than one run of the sale worker, so the call is not cut short. */
+const SALES_WORKER_NUDGE_TIMEOUT_MS = 80_000;
 
 type Json = Record<string, unknown>;
 type TagSource = "metadata" | "client_reference_id";
@@ -103,6 +112,12 @@ export interface ConnectPaymentsWebhookDependencies {
   webhookSecret: () => string | undefined;
   platformAccountId: () => string | undefined;
   persist: (receipt: PaymentReceipt) => Promise<ReceiptOutcome>;
+  /**
+   * Tells the sale worker that a new receipt is waiting. Called once per new
+   * receipt of a connected account, never awaited by the webhook; a throw or
+   * a rejection is logged and changes nothing else.
+   */
+  nudgeSalesWorker: (requestId: string) => void | Promise<void>;
   now: () => number;
   log: (entry: ConnectPaymentsLogEntry) => void;
 }
@@ -179,8 +194,48 @@ export function receiptFields(
   };
 }
 
+/**
+ * Lets work started by a request outlive its response on Supabase Edge
+ * Functions. Elsewhere (tests, local runs) the promise simply runs on.
+ */
+function keepAlive(work: Promise<unknown>): void {
+  const runtime = (globalThis as {
+    EdgeRuntime?: { waitUntil?: (work: Promise<unknown>) => void };
+  }).EdgeRuntime;
+  if (typeof runtime?.waitUntil === "function") runtime.waitUntil(work);
+}
+
+/**
+ * One POST to the sale worker with the internal worker secret. It does
+ * nothing unless sale tracking is switched on, and it carries no receipt
+ * data: the worker reads its own queue.
+ */
+function nudgeSalesWorker(requestId: string): void | Promise<void> {
+  if (Deno.env.get("PROGRAM_SALES_ENABLED") !== "true") return;
+  const call = fetch(
+    `${requiredEnv("SUPABASE_URL")}/functions/v1/${SALES_WORKER}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-kma-worker-secret": requiredSecret("INTERNAL_WORKER_SECRET"),
+        "x-request-id": requestId,
+      },
+      body: "{}",
+      redirect: "error",
+      signal: AbortSignal.timeout(SALES_WORKER_NUDGE_TIMEOUT_MS),
+    },
+  ).then(async (response) => {
+    await response.body?.cancel();
+    if (!response.ok) throw new Error("sale worker refused the nudge");
+  });
+  keepAlive(call.catch(() => {}));
+  return call;
+}
+
 function defaults(): ConnectPaymentsWebhookDependencies {
   return {
+    nudgeSalesWorker,
     enabled: () => Deno.env.get("CONNECT_PAYMENTS_WEBHOOK_ENABLED") === "true",
     webhookSecret: () =>
       Deno.env.get("CONNECT_PAYMENTS_WEBHOOK_SECRET")?.trim(),
@@ -224,6 +279,27 @@ export function createConnectPaymentsWebhook(
       return jsonResponse(200, { received: true, ...body, request_id: rid }, {
         "X-Request-ID": rid,
       });
+    };
+    // Fire and forget. Whatever the nudge does, the webhook's answer stands.
+    const nudge = (): void => {
+      const failed = (): void => {
+        try {
+          deps.log({
+            level: "warning",
+            worker: WORKER,
+            outcome: "sales_worker_nudge_failed",
+            request_id: rid,
+            ...seen,
+          });
+        } catch {
+          // A log sink that throws must not surface either.
+        }
+      };
+      try {
+        Promise.resolve(deps.nudgeSalesWorker(rid)).catch(failed);
+      } catch {
+        failed();
+      }
     };
     try {
       requireMethod(request, ["POST"]);
@@ -322,9 +398,9 @@ export function createConnectPaymentsWebhook(
       if (!outcome.matched) {
         return answer("ignored_unmatched_account", { ignored: true });
       }
-      return answer(outcome.duplicate ? "duplicate" : "recorded", {
-        duplicate: outcome.duplicate,
-      });
+      if (outcome.duplicate) return answer("duplicate", { duplicate: true });
+      nudge();
+      return answer("recorded", { duplicate: false });
     } catch (caught) {
       // The same event id with a different signed body is not retryable work.
       const error = caught instanceof DatabaseBoundaryError &&

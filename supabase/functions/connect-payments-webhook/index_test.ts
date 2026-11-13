@@ -187,6 +187,8 @@ function fixture(
   outcome: ReceiptOutcome = { matched: true, duplicate: false },
 ) {
   const saved: PaymentReceipt[] = [], logs: ConnectPaymentsLogEntry[] = [];
+  // Request ids the sale worker was nudged with. Never a real request.
+  const nudged: string[] = [];
   const handler = createConnectPaymentsWebhook({
     enabled: () => true,
     webhookSecret: () => SECRET,
@@ -197,9 +199,12 @@ function fixture(
       saved.push(receipt);
       return outcome;
     },
+    nudgeSalesWorker: (rid) => {
+      nudged.push(rid);
+    },
     ...overrides,
   });
-  return { handler, saved, logs };
+  return { handler, saved, logs, nudged };
 }
 
 async function sha256(text: string): Promise<string> {
@@ -245,6 +250,7 @@ Deno.test("only the exact value true in the environment turns the webhook on", a
       saved.push(receipt);
       return { matched: true, duplicate: false };
     },
+    nudgeSalesWorker: () => {},
   });
   // The exported handler logs to the console; keep the test output quiet.
   const consoleLog = console.log;
@@ -955,6 +961,10 @@ Deno.test("nothing sensitive reaches receipts, logs or responses", async () => {
           if (outcome instanceof Error) throw outcome;
           return outcome;
         },
+        // A nudge that fails with personal data in its message.
+        nudgeSalesWorker: () => {
+          throw new Error(`could not reach worker for ${person.email}`);
+        },
       });
       const requests = [
         ...await Promise.all(
@@ -1061,5 +1071,251 @@ Deno.test("an unverified request cannot put its own text in the logs", async () 
   assertEquals(f.logs.length, 2);
   for (const entry of f.logs) {
     assertEquals([entry.event_id, entry.event_type], [undefined, undefined]);
+  }
+});
+
+Deno.test("each new receipt of a connected account nudges the sale worker once", async () => {
+  for (const type of CONNECT_PAYMENT_EVENT_TYPES) {
+    const f = fixture();
+    const response = await f.handler(
+      await request(event(type), {
+        headers: { "X-Request-ID": "nudge-request-0001" },
+      }),
+    );
+    assertEquals(response.status, 200, type);
+    // The nudge carries the request id and nothing about the receipt.
+    assertEquals(f.nudged, ["nudge-request-0001"], type);
+    assertEquals(f.logs.map((l) => l.outcome), ["recorded"], type);
+  }
+});
+
+Deno.test("nothing that was not newly stored for a connected account nudges the sale worker", async () => {
+  const quiet: [string, ReturnType<typeof fixture>, Request][] = [
+    [
+      "duplicate",
+      fixture({}, { matched: true, duplicate: true }),
+      await request(event()),
+    ],
+    [
+      "not connected",
+      fixture({}, { matched: false, duplicate: false }),
+      await request(event()),
+    ],
+    [
+      "test mode",
+      fixture(),
+      await request(event("invoice.paid", {}, { livemode: false })),
+    ],
+    ["other event type", fixture(), await request(event("customer.created"))],
+    [
+      "platform's own event",
+      fixture(),
+      await request(event("invoice.paid", {}, { account: PLATFORM })),
+    ],
+    [
+      "bad signature",
+      fixture(),
+      await request(event(), { secret: "whsec_someoneelsessecret" }),
+    ],
+    [
+      "malformed event",
+      fixture(),
+      await request(event("refund.created", { id: null })),
+    ],
+    ["switched off", fixture({ enabled: () => false }), await request(event())],
+    [
+      "not stored",
+      fixture({
+        persist: async () => {
+          throw new DatabaseBoundaryError("57014");
+        },
+      }),
+      await request(event()),
+    ],
+    [
+      "conflicting event id",
+      fixture({
+        persist: async () => {
+          throw new DatabaseBoundaryError("23505");
+        },
+      }),
+      await request(event()),
+    ],
+    [
+      "unreadable answer",
+      fixture({ persist: async () => null as unknown as ReceiptOutcome }),
+      await request(event()),
+    ],
+  ];
+  for (const [name, f, r] of quiet) {
+    await f.handler(r);
+    assertEquals(f.nudged, [], name);
+  }
+});
+
+Deno.test("a nudge that throws, rejects or never returns cannot change or delay the answer", async () => {
+  const never = new Promise<void>(() => {});
+  const nudges: [string, () => void | Promise<void>, string[]][] = [
+    ["throws", () => {
+      throw new Error("worker unreachable for buyer@private.example");
+    }, ["sales_worker_nudge_failed", "recorded"]],
+    [
+      "rejects",
+      () => Promise.reject(new Error("worker answered 503")),
+      ["recorded", "sales_worker_nudge_failed"],
+    ],
+    ["rejects later", async () => {
+      await Promise.resolve();
+      throw new DatabaseBoundaryError("57014");
+    }, ["recorded", "sales_worker_nudge_failed"]],
+    ["never returns", () => never, ["recorded"]],
+    [
+      "returns something that is not a promise",
+      () => 42 as unknown as void,
+      ["recorded"],
+    ],
+  ];
+  for (const [name, nudgeSalesWorker, outcomes] of nudges) {
+    const f = fixture({ nudgeSalesWorker });
+    const response = await f.handler(await request(event()));
+    assertEquals(response.status, 200, name);
+    const body = await response.json();
+    assertEquals([body.received, body.duplicate], [true, false], name);
+    assertEquals(f.saved.length, 1, name);
+    // Let a rejection that arrives after the answer be handled.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assertEquals(f.logs.map((l) => l.outcome), outcomes, name);
+    for (const entry of f.logs) {
+      assert(!JSON.stringify(entry).includes("private.example"), name);
+      assertEquals(
+        entry.level,
+        entry.outcome === "recorded" ? "info" : "warning",
+      );
+    }
+  }
+  // Even a log sink that fails while reporting the failed nudge is contained.
+  const f = fixture({
+    nudgeSalesWorker: () => {
+      throw new Error("worker unreachable");
+    },
+    log: (entry) => {
+      if (entry.outcome === "sales_worker_nudge_failed") {
+        throw new Error("log sink down");
+      }
+    },
+  });
+  assertEquals((await f.handler(await request(event()))).status, 200);
+});
+
+Deno.test("the shipped nudge is one POST to the sale worker, only when sale tracking is on", async () => {
+  const names = [
+    "PROGRAM_SALES_ENABLED",
+    "SUPABASE_URL",
+    "INTERNAL_WORKER_SECRET",
+  ];
+  const previous = names.map((name) => Deno.env.get(name));
+  const realFetch = globalThis.fetch;
+  const globals = globalThis as { EdgeRuntime?: unknown };
+  const realRuntime = globals.EdgeRuntime;
+  const workerSecret = "nudge-fixture-worker-secret-0123456789";
+  const calls: { url: string; init: RequestInit }[] = [];
+  let answer: () => Promise<Response> = async () =>
+    new Response('{"status":"processed"}', { status: 200 });
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(input), init: init ?? {} });
+    return answer();
+  }) as typeof fetch;
+  // The shipped nudge with everything before it faked.
+  const logs: ConnectPaymentsLogEntry[] = [];
+  const handler = createConnectPaymentsWebhook({
+    enabled: () => true,
+    webhookSecret: () => SECRET,
+    platformAccountId: () => PLATFORM,
+    now: () => NOW,
+    log: (entry) => logs.push(entry),
+    persist: async () => ({ matched: true, duplicate: false }),
+  });
+  const deliver = async () => {
+    const response = await handler(
+      await request(event("payment_intent.succeeded"), {
+        headers: { "X-Request-ID": "nudge-request-0002" },
+      }),
+    );
+    assertEquals(response.status, 200);
+    assertEquals((await response.json()).duplicate, false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  };
+  try {
+    Deno.env.set("SUPABASE_URL", "https://project.example.invalid");
+    Deno.env.set("INTERNAL_WORKER_SECRET", workerSecret);
+    // Off: any value other than the exact word true.
+    for (const value of [undefined, "", "false", "1", "TRUE", " true"]) {
+      if (value === undefined) Deno.env.delete("PROGRAM_SALES_ENABLED");
+      else Deno.env.set("PROGRAM_SALES_ENABLED", value);
+      await deliver();
+    }
+    assertEquals(calls.length, 0);
+    assertEquals(logs.every((l) => l.outcome === "recorded"), true);
+
+    // On: one request, kept alive past the response where the runtime can.
+    Deno.env.set("PROGRAM_SALES_ENABLED", "true");
+    const kept: Promise<unknown>[] = [];
+    globals.EdgeRuntime = {
+      waitUntil: (work: Promise<unknown>) => kept.push(work),
+    };
+    await deliver();
+    assertEquals(calls.length, 1);
+    assertEquals(kept.length, 1);
+    const { url, init } = calls[0];
+    assertEquals(
+      url,
+      "https://project.example.invalid/functions/v1/program-sales-worker",
+    );
+    assertEquals(init.method, "POST");
+    assertEquals(init.redirect, "error");
+    assertEquals(init.body, "{}");
+    assert(init.signal instanceof AbortSignal);
+    assertEquals(init.headers, {
+      "Content-Type": "application/json",
+      "x-kma-worker-secret": workerSecret,
+      "x-request-id": "nudge-request-0002",
+    });
+    assertEquals(logs.at(-1)?.outcome, "recorded");
+    globals.EdgeRuntime = realRuntime;
+
+    // The worker refusing, the network failing or a missing secret: the
+    // webhook still answers 200 and only notes that the nudge failed.
+    const failures: (() => void)[] = [
+      () => {
+        answer = async () => new Response("{}", { status: 503 });
+      },
+      () => {
+        answer = () => Promise.reject(new TypeError("network down"));
+      },
+      () => Deno.env.set("INTERNAL_WORKER_SECRET", "short"),
+      () => Deno.env.delete("INTERNAL_WORKER_SECRET"),
+      () => Deno.env.delete("SUPABASE_URL"),
+    ];
+    for (const arrange of failures) {
+      logs.length = 0;
+      arrange();
+      await deliver();
+      assertEquals(
+        logs.map((l) => l.outcome).sort(),
+        ["recorded", "sales_worker_nudge_failed"],
+      );
+    }
+    assertEquals(calls.length, 3);
+    for (const entry of logs) {
+      assert(!JSON.stringify(entry).includes(workerSecret));
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+    globals.EdgeRuntime = realRuntime;
+    names.forEach((name, i) => {
+      const value = previous[i];
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    });
   }
 });
