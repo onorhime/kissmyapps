@@ -26,6 +26,8 @@ const KEY_PATTERN = /^kma_(pk|sk)_(live|test)_[A-Za-z0-9]{20,64}$/;
 const MAX_EVENTS = 500;
 const SKEW_TOLERANCE_MS = 30_000;
 const MAX_SKEW_MS = 400 * 24 * 60 * 60 * 1000;
+// A creator click ID, as the tracking redirect issues it.
+const CREATOR_CLICK = /^[A-Za-z0-9_-]{16,128}$/;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -127,12 +129,14 @@ function normalizeContext(
     }
     out.utm = utm;
   }
-  // The landing page's click IDs: a smart link's (kma_lc) and the ad platforms'.
+  // The landing page's click IDs: a smart link's (kma_lc), a creator's affiliate link's
+  // (kma_click) and the ad platforms'.
   if (isObject(context.click)) {
     const click: Record<string, string> = {};
     for (
       const key of [
         "kma_lc",
+        "kma_click",
         "gclid",
         "gbraid",
         "wbraid",
@@ -142,7 +146,9 @@ function normalizeContext(
       ]
     ) {
       const value = text(context.click[key], 300);
-      if (value !== undefined) click[key] = value;
+      if (value === undefined) continue;
+      if (key === "kma_click" && !CREATOR_CLICK.test(value)) continue;
+      click[key] = value;
     }
     if (Object.keys(click).length) out.click = click;
   }

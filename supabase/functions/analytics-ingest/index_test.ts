@@ -113,6 +113,7 @@ Deno.test("events are normalised, hashed and placed before ingest", async () => 
       utm: { source: "newsletter", junk: "x" },
       click: {
         kma_lc: "Lk9x2mQ4rT7vW1yZ3bC5dE",
+        kma_click: "kc_7Hq2mW9xLp4RtZ8vB3nD",
         fbclid: "IwAR0abc",
         junk: "dropped",
         gclid: "",
@@ -175,7 +176,11 @@ Deno.test("events are normalised, hashed and placed before ingest", async () => 
     screen_width: 1440,
     webdriver: false,
     utm: { source: "newsletter" },
-    click: { kma_lc: "Lk9x2mQ4rT7vW1yZ3bC5dE", fbclid: "IwAR0abc" },
+    click: {
+      kma_lc: "Lk9x2mQ4rT7vW1yZ3bC5dE",
+      kma_click: "kc_7Hq2mW9xLp4RtZ8vB3nD",
+      fbclid: "IwAR0abc",
+    },
   });
   const events = payload.body.events as Record<string, unknown>[];
   assertEquals(events[0].time, "2026-10-30T10:00:00.000Z");
@@ -186,6 +191,44 @@ Deno.test("events are normalised, hashed and placed before ingest", async () => 
   assertEquals(events[2].time, now.toISOString());
   assertEquals(events[2].user_id, null);
   assert(!("key" in payload.body));
+});
+
+Deno.test("a creator click is kept only when it is a click ID", async () => {
+  const { calls, handler } = setup();
+  const send = (click: unknown) =>
+    handler(post("/v1/events", {
+      anonymous_id: "anon-1",
+      session: { id: "s-1" },
+      context: { click },
+      events: [],
+    }, { authorization: `Bearer ${key}`, origin: "https://shop.example" }));
+  for (
+    const bad of [
+      "short",
+      "has spaces in the value",
+      "kc_7Hq2mW9xLp4RtZ8vB3nD<script>",
+      "x".repeat(129),
+      12345,
+      { nested: "kc_7Hq2mW9xLp4RtZ8vB3nD" },
+    ]
+  ) {
+    const response = await send({ kma_click: bad, gclid: "Cj0" });
+    assertEquals(response.status, 200);
+    await response.body?.cancel();
+    assertEquals(
+      (calls.at(-1)!.body.context as Record<string, unknown>).click,
+      { gclid: "Cj0" },
+    );
+  }
+  const alone = await send({ kma_click: "bad value" });
+  await alone.body?.cancel();
+  assert(!("click" in (calls.at(-1)!.body.context as object)));
+  const good = await send({ kma_click: "A".repeat(128) });
+  await good.body?.cancel();
+  assertEquals(
+    (calls.at(-1)!.body.context as Record<string, unknown>).click,
+    { kma_click: "A".repeat(128) },
+  );
 });
 
 Deno.test("beacons carry the key in a text/plain body", async () => {

@@ -1,6 +1,6 @@
 import { parseUserAgent, type DeviceInfo, type HighEntropyHints } from './device'
 
-export const SDK_VERSION = '1.1.0'
+export const SDK_VERSION = '1.2.0'
 export const DEFAULT_ENDPOINT = 'https://events.kissmyapps.dev'
 
 export type Properties = Record<string, unknown>
@@ -48,7 +48,10 @@ export interface Touch {
   campaign?: string
   content?: string
   term?: string
-  /** kma_lc (a KissMyApps link click) and the ad platforms' gclid, fbclid, ttclid and others. */
+  /**
+   * kma_lc (a KissMyApps link click), kma_click (a creator's affiliate link click) and the
+   * ad platforms' gclid, fbclid, ttclid and others.
+   */
   click?: Record<string, string>
   referrer?: string
   landing: string
@@ -107,7 +110,18 @@ const BEACON_BYTES = 60_000
 const REPLAY_CHUNK_BYTES = 300_000
 const REPLAY_MAX_BYTES = 3_500_000
 const MAX_ERRORS_PER_PAGE = 20
-const CLICK_KEYS = ['kma_lc', 'gclid', 'gbraid', 'wbraid', 'fbclid', 'ttclid', 'msclkid']
+const CLICK_KEYS = [
+  'kma_lc',
+  'kma_click',
+  'gclid',
+  'gbraid',
+  'wbraid',
+  'fbclid',
+  'ttclid',
+  'msclkid',
+]
+// A creator click ID, as KissMyApps issues it. Anything else in kma_click is ignored.
+const CREATOR_CLICK = /^[A-Za-z0-9_-]{16,128}$/
 const TOUCH_MS = 30 * 24 * 60 * 60_000
 
 function uuid(): string {
@@ -173,9 +187,15 @@ function clickFromUrl(): Record<string, string> | undefined {
   const click: Record<string, string> = {}
   for (const key of CLICK_KEYS) {
     const value = params.get(key)
-    if (value) click[key] = value.slice(0, 300)
+    if (!value || (key === 'kma_click' && !CREATOR_CLICK.test(value))) continue
+    click[key] = value.slice(0, 300)
   }
   return Object.keys(click).length ? click : undefined
+}
+
+const creatorClick = (click?: Record<string, string>): string | null => {
+  const value = click?.kma_click
+  return typeof value === 'string' && CREATOR_CLICK.test(value) ? value : null
 }
 
 const sameSource = (a?: Record<string, string>, b?: Record<string, string>) =>
@@ -340,6 +360,25 @@ export class Kma {
   attribution(): Attribution | null {
     this.touches = this.freshTouches(this.touches)
     return this.touches ? JSON.parse(JSON.stringify(this.touches)) : null
+  }
+
+  /**
+   * The creator click that brought this visitor (kma_click on the landing page address), or
+   * null. Put it in the metadata of the Stripe payment you create so the sale is credited:
+   * metadata: { kma_click: kma.getClickId() }. It is the last source's click, or the first
+   * source's when the last has none. Reads memory only, so it never waits and never throws.
+   */
+  getClickId(): string | null {
+    if (this.state.optedOut || this.attributionMode() === 'off') return null
+    this.touches = this.freshTouches(this.touches)
+    const session = this.state.session
+    const timeout = (this.options.sessionTimeoutMinutes ?? 30) * 60_000
+    return (
+      creatorClick(this.touches?.last?.click) ??
+      creatorClick(this.touches?.first?.click) ??
+      // With attribution: 'session' nothing outlives the visit, but the visit itself does.
+      (session && Date.now() - session.last <= timeout ? creatorClick(session.click) : null)
+    )
   }
 
   /**
