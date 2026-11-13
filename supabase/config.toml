@@ -524,3 +524,9 @@ verify_jwt = false
 # with the shared ATTRIBUTION_LINK_SECRET. No Supabase session is involved.
 [functions.attribution-links]
 verify_jwt = false
+
+# Agreement emails and file cleanup: pg_cron calls it with its own credential from
+# kma_internal.function_secrets (scripts/deploy-agreement-notify.mjs). It was always
+# deployed with --no-verify-jwt; listing it here keeps a full release the same.
+[functions.agreement-notify]
+verify_jwt = false

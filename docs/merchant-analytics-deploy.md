@@ -5,6 +5,11 @@ The merchant console (merchant.kissmyapps.dev), the web SDK and the events endpo
 releases are listed under [Later releases](#later-releases), each with only what it adds.
 Do the steps in order; each one is safe to repeat.
 
+Since November 2026, `node scripts/kma-release.mjs apply` does the migrations, function
+deploys, VPS files and dashboard release below in one go ([RELEASING.md](RELEASING.md)).
+What it does not do, and these sections still describe, are the one-time hand steps: new
+secrets, DNS, Supabase Auth settings, the edge Caddy merge and the smoke tests.
+
 ## 1. Database
 
 Apply `supabase/migrations/20261030100000_merchant_analytics.sql` to project

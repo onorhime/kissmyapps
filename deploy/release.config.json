@@ -1,0 +1,49 @@
+{
+  "$comment": "Where scripts/kma-release.mjs sends each part of KissMyApps. See docs/RELEASING.md.",
+  "supabase": {
+    "projectRef": "mmyruzjemjecqyivhrgr",
+    "requiredSecrets": ["ANALYTICS_IP_SALT", "ANALYTICS_PROXY_SECRET", "ATTRIBUTION_LINK_SECRET"]
+  },
+  "vps": {
+    "ssh": "root@72.60.125.99",
+    "root": "/srv/kissmyapps",
+    "composeProject": "kissmyapps-dashboard",
+    "files": [
+      { "from": "deploy/hostinger/compose.yaml", "to": "compose.yaml", "service": "compose" },
+      {
+        "from": "deploy/hostinger/dashboard.Caddyfile",
+        "to": "dashboard.Caddyfile",
+        "service": "dashboard"
+      },
+      { "from": "deploy/geo-relay", "to": "geo-relay", "service": "geo", "glob": ".mjs" },
+      { "from": "deploy/link-service", "to": "link-service", "service": "links", "glob": ".mjs" }
+    ],
+    "services": [
+      { "name": "geo", "container": "kissmyapps-geo", "envFile": "geo-relay.env" },
+      { "name": "links", "container": "kissmyapps-links", "envFile": "link-service.env" }
+    ],
+    "dashboard": { "name": "dashboard", "container": "kissmyapps-dashboard" }
+  },
+  "edge": {
+    "$comment": "Shared with DramaPal and BC Learn, so the release only reads it. Merge changes by hand as deploy/hostinger/README.md describes.",
+    "container": "dramapal-caddy-1",
+    "caddyfile": "/etc/caddy/Caddyfile",
+    "requires": [
+      { "site": "partners.kissmyapps.dev", "contains": ["kissmyapps-dashboard:8080"] },
+      { "site": "admin.kissmyapps.dev", "contains": ["kissmyapps-dashboard:8080"] },
+      { "site": "merchant.kissmyapps.dev", "contains": ["kissmyapps-dashboard:8080"] },
+      { "site": "go.kissmyapps.dev", "contains": ["tracking-redirect"] },
+      { "site": "events.kissmyapps.dev", "contains": ["kissmyapps-geo:8787"] },
+      { "site": "https://", "contains": ["kissmyapps-links:8788", "X-Kma-Client-Ip"] },
+      { "site": "", "contains": ["ask http://kissmyapps-links:8789/check"] }
+    ]
+  },
+  "smoke": {
+    "dashboardHosts": [
+      "partners.kissmyapps.dev",
+      "admin.kissmyapps.dev",
+      "merchant.kissmyapps.dev"
+    ],
+    "eventsHost": "events.kissmyapps.dev"
+  }
+}
