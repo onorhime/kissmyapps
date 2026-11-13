@@ -34,6 +34,20 @@ export interface Creator {
   clicks: number
   sales: number
   last_click_at: string | null
+  /** What this creator's sales came to. Null when the database does not send money yet. */
+  sales_amount_minor: number | null
+  /** What those sales are worth to the creator now, and the part of it still in its hold. */
+  commission_minor: number | null
+  pending_minor: number | null
+}
+
+/** Every creator of the program added up, those who have ended included. */
+export interface CreatorTotals {
+  clicks: number
+  sales: number
+  sales_amount_minor: number
+  commission_minor: number
+  pending_minor: number
 }
 
 export interface CreatorsProgram {
@@ -56,6 +70,10 @@ export interface CreatorsState {
   program: CreatorsProgram | null
   counts: CreatorCounts
   creators: Creator[]
+  /** The currency the program's money is in. Null without a program, or when it was not sent. */
+  currency: string | null
+  /** Null when the database does not send money yet: the page is then drawn without it. */
+  totals: CreatorTotals | null
 }
 
 // Reading answers ---------------------------------------------------------------------------
@@ -72,6 +90,11 @@ const count = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0
 const moment = (value: unknown) =>
   typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null
+/** Money is whole minor units or it is not money: an amount that cannot be read is not shown. */
+const minor = (value: unknown) =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
+const currencyCode = (value: unknown) =>
+  typeof value === 'string' && /^[A-Za-z]{3}$/.test(value) ? value.toUpperCase() : null
 
 const CREATOR_STATUSES: readonly CreatorStatus[] = [
   'pending',
@@ -117,6 +140,25 @@ function creatorFrom(value: unknown): Creator | null {
     clicks: count(row.clicks),
     sales: count(row.sales),
     last_click_at: moment(row.last_click_at),
+    sales_amount_minor: minor(row.sales_amount_minor),
+    commission_minor: minor(row.commission_minor),
+    pending_minor: minor(row.pending_minor),
+  }
+}
+
+/** The totals line, or null when any of it is missing: a sum is never shown half read. */
+function totalsFrom(value: unknown): CreatorTotals | null {
+  const row = record(value)
+  const amount = minor(row?.sales_amount_minor)
+  const commission = minor(row?.commission_minor)
+  const pending = minor(row?.pending_minor)
+  if (!row || amount === null || commission === null || pending === null) return null
+  return {
+    clicks: count(row.clicks),
+    sales: count(row.sales),
+    sales_amount_minor: amount,
+    commission_minor: commission,
+    pending_minor: pending,
   }
 }
 
@@ -155,9 +197,10 @@ export function readCreators(value: unknown): CreatorsState {
   const creators = body.creators.flatMap((item) => creatorFrom(item) ?? [])
   const sent = record(body.counts)
   const listed = countRows(creators)
+  const program = programFrom(body.program)
   return {
     can_manage: body.can_manage,
-    program: programFrom(body.program),
+    program,
     // The list is capped; the counts are not. A count is never below what is on the page.
     counts: {
       pending: Math.max(count(sent?.pending), listed.pending),
@@ -165,6 +208,9 @@ export function readCreators(value: unknown): CreatorsState {
       ended: Math.max(count(sent?.ended), listed.ended),
     },
     creators,
+    currency: program ? currencyCode(body.currency) : null,
+    // A database from before these figures existed sends none: the page then shows no money.
+    totals: program ? totalsFrom(body.totals) : null,
   }
 }
 
@@ -224,11 +270,18 @@ export function withDecision(state: CreatorsState, decided: Creator): CreatorsSt
   const counts = { ...state.counts }
   if (before) counts[bucket(before.status)] = Math.max(0, counts[bucket(before.status)] - 1)
   counts[bucket(decided.status)] += 1
+  // A decision moves no money: an answer that leaves the figures out keeps the ones on the page.
+  const moved: Creator = {
+    ...decided,
+    sales_amount_minor: decided.sales_amount_minor ?? before?.sales_amount_minor ?? null,
+    commission_minor: decided.commission_minor ?? before?.commission_minor ?? null,
+    pending_minor: decided.pending_minor ?? before?.pending_minor ?? null,
+  }
   return {
     ...state,
     counts,
     // Whoever was just decided on leads their new list, where the eye is.
-    creators: [decided, ...state.creators.filter((item) => item.member_id !== decided.member_id)],
+    creators: [moved, ...state.creators.filter((item) => item.member_id !== decided.member_id)],
   }
 }
 
@@ -243,6 +296,32 @@ export function groupCreators(list: Creator[]): CreatorGroups {
   const groups: CreatorGroups = { pending: [], active: [], ended: [] }
   for (const creator of list) groups[bucket(creator.status)].push(creator)
   return groups
+}
+
+/** The currency the money on the page is in, once the database sends money at all. */
+export function moneyCurrency(state: Pick<CreatorsState, 'currency' | 'totals'>): string | null {
+  return state.totals ? (state.currency ?? 'USD') : null
+}
+
+/**
+ * The totals count every creator, the table only those promoting now. When the two differ,
+ * the totals line says who else is in it.
+ */
+export function totalsNote(
+  state: Pick<CreatorsState, 'totals' | 'counts'>,
+  active: Creator[],
+): string | null {
+  const totals = state.totals
+  if (!totals) return null
+  const sum = (pick: (creator: Creator) => number | null) =>
+    active.reduce((all, creator) => all + (pick(creator) ?? 0), 0)
+  const same =
+    sum((creator) => creator.clicks) === totals.clicks &&
+    sum((creator) => creator.sales) === totals.sales &&
+    sum((creator) => creator.sales_amount_minor) === totals.sales_amount_minor &&
+    sum((creator) => creator.commission_minor) === totals.commission_minor
+  if (same) return null
+  return state.counts.ended > 0 ? 'Includes ended creators' : 'All creators'
 }
 
 // The words on the page ---------------------------------------------------------------------

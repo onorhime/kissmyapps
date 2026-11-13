@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { ChevronDown, ExternalLink, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { formatAmount } from '../balance'
 import {
   canApproveAgain,
   channelList,
@@ -11,6 +12,8 @@ import {
   groupCreators,
   inviteLink,
   inviteSummary,
+  moneyCurrency,
+  totalsNote,
   websiteLink,
   withDecision,
 } from '../creators'
@@ -206,6 +209,10 @@ function CreatorsPage({
   const canApprove = canManage && program?.status === 'live'
   const anyone = Boolean(state?.creators.length)
   const total = state ? state.counts.pending + state.counts.active + state.counts.ended : 0
+  // Set once the database sends what creators sold and earned; without it the page shows no money.
+  const currency = state ? moneyCurrency(state) : null
+  const totals = state?.totals ?? null
+  const totalsAbout = state ? totalsNote(state, groups.active) : null
 
   return (
     <div className="mc-page mc-crt" ref={root}>
@@ -361,74 +368,130 @@ function CreatorsPage({
                     : 'No one is promoting right now.'}
                 </p>
               ) : (
-                <table className="mc-table mc-crt-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Creator</th>
-                      <th scope="col">Joined</th>
-                      <th scope="col" className="mc-num-col">
-                        Clicks
-                      </th>
-                      <th scope="col" className="mc-num-col">
-                        Sales
-                      </th>
-                      <th scope="col">Last click</th>
-                      {canManage && (
-                        <th scope="col">
-                          <span className="sr-only">Action</span>
+                <div className="mc-crt-wide">
+                  <table
+                    className={
+                      currency ? 'mc-table mc-crt-table has-money' : 'mc-table mc-crt-table'
+                    }
+                  >
+                    <thead>
+                      <tr>
+                        <th scope="col">Creator</th>
+                        <th scope="col" className="mc-crt-joined">
+                          Joined
                         </th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.active.map((creator) => (
-                      <tr key={creator.member_id} data-member={creator.member_id} tabIndex={-1}>
-                        <td>
-                          <Person creator={creator}>
-                            {creator.needs_new_terms && (
-                              <Pill tone="warning">New terms not yet accepted</Pill>
-                            )}
-                          </Person>
-                        </td>
-                        <td data-label="Joined" className="mc-num">
-                          {creator.activated_at ? formatDay(creator.activated_at) : <Dash />}
-                        </td>
-                        <td data-label="Clicks" className="mc-num-col mc-num">
-                          {formatCount(creator.clicks)}
-                        </td>
-                        <td data-label="Sales" className="mc-num-col mc-num">
-                          {formatCount(creator.sales)}
-                        </td>
-                        <td data-label="Last click" className="mc-num">
-                          {creator.last_click_at ? (
-                            formatAgo(
-                              creator.last_click_at,
-                              Math.max(now, Date.parse(creator.last_click_at)),
-                            )
-                          ) : (
-                            <Dash />
-                          )}
-                        </td>
+                        <th scope="col" className="mc-num-col">
+                          Clicks
+                        </th>
+                        <th scope="col" className="mc-num-col">
+                          Sales
+                        </th>
+                        {currency && (
+                          <>
+                            <th scope="col" className="mc-num-col">
+                              Sales amount
+                            </th>
+                            <th scope="col" className="mc-num-col">
+                              Commission
+                            </th>
+                          </>
+                        )}
+                        <th scope="col" className="mc-crt-last">
+                          Last click
+                        </th>
                         {canManage && (
-                          <td className="is-action">
-                            <button
-                              type="button"
-                              className="mc-text-btn mc-crt-quiet"
-                              disabled={Boolean(busy)}
-                              aria-label={`Remove ${creator.name}`}
-                              onClick={(event) => {
-                                opener.current = event.currentTarget
-                                setAsk({ action: 'remove', creator })
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </td>
+                          <th scope="col">
+                            <span className="sr-only">Action</span>
+                          </th>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {groups.active.map((creator) => (
+                        <tr key={creator.member_id} data-member={creator.member_id} tabIndex={-1}>
+                          <td>
+                            <Person creator={creator} sales={Boolean(currency)}>
+                              {creator.needs_new_terms && (
+                                <Pill tone="warning">New terms not yet accepted</Pill>
+                              )}
+                            </Person>
+                          </td>
+                          <td data-label="Joined" className="mc-crt-joined mc-num">
+                            {creator.activated_at ? formatDay(creator.activated_at) : <Dash />}
+                          </td>
+                          <td data-label="Clicks" className="mc-num-col mc-num">
+                            {formatCount(creator.clicks)}
+                          </td>
+                          <td data-label="Sales" className="mc-num-col mc-num">
+                            {formatCount(creator.sales)}
+                          </td>
+                          {currency && (
+                            <>
+                              <td data-label="Sales amount" className="mc-num-col mc-num">
+                                <Money value={creator.sales_amount_minor} currency={currency} />
+                              </td>
+                              <td data-label="Commission" className="mc-num-col mc-num">
+                                <Money value={creator.commission_minor} currency={currency} />
+                                <Pending value={creator.pending_minor} currency={currency} />
+                              </td>
+                            </>
+                          )}
+                          <td data-label="Last click" className="mc-crt-last mc-num">
+                            {creator.last_click_at ? (
+                              formatAgo(
+                                creator.last_click_at,
+                                Math.max(now, Date.parse(creator.last_click_at)),
+                              )
+                            ) : (
+                              <Dash />
+                            )}
+                          </td>
+                          {canManage && (
+                            <td className="is-action">
+                              <button
+                                type="button"
+                                className="mc-text-btn mc-crt-quiet"
+                                disabled={Boolean(busy)}
+                                aria-label={`Remove ${creator.name}`}
+                                onClick={(event) => {
+                                  opener.current = event.currentTarget
+                                  setAsk({ action: 'remove', creator })
+                                }}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    {currency && totals && (
+                      <tfoot>
+                        <tr>
+                          <th scope="row">
+                            Total {totalsAbout && <span className="mc-sub">{totalsAbout}</span>}
+                          </th>
+                          <td className="mc-crt-blank mc-crt-joined" />
+                          <td data-label="Clicks" className="mc-num-col mc-num">
+                            {formatCount(totals.clicks)}
+                          </td>
+                          <td data-label="Sales" className="mc-num-col mc-num">
+                            {formatCount(totals.sales)}
+                          </td>
+                          <td data-label="Sales amount" className="mc-num-col mc-num">
+                            {formatAmount(totals.sales_amount_minor, currency)}
+                          </td>
+                          <td data-label="Commission" className="mc-num-col mc-num">
+                            {formatAmount(totals.commission_minor, currency)}
+                            <Pending value={totals.pending_minor} currency={currency} />
+                          </td>
+                          <td className="mc-crt-blank mc-crt-last" />
+                          {canManage && <td className="mc-crt-blank" />}
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
               )}
             </section>
           )}
@@ -454,7 +517,7 @@ function CreatorsPage({
                     const mine = busy?.memberId === creator.member_id
                     return (
                       <li key={creator.member_id} data-member={creator.member_id} tabIndex={-1}>
-                        <Person creator={creator} />
+                        <Person creator={creator} sales={Boolean(currency)} />
                         <p className="mc-crt-facts">
                           <span className="mc-num">{endedLine(creator)}</span>
                           {creator.decision_note && (
@@ -601,14 +664,45 @@ function Problem({
   )
 }
 
-/** Who a creator is: their initial on their own tint, the name they go by and their handle. */
-function Person({ creator, children }: { creator: Creator; children?: ReactNode }) {
+/** An amount of money, or a dash when the database sent none for this creator. */
+function Money({ value, currency }: { value: number | null; currency: string }) {
+  return value === null ? <Dash /> : formatAmount(value, currency)
+}
+
+/** The part of a commission still in its hold, in quiet text. Nothing when none is. */
+function Pending({ value, currency }: { value: number | null; currency: string }) {
+  return value ? <span className="mc-sub">{formatAmount(value, currency)} pending</span> : null
+}
+
+/**
+ * Who a creator is: their initial on their own tint, the name they go by and their handle.
+ * With `sales`, the name opens the Sales page narrowed to them.
+ */
+function Person({
+  creator,
+  sales = false,
+  children,
+}: {
+  creator: Creator
+  sales?: boolean
+  children?: ReactNode
+}) {
   return (
     <div className="mc-person mc-crt-person">
       <Avatar id={creator.member_id} name={creator.name} />
       <span className="mc-person-text">
         <span className="mc-crt-name">
-          <strong>{creator.name}</strong>
+          {sales ? (
+            <a
+              className="mc-crt-open"
+              href={href({ name: 'sales', creator: creator.member_id })}
+              aria-label={`${creator.name}: open their sales`}
+            >
+              <strong>{creator.name}</strong>
+            </a>
+          ) : (
+            <strong>{creator.name}</strong>
+          )}
           {children}
         </span>
         {creator.handle && <span className="mc-muted mc-truncate">@{creator.handle}</span>}

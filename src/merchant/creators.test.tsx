@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context, Project, Role } from './api'
 import { MerchantApp } from './MerchantApp'
+import { creatorBackendFixture } from './creator-backend.fixture'
 import {
   canApproveAgain,
   channelLabel,
@@ -13,16 +14,25 @@ import {
   groupCreators,
   inviteLink,
   inviteSummary,
+  moneyCurrency,
   NOTE_MAX,
   problemMessages,
   readCreators,
   readDecision,
+  totalsNote,
   websiteLink,
   withDecision,
 } from './creators'
-import type { Creator, CreatorsProgram, CreatorsState, CreatorStep } from './creators'
+import type {
+  Creator,
+  CreatorsProgram,
+  CreatorsState,
+  CreatorStep,
+  CreatorTotals,
+} from './creators'
 import { ProgramError, readFailure } from './programs'
 import { href, parseRoute } from './routes'
+import { salesFixture } from './sales.fixture'
 
 type Args = Record<string, unknown>
 type Answer = unknown | ((args: Args) => unknown)
@@ -130,6 +140,10 @@ const creator = (over: Partial<Creator> = {}): Creator => ({
   clicks: 0,
   sales: 0,
   last_click_at: null,
+  // A database from before Phase 5 sends no money: these tests are that page.
+  sales_amount_minor: null,
+  commission_minor: null,
+  pending_minor: null,
   ...over,
 })
 
@@ -217,6 +231,8 @@ function creatorsState(
       ended: rows.filter((row) => row.status !== 'pending' && row.status !== 'active').length,
     },
     creators: rows,
+    currency: null,
+    totals: null,
     ...over,
   }
 }
@@ -301,7 +317,7 @@ describe('creators route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators', 'Balance'])
+    ).toEqual(['Program', 'Creators', 'Sales', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -375,6 +391,9 @@ describe('reading answers', () => {
         clicks: 0,
         sales: 0,
         last_click_at: null,
+        sales_amount_minor: null,
+        commission_minor: null,
+        pending_minor: null,
       },
     ])
     // The counts were missing, so they are what is on the page.
@@ -1227,5 +1246,328 @@ describe('creators page: decisions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(buttons(/Approve|Decline|Remove/)).toHaveLength(0)
     expect(within(promoting()).getByText('Lena Hoffmann')).toBeInTheDocument()
+  })
+})
+
+// Phase 5: what each creator sold and earned ---------------------------------------------------
+
+const lenaPaid = {
+  ...lena,
+  sales_amount_minor: 151900,
+  commission_minor: 45570,
+  pending_minor: 14700,
+}
+const kwamePaid = { ...kwame, sales_amount_minor: 34300, commission_minor: 10290, pending_minor: 0 }
+const priyaPaid = { ...priya, sales_amount_minor: 0, commission_minor: 0, pending_minor: 0 }
+const jonasPaid = {
+  ...jonas,
+  clicks: 485,
+  sales: 6,
+  sales_amount_minor: 36400,
+  commission_minor: 10920,
+  pending_minor: 0,
+}
+const promotingPaid = [lenaPaid, kwamePaid, priyaPaid]
+
+/** What the rows add up to, as the database's totals do. */
+function totalsOf(rows: Creator[]): CreatorTotals {
+  const sum = (pick: (row: Creator) => number | null) =>
+    rows.reduce((all, row) => all + (pick(row) ?? 0), 0)
+  return {
+    clicks: sum((row) => row.clicks),
+    sales: sum((row) => row.sales),
+    sales_amount_minor: sum((row) => row.sales_amount_minor),
+    commission_minor: sum((row) => row.commission_minor),
+    pending_minor: sum((row) => row.pending_minor),
+  }
+}
+
+/** A Phase 5 answer: the rows, the program's currency and the totals over active and ended. */
+const paidState = (rows: Creator[], over: Partial<Omit<CreatorsState, 'creators'>> = {}) =>
+  creatorsState(rows, {
+    currency: 'USD',
+    totals: totalsOf(rows.filter((row) => row.status !== 'pending')),
+    ...over,
+  })
+
+const totalRow = () =>
+  screen.getByRole('rowheader', { name: /^Total/ }).closest('tr') as HTMLElement
+const texts = (row: HTMLElement, role: 'cell' | 'columnheader' = 'cell') =>
+  within(row)
+    .getAllByRole(role)
+    .map((cell) => cell.textContent)
+
+describe('reading the money creators made', () => {
+  it('reads what each creator sold and earned, the currency and the totals', () => {
+    const read = readCreators(salesFixture.creators_money)
+    expect(read.currency).toBe('USD')
+    expect(moneyCurrency(read)).toBe('USD')
+    expect(Object.keys(read.totals!).sort()).toEqual([
+      'clicks',
+      'commission_minor',
+      'pending_minor',
+      'sales',
+      'sales_amount_minor',
+    ])
+    for (const value of Object.values(read.totals!)) expect(Number.isSafeInteger(value)).toBe(true)
+    expect(read.creators.length).toBeGreaterThan(0)
+    for (const row of read.creators) {
+      expect(Number.isSafeInteger(row.sales_amount_minor)).toBe(true)
+      expect(Number.isSafeInteger(row.commission_minor)).toBe(true)
+      expect(row.pending_minor).toBeLessThanOrEqual(row.commission_minor!)
+    }
+    expect(JSON.stringify(read)).not.toContain('@')
+  })
+
+  it('accepts an answer from before these figures existed, and reads no money from it', () => {
+    for (const name of ['creators_mixed', 'creators_one_active', 'creators_pending']) {
+      const read = readCreators(creatorBackendFixture[name])
+      expect(read.program).not.toBeNull()
+      expect(read.totals).toBeNull()
+      expect(read.currency).toBeNull()
+      expect(moneyCurrency(read)).toBeNull()
+      expect(read.creators.length).toBeGreaterThan(0)
+      for (const row of read.creators) {
+        expect(row.sales_amount_minor).toBeNull()
+        expect(row.commission_minor).toBeNull()
+        expect(row.pending_minor).toBeNull()
+      }
+    }
+  })
+
+  it('never shows half a total: one unreadable amount and there is no totals line', () => {
+    const good = totalsOf([lenaPaid, jonasPaid])
+    expect(readCreators(paidState([lenaPaid, jonasPaid])).totals).toEqual(good)
+    for (const wrong of [
+      null,
+      'totals',
+      [],
+      {},
+      { ...good, commission_minor: undefined },
+      { ...good, sales_amount_minor: '151900' },
+      { ...good, pending_minor: -1 },
+      { ...good, commission_minor: 455.7 },
+      { ...good, sales_amount_minor: Number.MAX_SAFE_INTEGER + 2 },
+    ])
+      expect(
+        readCreators({ ...paidState([lenaPaid]), totals: wrong as unknown as CreatorTotals })
+          .totals,
+      ).toBeNull()
+    // Counts are counts: a missing one is zero, as for a creator.
+    expect(
+      readCreators({
+        ...paidState([lenaPaid]),
+        totals: { ...good, clicks: undefined } as unknown as CreatorTotals,
+      }).totals,
+    ).toEqual({ ...good, clicks: 0 })
+  })
+
+  it('reads an amount as whole minor units or not at all', () => {
+    const [read] = readCreators(
+      paidState([
+        {
+          ...lena,
+          sales_amount_minor: '151900',
+          commission_minor: -5,
+          pending_minor: 14.5,
+        } as unknown as Creator,
+      ]),
+    ).creators
+    expect(read.sales_amount_minor).toBeNull()
+    expect(read.commission_minor).toBeNull()
+    expect(read.pending_minor).toBeNull()
+  })
+
+  it('reads the currency as a three-letter code, and falls back to dollars for the money it has', () => {
+    expect(readCreators(paidState([lenaPaid], { currency: 'eur' })).currency).toBe('EUR')
+    const unnamed = readCreators(paidState([lenaPaid], { currency: 'dollars' }))
+    expect(unnamed.currency).toBeNull()
+    expect(moneyCurrency(unnamed)).toBe('USD')
+  })
+
+  it('reads no money where there is no program', () => {
+    const read = readCreators(paidState([], { program: null }))
+    expect(read.totals).toBeNull()
+    expect(read.currency).toBeNull()
+  })
+
+  it('keeps a creator’s figures through a decision that does not repeat them', () => {
+    const before = readCreators(paidState([...promotingPaid, jonasPaid]))
+    const after = withDecision(before, { ...lena, status: 'removed' })
+    expect(after.creators[0]).toMatchObject({
+      member_id: 'm-lena',
+      status: 'removed',
+      sales_amount_minor: 151900,
+      commission_minor: 45570,
+      pending_minor: 14700,
+    })
+    expect(after.totals).toEqual(before.totals)
+    // An answer that does carry them is taken at its word.
+    const fresh = withDecision(before, { ...lenaPaid, status: 'removed', pending_minor: 0 })
+    expect(fresh.creators[0].pending_minor).toBe(0)
+  })
+
+  it('says who else is in the totals only when someone is', () => {
+    const active = readCreators(paidState(promotingPaid))
+    expect(totalsNote(active, groupCreators(active.creators).active)).toBeNull()
+    const withEnded = readCreators(paidState([...promotingPaid, jonasPaid]))
+    expect(totalsNote(withEnded, groupCreators(withEnded.creators).active)).toBe(
+      'Includes ended creators',
+    )
+    // The list is capped and the totals are not.
+    const capped = readCreators(
+      paidState(promotingPaid, { totals: { ...totalsOf(promotingPaid), sales: 900 } }),
+    )
+    expect(totalsNote(capped, groupCreators(capped.creators).active)).toBe('All creators')
+    expect(totalsNote(readCreators(creatorsState([lena])), [lena])).toBeNull()
+  })
+})
+
+describe('creators page: what creators sold and earned', () => {
+  it('adds the sales amount and the commission, with the pending part in quiet text', async () => {
+    signedInAs('owner')
+    await openCreators(paidState([ada, ...promotingPaid]))
+    const table = within(promoting()).getByRole('table')
+    expect(texts(table.querySelector('thead tr') as HTMLElement, 'columnheader')).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Sales',
+      'Sales amount',
+      'Commission',
+      'Last click',
+      'Action',
+    ])
+    expect(texts(rowOf('Lena Hoffmann'))).toEqual([
+      'L' + 'Lena Hoffmann@lena-hoffmann',
+      '4 Nov 2026',
+      '1,248',
+      '31',
+      '$1,519.00',
+      '$455.70' + '$147.00 pending',
+      '3 h ago',
+      'Remove',
+    ])
+    const pending = within(rowOf('Lena Hoffmann')).getByText('$147.00 pending')
+    expect(pending).toHaveClass('mc-sub')
+    // Nothing pending is not said, and nothing sold yet is a plain zero.
+    expect(texts(rowOf('Kwame Mensah'))[5]).toBe('$102.90')
+    expect(texts(rowOf('Priya Nair')).slice(4, 6)).toEqual(['$0.00', '$0.00'])
+    // Money is never shown in minor units.
+    expect(page()).not.toHaveTextContent('151900')
+    expect(page()).not.toHaveTextContent('45570')
+  })
+
+  it('ends the table with a totals line under the same columns', async () => {
+    signedInAs('owner')
+    await openCreators(paidState(promotingPaid))
+    expect(texts(totalRow())).toEqual([
+      '',
+      '1,660',
+      '38',
+      '$1,862.00',
+      '$558.60' + '$147.00 pending',
+      '',
+      '',
+    ])
+    expect(screen.getByRole('rowheader', { name: 'Total' })).toBeInTheDocument()
+    expect(totalRow().closest('tfoot')).not.toBeNull()
+    // One cell per column, so every figure sits under its heading.
+    expect(totalRow().children).toHaveLength(8)
+  })
+
+  it('says when the totals count creators who have ended', async () => {
+    signedInAs('owner')
+    await openCreators(paidState([...promotingPaid, jonasPaid]))
+    expect(screen.getByRole('rowheader', { name: 'Total Includes ended creators' })).toBeVisible()
+    expect(texts(totalRow()).slice(1, 5)).toEqual([
+      '2,145',
+      '44',
+      '$2,226.00',
+      '$667.80' + '$147.00 pending',
+    ])
+  })
+
+  it('keeps the totals line in step when the reader cannot manage creators', async () => {
+    signedInAs('analyst')
+    await openCreators(paidState(promotingPaid, { can_manage: false }))
+    const table = within(promoting()).getByRole('table')
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(7)
+    expect(totalRow().children).toHaveLength(7)
+    expect(buttons(/^Remove/)).toHaveLength(0)
+  })
+
+  it('opens Sales for one creator from their name', async () => {
+    signedInAs('owner')
+    const user = await openCreators(paidState([ada, ...promotingPaid, jonasPaid]))
+    const link = screen.getByRole('link', { name: 'Lena Hoffmann: open their sales' })
+    expect(link).toHaveAttribute('href', '#sales?creator=m-lena')
+    expect(link).toHaveTextContent(/^Lena Hoffmann$/)
+    expect(parseRoute(link.getAttribute('href')!)).toEqual({ name: 'sales', creator: 'm-lena' })
+    // Someone still waiting has sold nothing: their name is only a name.
+    expect(screen.queryByRole('link', { name: /^Ada Okafor/ })).not.toBeInTheDocument()
+    // Someone who has ended may have sold plenty.
+    await user.click(button(/^Ended/))
+    expect(screen.getByRole('link', { name: 'Jonas Berg: open their sales' })).toHaveAttribute(
+      'href',
+      '#sales?creator=m-jonas',
+    )
+  })
+
+  it('shows a dash for a creator whose figures did not arrive', async () => {
+    signedInAs('owner')
+    await openCreators(paidState([lenaPaid, { ...priya }], { totals: totalsOf([lenaPaid]) }))
+    expect(texts(rowOf('Priya Nair')).slice(4, 6)).toEqual(['—None yet', '—None yet'])
+  })
+
+  it('writes another currency after the amount', async () => {
+    signedInAs('owner')
+    await openCreators(paidState(promotingPaid, { currency: 'EUR' }))
+    expect(texts(rowOf('Lena Hoffmann')).slice(4, 6)).toEqual([
+      '1,519.00 EUR',
+      '455.70 EUR' + '147.00 EUR pending',
+    ])
+  })
+
+  it('keeps a long name and large figures on the page', async () => {
+    signedInAs('owner')
+    const long = 'Maximiliano Alexander Fitzgerald-Montgomery von Hohenzollern the Third'
+    const many = Array.from({ length: 60 }, (_, index) => ({
+      ...lenaPaid,
+      member_id: `m-${index}`,
+      name: index === 0 ? long : `Creator ${index}`,
+      handle: `creator-${index}`,
+      sales_amount_minor: 123456700,
+      commission_minor: 37037010,
+      pending_minor: 12345600,
+    }))
+    await openCreators(paidState(many))
+    expect(screen.getByRole('link', { name: `${long}: open their sales` })).toBeInTheDocument()
+    expect(texts(rowOf(long)).slice(4, 6)).toEqual([
+      '$1,234,567.00',
+      '$370,370.10' + '$123,456.00 pending',
+    ])
+    expect(within(promoting()).getAllByRole('row')).toHaveLength(62)
+    expect(texts(totalRow())[3]).toBe('$74,074,020.00')
+  })
+
+  it('is the page as it was for a database that sends no money yet', async () => {
+    signedInAs('owner')
+    await openCreators(creatorBackendFixture.creators_mixed)
+    const table = within(promoting()).getByRole('table')
+    expect(texts(table.querySelector('thead tr') as HTMLElement, 'columnheader')).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Sales',
+      'Last click',
+      'Action',
+    ])
+    expect(screen.queryByRole('rowheader')).not.toBeInTheDocument()
+    expect(table.querySelector('tfoot')).toBeNull()
+    expect(screen.queryByRole('link', { name: /open their sales/ })).not.toBeInTheDocument()
+    expect(page()).not.toHaveTextContent('$')
+    expect(page()).not.toHaveTextContent('pending')
+    expect(within(table).getAllByRole('row')).toHaveLength(3)
   })
 })

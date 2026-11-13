@@ -36,6 +36,8 @@ export type Route =
   | { name: 'program' }
   /** The creators of that program: who is waiting, who is promoting, who has left. */
   | { name: 'creators' }
+  /** The sales creators sent, newest first; `creator` narrows the list to one member. */
+  | { name: 'sales'; creator?: string }
   /**
    * The prepaid balance creators are paid from. Stripe's payment page sends the person back
    * here saying how it ended: a deposit, or a change of card, done or cancelled.
@@ -94,6 +96,11 @@ export function parseRoute(hash: string): Route {
       return { name: 'program' }
     case 'creators':
       return { name: 'creators' }
+    case 'sales': {
+      // The Creators page links here with the member whose sales to show.
+      const creator = params.get('creator')?.trim()
+      return creator ? { name: 'sales', creator } : { name: 'sales' }
+    }
     case 'balance': {
       const deposit = outcome(params.get('deposit'))
       const card = outcome(params.get('card'))
@@ -181,6 +188,8 @@ export function href(route: Route): string {
       return '#program'
     case 'creators':
       return '#creators'
+    case 'sales':
+      return route.creator ? `#sales?creator=${encodeURIComponent(route.creator)}` : '#sales'
     case 'balance': {
       const params = new URLSearchParams()
       if (route.deposit) params.set('deposit', route.deposit)
