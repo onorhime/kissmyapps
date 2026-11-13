@@ -395,11 +395,7 @@ describe('arriving signed out to join a program', () => {
         return supabaseSession
       }),
     })
-    openDashboard(
-      '/?auth_action=signup&type=email&token_hash=confirmation-value',
-      gateway,
-      service,
-    )
+    openDashboard('/?auth_action=signup&type=email&token_hash=confirmation-value', gateway, service)
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Join SpeakSix' }),
