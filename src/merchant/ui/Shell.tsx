@@ -100,6 +100,8 @@ function groups(project: Project | undefined): NavGroup[] {
     { label: 'Program', route: { name: 'program' }, match: (r) => r.name === 'program' },
     { label: 'Creators', route: { name: 'creators' }, match: (r) => r.name === 'creators' },
     { label: 'Sales', route: { name: 'sales' }, match: (r) => r.name === 'sales' },
+    // Always listed: whether the program pays for events is only known once the page asks.
+    { label: 'Rewards', route: { name: 'rewards' }, match: (r) => r.name === 'rewards' },
     { label: 'Balance', route: { name: 'balance' }, match: (r) => r.name === 'balance' },
   ]
   const settings: NavItem[] = [

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context, Project, Role } from './api'
 import { MerchantApp } from './MerchantApp'
 import { creatorBackendFixture } from './creator-backend.fixture'
+import { rewardsBackendFixture } from './rewards-backend.fixture'
 import {
   canApproveAgain,
   channelLabel,
@@ -317,7 +318,7 @@ describe('creators route', () => {
       within(group)
         .getAllByRole('link')
         .map((item) => item.textContent),
-    ).toEqual(['Program', 'Creators', 'Sales', 'Balance'])
+    ).toEqual(['Program', 'Creators', 'Sales', 'Rewards', 'Balance'])
     // The project the person was in keeps its menu.
     expect(within(nav).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -1569,5 +1570,226 @@ describe('creators page: what creators sold and earned', () => {
     expect(page()).not.toHaveTextContent('$')
     expect(page()).not.toHaveTextContent('pending')
     expect(within(table).getAllByRole('row')).toHaveLength(3)
+  })
+})
+
+describe('creators of a program that pays for events', () => {
+  const withEvents = (events: Array<number | undefined>, rows: Creator[] = promotingPaid) =>
+    rows.map((row, index) => ({ ...row, events: events[index] }))
+  /** The same creators in a program that has only ever paid for events. */
+  const eventsOnly = withEvents(
+    [34, 24, 0],
+    promotingPaid.map((row) => ({ ...row, sales: 0, sales_amount_minor: 0 })),
+  )
+  const captured = rewardsBackendFixture.workspace_program_creators_with_events as {
+    creators: Array<{ member_id: string }>
+  }
+  const ada = captured.creators[1].member_id
+  /** A Phase 6 answer: events per creator and in the totals, and what the program pays for. */
+  const eventsState = (
+    earnFrom: unknown,
+    rows: Creator[] = withEvents([34, 24, 0]),
+    over: Partial<Omit<CreatorsState, 'creators'>> = {},
+  ) =>
+    paidState(rows, {
+      earn_from: earnFrom as CreatorsState['earn_from'],
+      totals: { ...totalsOf(rows), events: rows.reduce((all, row) => all + (row.events ?? 0), 0) },
+      ...over,
+    })
+  const heads = () =>
+    texts(
+      within(promoting()).getByRole('table').querySelector('thead tr') as HTMLElement,
+      'columnheader',
+    )
+
+  it('reads what the program pays for, and sales when the answer does not say', () => {
+    expect(readCreators(eventsState('events')).earn_from).toBe('events')
+    expect(readCreators(eventsState('both')).earn_from).toBe('both')
+    for (const none of [undefined, null, 'sales', 'installs', 7])
+      expect(readCreators(eventsState(none)).earn_from).toBe('sales')
+    expect(readCreators(paidState(promotingPaid)).earn_from).toBe('sales')
+    expect(readCreators(eventsState('both', [], { program: null })).earn_from).toBe('sales')
+  })
+
+  it('reads events as a count, and adds no key the database did not send', () => {
+    const read = readCreators(
+      eventsState('both', withEvents([34, -3, undefined]), {
+        totals: { ...totalsOf(promotingPaid), events: 58.4 },
+      }),
+    )
+    expect(read.creators.map((row) => row.events)).toEqual([34, 0, undefined])
+    expect('events' in read.creators[2]).toBe(false)
+    expect(read.totals?.events).toBe(58)
+    const before = readCreators(paidState(promotingPaid))
+    expect('events' in before.totals!).toBe(false)
+    for (const row of before.creators) expect('events' in row).toBe(false)
+  })
+
+  it('keeps a creator’s events through a decision that does not repeat them', () => {
+    const before = readCreators(eventsState('both'))
+    const after = withDecision(before, { ...lena, status: 'removed' })
+    expect(after.creators[0]).toMatchObject({ member_id: 'm-lena', status: 'removed', events: 34 })
+    expect(after.earn_from).toBe('both')
+    expect(withDecision(before, { ...lena, events: 35 }).creators[0].events).toBe(35)
+  })
+
+  it('adds an Events column beside Sales when the program pays for both', async () => {
+    signedInAs('owner')
+    await openCreators(eventsState('both'))
+    expect(heads()).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Sales',
+      'Events',
+      'Sales amount',
+      'Earned',
+      'Last click',
+      'Action',
+    ])
+    expect(texts(rowOf('Lena Hoffmann')).slice(2, 7)).toEqual([
+      '1,248',
+      '31',
+      '34',
+      '$1,519.00',
+      '$455.70' + '$147.00 pending',
+    ])
+    expect(texts(totalRow())).toEqual([
+      '',
+      '1,660',
+      '38',
+      '58',
+      '$1,862.00',
+      '$558.60' + '$147.00 pending',
+      '',
+      '',
+    ])
+    expect(totalRow().children).toHaveLength(9)
+    // The name still opens their sales; the events open their rewards.
+    expect(screen.getByRole('link', { name: 'Lena Hoffmann: open their sales' })).toHaveAttribute(
+      'href',
+      '#sales?creator=m-lena',
+    )
+    const events = screen.getByRole('link', { name: 'Lena Hoffmann: open their rewards' })
+    expect(events).toHaveAttribute('href', '#rewards?creator=m-lena')
+    expect(events).toHaveTextContent(/^34$/)
+    // Nothing to open where there are no events yet.
+    expect(screen.queryByRole('link', { name: 'Priya Nair: open their rewards' })).toBeNull()
+    expect(texts(rowOf('Priya Nair'))[4]).toBe('0')
+  })
+
+  it('counts events in place of sales when the program pays for events only', async () => {
+    signedInAs('owner')
+    await openCreators(eventsState('events', eventsOnly))
+    expect(heads()).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Events',
+      'Earned',
+      'Last click',
+      'Action',
+    ])
+    expect(texts(rowOf('Lena Hoffmann')).slice(2, 5)).toEqual([
+      '1,248',
+      '34',
+      '$455.70' + '$147.00 pending',
+    ])
+    expect(texts(totalRow())).toEqual(['', '1,660', '58', '$558.60' + '$147.00 pending', '', ''])
+    expect(totalRow().children).toHaveLength(7)
+    // With no sales to open, the name opens their rewards.
+    expect(screen.getByRole('link', { name: 'Lena Hoffmann: open their rewards' })).toHaveAttribute(
+      'href',
+      '#rewards?creator=m-lena',
+    )
+    expect(screen.queryByRole('link', { name: /open their sales/ })).not.toBeInTheDocument()
+    expect(page()).not.toHaveTextContent(/\btest\b/i)
+  })
+
+  it('keeps the sales a program made before it moved to events, beside the events', async () => {
+    signedInAs('owner')
+    await openCreators(captured)
+    expect(heads()).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Sales',
+      'Events',
+      'Sales amount',
+      'Earned',
+      'Last click',
+      'Action',
+    ])
+    expect(texts(rowOf('Ada Okafor')).slice(2, 7)).toEqual([
+      '8',
+      '1',
+      '8',
+      '$49.00',
+      '$36.70' + '$20.00 pending',
+    ])
+    expect(texts(totalRow())).toEqual([
+      '',
+      '9',
+      '1',
+      '10',
+      '$49.00',
+      '$43.70' + '$27.00 pending',
+      '',
+      '',
+    ])
+    expect(screen.getByRole('link', { name: 'Ada Okafor: open their rewards' })).toHaveAttribute(
+      'href',
+      `#rewards?creator=${ada}`,
+    )
+  })
+
+  it('shows the events a program still has from before it moved to sales', async () => {
+    signedInAs('owner')
+    await openCreators(eventsState('sales'))
+    expect(heads()).toContain('Events')
+    expect(heads()).toContain('Earned')
+    expect(texts(totalRow())[3]).toBe('58')
+  })
+
+  it('is the page as it is today when the program pays for sales and nobody has events', async () => {
+    signedInAs('owner')
+    await openCreators(eventsState('sales', withEvents([0, 0, 0])))
+    expect(heads()).toEqual([
+      'Creator',
+      'Joined',
+      'Clicks',
+      'Sales',
+      'Sales amount',
+      'Commission',
+      'Last click',
+      'Action',
+    ])
+    expect(totalRow().children).toHaveLength(8)
+    expect(texts(totalRow())[2]).toBe('38')
+    expect(screen.queryByRole('link', { name: /open their rewards/ })).not.toBeInTheDocument()
+    expect(page()).not.toHaveTextContent('Events')
+  })
+
+  it('says who else is in the totals when only the events differ', () => {
+    const same = readCreators(eventsState('both'))
+    expect(totalsNote(same, groupCreators(same.creators).active)).toBeNull()
+    const more = readCreators(
+      eventsState('both', withEvents([34, 24, 0]), {
+        totals: { ...totalsOf(promotingPaid), events: 90 },
+      }),
+    )
+    expect(totalsNote(more, groupCreators(more.creators).active)).toBe('All creators')
+    // Where the table shows no events, they are not compared.
+    const sales = readCreators(
+      eventsState('sales', withEvents([0, 0, 0]), {
+        totals: { ...totalsOf(promotingPaid), events: 0 },
+      }),
+    )
+    expect(
+      totalsNote(
+        { ...sales, totals: { ...sales.totals!, events: undefined } },
+        groupCreators(sales.creators).active,
+      ),
+    ).toBeNull()
   })
 })
