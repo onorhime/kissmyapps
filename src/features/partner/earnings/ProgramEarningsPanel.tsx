@@ -104,7 +104,10 @@ export function ProgramEarningsPanel({
         ) : (
           <div className="pe-state">
             <h3>Nothing earned yet</h3>
-            <p>When someone buys through one of your program links, your commission shows here.</p>
+            <p>
+              When someone buys or signs up through one of your program links, what you earn shows
+              here.
+            </p>
             <a className="pe-btn" href={marketplaceHash()}>
               Open the marketplace
             </a>
