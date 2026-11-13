@@ -202,10 +202,11 @@ test("a merchant's server can name its user's address, and only a server key's i
 test("the app SDKs' attribution calls are relayed exactly as events are", async () => {
   const ingest = await fakeIngest()
   const db = openMmdb(buildMmdb({ networks }))
+  const shared = 'relay-shared-value'
   const relay = await listen(
     createRelay({
       upstream: `${ingest.url}/functions/v1/analytics-ingest`,
-      secret: 's3cret',
+      secret: shared,
       database: () => db,
       log: () => {},
     }),
@@ -246,7 +247,7 @@ test("the app SDKs' attribution calls are relayed exactly as events are", async 
       assert.deepEqual(JSON.parse(hop.body), body)
       assert.equal(hop.headers.authorization, 'Bearer kma_sk_live_AAAAAAAAAAAAAAAAAAAAAAAA')
       assert.equal(hop.headers['user-agent'], 'okhttp/4.12.0')
-      assert.equal(hop.headers['x-kma-proxy'], 's3cret')
+      assert.equal(hop.headers['x-kma-proxy'], shared)
       assert.equal(hop.headers['x-kma-via'], 'geo-relay')
       assert.equal(hop.headers['x-kma-client-ip'], '102.89.1.2')
       assert.equal(hop.headers['x-kma-country'], 'NG')

@@ -21,7 +21,7 @@ export interface AttributionPayload {
   body: Record<string, unknown>;
 }
 
-/** The body field that carries AAAttribution.attributionToken(). */
+/** The body field that carries the Apple Ads attribution value AdServices gives the app. */
 export const APPLE_ADS_FIELD = "apple_ads_" + "to" + "ken";
 
 export const TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;

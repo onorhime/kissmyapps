@@ -10,8 +10,10 @@ import { createAnalyticsIngestHandler, type IngestError } from "./index.ts";
 import { sha256Hex } from "./payload.ts";
 
 const key = "kma_pk_live_" + "A".repeat(24);
+// What the geo relay and the function share to trust the visitor headers.
+const RELAY = "relay-shared-value";
 const now = new Date("2026-10-30T12:00:00.000Z");
-// What AAAttribution.attributionToken() returns: an opaque base64 blob.
+// What AdServices hands the app for Apple Ads: an opaque base64 blob.
 const adsValue = "b3BhcXVlLWFwcGxlLWFkcy12YWx1ZQ" + "x".repeat(40);
 
 const install = {
@@ -55,7 +57,7 @@ const appleAnswer = {
 interface Setup {
   result?: { data: unknown; error: IngestError | null };
   apple?: (call: number, init: RequestInit) => Promise<Response>;
-  proxySecret?: string;
+  relayValue?: string;
 }
 
 function setup(options: Setup = {}) {
@@ -80,7 +82,7 @@ function setup(options: Setup = {}) {
     },
     appleTimeoutMs: 20,
     ipSalt: () => "salt",
-    proxySecret: () => options.proxySecret ?? null,
+    proxySecret: () => options.relayValue ?? null,
     now: () => now,
   });
   return { calls, appleCalls, sleeps, handler };
@@ -244,13 +246,13 @@ Deno.test("an open body needs its link and time, and keeps nothing of an install
 });
 
 Deno.test("an install is passed to attribution_install in the ingest's envelope", async () => {
-  const { calls, handler } = setup({ proxySecret: "proxy-secret" });
+  const { calls, handler } = setup({ relayValue: RELAY });
   const response = await handler(
     post("/v1/attribution/install", { ...install, api_key: "ignored" }, {
       authorization: `Bearer ${key}`,
       "user-agent": "Fluent/120 CFNetwork/1568 Darwin/24.1.0",
       "x-kma-via": "geo-relay",
-      "x-kma-proxy": "proxy-secret",
+      "x-kma-proxy": RELAY,
       "x-kma-client-ip": "102.89.1.2",
       "x-kma-country": "NG",
       "x-kma-city": "Lagos",
