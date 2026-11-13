@@ -1,0 +1,648 @@
+/*
+ * The partner dashboard's Links page. It sits on the dashboard's own panels and page heading,
+ * borrows the Marketplace's buttons and chips, and is drawn from the brand colours in index.css.
+ */
+
+.pl-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* The older product links follow under their own heading. */
+.pl-page + .workspace-context {
+  margin-top: 40px;
+}
+
+.pl-panel {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+  padding: 24px;
+}
+
+/* Which program: a few side by side, as the Performance page picks its period */
+.page-heading:has(> .pl-picker, > .pl-select) {
+  flex-wrap: wrap;
+}
+
+.pl-picker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--brand-line);
+  border-radius: 10px;
+  background: var(--brand-card);
+}
+
+.pl-picker button {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.pl-picker button:hover {
+  color: var(--brand-text);
+}
+
+.pl-picker button[aria-pressed='true'] {
+  background: var(--brand-pink);
+  color: var(--brand-bg-deep);
+}
+
+.pl-picker button:focus-visible {
+  outline-offset: 2px;
+}
+
+.pl-select {
+  flex: none;
+  max-width: 100%;
+}
+
+.pl-select select {
+  width: 280px;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-control);
+  color: var(--brand-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+/* A panel's title, with what stands beside it */
+.pl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  min-width: 0;
+}
+
+.pl-head h2 {
+  min-width: 0;
+  color: var(--brand-text);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pl-head h2:focus-visible {
+  border-radius: 4px;
+}
+
+.pl-head p {
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pl-head .pl-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.pl-status::before {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-green);
+  content: '';
+  transform: translateY(-1px);
+}
+
+/* Why sales are not credited is something to read, so it is not printed in grey. */
+.pl-head .pl-status-paused {
+  color: var(--brand-text);
+  font-size: 14px;
+}
+
+.pl-status-paused::before {
+  background: var(--brand-orange);
+}
+
+/* The main link: the whole address, large, and its Copy button */
+.pl-main {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pl-url {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
+  padding: 12px 18px;
+  border: 1px solid var(--brand-line);
+  border-radius: 12px;
+  background: var(--brand-bg);
+  color: var(--brand-text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* One click or tap selects the whole address. */
+.pl-url > span:last-child,
+.pl-by-hand-url {
+  user-select: all;
+}
+
+.pl-main .mkt-btn {
+  align-self: flex-start;
+  min-width: 142px;
+  min-height: 56px;
+  padding-inline: 22px;
+  font-size: 15px;
+}
+
+/* The same link for each channel, and the links the creator added */
+.pl-channels {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pl-channels h3 {
+  color: var(--brand-text);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.pl-channels h3 + p {
+  max-width: 72ch;
+  margin-top: -6px;
+  color: var(--brand-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pl-chips li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 44px;
+  color: var(--brand-text);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+/* The chips stand on a card, so they light up one step above it. */
+.pl-chip:hover {
+  background: var(--brand-control);
+}
+
+.pl-chip > span:first-of-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pl-chip-copied {
+  border-color: var(--brand-green);
+}
+
+.pl-chip-done {
+  flex: none;
+  color: var(--brand-green);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.pl-chip-add {
+  border-style: dashed;
+  border-color: var(--control-border);
+  color: var(--brand-muted);
+}
+
+.pl-chip-add:hover,
+.pl-chip-add[aria-expanded='true'] {
+  color: var(--brand-text);
+}
+
+.pl-chip-add[aria-expanded='true'] {
+  background: var(--brand-control);
+}
+
+.pl-limit,
+.pl-hint {
+  color: var(--brand-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pl-limit {
+  padding: 0 6px;
+}
+
+.pl-by-hand {
+  max-width: 72ch;
+  color: var(--brand-text);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.pl-by-hand-url {
+  color: var(--brand-light-blue);
+}
+
+/* Adding a custom link: one field and one button, under the chips */
+.pl-add {
+  display: grid;
+  gap: 8px;
+  max-width: 520px;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.pl-add label {
+  color: var(--brand-muted);
+  font-size: 13px;
+}
+
+.pl-add-row {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pl-add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: var(--brand-control);
+  color: var(--brand-text);
+  font-size: 14px;
+  caret-color: var(--brand-pink);
+}
+
+.pl-add input::placeholder {
+  color: var(--brand-subtle);
+  opacity: 1;
+}
+
+.pl-add input[aria-invalid='true'] {
+  border-color: var(--brand-red);
+}
+
+.pl-add .mkt-btn {
+  flex: none;
+  min-width: 104px;
+}
+
+.pl-error {
+  max-width: 72ch;
+  color: var(--brand-red);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pl-add .pl-error {
+  margin-bottom: 4px;
+}
+
+/* Results by channel: a table of rules and alignment, read rather than clicked */
+.pl-results {
+  gap: 14px;
+}
+
+.pl-results table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+/* The dashboard's tables carry a dark header bar and a row hover; this one sits inside a
+   panel and keeps neither. */
+.pl-results thead {
+  border: 0;
+  background: none;
+}
+
+.pl-results tbody tr:hover {
+  background: none;
+}
+
+.pl-results thead th {
+  padding: 8px 24px 8px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-muted);
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pl-results tbody th,
+.pl-results tbody td {
+  padding: 14px 24px 14px 0;
+  border-bottom: 1px solid var(--brand-line);
+  color: var(--brand-text);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.pl-results tbody tr:last-child > * {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.pl-results thead th:first-child,
+.pl-results tbody th:first-child {
+  padding-left: 0;
+}
+
+.pl-results tbody th {
+  width: 20%;
+  min-width: 120px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pl-results tbody .pl-address {
+  color: var(--brand-muted);
+  overflow-wrap: anywhere;
+}
+
+/* The counts keep to their own width, so the address has the room that is left. */
+.pl-results .pl-num {
+  width: 92px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pl-results thead .pl-num:nth-child(n + 5),
+.pl-results .pl-rate,
+.pl-results .pl-earnings {
+  width: 116px;
+}
+
+.pl-results tbody .pl-zero {
+  color: var(--brand-subtle);
+}
+
+.pl-results tr > :last-child {
+  padding-right: 0;
+}
+
+/* A custom link nobody has clicked can go: Remove stands after its address. */
+.pl-action {
+  display: inline-block;
+  margin-left: 14px;
+  white-space: nowrap;
+}
+
+.pl-remove {
+  font-size: 14px;
+  line-height: inherit;
+}
+
+.pl-remove-yes {
+  color: var(--brand-red);
+}
+
+.pl-remove-yes:hover {
+  color: var(--brand-text);
+}
+
+.pl-confirm {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+/* Loading */
+.pl-bar {
+  display: block;
+  max-width: 100%;
+  border-radius: 8px;
+  background: var(--brand-control);
+}
+
+@media (max-width: 1180px) {
+  .pl-results thead th,
+  .pl-results tbody th,
+  .pl-results tbody td {
+    padding-right: 16px;
+  }
+
+  .pl-results .pl-num {
+    width: 76px;
+  }
+
+  .pl-results thead .pl-num:nth-child(n + 5),
+  .pl-results .pl-rate,
+  .pl-results .pl-earnings {
+    width: 104px;
+  }
+}
+
+@media (max-width: 700px) {
+  .page-heading:has(> .pl-picker, > .pl-select) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pl-picker {
+    align-self: flex-start;
+  }
+
+  .pl-picker button {
+    min-height: 40px;
+  }
+
+  .pl-select select {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  .pl-panel {
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .pl-main,
+  .pl-add-row {
+    flex-wrap: wrap;
+  }
+
+  .pl-url {
+    flex-basis: 100%;
+    padding-inline: 14px;
+    font-size: 16px;
+  }
+
+  .pl-main .mkt-btn,
+  .pl-add .mkt-btn {
+    width: 100%;
+  }
+
+  /* 16px keeps a phone from zooming into the field. */
+  .pl-add input {
+    flex-basis: 100%;
+    font-size: 16px;
+  }
+
+  /* Each link becomes a short block: its name and earnings, its address, then its counts. */
+  .pl-results thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pl-results table,
+  .pl-results tbody {
+    display: block;
+  }
+
+  .pl-results tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+
+  .pl-results tbody tr:first-child {
+    border-top: 1px solid var(--brand-line);
+  }
+
+  .pl-results tbody tr:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .pl-results tbody th,
+  .pl-results tbody td,
+  .pl-results tbody tr:last-child > * {
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .pl-results tbody .pl-num {
+    width: auto;
+  }
+
+  /* The name takes what the earnings leave, and wraps inside it. */
+  .pl-results tbody th {
+    flex: 1 1 0;
+    order: 1;
+  }
+
+  .pl-results tbody .pl-earnings {
+    flex: none;
+    order: 2;
+    font-weight: 600;
+  }
+
+  .pl-results tbody .pl-address {
+    flex: 0 0 100%;
+    order: 3;
+    font-size: 13px;
+  }
+
+  .pl-results tbody .pl-clicks,
+  .pl-results tbody .pl-sales,
+  .pl-results tbody .pl-rate {
+    flex: none;
+    order: 4;
+    margin-top: 4px;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .pl-results tbody .pl-clicks::before,
+  .pl-results tbody .pl-sales::before,
+  .pl-results tbody .pl-rate::before {
+    color: var(--brand-muted);
+  }
+
+  .pl-results tbody .pl-clicks::before {
+    content: 'Clicks ';
+  }
+
+  .pl-results tbody .pl-sales::before {
+    content: 'Sales ';
+  }
+
+  .pl-results tbody .pl-rate::before {
+    content: 'Conversion ';
+  }
+
+  .pl-action {
+    display: block;
+    margin-left: 0;
+  }
+
+  .pl-remove {
+    min-height: 44px;
+    margin-bottom: -8px;
+  }
+
+  .pl-confirm {
+    gap: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-picker button,
+  .pl-chip {
+    transition: none;
+  }
+}

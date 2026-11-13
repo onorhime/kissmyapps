@@ -24,6 +24,10 @@ import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 import { PartnerMarketplace } from '../marketplace/PartnerMarketplace'
 import { ProgramEarningsPanel } from '../earnings/ProgramEarningsPanel'
+import { ProgramPerformancePage } from '../performance/ProgramPerformancePage'
+import { useProgramPerformance } from '../performance/useProgramPerformance'
+import { ProgramLinksPage } from '../links/ProgramLinksPage'
+import { isLegacyProduct, useLegacyLinks } from '../links/legacyLinks'
 
 const pageCopy = {
   performance: {
@@ -111,21 +115,33 @@ export function LivePartnerPortal({
   programSlug = null,
   reportingDays,
   onReportingDaysChange,
+  onLegacyLinksChange,
 }: {
   page: PortalPage
   /** The program open on the Marketplace page (`#marketplace/<slug>`), if any. */
   programSlug?: string | null
   reportingDays?: ReportingPeriod
   onReportingDaysChange?: (days: ReportingPeriod) => void
+  /** Told whether the Links page also shows the older product links, which names its nav entry. */
+  onLegacyLinksChange?: (shown: boolean) => void
 }) {
   const navigateSafely = useContext(NavigationGuardContext)
   const workspace = usePartnerLiveWorkspace()
+  const programResults = useProgramPerformance(workspace.gateway, page === 'performance')
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
   const context = toPartnerLiveWorkspaceContext(snapshot, selectedProductId)
+  const legacyLinks = useLegacyLinks(snapshot, onLegacyLinksChange)
   // The marketplace does not depend on a product: a creator with none yet joins their first here.
   if (page === 'marketplace') {
     return <PartnerMarketplace gateway={workspace.gateway} slug={programSlug} />
   }
+  // Program links belong to the creator. The older product links follow only for a creator
+  // who has an older product.
+  const programLinks =
+    page === 'links' ? (
+      <ProgramLinksPage gateway={workspace.gateway} legacyBelow={legacyLinks} />
+    ) : null
+  if (page === 'links' && !legacyLinks) return programLinks
   const copy = pageCopy[page]
   const Icon = copy.icon
   const selectedProduct = context.selectedProduct
@@ -145,9 +161,28 @@ export function LivePartnerPortal({
   const showEmptyState =
     snapshot.status === 'ready-empty' ||
     (Boolean(snapshot.availability.emptyReason) && !canRenderOperationalPage)
+  // Program results are the whole Performance page, unless a product from before programs is
+  // reported on below them or this database has no program results to give. A program's own
+  // product is in the product list too, so the list being empty is not the test.
+  const programsOnly =
+    loading || (productsKnown && !snapshot.resources.products.data.some(isLegacyProduct))
+  if (page === 'performance' && programsOnly && programResults.state.status !== 'hidden')
+    return (
+      <ProgramPerformancePage
+        performance={programResults}
+        notice={
+          !loading && (
+            <AgreementSignBanner gateway={workspace.gateway} onCompleted={actions.refresh} />
+          )
+        }
+      />
+    )
 
   return (
     <>
+      {/* First, so the page keeps its place (and what it has read) when the older links join it. */}
+      {programLinks}
+      {page === 'performance' && <ProgramPerformancePage performance={programResults} beside />}
       {page !== 'profile' && (
         <section className="workspace-context" aria-label="Product and partnership context">
           <label className="workspace-product">

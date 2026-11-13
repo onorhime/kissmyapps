@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Bot,
   CircleAlert,
+  ClipboardCheck,
   Clock3,
   Link2,
   LoaderCircle,
@@ -37,6 +38,10 @@ export type ProductStatsPageProps = Readonly<{
   onBack: () => void
   onOpenSetup: () => void
   onOpenSubscriptions?: () => void
+  /** True for a product that belongs to a merchant's program: it has no setup to open. */
+  program?: boolean
+  /** Opens program review. Left out for a role that cannot review programs. */
+  onOpenPrograms?: () => void
 }>
 
 const ranges = [
@@ -313,6 +318,8 @@ export function ProductStatsPage({
   onBack,
   onOpenSetup,
   onOpenSubscriptions,
+  program = false,
+  onOpenPrograms,
 }: ProductStatsPageProps) {
   const [days, setDays] = useState<number>(30)
   const [windowEnd, setWindowEnd] = useState(() => new Date())
@@ -339,8 +346,11 @@ export function ProductStatsPage({
   }
 
   const product = configuration.status === 'ready' ? configuration.data.product : null
+  // A program has no setup steps, so its progress is never worked out or shown.
   const setup =
-    configuration.status === 'ready' ? setupProgress(setupSteps(configuration.data)) : null
+    configuration.status === 'ready' && !program
+      ? setupProgress(setupSteps(configuration.data))
+      : null
   const liveLinks =
     configuration.status === 'ready'
       ? configuration.data.mainLinks.filter(
@@ -372,9 +382,17 @@ export function ProductStatsPage({
               {product.status}
             </span>
           )}
-          <button className="admin-secondary-button" type="button" onClick={onOpenSetup}>
-            <Settings2 size={16} aria-hidden="true" /> Open setup
-          </button>
+          {!program ? (
+            <button className="admin-secondary-button" type="button" onClick={onOpenSetup}>
+              <Settings2 size={16} aria-hidden="true" /> Open setup
+            </button>
+          ) : (
+            onOpenPrograms && (
+              <button className="admin-secondary-button" type="button" onClick={onOpenPrograms}>
+                <ClipboardCheck size={16} aria-hidden="true" /> Open Programs
+              </button>
+            )
+          )}
         </div>
       </header>
 

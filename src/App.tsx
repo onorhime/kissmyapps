@@ -81,6 +81,11 @@ const navigation = [
   { id: 'profile', label: 'Profile & Documents', icon: Files },
 ] as const
 
+/** A creator with program links only: the page has no "sources" to pick, so it is "Links". */
+const programNavigation = navigation.map((item) =>
+  item.id === 'links' ? { ...item, label: 'Links' } : item,
+)
+
 /** The design preview has sample data only; the marketplace exists on the live dashboard. */
 const previewNavigation = navigation.filter((item) => item.id !== 'marketplace')
 
@@ -241,7 +246,12 @@ function App({
   }))
   const [page, setPage] = useState<PortalPage>(() => currentPage(previewMode))
   const [programSlug, setProgramSlug] = useState<string | null>(currentProgramSlug)
-  const partnerNavigation = previewMode ? previewNavigation : navigation
+  const [legacyLinks, setLegacyLinks] = useState(false)
+  const partnerNavigation = previewMode
+    ? previewNavigation
+    : legacyLinks
+      ? navigation
+      : programNavigation
   const [profileSection, setProfileSection] = useState<ProfileSection>(currentProfileSection)
   const [workspaceMode, setWorkspaceMode] = useState<Workspace>(() =>
     initialWorkspace({
@@ -897,7 +907,7 @@ function App({
             <span className="breadcrumb">
               <span className="breadcrumb-root">Workspace</span>
               <ChevronRight className="breadcrumb-separator" size={13} />{' '}
-              <strong>{navigation.find((item) => item.id === page)?.label}</strong>
+              <strong>{partnerNavigation.find((item) => item.id === page)?.label}</strong>
             </span>
           </div>
           <div className="topbar-actions">
@@ -958,6 +968,7 @@ function App({
                   programSlug={programSlug}
                   reportingDays={reportingDays}
                   onReportingDaysChange={setReportingDays}
+                  onLegacyLinksChange={setLegacyLinks}
                 />
               </NavigationGuardContext.Provider>
             </PartnerLiveWorkspaceProvider>

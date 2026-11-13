@@ -815,6 +815,10 @@ export interface AdminGateway {
   getProgramReviews?: () => Promise<
     AdminDataResult<import('./programs').AdminProgramReviews | null>
   >
+  /** Which products belong to a merchant's program. Readable by every role that reads Products. */
+  getProgramProducts?: () => Promise<
+    AdminDataResult<import('./programProducts').AdminProgramProduct[] | null>
+  >
   reviewProgram?: (
     input: import('./programs').AdminProgramReviewInput,
   ) => Promise<AdminDataResult<import('./programs').AdminProgramStatusResult | null>>

@@ -124,6 +124,43 @@ describe('Product configuration page', () => {
     ).toEqual([])
   })
 
+  it('presents the steps as custom deal setup', async () => {
+    render(
+      <ProductConfigurationPage
+        productId="product-1"
+        context={owner}
+        gateway={fakeGateway()}
+        onBack={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByRole('navigation', { name: 'Setup steps' })).toBeVisible()
+    expect(screen.getByText('CUSTOM DEAL SETUP')).toBeVisible()
+    expect(screen.getByText(/^Set up this custom deal one step at a time\./)).toBeVisible()
+  })
+
+  it('replaces the steps with a pointer to Programs for a program product', async () => {
+    const gateway = fakeGateway()
+    const onOpenPrograms = vi.fn()
+    render(
+      <ProductConfigurationPage
+        productId="product-1"
+        context={owner}
+        gateway={gateway}
+        onBack={vi.fn()}
+        program={{ name: 'SpeakSix', onOpenPrograms }}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'SpeakSix is a program', level: 1 })).toBeVisible()
+    expect(screen.queryByRole('navigation', { name: 'Setup steps' })).toBeNull()
+    expect(screen.queryByText(/Go live|Funnel|agreement|Payments/i)).toBeNull()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open Programs' }))
+    expect(onOpenPrograms).toHaveBeenCalledOnce()
+    expect(gateway.getProductConfiguration).not.toHaveBeenCalled()
+    expect(gateway.getAffiliates).not.toHaveBeenCalled()
+  })
+
   it('masks raw destinations for read-only roles', async () => {
     const destination = 'https://secret.example.test/production-checkout'
     const gateway = fakeGateway({

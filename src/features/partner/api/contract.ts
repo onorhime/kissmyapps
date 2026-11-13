@@ -31,6 +31,10 @@ export const PARTNER_RPCS = Object.freeze({
   programAcceptTerms: 'partner_program_accept_terms',
   programLeave: 'partner_program_leave',
   programEarnings: 'partner_program_earnings',
+  programLinks: 'partner_program_links',
+  programLinkCreate: 'partner_program_link_create',
+  programLinkRemove: 'partner_program_link_remove',
+  programPerformance: 'partner_program_performance',
 })
 
 // Explicit selections are a second line of defence. Security must still be

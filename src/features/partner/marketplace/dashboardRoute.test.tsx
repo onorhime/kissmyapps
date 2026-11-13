@@ -240,7 +240,8 @@ describe('Marketplace in the partner dashboard', () => {
     ).toEqual([
       ['Performance', '#performance'],
       ['Payouts', '#payouts'],
-      ['Links & Sources', '#links'],
+      // "Links & Sources" only for a creator who still has older product links.
+      ['Links', '#links'],
       ['Marketplace', '#marketplace'],
       ['Profile & Documents', '#profile'],
     ])
