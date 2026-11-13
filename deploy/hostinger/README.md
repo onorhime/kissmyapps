@@ -1,5 +1,10 @@
 # Hostinger production deployment
 
+Releases are made with `node scripts/kma-release.mjs` ([docs/RELEASING.md](../../docs/RELEASING.md)):
+it uploads each release to `/srv/kissmyapps/releases/<id>`, copies the files below into
+`/srv/kissmyapps/deploy`, restarts what changed and switches `current`. It only reads the
+edge Caddyfile; edge changes are still merged by hand as described here.
+
 These files deploy the KissMyApps Partner/Admin dashboard beside the existing
 DramaPal Docker stack without publishing another host port.
 

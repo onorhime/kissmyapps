@@ -19,6 +19,8 @@ playwright-report
 .env
 .env.*
 !.env.example
+# Public browser settings for production builds; see the file.
+!.env.production
 .supabase/
 
 # Editor directories and files
@@ -31,3 +33,9 @@ playwright-report
 *.njsproj
 *.sln
 *.sw?
+
+# Local-only secret backups
+.secrets/
+
+# Release archives built by scripts/kma-release.mjs
+.release/

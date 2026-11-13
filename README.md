@@ -1,10 +1,20 @@
-# KissMyApps Affiliate Platform
+# KissMyApps
 
-Shared React and Supabase application for the KissMyApps partner dashboard and
-internal admin console. The Partner experience remains useful with zero data, and
-the Admin Product Catalog can create the first real product before a funnel exists.
-The Admin Affiliate workspace now provides a protected operational directory and
-audited lifecycle controls before any product or funnel is launched.
+One repository for all of KissMyApps: the partner dashboard, the admin console and the
+merchant console (analytics, session replays and attribution) as one React app and one
+build, the Supabase database and Edge Functions behind them, the VPS services (events relay
+and link service), and the web, iOS, Android, Flutter and React Native SDKs.
+
+- [docs/REPO_MAP.md](./docs/REPO_MAP.md): where each part lives, where it runs and how it ships.
+- [docs/RELEASING.md](./docs/RELEASING.md): one command releases one commit to every part of
+  production (`node scripts/kma-release.mjs status`, then `apply`).
+
+The Partner experience remains useful with zero data, and the Admin Product Catalog can
+create the first real product before a funnel exists. The Admin Affiliate workspace
+provides a protected operational directory and audited lifecycle controls before any
+product or funnel is launched.
+
+### History
 
 The authoritative implementation checklist is [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md).
 The production activation/rollback procedure is
@@ -60,13 +70,16 @@ credentials to Git.
 
 ## Production hosting
 
-The production control surfaces are live on the Hostinger VPS at:
+Releases go out with one command; see [docs/RELEASING.md](./docs/RELEASING.md). The
+production control surfaces are live on the Hostinger VPS at:
 
 - `https://partners.kissmyapps.dev` — Partner workspace;
-- `https://admin.kissmyapps.dev` — Admin workspace; and
+- `https://admin.kissmyapps.dev` — Admin workspace;
+- `https://merchant.kissmyapps.dev` — Merchant console and the web SDK;
+- `https://events.kissmyapps.dev` — SDK events, through the `kissmyapps-geo` relay; and
 - `https://go.kissmyapps.dev` — redirect gateway, limited to `GET /r/*`.
 
-Partner and Admin share one immutable frontend artifact but choose their default
+Partner, Admin and Merchant share one immutable frontend artifact but choose their
 workspace from the hostname. The dashboard runs in the isolated, unprivileged
 `kissmyapps-dashboard` container with no host port and joins the existing
 `dramapal_application` network only so the existing edge Caddy can proxy it.

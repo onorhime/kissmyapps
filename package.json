@@ -1,5 +1,5 @@
 {
-  "name": "affiliate-dashboard",
+  "name": "kissmyapps",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -19,6 +19,9 @@
     "validate:all": "pnpm validate && pnpm test:edge",
     "validate": "pnpm format:check && pnpm lint && pnpm funnel:check && pnpm analytics-sdk:check && pnpm mobile-sdk:check && pnpm test && pnpm build",
     "preview": "vite preview",
+    "release:status": "node scripts/kma-release.mjs status",
+    "release:apply": "node scripts/kma-release.mjs apply",
+    "release:rollback": "node scripts/kma-release.mjs rollback",
     "preview:metrics": "node scripts/funnel-metrics-local.mjs",
     "test:managed:crossapp": "node --conditions=react-server scripts/test-managed-checkout-crossapp.mjs",
     "analytics-sdk:check": "tsc -p integrations/analytics-web/tsconfig.json && oxlint integrations/analytics-web --deny-warnings",
