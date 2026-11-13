@@ -1238,7 +1238,8 @@ select pg_temp.check((select pg_temp.keys(a) = 'currency next_before program sal
       -- The last 30 days: the five sales whose commission is held. Ben's is one of them.
       and a->'summary' = '{"days":30,"sales":5,"sales_amount_minor":26900,"commission_minor":6870,"fee_minor":687}'
       and (select bool_and(pg_temp.keys(s) = 'amount_minor commission_minor creator_name currency fee_minor hold_until link_name '
-          || 'match_source member_id paid_at reason refunded_minor sale_id status') from jsonb_array_elements(a->'sales') s)
+          || 'match_source member_id paid_at promotion_code reason refunded_minor sale_id source status store')
+        and bool_and(s @> '{"source":"stripe","store":null,"promotion_code":null}') from jsonb_array_elements(a->'sales') s)
     from (select pg_temp.kept('page1') as a) x),
   'the Sales page names the program, its currency and the last 30 days in one line');
 select pg_temp.check(pg_temp.sold(pg_temp.kept('page1')) in ('c1 s8 s1 b1 s2', 'c1 s8 b1 s1 s2')
@@ -1254,7 +1255,7 @@ select pg_temp.check(pg_temp.sold(pg_temp.kept('page1')) in ('c1 s8 s1 b1 s2', '
 select pg_temp.check((select pg_temp.sold_line(a, 's1') - 'sale_id' = jsonb_build_object('paid_at', now(), 'amount_minor', 4900,
         'currency', 'USD', 'refunded_minor', 0, 'member_id', (pg_temp.member('ada', 'acme')).id, 'creator_name', 'Ada Okafor',
         'link_name', 'TikTok', 'match_source', 'metadata', 'status', 'pending', 'reason', null, 'commission_minor', 1470,
-        'fee_minor', 147, 'hold_until', now() + interval '30 days')
+        'fee_minor', 147, 'hold_until', now() + interval '30 days', 'source', 'stripe', 'store', null, 'promotion_code', null)
       and pg_temp.sold_line(a, 'b1') @> jsonb_build_object('member_id', (pg_temp.member('ben', 'acme')).id,
         'creator_name', 'Ben Creator', 'link_name', 'Main link', 'status', 'pending', 'commission_minor', 600, 'fee_minor', 60)
       and pg_temp.sold_line(a, 's2') @> '{"link_name":"Main link","match_source":"client_reference_id","status":"pending","commission_minor":3000}'

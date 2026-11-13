@@ -1,5 +1,158 @@
 # Affiliate self-serve, Phase 8: deploy steps
 
+## A. Program rules and promo codes
+
+(Piece A's notes go here.)
+
+## B. Store subscriptions (RevenueCat and Adapty)
+
+A merchant whose app sells subscriptions through the App Store or Google Play connects
+RevenueCat or Adapty to one KissMyApps analytics project. The tool then sends its webhook
+events to `program-store-webhook`, and a live purchase or renewal of a person a creator brought
+becomes a program sale with a commission, the same way a Stripe sale does.
+
+- The console (piece E) calls `workspace_store_connection_create`. KissMyApps answers the
+  webhook address and an `Authorization` header value, shown once, and keeps only the SHA-256
+  hash of that value. Rotating shows a new value once; removing stops the address answering
+  for that connection.
+- Each call is hashed by the function and stored once per tool event ID
+  (`record_program_store_event`). The person is found in the connection's project by the
+  app user ID and aliases the tool sends (user ID, distinct ID, anonymous IDs). The creator is
+  found the way the Phase 7 install judge does: the latest creator click of that person's
+  sessions or counted/flagged app installs, at or before the purchase, inside the published
+  terms' counting window. Renewals follow the creator of the subscription's first payment.
+- The commission basis of a store sale is price minus tax minus the store's cut
+  (`kma_internal.program_sale_basis`, also used for Stripe sales, where the cut is empty).
+- A store refund reverses the commission like a Stripe refund. A cancellation (auto-renew
+  turned off) changes nothing.
+
+Written and tested locally only (`91_program_store_sales.sql`, the function's Deno tests with
+the database call stubbed). Nothing here has been applied to hosted Supabase or called by real
+RevenueCat or Adapty.
+
+### What ships
+
+| Piece                                                                                | Where                                                        |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Store connection and receipt tables, `record_program_store_event`, console functions | `supabase/migrations/20261121102000_program_store_sales.sql` |
+| Store fee in the commission basis, store renewals' sequence, Sales page keys, health | same migration                                               |
+| Edge function (`/revenuecat`, `/adapty`)                                             | `supabase/functions/program-store-webhook/`                  |
+| Its `verify_jwt = false` entry                                                       | `supabase/config.toml`                                       |
+
+Console functions (authenticated; reading needs workspace membership, changing needs the
+admin role, as for Stripe Connections): `workspace_store_connections(p_workspace_id)`,
+`workspace_store_connection_create(p_workspace_id, p_project_id, p_provider)`,
+`workspace_store_connection_rotate(p_connection_id)`,
+`workspace_store_connection_remove(p_connection_id)`. Each change writes an audit entry
+(`program_store_connection_created`, `_rotated`, `_removed`).
+
+### Order
+
+1. Apply the Phase 8 migrations in order (base, A, B, the others). B changes
+   `program_sales` (Stripe ids nullable for store sales, `store_fee_minor`) and replaces
+   `program_commission_decide`, `program_commission_apply`, `workspace_program_sales` and
+   `program_sales_health`.
+2. Deploy `program-store-webhook` (the `config.toml` entry turns JWT checks off: the tools send
+   no Supabase session). Leave the flag unset.
+3. Check that it is closed: a POST to the address answers 503 `program_store_webhook_disabled`.
+4. Set `PROGRAM_STORE_WEBHOOK_ENABLED=true`.
+5. A merchant connects a tool (below) and makes the first live check.
+
+### Function secrets
+
+| Name                            | Value                                                                                                                                                 |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROGRAM_STORE_WEBHOOK_ENABLED` | `true` to accept events. Any other value: every call answers 503 and nothing reaches the database. Adapty's address check on Save then fails as well. |
+
+Nothing else is new: the function uses the service-role client every function already has.
+It holds no value of its own; the header values live only as hashes in
+`program_store_connections`.
+
+### Webhook address
+
+The console answer carries `webhook_url`, built in one place,
+`kma_internal.program_store_webhook_url(provider)`:
+`https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/program-store-webhook/<revenuecat|adapty>`,
+the hosted project address the database's schedules already call. If the project moves,
+replace that one function. `events.kissmyapps.dev` does not route it.
+
+### How the merchant sets up each tool
+
+Both tools must be told the app's own user ID: the ID the app passes to RevenueCat
+(`Purchases.logIn`) or Adapty (`Adapty.identify`, `customer_user_id`) must be the user ID the
+app sends to KissMyApps when it identifies the person. A purchase of a person KissMyApps does
+not know is stored as `unmatched_person` and never paid.
+
+RevenueCat (https://www.revenuecat.com/docs/integrations/webhooks):
+
+1. KissMyApps console: Connections, in-app subscriptions, pick the app's analytics project,
+   RevenueCat. Copy the address and the header value (shown once).
+2. RevenueCat dashboard: Project, Integrations, Webhooks, "Add new configuration". Webhook URL:
+   the address. Authorization header value: the value exactly as shown, `Bearer ` included.
+   Environment: Production (sandbox events are stored as ignored anyway). App: the apps of that
+   analytics project. Events: all, or at least initial purchases, renewals, non-renewing
+   purchases and cancellations.
+3. Save. RevenueCat retries a call that does not get 200 five times over about 80 minutes.
+
+Adapty (https://adapty.io/docs/set-up-webhook-integration):
+
+1. KissMyApps console: the same, picking Adapty.
+2. Adapty dashboard: Integrations, Webhook, turn it on. Production endpoint URL: the address.
+   Authorization header value for production endpoint: the value exactly as shown (Adapty sends
+   it as entered). Leave the sandbox fields empty.
+3. Save. Adapty sends `{}` to check the address; the function answers 200 without reading the
+   database, so the flag must be on first.
+
+### What counts
+
+| Outcome (`program_store_events.outcome`) | When                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `sale`                                   | Live purchase or renewal with a price, of a known person a creator brought: a program sale. |
+| `sale_exists`                            | The same store transaction already made a sale (another event ID).                          |
+| `refund` / `ignored_no_sale`             | A refund of a store sale (commission reversed) / of a transaction that made no sale.        |
+| `cancellation`                           | Auto-renew turned off. Nothing changes.                                                     |
+| `ignored_sandbox`, `ignored_type`        | Sandbox or test store; any other event type (trials, expirations, billing issues, …).       |
+| `ignored_free`, `ignored_store`          | No price (a trial start); a Stripe purchase made through the tool (Stripe Connect sees it). |
+| `unmatched_program`                      | The workspace has no live or paused program, or the purchase is older than its publishing.  |
+| `unmatched_person`, `unmatched_creator`  | No person with that ID in the project; the person has no creator click inside the window.   |
+
+Currency: a sale is stored in the purchase currency, except that when it differs from the
+program currency, the program is in USD and the tool sent USD figures, the USD price and
+proceeds are used. Any other mismatch records the sale with commission reason
+`currency_mismatch`.
+
+Fields read: RevenueCat `event.id, type, app_user_id, original_app_user_id, aliases,
+environment, store, product_id, transaction_id, original_transaction_id, purchased_at_ms,
+currency, price, price_in_purchased_currency, tax_percentage, commission_percentage,
+cancel_reason`; Adapty `event_type, customer_user_id, profile_id, event_datetime` and
+`event_properties.profile_event_id, environment, store, vendor_product_id, transaction_id,
+original_transaction_id, purchase_date, currency, price_local, price_usd, tax_amount_local,
+net_revenue_local, net_revenue_usd, proceeds_local, proceeds_usd`. Nothing else of the body is
+kept or logged; logs carry outcome codes, the tool and the event type only.
+
+### First live check
+
+With a live program, one active creator and a connected tool:
+
+1. The creator's link, then install the app from it and sign in (the person is identified with
+   the same user ID as in the tool).
+2. Buy the subscription for real.
+3. Within a minute:
+
+   ```sql
+   select e.type, e.outcome, e.environment, e.amount_minor, e.currency
+   from public.program_store_events e order by e.received_at desc limit 5;
+
+   select source, store, match_source, amount_minor, tax_minor, store_fee_minor, subscription_sequence
+   from public.program_sales where source in ('revenuecat', 'adapty')
+   order by created_at desc limit 3;
+   ```
+
+   Expect `outcome = 'sale'`, a sale with `match_source = 'app_user'` and sequence 1, and the
+   commission in the console. `program_sales_health()` shows the connection under `store`.
+
+4. A sandbox purchase from a test device shows `ignored_sandbox` and no sale.
+
 ## C. Checkout link and promo worker
 
 Three edge functions carry the Stripe side of Phase 8:

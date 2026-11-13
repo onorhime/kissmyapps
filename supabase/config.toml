@@ -540,6 +540,12 @@ verify_jwt = false
 # credential; disabled unless PROGRAM_PROMO_CODES_ENABLED=true.
 [functions.program-promo-worker]
 verify_jwt = false
+# In-app subscription events from RevenueCat and Adapty (/revenuecat, /adapty). No
+# Supabase session: the tool sends the Authorization header value the console showed
+# once, and the database finds the store connection by its SHA-256 hash. Disabled
+# unless PROGRAM_STORE_WEBHOOK_ENABLED=true.
+[functions.program-store-webhook]
+verify_jwt = false
 
 [functions.funnel-order-eligibility]
 verify_jwt = false

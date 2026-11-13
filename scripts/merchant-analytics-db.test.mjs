@@ -57,6 +57,7 @@ const suites = [
   ['88_attribution_installs.sql', /^ok \d+ attribution install assertions$/m],
   ['89_program_app_installs.sql', /^ok \d+ program app install assertions$/m],
   ['90_program_checkout_promo.sql', /^ok \d+ program checkout promo assertions$/m],
+  ['91_program_store_sales.sql', /^ok \d+ program store sales assertions$/m],
   ['92_analytics_destinations.sql', /^ok \d+ analytics destination assertions$/m],
 ]
 
