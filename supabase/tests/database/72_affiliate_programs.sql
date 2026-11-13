@@ -277,6 +277,10 @@ select pg_temp.check(pg_temp.try('owner', pg_temp.sql('workspace_program_save', 
     = '22023 invalid_input'
   and pg_temp.try('owner', pg_temp.sql('workspace_program_save', 'acme', '''{"name":"SpeakSix","slug":"mine"}''::jsonb'))
     = '22023 invalid_input', 'the form takes only its own fields');
+select pg_temp.check(pg_temp.try('owner', pg_temp.sql('workspace_program_save', 'acme', '''{"name":"SpeakSix","hold_days":900}''::jsonb'))
+    = '22023 invalid_hold_days' and (select count(*) = 0 from public.affiliate_programs)
+  and (select count(*) = 0 from public.audit_logs where target_table = 'affiliate_programs'),
+  'a first save with a wrong field leaves no draft behind');
 select pg_temp.check(
   (pg_temp.call('owner', pg_temp.sql('workspace_program_save', 'acme', '''{"name":"  SpeakSix  "}''::jsonb'))->'program')
     - 'id' - 'updated_at'
@@ -588,7 +592,7 @@ select pg_temp.check((select bool_and(pg_temp.try(v.who, 'select public.list_adm
 select pg_temp.check((select jsonb_array_length(r->'programs') = 1
     and (r->'programs'->0) - 'agreement' = pg_temp.state('owner', 'acme')->'program' || jsonb_build_object(
       'workspace_id', pg_temp.q('acme'), 'workspace_name', 'SpeakSix', 'brand_name', 'SpeakSix Ltd',
-      'stripe_account_id', 'acct_SpeakSix', 'stripe_country', 'GB')
+      'stripe_account_id', 'acct_SpeakSix', 'stripe_country', 'GB', 'reviewed_at', null)
     and r->'programs'->0->'agreement' = pg_temp.doc()
   from pg_temp.call('kma_operations', 'select public.list_admin_program_reviews()') r),
   'the review queue shows the program, its workspace, its Stripe account and the agreement creators would sign');
@@ -693,6 +697,7 @@ select pg_temp.check((select jsonb_array_length(r->'programs') = 2 and r->'progr
     and r->'programs'->0->>'status' = 'in_review' and r->'programs'->0->>'brand_name' = 'Rival Media'
     and r->'programs'->0->'agreement'->'summary'->0->>'value' = '$5.00 on the first payment'
     and r->'programs'->1->>'slug' = 'speaksix' and r->'programs'->1->>'status' = 'live'
+    and (r->'programs'->1->>'reviewed_at')::timestamptz = (pg_temp.program('acme')).reviewed_at
     and r->'programs'->1->'agreement' = pg_temp.doc()
   from pg_temp.call('kma_owner', 'select public.list_admin_program_reviews()') r),
   'the queue lists programs waiting for review first, then the reviewed ones');
@@ -752,6 +757,22 @@ select pg_temp.check((select count(*) = 2 from public.affiliate_program_terms wh
   'publishing writes version 2 and makes it current with no second review; version 1 is untouched');
 select pg_temp.check((pg_temp.call('kma_owner', 'select public.list_admin_program_reviews()')->'programs'->1->'agreement'->'summary'->0->>'value')
   = '40% of every payment', 'the review list shows the agreement that is in force');
+do $$
+begin
+  begin
+    update public.affiliate_program_terms set terms = terms || '{"commission_rate_bps":1}' where version = 1;
+    raise exception 'a published version was edited';
+  exception when sqlstate 'P0001' then
+    if sqlerrm not like '%append-only' then raise; end if;
+  end;
+  begin
+    delete from public.affiliate_program_terms where version = 1;
+    raise exception 'a published version was deleted';
+  exception when sqlstate 'P0001' then
+    if sqlerrm not like '%append-only' then raise; end if;
+  end;
+  perform pg_temp.check(true, 'a published version of the terms can be neither edited nor deleted');
+end $$;
 
 -- Pause and resume ----------------------------------------------------------------------------------------
 select pg_temp.check(pg_temp.try('owner', pg_temp.status_sql('acme', 'archived')) = '22023 invalid_status'

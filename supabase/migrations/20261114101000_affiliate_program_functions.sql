@@ -9,10 +9,14 @@
 --
 -- The merchant functions are called by the signed-in member, never by the service role.
 -- Callers tell failures apart by the DETAIL of the error, which is one short code:
--- invalid_input, invalid_<field>, program_changed (SQLSTATE 40001), program_incomplete,
--- stripe_not_connected, agreement_not_read, program_in_review, program_paused_by_admin,
--- nothing_to_publish, status_not_allowed, program_not_found. Every code except
--- program_changed and program_not_found (P0002) comes with SQLSTATE 22023.
+--   invalid_input, invalid_<field> (a form field, or revision, status, decision, note,
+--   program_id), program_incomplete, stripe_not_connected, agreement_not_read,
+--   program_in_review, program_paused_by_admin, nothing_to_publish, status_not_allowed:
+--   all with SQLSTATE 22023;
+--   program_changed (a stale revision): SQLSTATE 40001;
+--   program_not_found (admin functions only): SQLSTATE P0002.
+-- A caller who is not a member, or whose role is too low, gets the workspace errors
+-- P0002 and 42501 with no DETAIL, like every other console function.
 --
 -- Production needs nothing set up beforehand for an approval to work: the products and
 -- funnels tables only have audit and updated_at triggers. The tracking origin check lives
@@ -513,7 +517,8 @@ begin
   n.commission_months := kma_internal.program_input_int(p_input, 'commission_months', p.commission_months, 1, 36);
   n.currency := kma_internal.program_input_text(p_input, 'currency', p.currency, 3);
   n.currency := coalesce(n.currency, 'USD');
-  -- Amounts are stored in hundredths, so only currencies with two decimal places are taken.
+  -- Amounts are stored in hundredths, so only currencies that Stripe counts in plain
+  -- hundredths are taken: none with zero or three decimals, or with whole-unit rules.
   if n.currency !~ '^[A-Z]{3}$' or n.currency = any(array[
     'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF',
     'BHD', 'JOD', 'KWD', 'OMR', 'TND', 'ISK', 'HUF', 'TWD']) then
@@ -587,6 +592,11 @@ begin
   end loop;
   return v_slug;
 end $$;
+
+-- A published version is what creators agreed to. It is never edited or removed.
+create trigger affiliate_program_terms_are_append_only
+  before update or delete on public.affiliate_program_terms
+  for each row execute function public.reject_mutation();
 
 -- Writes the next version of a program's terms and returns its number.
 create function kma_internal.program_publish_terms(p public.affiliate_programs, p_author uuid) returns integer
@@ -820,6 +830,7 @@ language sql stable set search_path = '' as $$
     'brand_name', s.connection->>'business_name',
     'stripe_account_id', s.connection->>'account_id',
     'stripe_country', s.connection->>'country',
+    'reviewed_at', p.reviewed_at,
     'agreement', coalesce(
       (select t.agreement from public.affiliate_program_terms t
         where t.program_id = p.id and t.version = p.live_terms_version),
