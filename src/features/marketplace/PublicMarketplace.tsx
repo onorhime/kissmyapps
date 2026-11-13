@@ -7,7 +7,7 @@ import {
   ProgramGridSkeleton,
   ProgramLogo,
 } from './components'
-import { categoryLabel, programHeadline, programTermsLine } from './model'
+import { categoryLabel, programHeadline, programHeadlineClass, programTermsLine } from './model'
 import type { MarketplaceProgram, MarketplaceProgramDetail } from './model'
 import { loadMarketplaceProgram, loadMarketplacePrograms } from './publicApi'
 import type { MarketplaceFailure, MarketplaceLoad } from './publicApi'
@@ -282,7 +282,9 @@ function ProgramPage({
         </header>
 
         <aside className="mkt-side" aria-label="Join this program">
-          {headline && <p className="mkt-side-headline">{headline}</p>}
+          {headline && (
+            <p className={`mkt-side-headline${programHeadlineClass(program)}`}>{headline}</p>
+          )}
           <p>{programTermsLine(program)}</p>
           {open ? (
             <>
