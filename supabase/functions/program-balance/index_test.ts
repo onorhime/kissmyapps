@@ -381,6 +381,22 @@ Deno.test("when Stripe fails, no page is answered and the top-up is closed", asy
       502,
       "stripe_unavailable",
     ],
+    // Nor is an address with somebody's name in front of the host, or a port after it.
+    ...[
+      "https://someone@checkout.stripe.com/c/pay/cs_live_x",
+      "https://checkout.stripe.com:8443/c/pay/cs_live_x",
+    ].map((url): [(path: string) => Response, number, string] => [
+      () =>
+        Response.json({
+          id: "cs_live_Elsewhere",
+          livemode: true,
+          mode: "payment",
+          customer: "cus_FakeFunded",
+          url,
+        }),
+      502,
+      "stripe_unavailable",
+    ]),
     // A page that is not live means the key is not what it claims to be.
     [
       () =>
