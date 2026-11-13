@@ -4,27 +4,35 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Check, ChevronDown, Circle, ImageIcon, LoaderCircle, TriangleAlert, X } from 'lucide-react'
 import {
   agreementReady,
+  asksEarnFrom,
+  blankReward,
   categoryLabels,
   changedInput,
   changesAgreement,
   checkLogoFile,
   commissionExample,
-  commissionHeadline,
   currencies,
   describeProblem,
+  draftEarning,
   draftFromProgram,
   draftProgress,
   draftTerms,
+  earnFromAbout,
+  earnHeadline,
+  earningStep,
   formatDay,
+  formatMoney,
   initials,
   optionFields,
   optionsSummary,
   ProgramError,
   programs,
+  rewardField,
   trackingLine,
   trackingSnippet,
   trackingSnippetNote,
   validateDraft,
+  withRewardKey,
 } from '../programs'
 import type {
   AgreementDoc,
@@ -32,12 +40,15 @@ import type {
   Checklist,
   DraftErrors,
   DraftField,
+  EarnFrom,
   Program,
   ProgramDraft,
   ProgramProblem,
   ProgramState,
   ProgramStatus,
   ProgramStep,
+  RewardPart,
+  RewardRow,
   Tracking,
 } from '../programs'
 import { personHue } from '../format'
@@ -46,6 +57,8 @@ import { useStore } from '../store'
 import { CodeBlock, Field, PageHeader, Pill, Segmented, Skeleton } from '../ui/Primitives'
 import type { PillTone } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
+import { RewardFields } from './ProgramRewards'
+import type { RewardEvents } from './ProgramRewards'
 
 const REVIEW_REFRESH_MS = 60_000
 const TRACKING_REFRESH_MS = 60_000
@@ -98,7 +111,7 @@ function ProgramPage({
   workspaceId: string
   workspaceName: string
 }) {
-  const { signOut, notify, now } = useStore()
+  const { signOut, notify, now, projects } = useStore()
   const [state, setState] = useState<ProgramState>()
   const [loadProblem, setLoadProblem] = useState<ProgramProblem>()
   const [draft, setDraft] = useState<ProgramDraft>(() => draftFromProgram(null))
@@ -111,13 +124,16 @@ function ProgramPage({
   const root = useRef<HTMLDivElement>(null)
   // Each answer is numbered, so a slow one never overwrites what a newer one showed.
   const latest = useRef(0)
+  // Whether the person set creator approval themselves since the form was last filled.
+  const approvalChosen = useRef(false)
 
   /** Everything on the page follows the server's latest answer, the form included. */
   const adopt = useCallback((next: ProgramState) => {
     latest.current += 1
     setState(next)
-    setDraft(draftFromProgram(next.program))
+    setDraft(draftFromProgram(next.program, asksEarnFrom(next)))
     setErrors({})
+    approvalChosen.current = false
     setLoadProblem(undefined)
   }, [])
 
@@ -144,7 +160,10 @@ function ProgramPage({
 
   const program = state?.program ?? null
   const status = program?.status
-  const saved = useMemo(() => draftFromProgram(program), [program])
+  // Asked when the workspace can pay for events; otherwise the form is the one for sales.
+  const asks = asksEarnFrom(state)
+  const earnFrom = draft.earnFrom ?? 'sales'
+  const saved = useMemo(() => draftFromProgram(program, asks), [program, asks])
   const dirty = Boolean(state) && !sameDraft(draft, saved)
   const editable = Boolean(state?.can_manage) && status !== 'in_review'
 
@@ -176,14 +195,28 @@ function ProgramPage({
   // A refused save puts the cursor in the first field that needs fixing.
   useEffect(() => {
     if (errorFocus)
-      root.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus({
-        preventScroll: false,
-      })
+      root.current
+        ?.querySelector<HTMLElement>(
+          '[aria-invalid="true"], [data-invalid="true"] [aria-pressed="true"]',
+        )
+        ?.focus({ preventScroll: false })
   }, [errorFocus])
 
   const tracking = useRpc(`program-tracking:${workspaceId}`, () => programs.tracking(workspaceId), {
     pollMs: TRACKING_REFRESH_MS,
   })
+
+  // The events a reward can be tied to are only read once the program pays for events.
+  const received = useRpc(
+    `program-events:${workspaceId}`,
+    () => programs.rewardEvents(workspaceId),
+    { enabled: asks && earnFrom !== 'sales' },
+  )
+  const events: RewardEvents = received.data
+    ? { status: 'ready', events: received.data }
+    : received.error
+      ? { status: 'failed' }
+      : { status: 'loading' }
 
   // The buttons in a notice run the newest version of each action.
   const actions = useRef<Record<Action, () => void>>({
@@ -199,8 +232,62 @@ function ProgramPage({
     value: ProgramDraft[K],
     field?: DraftField,
   ) => {
+    if (key === 'approvalMode') approvalChosen.current = true
     setDraft((current) => ({ ...current, [key]: value }))
     if (field && errors[field]) setErrors(({ [field]: _fixed, ...rest }) => rest)
+  }
+
+  const chooseEarnFrom = (value: EarnFrom) => {
+    // An event has no payment behind it, so the business approves each creator of a program
+    // that pays for events, unless it already decided how creators are approved.
+    const decided = approvalChosen.current || (program?.earn_from ?? 'sales') !== 'sales'
+    setDraft((current) => ({
+      ...current,
+      earnFrom: value,
+      approvalMode: decided
+        ? current.approvalMode
+        : value === 'sales'
+          ? saved.approvalMode
+          : 'manual',
+    }))
+    if (errors.earnFrom) setErrors(({ earnFrom: _fixed, ...rest }) => rest)
+  }
+
+  /** Puts back the rewards with one row changed, added or removed. */
+  const setRewards = (change: (rows: RewardRow[]) => RewardRow[]) =>
+    setDraft((current) => {
+      const rows = change(current.rewards ?? [])
+      return { ...current, rewards: rows.length ? rows : [blankReward()] }
+    })
+
+  const changeReward = (index: number, patch: Partial<RewardRow>) => {
+    setRewards((rows) =>
+      rows.map((row, at) =>
+        at !== index
+          ? row
+          : patch.key === undefined
+            ? { ...row, ...patch }
+            : { ...withRewardKey(row, patch.key), ...patch },
+      ),
+    )
+    // The fields that were edited are no longer known to be wrong, nor is the list as a whole.
+    const fixed = new Set<string>(['rewards'])
+    for (const part of Object.keys(patch) as RewardPart[]) fixed.add(rewardField(index, part))
+    if (patch.key !== undefined) fixed.add(rewardField(index, 'label'))
+    if (Object.keys(errors).some((field) => fixed.has(field)))
+      setErrors((current) =>
+        Object.fromEntries(Object.entries(current).filter(([field]) => !fixed.has(field))),
+      )
+  }
+
+  const removeReward = (index: number) => {
+    setRewards((rows) => rows.filter((_, at) => at !== index))
+    // The rows below move up, so what was said about each row no longer points at it.
+    setErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([field]) => !/^rewards?(:|$)/.test(field)),
+      ),
+    )
   }
 
   const showErrors = (found: DraftErrors) => {
@@ -211,7 +298,7 @@ function ProgramPage({
 
   /** Says what went wrong where it belongs: at the field, or above the form. */
   const fail = async (problem: unknown, step: ProgramStep, again?: Action) => {
-    const described = describeProblem(problem, step)
+    const described = describeProblem(problem, step, earnFrom)
     if (described.field) {
       showErrors({ ...errors, [described.field]: described.message })
       return
@@ -266,7 +353,10 @@ function ProgramPage({
       const answer = await programs.agreement(workspaceId)
       if (!answer.complete || !answer.agreement || !answer.sha256) {
         setReader({ open: false })
-        setNotice({ tone: 'problem', problem: describeProblem(incomplete, 'agreement') })
+        setNotice({
+          tone: 'problem',
+          problem: describeProblem(incomplete, 'agreement', earnFrom),
+        })
         return
       }
       setReader({
@@ -336,6 +426,7 @@ function ProgramPage({
           problem: describeProblem(
             current.checklist.agreement_read ? incomplete : unread,
             'publish',
+            earnFrom,
           ),
         })
         return
@@ -515,30 +606,68 @@ function ProgramPage({
                   onDiscard={() => {
                     setDraft(saved)
                     setErrors({})
+                    approvalChosen.current = false
                   }}
+                  asks={asks}
+                  onEarnFrom={chooseEarnFrom}
+                  rewards={
+                    <RewardFields
+                      rows={draft.rewards ?? []}
+                      budget={draft.budget ?? ''}
+                      currency={draft.currency}
+                      errors={errors}
+                      events={events}
+                      editable={editable}
+                      installHref={
+                        projects[0] &&
+                        href({ name: 'settings', projectId: projects[0].id, section: 'install' })
+                      }
+                      onRow={changeReward}
+                      onAdd={() => setRewards((rows) => [...rows, blankReward()])}
+                      onRemove={removeReward}
+                      onBudget={(value) => set('budget', value, 'budget')}
+                      onRetryEvents={() => void received.refresh()}
+                    />
+                  }
                 />
 
-                <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
-                  <div className="mc-prog-label">
-                    <h2 id="mc-prog-track">Sale tracking</h2>
-                    <p>How a sale is tied to a creator</p>
-                  </div>
-                  <div className="mc-prog-fields">
-                    <p className="mc-prog-about">
-                      Creator links add a click ID to your landing page. Pass it to Stripe when a
-                      customer pays, and the sale is credited to that creator.
-                    </p>
-                    <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
-                    <p className="mc-prog-about">{trackingSnippetNote}</p>
-                    <TrackingStatus
-                      connected={state.stripe_connected}
-                      tracking={tracking.data}
-                      failed={Boolean(tracking.error) && !tracking.data}
-                      onRetry={() => void tracking.refresh()}
-                      now={now}
-                    />
-                  </div>
-                </section>
+                {earnFrom === 'events' ? (
+                  <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
+                    <div className="mc-prog-label">
+                      <h2 id="mc-prog-track">Event tracking</h2>
+                      <p>How an event is tied to a creator</p>
+                    </div>
+                    <div className="mc-prog-fields">
+                      <p className="mc-prog-about">
+                        Creator links add a click ID to your landing page. The KissMyApps tracking
+                        code on your site ties what that person does next to the creator, so there
+                        is nothing more to add.
+                      </p>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="mc-panel mc-prog-track" aria-labelledby="mc-prog-track">
+                    <div className="mc-prog-label">
+                      <h2 id="mc-prog-track">Sale tracking</h2>
+                      <p>How a sale is tied to a creator</p>
+                    </div>
+                    <div className="mc-prog-fields">
+                      <p className="mc-prog-about">
+                        Creator links add a click ID to your landing page. Pass it to Stripe when a
+                        customer pays, and the sale is credited to that creator.
+                      </p>
+                      <CodeBlock code={trackingSnippet} label="Pass the click ID to Stripe" />
+                      <p className="mc-prog-about">{trackingSnippetNote}</p>
+                      <TrackingStatus
+                        connected={state.stripe_connected}
+                        tracking={tracking.data}
+                        failed={Boolean(tracking.error) && !tracking.data}
+                        onRetry={() => void tracking.refresh()}
+                        now={now}
+                      />
+                    </div>
+                  </section>
+                )}
               </div>
 
               <aside className="mc-prog-side" aria-label="Preview and publishing">
@@ -546,6 +675,7 @@ function ProgramPage({
                 <Publishing
                   state={state}
                   checklist={checklist}
+                  earnFrom={earnFrom}
                   complete={complete}
                   readable={readable}
                   editable={editable}
@@ -816,6 +946,9 @@ function ProgramForm({
   onUpload,
   onSave,
   onDiscard,
+  asks,
+  onEarnFrom,
+  rewards,
 }: {
   draft: ProgramDraft
   errors: DraftErrors
@@ -830,6 +963,11 @@ function ProgramForm({
   onUpload: (file: File) => void
   onSave: () => void
   onDiscard: () => void
+  /** Whether the form asks what creators earn from. Without it, the program pays for sales. */
+  asks: boolean
+  onEarnFrom: (value: EarnFrom) => void
+  /** The reward rows and their budget, shown when the program pays for events. */
+  rewards: ReactNode
 }) {
   const file = useRef<HTMLInputElement>(null)
   const change = useRef<HTMLButtonElement>(null)
@@ -837,6 +975,7 @@ function ProgramForm({
   const toggled = useRef(false)
   const optionsId = useId()
   const logoErrorId = useId()
+  const earnFrom = draft.earnFrom ?? 'sales'
   const terms = draftTerms(draft)
   const example = commissionExample(terms)
   const dollars = draft.currency === 'USD'
@@ -991,79 +1130,125 @@ function ProgramForm({
           </div>
         </section>
 
-        <section className="mc-prog-section" aria-labelledby="mc-prog-commission">
-          <div className="mc-prog-label">
-            <h2 id="mc-prog-commission">Commission</h2>
-            <p>What a creator earns per sale</p>
-          </div>
-          <div className="mc-prog-fields">
-            <div className="mc-prog-line">
-              <Segmented
-                label="Commission type"
-                value={draft.commissionType}
-                options={[
-                  { value: 'percent', label: 'Percent' },
-                  { value: 'fixed', label: 'Fixed amount' },
-                ]}
-                onChange={(value) => set('commissionType', value, 'amount')}
-              />
-              <Bare
-                label={
-                  draft.commissionType === 'percent' ? 'Commission percent' : 'Commission amount'
+        {asks && (
+          <section className="mc-prog-section" aria-labelledby="mc-prog-earn">
+            <div className="mc-prog-label">
+              <h2 id="mc-prog-earn">Earnings</h2>
+              <p>What do creators earn from?</p>
+            </div>
+            <div className="mc-prog-fields">
+              <div
+                className={
+                  errors.earnFrom ? 'mc-field mc-pgr-earn has-error' : 'mc-field mc-pgr-earn'
                 }
-                error={errors.amount}
-                className="mc-prog-amount"
+                data-invalid={errors.earnFrom ? true : undefined}
               >
-                {(props) =>
-                  draft.commissionType === 'percent' ? (
-                    <div className="mc-affix">
-                      <input
-                        {...props}
-                        inputMode="decimal"
-                        value={draft.percent}
-                        placeholder="30"
-                        autoComplete="off"
-                        onChange={(event) => set('percent', event.target.value, 'amount')}
-                      />
-                      <span aria-hidden="true">%</span>
-                    </div>
-                  ) : (
-                    <div className={dollars ? 'mc-affix is-prefix' : 'mc-affix'}>
-                      {dollars && <span aria-hidden="true">$</span>}
-                      <input
-                        {...props}
-                        inputMode="decimal"
-                        value={draft.fixed}
-                        placeholder="20.00"
-                        autoComplete="off"
-                        onChange={(event) => set('fixed', event.target.value, 'amount')}
-                      />
-                      {!dollars && <span aria-hidden="true">{draft.currency}</span>}
-                    </div>
-                  )
-                }
-              </Bare>
+                <Segmented
+                  label="What do creators earn from?"
+                  value={earnFrom}
+                  options={[
+                    { value: 'sales', label: 'Sales' },
+                    { value: 'events', label: 'Events' },
+                    { value: 'both', label: 'Both' },
+                  ]}
+                  onChange={onEarnFrom}
+                />
+                {errors.earnFrom && (
+                  <p className="mc-field-error" role="alert">
+                    {errors.earnFrom}
+                  </p>
+                )}
+              </div>
+              <p className="mc-prog-example">{earnFromAbout[earnFrom]}</p>
             </div>
-            <div className="mc-prog-line">
-              <Segmented
-                label="Commission lasts"
-                value={draft.duration}
-                options={[
-                  { value: 'first_payment', label: 'First payment' },
-                  {
-                    value: 'months',
-                    label: /^\d{1,2}$/.test(draft.months.trim())
-                      ? `${Number(draft.months)} ${Number(draft.months) === 1 ? 'month' : 'months'}`
-                      : 'Months',
-                  },
-                  { value: 'lifetime', label: 'Every payment' },
-                ]}
-                onChange={(value) => set('duration', value, 'months')}
-              />
+          </section>
+        )}
+
+        {earnFrom !== 'events' && (
+          <section className="mc-prog-section" aria-labelledby="mc-prog-commission">
+            <div className="mc-prog-label">
+              <h2 id="mc-prog-commission">Commission</h2>
+              <p>What a creator earns per sale</p>
             </div>
-            {example && <p className="mc-prog-example">{example}</p>}
-          </div>
-        </section>
+            <div className="mc-prog-fields">
+              <div className="mc-prog-line">
+                <Segmented
+                  label="Commission type"
+                  value={draft.commissionType}
+                  options={[
+                    { value: 'percent', label: 'Percent' },
+                    { value: 'fixed', label: 'Fixed amount' },
+                  ]}
+                  onChange={(value) => set('commissionType', value, 'amount')}
+                />
+                <Bare
+                  label={
+                    draft.commissionType === 'percent' ? 'Commission percent' : 'Commission amount'
+                  }
+                  error={errors.amount}
+                  className="mc-prog-amount"
+                >
+                  {(props) =>
+                    draft.commissionType === 'percent' ? (
+                      <div className="mc-affix">
+                        <input
+                          {...props}
+                          inputMode="decimal"
+                          value={draft.percent}
+                          placeholder="30"
+                          autoComplete="off"
+                          onChange={(event) => set('percent', event.target.value, 'amount')}
+                        />
+                        <span aria-hidden="true">%</span>
+                      </div>
+                    ) : (
+                      <div className={dollars ? 'mc-affix is-prefix' : 'mc-affix'}>
+                        {dollars && <span aria-hidden="true">$</span>}
+                        <input
+                          {...props}
+                          inputMode="decimal"
+                          value={draft.fixed}
+                          placeholder="20.00"
+                          autoComplete="off"
+                          onChange={(event) => set('fixed', event.target.value, 'amount')}
+                        />
+                        {!dollars && <span aria-hidden="true">{draft.currency}</span>}
+                      </div>
+                    )
+                  }
+                </Bare>
+              </div>
+              <div className="mc-prog-line">
+                <Segmented
+                  label="Commission lasts"
+                  value={draft.duration}
+                  options={[
+                    { value: 'first_payment', label: 'First payment' },
+                    {
+                      value: 'months',
+                      label: /^\d{1,2}$/.test(draft.months.trim())
+                        ? `${Number(draft.months)} ${Number(draft.months) === 1 ? 'month' : 'months'}`
+                        : 'Months',
+                    },
+                    { value: 'lifetime', label: 'Every payment' },
+                  ]}
+                  onChange={(value) => set('duration', value, 'months')}
+                />
+              </div>
+              {example && <p className="mc-prog-example">{example}</p>}
+            </div>
+          </section>
+        )}
+
+        {earnFrom !== 'sales' && (
+          <section className="mc-prog-section" aria-labelledby="mc-prog-rewards">
+            <div className="mc-prog-label">
+              <h2 id="mc-prog-rewards">Rewards</h2>
+              <p>What a creator earns per event, once per person</p>
+            </div>
+            <div className="mc-prog-fields">{rewards}</div>
+          </section>
+        )}
 
         <section className="mc-prog-section" aria-labelledby="mc-prog-options">
           <div className="mc-prog-label">
@@ -1156,7 +1341,7 @@ function ProgramForm({
                     </span>
                   )}
                 </Field>
-                {draft.duration === 'months' && (
+                {draft.duration === 'months' && earnFrom !== 'events' && (
                   <Field label="Months of commission" error={errors.months}>
                     {(props) => (
                       <div className="mc-affix">
@@ -1314,7 +1499,10 @@ function TrackingStatus({
 
 /** The marketplace card as a creator will read it, redrawn as the form changes. */
 function Preview({ draft, workspaceId }: { draft: ProgramDraft; workspaceId: string }) {
-  const headline = commissionHeadline(draftTerms(draft))
+  const earning = draftEarning(draft)
+  const headline = earnHeadline(earning)
+  // For events the line already names every reward; beside a commission they are listed.
+  const listed = earning.earn_from === 'both' ? earning.rewards : []
   const window = /^\d{1,3}$/.test(draft.attributionDays.trim())
     ? Number(draft.attributionDays)
     : null
@@ -1335,19 +1523,32 @@ function Preview({ draft, workspaceId }: { draft: ProgramDraft; workspaceId: str
           {draft.tagline.trim() || 'Your one-line description'}
         </p>
         <p className={headline ? 'mc-prog-card-earn mc-num' : 'mc-prog-card-earn is-blank'}>
-          {headline ?? 'Your commission'}
+          {headline ?? earningStep[earning.earn_from].blank}
         </p>
+        {listed.length > 0 && (
+          <ul className="mc-pgr-card-list" aria-label="Rewards">
+            {listed.map((reward) => (
+              <li key={reward.key}>
+                <span>{reward.label}</span>
+                <span className="mc-num">{formatMoney(reward.amount_minor, earning.currency)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {window !== null && <p className="mc-prog-card-meta mc-num">{window}-day attribution</p>}
       </div>
     </section>
   )
 }
 
-const steps: Array<{ key: keyof Checklist; done: string; todo: string }> = [
+/** The checklist, with the step for what creators earn in the words of what the program pays for. */
+const stepsFor = (
+  earnFrom: EarnFrom,
+): Array<{ key: keyof Checklist; done: string; todo: string }> => [
   { key: 'stripe_connected', done: 'Stripe connected', todo: 'Connect Stripe' },
   { key: 'details', done: 'Product details', todo: 'Product details' },
   { key: 'landing_page', done: 'Landing page', todo: 'Landing page' },
-  { key: 'commission', done: 'Commission set', todo: 'Set a commission' },
+  { key: 'commission', ...earningStep[earnFrom] },
   { key: 'agreement_read', done: 'Agreement read', todo: 'Read your agreement' },
 ]
 
@@ -1355,6 +1556,7 @@ const steps: Array<{ key: keyof Checklist; done: string; todo: string }> = [
 function Publishing({
   state,
   checklist,
+  earnFrom,
   complete,
   readable,
   editable,
@@ -1365,6 +1567,7 @@ function Publishing({
 }: {
   state: ProgramState
   checklist: Checklist
+  earnFrom: EarnFrom
   /** Everything a listing needs is filled in. */
   complete: boolean
   /** Enough is filled in for the agreement to be written. */
@@ -1467,7 +1670,7 @@ function Publishing({
     <section className="mc-panel mc-prog-ready" aria-labelledby="mc-prog-ready">
       <h2 id="mc-prog-ready">Ready to publish</h2>
       <ul className="mc-prog-steps">
-        {steps.map((step) => {
+        {stepsFor(earnFrom).map((step) => {
           const done = checklist[step.key]
           return (
             <li key={step.key} className={done ? 'is-done' : undefined}>
