@@ -1,0 +1,136 @@
+/*
+ * Program money on the admin Settings page. It reuses the page's panel, heading, status,
+ * field and button styles; these are only the parts that section adds.
+ */
+
+.admin-money {
+  min-width: 0;
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.admin-money .admin-settings-panel-heading h2 {
+  margin-top: 0;
+}
+
+.admin-money .admin-settings-panel-heading p:last-child {
+  max-width: 72ch;
+}
+
+.admin-money-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 86ch;
+  margin: 18px 0 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.admin-money-problem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--admin-red) 40%, var(--admin-line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-red) 7%, transparent);
+}
+
+.admin-money-problem p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.admin-money-problem strong {
+  color: var(--admin-text);
+}
+
+.admin-money-warning p {
+  max-width: 86ch;
+  font-size: 12px;
+}
+
+.admin-money-form {
+  margin-top: 20px;
+}
+
+.admin-money-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 320px));
+  gap: 18px 20px;
+}
+
+.admin-money-form .admin-field label {
+  font-size: 12px;
+}
+
+.admin-money-form .admin-field input {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-money-current {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-money-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 11px;
+  margin: 22px 0 0;
+}
+
+.admin-money-totals > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 9px;
+  background: var(--admin-plum-deep);
+}
+
+.admin-money-totals dt {
+  color: var(--admin-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+.admin-money-totals dd {
+  margin: 8px 0 0;
+  color: var(--admin-text);
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.admin-money-totals dd + dd {
+  margin-top: 2px;
+}
+
+.admin-money-totals dd.admin-money-none {
+  color: var(--admin-muted);
+}
+
+.admin-money-totals dd.admin-money-total-note {
+  margin-top: 8px;
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .admin-money-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

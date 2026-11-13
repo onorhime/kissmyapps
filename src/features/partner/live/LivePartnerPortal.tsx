@@ -23,6 +23,7 @@ import { LivePerformance, PeriodPicker } from './LivePerformance'
 import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
 import { PartnerMarketplace } from '../marketplace/PartnerMarketplace'
+import { ProgramEarningsPanel } from '../earnings/ProgramEarningsPanel'
 
 const pageCopy = {
   performance: {
@@ -241,6 +242,11 @@ export function LivePartnerPortal({
 
       {!loading && !failed && (
         <AgreementSignBanner gateway={workspace.gateway} onCompleted={actions.refresh} />
+      )}
+
+      {/* Program earnings belong to the creator, not to the product chosen above. */}
+      {page === 'payouts' && !loading && !failed && (
+        <ProgramEarningsPanel gateway={workspace.gateway} />
       )}
 
       {page === 'profile' ? (

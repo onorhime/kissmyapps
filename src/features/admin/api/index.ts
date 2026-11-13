@@ -16,6 +16,12 @@ export type {
   AdminProgramStatusInput,
   AdminProgramStatusResult,
 } from './programs'
+export type {
+  AdminMoneyByCurrency,
+  AdminProgramMoney,
+  AdminProgramMoneyTotals,
+  AdminProgramMoneyUpdate,
+} from './programMoney'
 export {
   ADMIN_AFFILIATE_ACTIVATION_STATUSES,
   ADMIN_AFFILIATE_DIRECTORY_SORTS,
