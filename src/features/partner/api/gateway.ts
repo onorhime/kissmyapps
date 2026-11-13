@@ -29,6 +29,13 @@ import { readProgramEarnings } from '../earnings/earnings'
 import type { ProgramEarnings } from '../earnings/earnings'
 import { readProgramPerformance } from '../performance/performance'
 import type { PerformanceQuery, ProgramPerformance } from '../performance/performance'
+import { linkError, linkFailure, readLinkProgram, readProgramLinks } from '../links/links'
+import type {
+  LinkProgram,
+  ProgramLinkCreateInput,
+  ProgramLinks,
+  ProgramLinksResult,
+} from '../links/links'
 import type {
   PartnerMarketplace,
   PartnerProgramError,
@@ -165,6 +172,13 @@ export interface PartnerDataGateway {
   getProgramPerformance?: (
     query: PerformanceQuery,
   ) => Promise<PartnerDataResult<ProgramPerformance | null>>
+  /** Optional: program links may be absent in older deployments. */
+  getProgramLinks?: () => Promise<ProgramLinksResult<ProgramLinks | null>>
+  /** Adding and removing a custom link answer with the program as it is afterwards. */
+  createProgramLink?: (
+    input: ProgramLinkCreateInput,
+  ) => Promise<ProgramLinksResult<LinkProgram | null>>
+  removeProgramLink?: (linkId: string) => Promise<ProgramLinksResult<LinkProgram | null>>
 }
 
 const emptyMetrics = () => ({
@@ -368,6 +382,35 @@ async function programCall<T>(
     }
   } catch {
     return failed(programError('temporarily_unavailable'))
+  }
+}
+
+/** One call to a program link function: its own DETAIL codes first, then the general mapping. */
+async function linkCall<T>(
+  client: PartnerSupabaseClient | null,
+  functionName: string,
+  args: Record<string, unknown> | undefined,
+  read: (data: unknown) => T,
+): Promise<ProgramLinksResult<T | null>> {
+  const failed = (error: ProgramLinksResult<null>['error']): ProgramLinksResult<T | null> => ({
+    data: null,
+    status: 'error',
+    error,
+  })
+  if (!client) return { data: null, status: 'unconfigured', error: linkError('not_configured') }
+  try {
+    const response = await client.rpc(functionName, args)
+    if (response.error) {
+      const general = backendFailure(response.error, response.status, () => null).error
+      return failed(linkFailure(response.error) ?? linkError(general?.code ?? 'unknown'))
+    }
+    try {
+      return { data: read(response.data), status: 'ready', error: null }
+    } catch {
+      return failed(linkError('invalid_response'))
+    }
+  } catch {
+    return failed(linkError('temporarily_unavailable'))
   }
 }
 
@@ -868,6 +911,28 @@ export function createPartnerDataGateway(
       } catch {
         return thrownFailure(() => null)
       }
+    },
+
+    async getProgramLinks() {
+      return linkCall(client, PARTNER_RPCS.programLinks, undefined, readProgramLinks)
+    },
+
+    async createProgramLink(input) {
+      return linkCall(
+        client,
+        PARTNER_RPCS.programLinkCreate,
+        { p_input: { slug: input.slug, name: input.name } },
+        readLinkProgram,
+      )
+    },
+
+    async removeProgramLink(linkId) {
+      return linkCall(
+        client,
+        PARTNER_RPCS.programLinkRemove,
+        { p_input: { link_id: linkId } },
+        readLinkProgram,
+      )
     },
 
     async getAgreementDocumentUrl(input) {
