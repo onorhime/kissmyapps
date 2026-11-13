@@ -21,6 +21,7 @@ import {
   type AdminGateway,
   type AdminPlatformSettings,
 } from '../api'
+import { ProgramMoneySection } from './ProgramMoneySection'
 import { usePlatformSettings } from './usePlatformSettings'
 
 export type PlatformSettingsPageProps = Readonly<{
@@ -197,6 +198,7 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
   const [originError, setOriginError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<'enable' | 'disable' | null>(null)
+  const [moneyReload, setMoneyReload] = useState(0)
   const focusAfterMutation = useRef<'enable' | 'disable' | null>(null)
   const originInput = useRef<HTMLInputElement | null>(null)
   const trackingStatus = useRef<HTMLSpanElement | null>(null)
@@ -338,6 +340,7 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
     setOriginError(null)
     setSuccessMessage(null)
     setConfirmation(null)
+    setMoneyReload((value) => value + 1)
     retry()
   }
 
@@ -658,6 +661,14 @@ export function PlatformSettingsPage({ context, gateway }: PlatformSettingsPageP
           </div>
 
           <ReadinessSummary settings={settings} />
+
+          <ProgramMoneySection
+            context={context}
+            gateway={gateway}
+            settingsUpdatedAt={settings.tracking.updatedAt}
+            reloadKey={moneyReload}
+            onChanged={retry}
+          />
 
           <aside className="admin-settings-proof-limit" aria-labelledby="settings-proof-limit">
             <ServerCog size={20} aria-hidden="true" />

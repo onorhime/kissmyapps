@@ -25,6 +25,8 @@ import {
   readPartnerMarketplace,
   readPartnerProgramView,
 } from '../marketplace/programs'
+import { readProgramEarnings } from '../earnings/earnings'
+import type { ProgramEarnings } from '../earnings/earnings'
 import type {
   PartnerMarketplace,
   PartnerProgramError,
@@ -155,6 +157,8 @@ export interface PartnerDataGateway {
     input: ProgramTermsInput,
   ) => Promise<PartnerProgramResult<ProgramMembership | null>>
   leaveProgram?: (programId: string) => Promise<PartnerProgramResult<ProgramMembership | null>>
+  /** Optional: program money may be absent in older deployments. */
+  getProgramEarnings?: () => Promise<PartnerDataResult<ProgramEarnings | null>>
 }
 
 const emptyMetrics = () => ({
@@ -812,6 +816,25 @@ export function createPartnerDataGateway(
         { p_input: { program_id: programId } },
         readMembershipAnswer,
       )
+    },
+
+    async getProgramEarnings() {
+      if (!client) return noClientSingle<ProgramEarnings>()
+      try {
+        const response = await client.rpc(PARTNER_RPCS.programEarnings)
+        if (response.error) return backendFailure(response.error, response.status, () => null)
+        try {
+          const earnings = readProgramEarnings(response.data)
+          return dataResult(
+            earnings,
+            earnings.programs.length + earnings.recent.length > 0 ? 'ready' : 'empty',
+          )
+        } catch {
+          return invalidResponse(() => null)
+        }
+      } catch {
+        return thrownFailure(() => null)
+      }
     },
 
     async getAgreementDocumentUrl(input) {
