@@ -340,7 +340,7 @@ describe('connections page', () => {
     expect(screen.queryByRole('button', { name: 'Connect Stripe' })).not.toBeInTheDocument()
     // The rows that are not available yet are there from the start, with nothing to press.
     const more = screen.getByRole('region', { name: 'More connections' })
-    expect(within(more).getByRole('heading', { name: 'Billing' })).toBeInTheDocument()
+    expect(within(more).getByRole('heading', { name: 'Balance' })).toBeInTheDocument()
     expect(within(more).getByRole('heading', { name: 'Analytics tools' })).toBeInTheDocument()
     expect(within(more).getByText(/Amplitude and Adapty/)).toBeInTheDocument()
     expect(within(more).getAllByText('Coming soon')).toHaveLength(2)
