@@ -364,9 +364,14 @@ export function parseTrackingRoute(pathname: string): TrackingRoute {
   return { affiliateSlug, publicCode };
 }
 
+/**
+ * The address a tracking redirect sends the visitor to. With a click id the
+ * destination carries it as `kma_click`. With null (no click was recorded)
+ * the destination is returned as stored and never carries a `kma_click`.
+ */
 export function validatedRedirectUrl(
   destination: string,
-  clickId: string,
+  clickId: string | null,
 ): string {
   let parsed: URL;
   try {
@@ -385,7 +390,12 @@ export function validatedRedirectUrl(
       "The destination is unavailable.",
     );
   }
-  parsed.searchParams.set("kma_click", clickId);
+  if (clickId !== null) {
+    parsed.searchParams.set("kma_click", clickId);
+  } else if (parsed.searchParams.has("kma_click")) {
+    // A stored destination must not pass a stale creator tag off as a click.
+    parsed.searchParams.delete("kma_click");
+  }
   return parsed.toString();
 }
 

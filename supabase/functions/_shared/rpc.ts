@@ -15,7 +15,11 @@ export interface TrackingContext {
 }
 
 export interface TrackingRegistration {
-  clickId: string;
+  /**
+   * Null when the database answered "redirect only": the link belongs to an
+   * affiliate program but cannot be credited right now, so no click exists.
+   */
+  clickId: string | null;
   destinationUrl: string;
   isBot: boolean;
 }
@@ -88,10 +92,23 @@ async function registerClick(
   const row = firstRow(data);
   if (
     !row ||
-    typeof row.click_id !== "string" ||
-    !/^[A-Za-z0-9_-]{16,128}$/.test(row.click_id) ||
     typeof row.destination_url !== "string" ||
     typeof row.is_bot !== "boolean"
+  ) {
+    throw new NotFoundError();
+  }
+  // An explicit null click id is the database saying "send the visitor on,
+  // nothing was recorded". A missing or malformed one is still unavailable.
+  if (row.click_id === null) {
+    return {
+      clickId: null,
+      destinationUrl: row.destination_url,
+      isBot: row.is_bot,
+    };
+  }
+  if (
+    typeof row.click_id !== "string" ||
+    !/^[A-Za-z0-9_-]{16,128}$/.test(row.click_id)
   ) {
     throw new NotFoundError();
   }

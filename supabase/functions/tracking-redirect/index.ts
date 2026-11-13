@@ -84,7 +84,8 @@ export async function handleTrackingRedirect(
       "X-Request-ID": id,
       "X-Robots-Tag": "noindex, nofollow, noarchive",
     });
-    if (!existingSessionId) {
+    // An untracked redirect recorded nothing, so it starts no session either.
+    if (registration.clickId !== null && !existingSessionId) {
       headers.set(
         "Set-Cookie",
         `${SESSION_COOKIE}=${sessionId}; Max-Age=31536000; Path=/; Secure; HttpOnly; SameSite=Lax`,
