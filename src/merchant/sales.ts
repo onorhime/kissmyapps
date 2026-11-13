@@ -34,6 +34,8 @@ export interface Sale {
   paid_at: string
   amount_minor: number
   refunded_minor: number
+  /** What the buyer paid in, when it is not the program's currency; null when it was not sent. */
+  currency: string | null
   member_id: string | null
   creator_name: string | null
   /** The creator's link the buyer came through; null when the sale is tied to no link. */
@@ -131,9 +133,11 @@ function saleFrom(value: unknown): Sale | null {
     paid_at: paid,
     amount_minor: amount,
     refunded_minor: minor(row.refunded_minor) ?? 0,
+    currency: currencyCode(row.currency),
     member_id: text(row.member_id),
     creator_name: text(row.creator_name),
-    link_name: text(row.link_name),
+    // The database names a sale that is tied to no link "No link".
+    link_name: text(row.link_name) === 'No link' ? null : text(row.link_name),
     match_source: text(row.match_source),
     status: SALE_STATUSES.find((item) => item === row.status) ?? 'other',
     reason: text(row.reason),

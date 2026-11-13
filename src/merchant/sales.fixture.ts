@@ -23,6 +23,7 @@ const sale = (over: Record<string, unknown>) => ({
   sale_id: '00000000-0000-4000-8000-000000000000',
   paid_at: '2026-11-13T09:41:07.120045+00:00',
   amount_minor: 4900,
+  currency: 'USD',
   refunded_minor: 0,
   member_id: ADA,
   creator_name: 'Ada Okafor',

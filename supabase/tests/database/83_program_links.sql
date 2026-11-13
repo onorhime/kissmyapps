@@ -1352,5 +1352,9 @@ select pg_temp.check(kma_internal.program_balance_resume((pg_temp.account('quiet
   'when money arrives the program is live again and the links credit');
 select set_config('request.jwt.claims', '', true);
 
+-- Which products belong to a program, as the admin app reads it (20261118101000).
+select pg_temp.capture('get_admin_program_products.listed',
+  pg_temp.call('kma_owner', 'select public.get_admin_program_products()'));
+
 select 'ok ' || count(*) || ' program link assertions' from link_assertions;
 rollback;

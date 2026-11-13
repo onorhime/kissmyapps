@@ -117,6 +117,7 @@ const sale = (over: Row = {}): Row => ({
   sale_id: 's-ada-1',
   paid_at: ago(60),
   amount_minor: 4900,
+  currency: 'USD',
   refunded_minor: 0,
   member_id: 'm-ada',
   creator_name: 'Ada Okafor',
@@ -362,6 +363,7 @@ describe('reading answers', () => {
           'amount_minor',
           'commission_minor',
           'creator_name',
+          'currency',
           'fee_minor',
           'hold_until',
           'link_name',
@@ -456,6 +458,7 @@ describe('reading answers', () => {
       sale_id: 's-1',
       paid_at: '2026-11-01T10:00:00Z',
       amount_minor: 4900,
+      currency: null,
       refunded_minor: 0,
       member_id: null,
       creator_name: null,
@@ -904,11 +907,32 @@ describe('sales page: what it shows', () => {
 
   it('shows money in normal units, in the program’s currency', async () => {
     signedInAs('owner')
-    await openSales(answer(mixed, { currency: 'EUR' }))
+    const inEuros = mixed.map((row) => ({ ...row, currency: 'EUR' }))
+    await openSales(answer(inEuros, { currency: 'EUR' }))
     expect(cells('s-ada-1').slice(3, 5)).toEqual(['49.00 EUR', 'Commission 14.70 EUR'])
     expect(screen.getByRole('group', { name: 'Last 30 days' })).toHaveTextContent('3,430.00 EUR')
     for (const minor of ['4900', '1470', '343000', '102900', '10290'])
       expect(page()).not.toHaveTextContent(minor)
+  })
+
+  it('shows a sale paid in another currency in the currency the buyer paid', async () => {
+    signedInAs('owner')
+    const abroad = sale({
+      sale_id: 's-abroad',
+      currency: 'EUR',
+      refunded_minor: 1000,
+      status: 'not_earned',
+      reason: 'currency_mismatch',
+      commission_minor: 0,
+      fee_minor: 0,
+      hold_until: null,
+    })
+    await openSales(answer([abroad, pending]))
+    expect(cells('s-abroad')[3]).toBe('49.00 EUR10.00 EUR refunded')
+    expect(cells('s-ada-1')[3]).toBe('$49.00')
+    // A row from before the database sent a currency falls back to the program's.
+    const { currency: _unsent, ...older } = sale({ sale_id: 's-older' })
+    expect(readSales(answer([older])).sales[0].currency).toBeNull()
   })
 
   it('never shows anything about the buyer, or an email address', async () => {

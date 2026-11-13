@@ -300,7 +300,9 @@ function Row({
   linked: boolean
 }) {
   const status = saleStatus(sale)
-  const refund = refundLine(sale, currency)
+  // A buyer can pay in another currency than the program's; the amount is shown as paid.
+  const paidIn = sale.currency ?? currency
+  const refund = refundLine(sale, paidIn)
   const earned = hasCommission(sale)
   return (
     <tr data-sale={sale.sale_id} tabIndex={-1}>
@@ -325,7 +327,7 @@ function Row({
         {sale.link_name ?? <span className="mc-muted">No link</span>}
       </td>
       <td className="mc-num-col mc-num mc-sales-amount">
-        {formatAmount(sale.amount_minor, currency)}
+        {formatAmount(sale.amount_minor, paidIn)}
         {refund && <span className="mc-sub">{refund}</span>}
       </td>
       <td className="mc-num-col mc-num mc-sales-commission">
