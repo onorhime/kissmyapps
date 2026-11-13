@@ -22,6 +22,7 @@ import { providerMoney } from '../../../lib/providerMoney'
 import { LivePerformance, PeriodPicker } from './LivePerformance'
 import type { ReportingPeriod } from './performanceData'
 import { usePartnerLiveWorkspace } from './usePartnerLiveWorkspace'
+import { PartnerMarketplace } from '../marketplace/PartnerMarketplace'
 
 const pageCopy = {
   performance: {
@@ -106,10 +107,13 @@ function stateMessage(
 
 export function LivePartnerPortal({
   page,
+  programSlug = null,
   reportingDays,
   onReportingDaysChange,
 }: {
   page: PortalPage
+  /** The program open on the Marketplace page (`#marketplace/<slug>`), if any. */
+  programSlug?: string | null
   reportingDays?: ReportingPeriod
   onReportingDaysChange?: (days: ReportingPeriod) => void
 }) {
@@ -117,6 +121,10 @@ export function LivePartnerPortal({
   const workspace = usePartnerLiveWorkspace()
   const { snapshot, selectedProductId, isRefreshing, actions } = workspace
   const context = toPartnerLiveWorkspaceContext(snapshot, selectedProductId)
+  // The marketplace does not depend on a product: a creator with none yet joins their first here.
+  if (page === 'marketplace') {
+    return <PartnerMarketplace gateway={workspace.gateway} slug={programSlug} />
+  }
   const copy = pageCopy[page]
   const Icon = copy.icon
   const selectedProduct = context.selectedProduct
