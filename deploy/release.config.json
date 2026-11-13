@@ -33,7 +33,10 @@
       { "site": "admin.kissmyapps.dev", "contains": ["kissmyapps-dashboard:8080"] },
       { "site": "merchant.kissmyapps.dev", "contains": ["kissmyapps-dashboard:8080"] },
       { "site": "go.kissmyapps.dev", "contains": ["tracking-redirect"] },
-      { "site": "events.kissmyapps.dev", "contains": ["kissmyapps-geo:8787"] },
+      {
+        "site": "events.kissmyapps.dev",
+        "contains": ["kissmyapps-geo:8787", "/v1/attribution/install"]
+      },
       { "site": "https://", "contains": ["kissmyapps-links:8788", "X-Kma-Client-Ip"] },
       { "site": "", "contains": ["ask http://kissmyapps-links:8789/check"] }
     ]
