@@ -301,6 +301,27 @@ create function pg_temp.moved(k text) returns text language sql as $$
   select coalesce(string_agg(e.kind || ' ' || e.amount_minor, ', ' order by e.seq), '')
   from public.program_balance_entries e where e.commission_id = (pg_temp.com(k)).id
 $$;
+-- Time passes: the hold of these events' rewards is over, as suite 81 lets it pass for a
+-- sale. The hold each had is kept in `held`, so the end of the suite can still check it.
+create temporary table held(commission_id uuid primary key, hold_until timestamptz);
+create function pg_temp.hold_passes(variadic k text[]) returns void language sql as $$
+  insert into held select c.id, c.hold_until from public.program_commissions c
+  where c.status = 'held' and c.award_id in (select (pg_temp.award(e)).id from unnest(k) e);
+  update public.program_commissions set hold_until = now() - interval '1 minute'
+  where status = 'held' and award_id in (select (pg_temp.award(e)).id from unnest(k) e);
+$$;
+-- What somebody's call would answer, with everything it did undone.
+create function pg_temp.undone(who text, statement text) returns jsonb language plpgsql as $$
+declare result jsonb;
+begin
+  begin
+    result := pg_temp.call(who, statement);
+    raise exception 'Undone' using errcode = 'UNDO0';
+  exception when sqlstate 'UNDO0' then
+    null;
+  end;
+  return result;
+end $$;
 create function pg_temp.rewards_sql(workspace text, input jsonb default '{}') returns text language sql as $$
   select format('select public.workspace_program_rewards(%L, %L)', pg_temp.q(workspace), input)
 $$;
@@ -397,7 +418,7 @@ begin
     $f$;
   end if;
 end $$;
-grant all on qa, reward_assertions, answers to anon, authenticated, service_role;
+grant all on qa, reward_assertions, answers, held to anon, authenticated, service_role;
 grant execute on all functions in schema pg_temp to anon, authenticated, service_role;
 
 -- People ---------------------------------------------------------------------------------------
@@ -873,20 +894,34 @@ select pg_temp.event('i5', 'p4', 'signup_completed', pg_temp.month('1 month') - 
 select pg_temp.event('i6', 'p5', 'signup_completed', pg_temp.month('1 month'));
 select pg_temp.event('i7', 'p4', 'signup_completed', pg_temp.month('1 month 1 hour'));
 select pg_temp.capture('program_rewards_tick.result', pg_temp.keep('tick_months', pg_temp.tick()));
-select pg_temp.check(pg_temp.kept('tick_months') = '{"judged":7,"earned":5,"approved":5,"remaining":0}',
-  'seven events of three months ago are judged, and the five that earn are approved in the same tick: their hold has passed');
-select pg_temp.check(pg_temp.aw('i1') = 'creator_ada earned 200, approved 200+20'
-  and pg_temp.aw('i2') = 'creator_ada earned 500, approved 500+50'
-  and pg_temp.aw('i3') = 'creator_ben earned 200, approved 200+20'
+select pg_temp.check(pg_temp.kept('tick_months') = '{"judged":7,"earned":5,"approved":0,"remaining":0}',
+  'seven events of three months ago are judged; the five that earn are held, since they arrived only now');
+select pg_temp.check(pg_temp.aw('i1') = 'creator_ada earned 200, held 200+20'
+  and pg_temp.aw('i2') = 'creator_ada earned 500, held 500+50'
+  and pg_temp.aw('i3') = 'creator_ben earned 200, held 200+20'
   and pg_temp.aw('i4') = 'creator_ben not_earned:budget_reached 200',
   'rewards earn until the month''s budget is used, to the cent: 9.00 of 9.00 earns, the next reward does not');
 select pg_temp.check(pg_temp.aw('i5') = 'creator_ada not_earned:budget_reached 200'
-  and pg_temp.aw('i6') = 'creator_ada earned 200, approved 200+20'
-  and pg_temp.aw('i7') = 'creator_ada earned 200, approved 200+20',
+  and pg_temp.aw('i6') = 'creator_ada earned 200, held 200+20'
+  and pg_temp.aw('i7') = 'creator_ada earned 200, held 200+20',
   'the budget is per calendar month: the last second of a used-up month earns nothing, the first moment of the next '
     || 'month earns, and so does a person whose earlier event earned nothing');
+select pg_temp.check((select c.status = 'held' and c.hold_until > now() + interval '12 days'
+      and c.hold_until between now() + interval '13 days' and clock_timestamp() + interval '13 days'
+    from pg_temp.com('i2') c)
+  and pg_temp.undone('owner', pg_temp.reject_sql('acme', jsonb_build_object('award_ids', pg_temp.award_ids('i2'),
+    'reason', 'other'))) = '{"rejected":1,"returned_minor":550}'
+  and pg_temp.aw('i2') = 'creator_ada earned 500, held 500+50',
+  'a reward for an event of three months ago is held for a full hold from when it arrived, less a day, and the merchant '
+    || 'can still reject it');
+-- Time passes and their hold is over.
+select pg_temp.hold_passes('i1', 'i2', 'i3', 'i6', 'i7');
+select pg_temp.check(pg_temp.tick() = '{"judged":0,"earned":0,"approved":5,"remaining":0}'
+  and pg_temp.aw('i1') = 'creator_ada earned 200, approved 200+20' and pg_temp.aw('i2') = 'creator_ada earned 500, approved 500+50'
+  and pg_temp.aw('i3') = 'creator_ben earned 200, approved 200+20' and pg_temp.aw('i6') = 'creator_ada earned 200, approved 200+20'
+  and pg_temp.aw('i7') = 'creator_ada earned 200, approved 200+20' and pg_temp.aw('i4') = 'creator_ben not_earned:budget_reached 200',
+  'once their hold is over the next tick approves the five rewards, and nothing else');
 select pg_temp.check((select c.status = 'approved' and c.approved_at >= c.hold_until and c.amount_minor = 500 and c.fee_minor = 50
-      and c.hold_until = pg_temp.month('10 days 1 hour') + interval '14 days'
       and (select count(*) = 1 and bool_and(e.kind = 'commission_approved' and e.amount_minor = 500 and e.currency = 'USD'
           and e.affiliate_id = pg_temp.q('creator_ada') and e.program_id = (pg_temp.program('acme')).id)
         from public.program_creator_entries e where e.commission_id = c.id)
@@ -908,7 +943,11 @@ select pg_temp.event('j3', 'q3', 'signup_completed', pg_temp.month('1 month 15 d
 select pg_temp.event('j4', 'q4', 'signup_completed', pg_temp.month('1 month 16 days') - interval '1 second');
 select pg_temp.event('j5', 'q5', 'signup_completed', pg_temp.month('1 month 16 days'));
 select pg_temp.event('j6', 'q6', 'signup_completed', pg_temp.month('1 month 15 days 5 hours'));
-select pg_temp.check(pg_temp.tick() = '{"judged":6,"earned":5,"approved":5,"remaining":0}', 'six events of one day and the next');
+select pg_temp.check(pg_temp.tick() = '{"judged":6,"earned":5,"approved":0,"remaining":0}'
+  and pg_temp.aw('j4') = 'creator_ben not_earned:daily_limit 200' and pg_temp.aw('j5') = 'creator_ben earned 200, held 200+20',
+  'six events of one day and the next are judged, and the ones that earn are held');
+select pg_temp.hold_passes('j1', 'j2', 'j3', 'j5', 'j6');
+select pg_temp.check(pg_temp.tick() = '{"judged":0,"earned":0,"approved":5,"remaining":0}', 'their hold passes and they are approved');
 select pg_temp.check(pg_temp.aw('j1') = 'creator_ben earned 200, approved 200+20'
   and pg_temp.aw('j2') = 'creator_ben earned 200, approved 200+20'
   and pg_temp.aw('j3') = 'creator_ben earned 200, approved 200+20'
@@ -921,26 +960,32 @@ select pg_temp.check(pg_temp.aw('j1') = 'creator_ben earned 200, approved 200+20
 select pg_temp.budget('acme', 3000);
 select pg_temp.event('j7', 'q7', 'trial_started', pg_temp.month('1 month 18 days 1 hour'));
 select pg_temp.event('j8', 'q8', 'signup_completed', pg_temp.month('1 month 18 days 2 hours'));
-select pg_temp.check(pg_temp.tick() = '{"judged":2,"earned":1,"approved":1,"remaining":0}'
-  and pg_temp.aw('j7') = 'creator_ada earned 500, approved 500+50'
+select pg_temp.check(pg_temp.tick() = '{"judged":2,"earned":1,"approved":0,"remaining":0}'
+  and pg_temp.aw('j7') = 'creator_ada earned 500, held 500+50'
   and pg_temp.aw('j8') = 'creator_ada not_earned:daily_limit 200',
   'the daily limit is never less than the largest reward of the creator''s terms');
+select pg_temp.hold_passes('j7');
+select pg_temp.check(pg_temp.tick() = '{"judged":0,"earned":0,"approved":1,"remaining":0}'
+  and pg_temp.aw('j7') = 'creator_ada earned 500, approved 500+50', 'and once its hold passes it is approved');
 select pg_temp.budget('acme', 50000);
 select pg_temp.check(pg_temp.available('acme') = (select value::bigint from qa where key = 'available_before_months')
     - 220 - 550 - 220 - 220 - 220 - 4 * 220 - 220 - 550
   and pg_temp.books(), 'eleven rewards of earlier months were set aside and approved, and the books balance');
 
--- Twenty days ago: inside the last 30 days, and the hold of 14 days has passed.
+-- Twenty days ago: inside the last 30 days. Sent only now, they are held, and then time passes.
 select pg_temp.visit('x1', 'ada', 'Facebook', now() - interval '21 days');
 select pg_temp.visit('x2', 'ada', 'Facebook', now() - interval '21 days');
 select pg_temp.event('x1', 'x1', 'signup_completed', now() - interval '20 days');
 select pg_temp.event('x1_trial', 'x1', 'trial_started', now() - interval '20 days' + interval '1 hour');
 select pg_temp.event('x2', 'x2', 'signup_completed', now() - interval '20 days' + interval '2 hours');
-select pg_temp.check(pg_temp.tick() = '{"judged":3,"earned":3,"approved":3,"remaining":0}'
+select pg_temp.check(pg_temp.tick() = '{"judged":3,"earned":3,"approved":0,"remaining":0}'
+  and pg_temp.aw('x1_trial') = 'creator_ada earned 500, held 500+50', 'three events of twenty days ago earn and are held');
+select pg_temp.hold_passes('x1', 'x1_trial', 'x2');
+select pg_temp.check(pg_temp.tick() = '{"judged":0,"earned":0,"approved":3,"remaining":0}'
   and pg_temp.aw('x1') = 'creator_ada earned 200, approved 200+20'
   and pg_temp.aw('x1_trial') = 'creator_ada earned 500, approved 500+50'
   and pg_temp.aw('x2') = 'creator_ada earned 200, approved 200+20',
-  'three events of twenty days ago earn and are approved');
+  'and are approved once their hold is over');
 -- An approved reward is money a payout can pay.
 select pg_temp.check((select count(*) = 2
       and bool_and(k.blocker = 'payouts_off' and k.currency = 'USD' and jsonb_array_length(k.programs) = 1
@@ -1376,9 +1421,13 @@ select pg_temp.check(pg_temp.with_stray_entry() = 'P0001 commission_out_of_balan
 select pg_temp.check(pg_temp.books()
   and (select bool_and(c.commission_type = 'reward' and c.sale_id is null and c.basis_minor = c.earned_minor
       and c.commission_fixed_minor = c.earned_minor and c.fee_earned_minor = div(c.earned_minor * c.fee_bps, 10000)
-      and c.hold_until = a.occurred_at + interval '14 days' and c.earned_minor = a.amount_minor
+      and case when a.occurred_at >= now() - interval '1 day'
+        then coalesce(h.hold_until, c.hold_until) = a.occurred_at + interval '14 days'
+        else coalesce(h.hold_until, c.hold_until) between now() + interval '13 days' and clock_timestamp() + interval '13 days' end
+      and c.earned_minor = a.amount_minor
       and c.affiliate_id = a.affiliate_id and c.member_id = a.member_id and c.terms_version = a.terms_version)
-    from public.program_commissions c join public.program_reward_awards a on a.id = c.award_id)
+    from public.program_commissions c join public.program_reward_awards a on a.id = c.award_id
+    left join held h on h.commission_id = c.id)
   and (select count(*) = count(distinct (a.program_id, a.reward_key, a.person_id))
     from public.program_reward_awards a where a.status in ('earned', 'rejected'))
   and not exists (select 1 from public.program_creator_entries e group by e.affiliate_id, e.program_id having sum(e.amount_minor) < 0)
@@ -1386,7 +1435,8 @@ select pg_temp.check(pg_temp.books()
     "queue":{"due":0,"waiting":0,"failing":0,"oldest_enqueued_at":null},"errors":{}}'
   and pg_temp.service('select public.program_balance_health()')->>'ledger_mismatches' = '0'
   and pg_temp.service('select public.program_payout_health()')->>'ledger_mismatches' = '0',
-  'every reward''s commission is the reward of its award, held from the event for the hold of the terms; each reward is '
+  'every reward''s commission is the reward of its award, held for the hold of the terms from the event, or from a day '
+    || 'before it was judged for an event sent late; each reward is '
     || 'earned once per person; and the balance, payout and reward ledgers report no mismatch');
 select pg_temp.check(pg_temp.fails('update public.program_balance_entries set amount_minor = 1') <> 'ok'
   and pg_temp.fails('delete from public.program_creator_entries') <> 'ok',

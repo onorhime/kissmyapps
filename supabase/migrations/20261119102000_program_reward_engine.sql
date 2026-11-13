@@ -451,7 +451,9 @@ begin
       v_commission, a.id, p.id, m.id, a.affiliate_id, a.terms_version, 'held', a.currency,
       a.amount_minor, 'reward', a.amount_minor, v_fee_bps,
       a.amount_minor, a.amount_minor, v_fee, v_fee,
-      q.occurred_at + make_interval(days => coalesce((v_terms->>'hold_days')::integer, p.hold_days)));
+      -- An event sent late still waits out a full hold, less a day.
+      greatest(q.occurred_at, clock_timestamp() - interval '1 day')
+        + make_interval(days => coalesce((v_terms->>'hold_days')::integer, p.hold_days)));
     perform kma_internal.program_balance_post(v_account.id, 'commission_reserved', -a.amount_minor, null, v_commission);
     if v_fee > 0 then
       perform kma_internal.program_balance_post(v_account.id, 'fee_reserved', -v_fee, null, v_commission);
