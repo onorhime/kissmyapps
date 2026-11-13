@@ -530,6 +530,7 @@ describe('live partner session shell', () => {
   })
 
   it.each([
+    ['programs', 'Programs', 'Admin programs · KissMyApps Admin'],
     ['attribution', 'Attribution', 'Admin attribution · KissMyApps Admin'],
     ['subscriptions', 'Subscriptions', 'Admin subscriptions · KissMyApps Admin'],
     ['payouts', 'Payouts', 'Admin payouts · KissMyApps Admin'],

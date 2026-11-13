@@ -38,6 +38,8 @@ export {
   readinessCopy,
 } from './configuration/readiness'
 export { ProductsPage } from './products/ProductsPage'
+export { ProgramsPage } from './programs/ProgramsPage'
+export type { ProgramsPageProps } from './programs/ProgramsPage'
 export type { ProductsPageProps } from './products/ProductsPage'
 export {
   normalizeProductDraft,

@@ -358,6 +358,55 @@ describe('Admin portal shell', () => {
     expect(props.onNavigate).toHaveBeenCalledWith('overview')
   })
 
+  it('opens program review from the navigation for an owner', async () => {
+    const getProgramReviews = vi.fn(async () => ({
+      data: { waiting: [], reviewed: [] },
+      status: 'ready' as const,
+      error: null,
+    }))
+    const { props, rerender } = renderPortal({
+      gateway: { ...gatewayWith(), getProgramReviews },
+    })
+    const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+    await userEvent
+      .setup()
+      .click(await within(navigation).findByRole('button', { name: 'Programs' }))
+    expect(props.onNavigate).toHaveBeenCalledWith('programs')
+    expect(getProgramReviews).not.toHaveBeenCalled()
+
+    rerender(<AdminPortalApp {...props} route="programs" />)
+    expect(await screen.findByRole('heading', { name: 'Nothing to review' })).toBeVisible()
+    expect(within(navigation).getByRole('button', { name: 'Programs' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(screen.getByText('Programs', { selector: '.admin-breadcrumb strong' })).toBeVisible()
+    expect(getProgramReviews).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['finance', 'analyst', 'support'] as const)(
+    'restricts program review for %s without reading programs',
+    async (role) => {
+      const getProgramReviews = vi.fn()
+      renderPortal({
+        route: 'programs',
+        gateway: {
+          ...gatewayWith({ data: { ...context, role }, status: 'ready', error: null }),
+          getProgramReviews,
+        },
+      })
+      expect(
+        await screen.findByRole('heading', { name: 'Program review is restricted' }),
+      ).toBeVisible()
+      const navigation = screen.getByRole('navigation', { name: 'Admin navigation' })
+      expect(within(navigation).queryByRole('button', { name: 'Programs' })).toBeNull()
+      expect(
+        within(navigation).getByText('Programs').closest('[aria-disabled="true"]'),
+      ).toHaveTextContent('Restricted')
+      expect(getProgramReviews).not.toHaveBeenCalled()
+    },
+  )
+
   it('does not call admin data while unauthenticated', () => {
     const gateway = gatewayWith()
     renderPortal({ gateway, sessionUserId: null })

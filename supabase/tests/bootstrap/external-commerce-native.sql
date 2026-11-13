@@ -4,7 +4,7 @@ create table auth.users(id uuid primary key,instance_id uuid,aud text,role text,
 create function auth.uid() returns uuid language sql stable as $$select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid$$;
 create function auth.jwt() returns jsonb language sql stable as $$select nullif(current_setting('request.jwt.claims',true),'')::jsonb$$;
 create function auth.role() returns text language sql stable as $$select auth.jwt()->>'role'$$;
-create table storage.buckets(id text primary key,name text,public boolean);
+create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
 create table storage.objects(id uuid primary key,bucket_id text,name text,metadata jsonb,version text,created_at timestamptz default now(),updated_at timestamptz default now());
 create table net._http_response(id bigint,status_code integer,content_type text,headers jsonb,content text,timed_out boolean,error_msg text,created timestamptz);
 create table vault.decrypted_secrets(name text,decrypted_secret text);

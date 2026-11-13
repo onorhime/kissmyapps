@@ -82,7 +82,7 @@ describe('web SDK', () => {
     expect(body.events[1]).toMatchObject({ screen: '/', user_id: null })
     expect(body.context).toMatchObject({
       platform: 'web',
-      sdk: 'kma-web/1.1.0',
+      sdk: 'kma-web/1.2.0',
       app_version: '3.1.0',
       page_path: '/',
       utm: { source: 'newsletter', campaign: 'autumn' },
@@ -408,7 +408,150 @@ describe('attribution', () => {
   })
 })
 
+describe('creator click', () => {
+  const click = 'kc_7Hq2mW9xLp4RtZ8vB3nD'
+  const other = 'kc_Zz91AbCdEfGhIjKlMnOp'
+
+  it('reads kma_click from the landing page, sends it with the visit and returns it', async () => {
+    window.history.replaceState(null, '', `/start?kma_click=${click}&utm_source=creator`)
+    const kma = start({ autoPageViews: false })
+    expect(kma.getClickId()).toBe(click)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sent[0].body.context.click).toEqual({ kma_click: click })
+    expect(kma.attribution()?.last.click).toEqual({ kma_click: click })
+    // The address keeps the parameter, as it does for the other click IDs.
+    expect(window.location.search).toContain(`kma_click=${click}`)
+    kma.shutdown()
+    // A later page of the same site, days later: the click is still there.
+    vi.advanceTimersByTime(3 * 24 * 60 * 60_000)
+    window.history.replaceState(null, '', '/checkout')
+    expect(start({ autoPageViews: false }).getClickId()).toBe(click)
+  })
+
+  it('ignores a kma_click that is not a click ID', async () => {
+    for (const bad of ['short', 'has spaces in the value', `${click}<script>`, 'x'.repeat(129)]) {
+      localStorage.clear()
+      window.history.replaceState(null, '', `/?kma_click=${encodeURIComponent(bad)}&gclid=Cj0`)
+      const kma = start({ autoPageViews: false })
+      expect(kma.getClickId()).toBeNull()
+      expect(kma.attribution()?.last.click).toEqual({ gclid: 'Cj0' })
+      kma.shutdown()
+    }
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sent.every((s) => !('kma_click' in ((s.body.context.click as object) ?? {})))).toBe(true)
+  })
+
+  it('returns the last click, or the first when the last visit had none', () => {
+    window.history.replaceState(null, '', `/?kma_click=${click}`)
+    start({ autoPageViews: false }).shutdown()
+    vi.advanceTimersByTime(24 * 60 * 60_000)
+    window.history.replaceState(null, '', '/?utm_source=google&gclid=Cj0')
+    const fromAd = start({ autoPageViews: false })
+    expect(fromAd.attribution()?.last.click).toEqual({ gclid: 'Cj0' })
+    expect(fromAd.getClickId()).toBe(click)
+    fromAd.shutdown()
+    vi.advanceTimersByTime(24 * 60 * 60_000)
+    window.history.replaceState(null, '', `/?kma_click=${other}`)
+    const second = start({ autoPageViews: false })
+    expect(second.getSessionId()).not.toBe(fromAd.getSessionId())
+    expect(second.getClickId()).toBe(other)
+  })
+
+  it('forgets the click after 30 days, on opt out and when attribution is off', () => {
+    window.history.replaceState(null, '', `/?kma_click=${click}`)
+    const kma = start({ autoPageViews: false })
+    kma.optOut()
+    expect(kma.getClickId()).toBeNull()
+    kma.shutdown()
+    localStorage.clear()
+    start({ autoPageViews: false }).shutdown()
+    vi.advanceTimersByTime(31 * 24 * 60 * 60_000)
+    window.history.replaceState(null, '', '/')
+    expect(start({ autoPageViews: false }).getClickId()).toBeNull()
+    localStorage.clear()
+    window.history.replaceState(null, '', `/?kma_click=${click}`)
+    expect(start({ autoPageViews: false, attribution: 'off' }).getClickId()).toBeNull()
+  })
+
+  it('keeps the click for the visit in session mode', () => {
+    window.history.replaceState(null, '', `/?kma_click=${click}`)
+    start({ autoPageViews: false, attribution: 'session' }).shutdown()
+    expect(Object.keys(localStorage).some((k) => k.endsWith(':touch'))).toBe(false)
+    vi.advanceTimersByTime(5 * 60_000)
+    window.history.replaceState(null, '', '/checkout')
+    const next = start({ autoPageViews: false, attribution: 'session' })
+    expect(next.getClickId()).toBe(click)
+    next.shutdown()
+    // The visit ended: nothing is left.
+    vi.advanceTimersByTime(31 * 60_000)
+    expect(start({ autoPageViews: false, attribution: 'session' }).getClickId()).toBeNull()
+  })
+
+  it('answers from memory when storage is blocked, and never throws', () => {
+    const blocked = () => {
+      throw new DOMException('The operation is insecure.', 'SecurityError')
+    }
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked)
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked)
+    const remove = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(blocked)
+    try {
+      window.history.replaceState(null, '', '/')
+      const none = start({ autoPageViews: false })
+      expect(none.getClickId()).toBeNull()
+      none.shutdown()
+      window.history.replaceState(null, '', `/?kma_click=${click}`)
+      expect(start({ autoPageViews: false }).getClickId()).toBe(click)
+    } finally {
+      get.mockRestore()
+      set.mockRestore()
+      remove.mockRestore()
+    }
+  })
+
+  it('ignores a stored click that was tampered with', () => {
+    window.history.replaceState(null, '', `/?kma_click=${click}`)
+    start({ autoPageViews: false }).shutdown()
+    const touchKey = Object.keys(localStorage).find((k) => k.endsWith(':touch'))!
+    const touches = JSON.parse(localStorage.getItem(touchKey)!)
+    touches.first.click.kma_click = 'not a click id'
+    touches.last.click = 'nonsense'
+    localStorage.setItem(touchKey, JSON.stringify(touches))
+    const stateKey = touchKey.replace(/:touch$/, '')
+    localStorage.removeItem(stateKey)
+    window.history.replaceState(null, '', '/')
+    expect(start({ autoPageViews: false }).getClickId()).toBeNull()
+  })
+})
+
 describe('script tag build', () => {
+  it('answers getClickId with null before init and with the click after', async () => {
+    vi.resetModules()
+    window.history.replaceState(null, '', '/?kma_click=kc_7Hq2mW9xLp4RtZ8vB3nD')
+    ;(window as unknown as { kma: unknown }).kma = Object.assign(() => undefined, { q: [] })
+    await import('./src/global')
+    const api = (
+      window as unknown as {
+        kma: {
+          instance: Kma | null
+          getClickId(): string | null
+          init(key: string, options: Partial<KmaOptions>): Kma
+        }
+      }
+    ).kma
+    expect(api.instance).toBeNull()
+    expect(api.getClickId()).toBeNull()
+    instances.push(
+      api.init(key, {
+        endpoint: 'https://events.example',
+        replay: false,
+        fetch: fetchMock as typeof fetch,
+        debug: false,
+        autoPageViews: false,
+      }),
+    )
+    expect(api.getClickId()).toBe('kc_7Hq2mW9xLp4RtZ8vB3nD')
+  })
+
   it('runs calls made before the script loaded', async () => {
     vi.resetModules()
     const stub = Object.assign(() => undefined, {

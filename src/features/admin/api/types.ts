@@ -812,6 +812,15 @@ export type AdminAgreementOperationsHealth = Readonly<{
 }>
 
 export interface AdminGateway {
+  getProgramReviews?: () => Promise<
+    AdminDataResult<import('./programs').AdminProgramReviews | null>
+  >
+  reviewProgram?: (
+    input: import('./programs').AdminProgramReviewInput,
+  ) => Promise<AdminDataResult<import('./programs').AdminProgramStatusResult | null>>
+  setProgramStatus?: (
+    input: import('./programs').AdminProgramStatusInput,
+  ) => Promise<AdminDataResult<import('./programs').AdminProgramStatusResult | null>>
   getPayoutWorkspace?: (
     input: import('./payouts').PayoutFilters,
   ) => Promise<AdminDataResult<import('./payouts').PayoutWorkspace | null>>
@@ -1032,6 +1041,8 @@ export type AdminBackendResponse = Readonly<{
   error: Readonly<{
     code?: string
     message?: string
+    /** A stable code some functions set as the error's DETAIL. */
+    details?: string | null
     status?: number
   }> | null
   status?: number

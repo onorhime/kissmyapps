@@ -18,6 +18,8 @@ interface Global {
   attribution(): Attribution | null | undefined
   /** Before the script has loaded, the link as given. */
   appLink(url: string): string
+  /** The creator click to put in your Stripe payment's metadata, or null. Never waits. */
+  getClickId(): string | null
   instance: Kma | null
 }
 
@@ -39,6 +41,7 @@ const methods = [
   'flush',
   'attribution',
   'appLink',
+  'getClickId',
 ] as const
 
 function call(method: string, ...args: unknown[]): unknown {
@@ -47,6 +50,7 @@ function call(method: string, ...args: unknown[]): unknown {
     // Reading calls answer at once: there is nothing to read yet.
     if (method === 'appLink') return args[0]
     if (method === 'attribution') return undefined
+    if (method === 'getClickId') return null
     // Kept until init; a page whose key is wrong never grows this without bound.
     if (pending.length < 200) pending.push([method, ...args])
     return undefined

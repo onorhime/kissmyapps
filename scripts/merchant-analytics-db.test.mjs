@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -38,6 +38,10 @@ const suites = [
   ['69_workspace_stripe_connect.sql', /^ok \d+ workspace stripe connect assertions$/m],
   ['70_merchant_payment_events.sql', /^ok \d+ merchant payment event assertions$/m],
   ['71_merchant_event_active_connection.sql', /^ok \d+ merchant event active connection assertions$/m],
+  ['72_affiliate_programs.sql', /^ok \d+ affiliate program assertions$/m],
+  ['73_program_sales.sql', /^ok \d+ program sales assertions$/m],
+  ['74_analytics_creator_click.sql', /^ok \d+ analytics creator click assertions$/m],
+  ['75_affiliate_program_end_to_end.sql', /^ok \d+ program end to end assertions$/m],
 ]
 
 const bin = postgresBin()
@@ -106,6 +110,10 @@ test('merchant analytics database suite', { skip, timeout: 300_000 }, () => {
       } catch (error) {
         assert.fail(`${file}: ${error.stderr?.toString() || error.message}`)
       }
+      // KMA_DB_TEST_OUTPUT=<file> keeps what each suite printed, for example the
+      // "capture" lines of suite 75 that the front-end reader fixtures are made from.
+      if (process.env.KMA_DB_TEST_OUTPUT)
+        appendFileSync(process.env.KMA_DB_TEST_OUTPUT, `-- ${file}\n${output}\n`)
       assert.match(output, done)
     }
   } finally {

@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ChevronsUpDown,
+  Handshake,
   LogOut,
   Menu,
   Plus,
@@ -94,6 +95,10 @@ function groups(project: Project | undefined): NavGroup[] {
           : []),
       ]
     : []
+  // The program belongs to the workspace, so it is there with or without a project.
+  const affiliates: NavItem[] = [
+    { label: 'Program', route: { name: 'program' }, match: (r) => r.name === 'program' },
+  ]
   const settings: NavItem[] = [
     {
       label: 'Connections',
@@ -133,6 +138,7 @@ function groups(project: Project | undefined): NavGroup[] {
   return [
     ...(analytics.length ? [{ label: 'Analytics', icon: ChartLine, items: analytics }] : []),
     ...(attribution.length ? [{ label: 'Attribution', icon: Waypoints, items: attribution }] : []),
+    { label: 'Affiliates', icon: Handshake, items: affiliates },
     { label: 'Settings', icon: Settings, items: settings },
   ]
 }
