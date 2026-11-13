@@ -124,6 +124,10 @@ describe('program presentation', () => {
     expect(relativeTime('2026-11-11T10:00:00Z', now)).toBe('3 days ago')
     expect(relativeTime('2026-10-01T10:00:00Z', now)).toBe('on 1 Oct 2026')
     expect(relativeTime('2026-11-14T11:00:00Z', now)).toBe('just now')
+    // Timestamps as Postgres writes them: six decimal places and an offset.
+    expect(relativeTime('2026-11-14T08:00:00.550058+00:00', now)).toBe('2 hours ago')
+    expect(relativeTime('2026-11-14T10:00:00.550058+02:00', now)).toBe('2 hours ago')
+    expect(relativeTime('2026-10-01T23:59:59.999999+00:00', now)).toBe('on 1 Oct 2026')
     expect(relativeTime('nonsense', now)).toBeNull()
     expect(relativeTime(null, now)).toBeNull()
   })

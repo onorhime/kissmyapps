@@ -91,7 +91,8 @@ describe('admin program review gateway', () => {
       brandName: 'SpeakSix Ltd',
       stripeAccountId: 'acct_1QK7dLSpeakSix01',
       stripeCountry: 'GB',
-      submittedAt: '2026-11-14T08:00:00Z',
+      submittedAt: '2026-11-14T08:00:00.550058+00:00',
+      reviewedAt: null,
     })
     expect(result.data!.waiting[0].agreement).toMatchObject({
       title: 'SpeakSix Affiliate Agreement',
@@ -109,6 +110,60 @@ describe('admin program review gateway', () => {
       paragraphs: [expect.stringContaining('SpeakSix Ltd'), expect.stringContaining('signature')],
     })
     expect(result.data!.reviewed[1].pauseReason).toBe('admin')
+    expect(result.data!.reviewed[1].reviewedAt).toBe('2026-11-10T10:00:00.300127+00:00')
+    // The brand's own terms come back exactly as typed.
+    expect(result.data!.waiting[1].agreement).toMatchObject({
+      extraTerms: 'No discount codes in paid ads.',
+    })
+    expect(result.data!.waiting[1].agreement!.sections.at(-1)!.heading).toBe(
+      '12. Additional terms from Ledgerly Inc',
+    )
+  })
+
+  it('reads a program whose Stripe account was disconnected, and one too incomplete for an agreement', () => {
+    const { reviewed } = mapAdminProgramReviews(
+      reviewsResponse(
+        [],
+        [
+          programRow({
+            status: 'paused',
+            pause_reason: 'stripe_disconnected',
+            brand_name: null,
+            stripe_account_id: null,
+            stripe_country: null,
+            reviewed_at: '2026-11-13T12:34:21.550058+00:00',
+          }),
+          programRow({
+            id: 'a1b2c3d4-0000-4000-8000-000000000099',
+            status: 'changes_requested',
+            landing_url: null,
+            agreement: null,
+          }),
+        ],
+      ),
+      storage,
+    )
+    expect(reviewed[0]).toMatchObject({
+      status: 'paused',
+      pauseReason: 'stripe_disconnected',
+      brandName: null,
+      stripeAccountId: null,
+      stripeCountry: null,
+    })
+    expect(reviewed[1]).toMatchObject({ status: 'changes_requested', agreement: null })
+  })
+
+  it('keeps line breaks in the extra terms of an agreement', () => {
+    const program = mapAdminProgramReview(
+      programRow({
+        agreement: { title: 'A', sections: [], summary: [], extra_terms: 'One.\n\nTwo.\n' },
+      }),
+    )
+    expect(program.agreement!.extraTerms).toBe('One.\n\nTwo.\n')
+    expect(
+      mapAdminProgramReview(programRow({ agreement: { title: 'A', extra_terms: '  ' } })).agreement!
+        .extraTerms,
+    ).toBeNull()
   })
 
   it('reads an empty list as an empty queue, not as a failure', async () => {
@@ -178,7 +233,11 @@ describe('admin program review gateway', () => {
     const { gateway, rpc } = gatewayWith(async () => ok({ program_id: 'p-1', status: 'live' }))
     await expect(
       gateway.reviewProgram!({ programId: ' p-1 ', decision: 'approve' }),
-    ).resolves.toEqual({ data: { programId: 'p-1', status: 'live' }, status: 'ready', error: null })
+    ).resolves.toEqual({
+      data: { programId: 'p-1', status: 'live', pauseReason: null },
+      status: 'ready',
+      error: null,
+    })
     expect(rpc).toHaveBeenCalledWith('review_admin_program', {
       p_input: { program_id: 'p-1', decision: 'approve', note: null },
     })
@@ -219,51 +278,87 @@ describe('admin program review gateway', () => {
   })
 
   it('pauses and lifts a pause with the contract input', async () => {
-    const { gateway, rpc } = gatewayWith(async (_name, args) =>
-      ok({
+    const { gateway, rpc } = gatewayWith(async (_name, args) => {
+      const status = (args!.p_input as { status: string }).status
+      return ok({
         program_id: 'p-1',
-        status: (args!.p_input as { status: string }).status,
-      }),
-    )
+        status,
+        pause_reason: status === 'paused' ? 'admin' : null,
+      })
+    })
     await expect(
       gateway.setProgramStatus!({ programId: 'p-1', status: 'paused', note: ' Misleading ads. ' }),
-    ).resolves.toMatchObject({ data: { programId: 'p-1', status: 'paused' }, status: 'ready' })
+    ).resolves.toEqual({
+      data: { programId: 'p-1', status: 'paused', pauseReason: 'admin' },
+      status: 'ready',
+      error: null,
+    })
     expect(rpc).toHaveBeenLastCalledWith('set_admin_program_status', {
       p_input: { program_id: 'p-1', status: 'paused', note: 'Misleading ads.' },
     })
     await expect(
       gateway.setProgramStatus!({ programId: 'p-1', status: 'live' }),
-    ).resolves.toMatchObject({ data: { programId: 'p-1', status: 'live' }, status: 'ready' })
+    ).resolves.toMatchObject({
+      data: { programId: 'p-1', status: 'live', pauseReason: null },
+      status: 'ready',
+    })
     expect(rpc).toHaveBeenLastCalledWith('set_admin_program_status', {
       p_input: { program_id: 'p-1', status: 'live', note: null },
     })
+    // A pause may be sent without a reason.
+    await gateway.setProgramStatus!({ programId: 'p-1', status: 'paused', note: '   ' })
+    expect(rpc).toHaveBeenLastCalledWith('set_admin_program_status', {
+      p_input: { program_id: 'p-1', status: 'paused', note: null },
+    })
   })
 
-  it('accepts a status change that answers without a body, but not one for another program', () => {
-    expect(mapAdminProgramStatusChange(null, 'p-1', 'paused')).toEqual({
-      programId: 'p-1',
-      status: 'paused',
+  it('reports a lifted pause that left the program paused because Stripe is disconnected', async () => {
+    const { gateway } = gatewayWith(async () =>
+      ok({ program_id: 'p-1', status: 'paused', pause_reason: 'stripe_disconnected' }),
+    )
+    await expect(gateway.setProgramStatus!({ programId: 'p-1', status: 'live' })).resolves.toEqual({
+      data: { programId: 'p-1', status: 'paused', pauseReason: 'stripe_disconnected' },
+      status: 'ready',
+      error: null,
     })
-    expect(mapAdminProgramStatusChange({ status: 'live' }, 'p-1', 'live')).toEqual({
-      programId: 'p-1',
-      status: 'live',
-    })
-    expect(() =>
-      mapAdminProgramStatusChange({ program_id: 'p-2', status: 'paused' }, 'p-1', 'paused'),
-    ).toThrow()
+  })
+
+  it('does not report a status change it cannot confirm', async () => {
+    const cases: [unknown, 'paused' | 'live'][] = [
+      [null, 'paused'],
+      [{ status: 'paused', pause_reason: 'admin' }, 'paused'],
+      [{ program_id: 'p-2', status: 'paused', pause_reason: 'admin' }, 'paused'],
+      [{ program_id: 'p-1', status: 'live', pause_reason: null }, 'paused'],
+      [{ program_id: 'p-1', status: 'archived', pause_reason: null }, 'live'],
+      // A lifted pause cannot leave KissMyApps's own pause in place.
+      [{ program_id: 'p-1', status: 'paused', pause_reason: 'admin' }, 'live'],
+    ]
+    for (const [data, requested] of cases) {
+      expect(() => mapAdminProgramStatusChange(data, 'p-1', requested)).toThrow()
+      const { gateway } = gatewayWith(async () => ok(data))
+      await expect(
+        gateway.setProgramStatus!({ programId: 'p-1', status: requested }),
+      ).resolves.toMatchObject({ data: null, error: { code: 'invalid_response' } })
+    }
   })
 
   it('maps refusals to the admin result conventions', async () => {
     const cases: [AdminBackendResponse, string, string][] = [
+      // The admin gate: 42501 with no detail.
       [refused('42501', undefined, 403), 'unauthorized', 'not_authorized'],
+      [refused('42501'), 'unauthorized', 'not_authorized'],
       [refused('28000', undefined, 401), 'unauthorized', 'not_authenticated'],
       // A detail never hides an access failure.
       [refused('42501', 'stripe_not_connected', 403), 'unauthorized', 'not_authorized'],
       [refused('22023', 'stripe_not_connected'), 'error', 'invalid_state'],
-      [refused('P0001', 'stripe_not_connected'), 'error', 'invalid_state'],
+      [refused('22023', 'agreement_not_read'), 'error', 'invalid_state'],
       [refused('22023', 'status_not_allowed'), 'error', 'invalid_state'],
-      [refused('40001', 'program_changed', 409), 'error', 'conflict'],
+      [refused('P0002', 'program_not_found'), 'error', 'invalid_reference'],
       [refused('22023', 'invalid_note'), 'error', 'invalid_input'],
+      [refused('22023', 'invalid_input'), 'error', 'invalid_input'],
+      [refused('22023', 'invalid_decision'), 'error', 'invalid_input'],
+      [refused('22023', 'invalid_program_id'), 'error', 'invalid_input'],
+      [refused('22023', 'invalid_status'), 'error', 'invalid_input'],
       [refused('22023'), 'error', 'invalid_input'],
       [refused('P0002', undefined, 404), 'error', 'invalid_reference'],
       [refused('55000'), 'error', 'invalid_state'],
@@ -280,9 +375,25 @@ describe('admin program review gateway', () => {
         expect(outcome).toMatchObject({ data: null, status, error: { code } })
       }
     }
-    const { gateway } = gatewayWith(async () => refused('22023', 'stripe_not_connected'))
-    const outcome = await gateway.reviewProgram!({ programId: 'p-1', decision: 'approve' })
-    expect(outcome.error?.message).toMatch(/no longer has Stripe connected/)
+  })
+
+  it('gives each known refusal a short message of its own', async () => {
+    const messages: [string, RegExp][] = [
+      ['stripe_not_connected', /^Stripe is no longer connected for this workspace/],
+      ['agreement_not_read', /changed after the merchant read it\. Request changes/],
+      ['status_not_allowed', /has changed since the list was loaded/],
+      ['program_not_found', /no longer available/],
+      ['invalid_note', /^Write a note of 5 to 1000 characters\.$/],
+      ['invalid_decision', /^That request was not accepted\. Nothing was changed\.$/],
+    ]
+    for (const [detail, message] of messages) {
+      const { gateway } = gatewayWith(async () =>
+        refused(detail === 'program_not_found' ? 'P0002' : '22023', detail),
+      )
+      const outcome = await gateway.reviewProgram!({ programId: 'p-1', decision: 'approve' })
+      expect(outcome.error?.message).toMatch(message)
+      expect(outcome.error?.message).not.toContain('—')
+    }
   })
 
   it('treats a dropped connection as temporary', async () => {

@@ -104,10 +104,19 @@ export function countryName(code: string | null): string | null {
   }
 }
 
+/**
+ * A database timestamp as milliseconds. Postgres writes six decimal places
+ * (2026-11-13T12:34:21.550058+00:00) and a date string may carry three at most, so the rest
+ * is dropped. NaN when it is not a date.
+ */
+function timestamp(iso: string): number {
+  return Date.parse(iso.trim().replace(/(\.\d{3})\d+/, '$1'))
+}
+
 /** "5 minutes ago", "2 hours ago", "3 days ago", then the date. */
 export function relativeTime(iso: string | null, now: number): string | null {
   if (!iso) return null
-  const then = Date.parse(iso)
+  const then = timestamp(iso)
   if (Number.isNaN(then)) return null
   const minutes = Math.max(0, Math.round((now - then) / 60_000))
   if (minutes < 1) return 'just now'
@@ -119,8 +128,11 @@ export function relativeTime(iso: string | null, now: number): string | null {
   return `on ${fullDate(iso)}`
 }
 
+/** "13 Nov 2026", in UTC. Empty when the text is not a date. */
 export function fullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
+  const time = timestamp(iso)
+  if (Number.isNaN(time)) return ''
+  return new Date(time).toLocaleDateString('en-GB', {
     timeZone: 'UTC',
     day: 'numeric',
     month: 'short',

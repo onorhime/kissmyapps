@@ -35,8 +35,12 @@ const failed = (
   error: { code, message, retryable: code === 'temporarily_unavailable' },
 })
 
-const done = (programId: string, status: AdminProgramStatusResult['status']): Outcome => ({
-  data: { programId, status },
+const done = (
+  programId: string,
+  status: AdminProgramStatusResult['status'],
+  pauseReason: AdminProgramStatusResult['pauseReason'] = status === 'paused' ? 'admin' : null,
+): Outcome => ({
+  data: { programId, status, pauseReason },
   status: 'ready',
   error: null,
 })
@@ -169,10 +173,17 @@ describe('Admin program review', () => {
     ).toBeVisible()
     expect(within(agreement).getByText('1. Who this agreement is between')).toBeVisible()
     expect(within(agreement).getByText(/Accepting this agreement on KissMyApps/)).toBeVisible()
-    expect(
-      within(agreement).getByRole('heading', { name: 'Additional terms from Ledgerly Inc' }),
-    ).toBeVisible()
-    expect(within(agreement).getByText('No discount codes in paid ads.')).toBeVisible()
+    // The brand's own terms follow the last section, whose heading already introduces them.
+    const headings = within(agreement).getAllByRole('heading', { level: 4 })
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      '1. Who this agreement is between',
+      '2. Commission',
+      '12. Additional terms from Ledgerly Inc',
+    ])
+    const last = headings[2].closest('section')!
+    expect(last.lastElementChild).toHaveTextContent('No discount codes in paid ads.')
+    expect(last.children).toHaveLength(3)
+    expect(agreement.querySelectorAll('section')).toHaveLength(3)
     const hide = screen.getByRole('button', { name: 'Hide agreement for Ledgerly' })
     expect(hide).toHaveAttribute('aria-expanded', 'true')
     await user.click(hide)
@@ -297,21 +308,46 @@ describe('Admin program review', () => {
     },
   )
 
-  it('closes and refreshes when the program changed underneath the reviewer', async () => {
+  it.each([
+    [
+      'Stripe was disconnected',
+      'Stripe is no longer connected for this workspace, so the program cannot go live. The merchant has to reconnect Stripe first.',
+    ],
+    [
+      'the agreement changed after the merchant read it',
+      'The agreement changed after the merchant read it. Request changes so they read it again.',
+    ],
+  ])(
+    'closes, explains and refreshes when approval is refused because %s',
+    async (_why, message) => {
+      const review = vi.fn(async (): Promise<Outcome> => failed('invalid_state', message))
+      const { user, list } = setup({ review })
+      await user.click(await screen.findByRole('button', { name: 'Approve SpeakSix' }))
+      await user.click(screen.getByRole('button', { name: 'Approve program' }))
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent('Nothing was changed')
+      expect(alert).toHaveTextContent(message)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+      // The program is still in the queue, so the reviewer can request changes next.
+      expect(screen.getByRole('button', { name: 'Request changes to SpeakSix' })).toBeVisible()
+    },
+  )
+
+  it('keeps the dialog open when the request itself was refused', async () => {
     const review = vi.fn(async (): Promise<Outcome> =>
-      failed(
-        'invalid_state',
-        'This workspace no longer has Stripe connected, so the program cannot go live. Ask the merchant to reconnect Stripe first.',
-      ),
+      failed('invalid_input', 'Write a note of 5 to 1000 characters.'),
     )
     const { user, list } = setup({ review })
-    await user.click(await screen.findByRole('button', { name: 'Approve SpeakSix' }))
-    await user.click(screen.getByRole('button', { name: 'Approve program' }))
-    const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Nothing was changed')
-    expect(alert).toHaveTextContent('no longer has Stripe connected')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
+    await user.click(await screen.findByRole('button', { name: 'Request changes to SpeakSix' }))
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Fix the logo.')
+    await user.click(within(dialog).getByRole('button', { name: 'Send to merchant' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Write a note of 5 to 1000 characters.',
+    )
+    expect(within(dialog).getByRole('textbox')).toHaveValue('Fix the logo.')
+    expect(list).toHaveBeenCalledTimes(1)
   })
 
   it('does not claim an outcome it could not confirm', async () => {
@@ -339,7 +375,9 @@ describe('Admin program review', () => {
     expect(within(rows[0]).getByText('Live')).toBeVisible()
     expect(within(rows[0]).getByRole('button', { name: 'Pause HabitLoop' })).toBeVisible()
     expect(within(rows[1]).getByText('Paused by KissMyApps')).toBeVisible()
-    expect(within(rows[1]).getByText('MealMap Kitchen')).toBeVisible()
+    expect(within(rows[1]).getByText(/MealMap Kitchen/)).toBeVisible()
+    // Each row says when it was reviewed, in words a screen reader gets in full.
+    for (const row of rows) expect(row).toHaveTextContent(/Reviewed \S+/)
     expect(within(rows[1]).getByRole('button', { name: 'Lift pause on MealMap' })).toBeVisible()
     expect(within(rows[2]).getByText('Paused by merchant')).toBeVisible()
     expect(within(rows[2]).queryByRole('button')).not.toBeInTheDocument()
@@ -347,20 +385,26 @@ describe('Admin program review', () => {
     expect(within(rows[3]).queryByRole('button')).not.toBeInTheDocument()
   })
 
-  it('pauses a live program with a reason', async () => {
+  it('pauses a live program with a reason the merchant will see', async () => {
     const { user, setStatus, list } = setup()
     await user.click(await screen.findByRole('button', { name: 'Pause HabitLoop' }))
     const dialog = screen.getByRole('dialog', { name: 'Pause HabitLoop?' })
     expect(
       within(dialog).getByText(/cannot resume the program until you lift the pause/),
     ).toBeVisible()
+    const note = within(dialog).getByRole('textbox', { name: 'Reason for the pause (optional)' })
+    expect(note).not.toBeRequired()
+    expect(within(dialog).getByText('The merchant sees this note.')).toBeVisible()
+    // A reason is optional, but one that is given has to say something.
+    await user.type(note, 'ads')
     await user.click(within(dialog).getByRole('button', { name: 'Pause program' }))
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('Write at least 5 characters.')
-    expect(setStatus).not.toHaveBeenCalled()
-    await user.type(
-      within(dialog).getByRole('textbox', { name: 'Reason for the pause' }),
-      'Misleading claims in ads.',
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'Write at least 5 characters, or leave it empty.',
     )
+    expect(setStatus).not.toHaveBeenCalled()
+    await user.clear(note)
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+    await user.type(note, 'Misleading claims in ads.')
     await user.click(within(dialog).getByRole('button', { name: 'Pause program' }))
     expect(setStatus).toHaveBeenCalledExactlyOnceWith({
       programId: 'a1b2c3d4-0000-4000-8000-000000000011',
@@ -371,10 +415,23 @@ describe('Admin program review', () => {
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2))
   })
 
+  it('pauses without a reason', async () => {
+    const { user, setStatus } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Pause HabitLoop' }))
+    await user.click(screen.getByRole('button', { name: 'Pause program' }))
+    expect(setStatus).toHaveBeenCalledExactlyOnceWith({
+      programId: 'a1b2c3d4-0000-4000-8000-000000000011',
+      status: 'paused',
+      note: null,
+    })
+    expect(await screen.findByText('HabitLoop is paused.')).toBeVisible()
+  })
+
   it('lifts a KissMyApps pause', async () => {
     const { user, setStatus } = setup()
     await user.click(await screen.findByRole('button', { name: 'Lift pause on MealMap' }))
     const dialog = screen.getByRole('dialog', { name: 'Lift the pause on MealMap?' })
+    expect(within(dialog).getByText('The program goes live again.')).toBeVisible()
     expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Lift pause' }))
     expect(setStatus).toHaveBeenCalledExactlyOnceWith({
@@ -383,6 +440,39 @@ describe('Admin program review', () => {
       note: null,
     })
     expect(await screen.findByText('MealMap is live again.')).toBeVisible()
+  })
+
+  it('says a program stays paused when Stripe was disconnected, and does not call it live', async () => {
+    const mealMap = 'a1b2c3d4-0000-4000-8000-000000000012'
+    const disconnected = { brand_name: null, stripe_account_id: null, stripe_country: null }
+    const rows = reviewedRows().map((row) =>
+      row.id === mealMap ? { ...row, ...disconnected } : row,
+    )
+    const list = vi
+      .fn<() => Promise<Reviews>>()
+      .mockResolvedValueOnce(ready([], rows))
+      .mockResolvedValue(
+        ready(
+          [],
+          rows.map((row) =>
+            row.id === mealMap ? { ...row, pause_reason: 'stripe_disconnected' } : row,
+          ),
+        ),
+      )
+    const setStatus = vi.fn(async (input: AdminProgramStatusInput): Promise<Outcome> =>
+      done(input.programId, 'paused', 'stripe_disconnected'),
+    )
+    const { user } = setup({ list, setStatus })
+    await user.click(await screen.findByRole('button', { name: 'Lift pause on MealMap' }))
+    const dialog = screen.getByRole('dialog', { name: 'Lift the pause on MealMap?' })
+    expect(within(dialog).getByText(/Stripe is disconnected for this workspace/)).toBeVisible()
+    expect(within(dialog).queryByText('The program goes live again.')).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Lift pause' }))
+    expect(await screen.findByText('Still paused')).toBeVisible()
+    expect(screen.getByText(/MealMap stays paused because Stripe is disconnected/)).toBeVisible()
+    expect(screen.queryByText('MealMap is live again.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Paused, Stripe disconnected')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Lift pause on MealMap' })).not.toBeInTheDocument()
   })
 
   it('cancels a dialog without calling the backend and returns focus', async () => {

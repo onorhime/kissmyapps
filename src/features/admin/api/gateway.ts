@@ -315,6 +315,10 @@ function backendFailure<T>(
   })
 }
 
+const PROGRAM_CHANGED =
+  'This program has changed since the list was loaded. The list has been refreshed.'
+const PROGRAM_REQUEST_REFUSED = 'That request was not accepted. Nothing was changed.'
+
 /**
  * Program functions name the reason for a refusal in the error's DETAIL. A known reason gets
  * its own sentence; anything else falls back to the usual mapping by error code.
@@ -323,17 +327,19 @@ const PROGRAM_REFUSALS: Readonly<Record<string, AdminDataError>> = Object.freeze
   stripe_not_connected: {
     code: 'invalid_state',
     message:
-      'This workspace no longer has Stripe connected, so the program cannot go live. Ask the merchant to reconnect Stripe first.',
+      'Stripe is no longer connected for this workspace, so the program cannot go live. The merchant has to reconnect Stripe first.',
     retryable: false,
   },
-  status_not_allowed: {
+  agreement_not_read: {
     code: 'invalid_state',
-    message: 'This program has changed since the list was loaded. The list has been refreshed.',
+    message:
+      'The agreement changed after the merchant read it. Request changes so they read it again.',
     retryable: false,
   },
-  program_changed: {
-    code: 'conflict',
-    message: 'This program has changed since the list was loaded. The list has been refreshed.',
+  status_not_allowed: { code: 'invalid_state', message: PROGRAM_CHANGED, retryable: false },
+  program_not_found: {
+    code: 'invalid_reference',
+    message: 'This program is no longer available. The list has been refreshed.',
     retryable: false,
   },
   invalid_note: {
@@ -341,13 +347,17 @@ const PROGRAM_REFUSALS: Readonly<Record<string, AdminDataError>> = Object.freeze
     message: 'Write a note of 5 to 1000 characters.',
     retryable: false,
   },
+  invalid_input: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_decision: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_program_id: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
+  invalid_status: { code: 'invalid_input', message: PROGRAM_REQUEST_REFUSED, retryable: false },
 })
 
 const PROGRAM_FAILURES: FailureMessages = Object.freeze({
-  conflict: 'This program has changed since the list was loaded. The list has been refreshed.',
-  invalidInput: 'Check the note and try again.',
+  conflict: PROGRAM_CHANGED,
+  invalidInput: PROGRAM_REQUEST_REFUSED,
   invalidReference: 'This program is no longer available. The list has been refreshed.',
-  invalidState: 'This program has changed since the list was loaded. The list has been refreshed.',
+  invalidState: PROGRAM_CHANGED,
 })
 
 function programFailure<T>(response: AdminBackendResponse, empty: Empty<T>): AdminDataResult<T> {

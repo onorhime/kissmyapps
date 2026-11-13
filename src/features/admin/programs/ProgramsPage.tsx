@@ -10,13 +10,14 @@ import {
 import { ChevronDown, ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react'
 import { ActionNotice, type ActionMessage } from '../../../components/ActionNotice'
 import { Dialog } from '../../../components/Dialog'
-import type { AdminDataError, AdminGateway, AdminRole } from '../api/types'
+import type { AdminDataError, AdminDataResult, AdminGateway, AdminRole } from '../api/types'
 import {
   PROGRAM_NOTE_MAX,
   PROGRAM_NOTE_MIN,
   type AdminProgramAgreement,
   type AdminProgramReview,
   type AdminProgramReviews,
+  type AdminProgramStatusResult,
 } from '../api/programs'
 import {
   categoryLabel,
@@ -61,54 +62,64 @@ function actionFailure(error: AdminDataError | null): string {
   return error.message
 }
 
-const ACTIONS: Readonly<
-  Record<
-    ActionKind,
-    Readonly<{
-      title: (name: string) => string
-      description: string
-      confirm: string
-      busy: string
-      done: (name: string) => string
-      doneTitle: string
-      note: null | Readonly<{ label: string; hint: string }>
-    }>
-  >
-> = {
+type ActionCopy = Readonly<{
+  title: (name: string) => string
+  description: (program: AdminProgramReview) => string
+  confirm: string
+  busy: string
+  done: (name: string, result: AdminProgramStatusResult) => Readonly<[string, string]>
+  note: null | Readonly<{ label: string; hint: string; required: boolean }>
+}>
+
+const ACTIONS: Readonly<Record<ActionKind, ActionCopy>> = {
   approve: {
     title: (name) => `Approve ${name}?`,
-    description: 'The program goes live with the terms in its agreement.',
+    description: () => 'The program goes live with the terms in its agreement.',
     confirm: 'Approve program',
     busy: 'Approving…',
-    done: (name) => `${name} is live.`,
-    doneTitle: 'Approved',
+    done: (name) => ['Approved', `${name} is live.`],
     note: null,
   },
   request_changes: {
     title: () => 'Request changes',
-    description: 'The program goes back to the merchant with your note.',
+    description: () => 'The program goes back to the merchant with your note.',
     confirm: 'Send to merchant',
     busy: 'Sending…',
-    done: (name) => `${name} was sent back to the merchant.`,
-    doneTitle: 'Changes requested',
-    note: { label: 'What needs to change', hint: 'The merchant sees this note.' },
+    done: (name) => ['Changes requested', `${name} was sent back to the merchant.`],
+    note: {
+      label: 'What needs to change',
+      hint: 'The merchant sees this note.',
+      required: true,
+    },
   },
   pause: {
     title: (name) => `Pause ${name}?`,
-    description: 'The merchant cannot resume the program until you lift the pause.',
+    description: () => 'The merchant cannot resume the program until you lift the pause.',
     confirm: 'Pause program',
     busy: 'Pausing…',
-    done: (name) => `${name} is paused.`,
-    doneTitle: 'Paused',
-    note: { label: 'Reason for the pause', hint: 'A sentence is enough.' },
+    done: (name) => ['Paused', `${name} is paused.`],
+    note: {
+      label: 'Reason for the pause (optional)',
+      hint: 'The merchant sees this note.',
+      required: false,
+    },
   },
   lift: {
     title: (name) => `Lift the pause on ${name}?`,
-    description: 'The program goes live again.',
+    description: (program) =>
+      program.stripeAccountId
+        ? 'The program goes live again.'
+        : 'Stripe is disconnected for this workspace, so the program stays paused until the merchant reconnects Stripe and resumes it.',
     confirm: 'Lift pause',
     busy: 'Lifting pause…',
-    done: (name) => `${name} is live again.`,
-    doneTitle: 'Pause lifted',
+    // The function answers with where the program really ended up.
+    done: (name, result) =>
+      result.status === 'live'
+        ? ['Pause lifted', `${name} is live again.`]
+        : [
+            'Still paused',
+            `Your pause is lifted, but ${name} stays paused because Stripe is disconnected. The merchant has to reconnect Stripe and resume it.`,
+          ],
     note: null,
   },
 }
@@ -147,8 +158,13 @@ function ProgramActionDialog({
     event.preventDefault()
     if (busy) return
     const trimmed = note.trim()
-    if (copy.note && trimmed.length < PROGRAM_NOTE_MIN) {
-      setNoteError(`Write at least ${PROGRAM_NOTE_MIN} characters.`)
+    const tooShort = trimmed.length < PROGRAM_NOTE_MIN
+    if (copy.note && tooShort && (copy.note.required || trimmed.length > 0)) {
+      setNoteError(
+        copy.note.required
+          ? `Write at least ${PROGRAM_NOTE_MIN} characters.`
+          : `Write at least ${PROGRAM_NOTE_MIN} characters, or leave it empty.`,
+      )
       noteRef.current?.focus()
       return
     }
@@ -156,21 +172,23 @@ function ProgramActionDialog({
     setError(null)
     setBusy(true)
     try {
-      const result =
+      const sentNote = copy.note && trimmed ? trimmed : null
+      const result: AdminDataResult<AdminProgramStatusResult | null> | undefined =
         action.kind === 'approve' || action.kind === 'request_changes'
           ? await gateway.reviewProgram?.({
               programId: program.id,
               decision: action.kind,
-              note: copy.note ? trimmed : null,
+              note: sentNote,
             })
           : await gateway.setProgramStatus?.({
               programId: program.id,
               status: action.kind === 'pause' ? 'paused' : 'live',
-              note: copy.note ? trimmed : null,
+              note: sentNote,
             })
       if (!alive.current) return
       if (result?.status === 'ready' && result.data) {
-        onDone({ kind: 'success', title: copy.doneTitle, message: copy.done(program.name) })
+        const [title, message] = copy.done(program.name, result.data)
+        onDone({ kind: 'success', title, message })
         return
       }
       const message = actionFailure(result?.error ?? null)
@@ -196,7 +214,7 @@ function ProgramActionDialog({
       }}
       dismissible={!busy}
       title={copy.title(program.name)}
-      description={copy.description}
+      description={copy.description(program)}
       initialFocusRef={copy.note ? noteRef : confirmRef}
     >
       <form className="admin-prog-dialog" onSubmit={(event) => void submit(event)} noValidate>
@@ -210,11 +228,13 @@ function ProgramActionDialog({
               maxLength={PROGRAM_NOTE_MAX}
               rows={5}
               disabled={busy}
+              required={copy.note.required}
               aria-invalid={Boolean(noteError)}
               aria-describedby={`${noteId}-hint`}
               onChange={(event) => {
                 setNote(event.target.value)
-                if (noteError && event.target.value.trim().length >= PROGRAM_NOTE_MIN)
+                const length = event.target.value.trim().length
+                if (noteError && (length >= PROGRAM_NOTE_MIN || (!copy.note?.required && !length)))
                   setNoteError(null)
               }}
             />
@@ -272,15 +292,14 @@ function Logo({ program }: { program: AdminProgramReview }) {
   )
 }
 
-function Agreement({
-  agreement,
-  brandName,
-}: {
-  agreement: AdminProgramAgreement
-  brandName: string
-}) {
-  const extraInSections = agreement.sections.some((section) =>
-    section.heading.toLowerCase().includes('additional terms'),
+/**
+ * The agreement as creators will read it: the sections in order, then the brand's own terms
+ * straight after the last one, whose heading already introduces them.
+ */
+function Agreement({ agreement }: { agreement: AdminProgramAgreement }) {
+  const last = agreement.sections.length - 1
+  const extraTerms = agreement.extraTerms && (
+    <p className="admin-prog-extra-terms">{agreement.extraTerms}</p>
   )
   return (
     <div className="admin-prog-agreement-body">
@@ -295,20 +314,16 @@ function Agreement({
           ))}
         </dl>
       )}
-      {agreement.sections.map((section) => (
-        <section key={section.heading}>
+      {agreement.sections.map((section, index) => (
+        <section key={`${index}:${section.heading}`}>
           <h4>{section.heading}</h4>
-          {section.paragraphs.map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
+          {section.paragraphs.map((paragraph, paragraphIndex) => (
+            <p key={paragraphIndex}>{paragraph}</p>
           ))}
+          {index === last && extraTerms}
         </section>
       ))}
-      {agreement.extraTerms && !extraInSections && (
-        <section>
-          <h4>Additional terms from {agreement.brandName ?? brandName}</h4>
-          <p className="admin-prog-extra-terms">{agreement.extraTerms}</p>
-        </section>
-      )}
+      {last < 0 && extraTerms}
     </div>
   )
 }
@@ -341,7 +356,6 @@ function ReviewCard({
   const link = landingLink(program.landingUrl)
   const submitted = relativeTime(program.submittedAt, now)
   const country = countryName(program.stripeCountry)
-  const brand = program.brandName ?? program.name
   return (
     <article className="admin-panel admin-prog-card" aria-labelledby={titleId}>
       <header className="admin-prog-card-head">
@@ -361,7 +375,7 @@ function ReviewCard({
         <Fact label="Commission">{commissionLine(program) ?? notSet}</Fact>
         <Fact label="Landing page">
           {link ? (
-            <a href={link.href} target="_blank" rel="noopener noreferrer">
+            <a href={link.href} title={link.href} target="_blank" rel="noopener noreferrer">
               <span>{link.label}</span>
               <ExternalLink size={14} aria-hidden="true" />
               <span className="admin-prog-sr">(opens in a new tab)</span>
@@ -447,7 +461,7 @@ function ReviewCard({
           aria-label={`Agreement for ${program.name}`}
           tabIndex={0}
         >
-          <Agreement agreement={program.agreement} brandName={brand} />
+          <Agreement agreement={program.agreement} />
         </div>
       )}
     </article>
@@ -456,21 +470,36 @@ function ReviewCard({
 
 function ReviewedRow({
   program,
+  now,
   disabled,
   onAction,
 }: {
   program: AdminProgramReview
+  now: number
   disabled: boolean
   onAction: (kind: ActionKind) => void
 }) {
   const status = programStatus(program)
   const adminPause = program.status === 'paused' && program.pauseReason === 'admin'
+  const workspace =
+    program.workspaceName && program.workspaceName !== program.name ? program.workspaceName : null
+  // The list's heading already says "reviewed", so the row only says when.
+  const reviewed = relativeTime(program.reviewedAt, now)?.replace(/^on /, '')
   return (
     <li className="admin-prog-reviewed-row">
       <div>
         <strong>{program.name}</strong>
-        {program.workspaceName && program.workspaceName !== program.name && (
-          <span className="admin-prog-reviewed-workspace">{program.workspaceName}</span>
+        {(workspace || reviewed) && (
+          <span className="admin-prog-reviewed-workspace">
+            {workspace}
+            {workspace && reviewed && ' · '}
+            {reviewed && program.reviewedAt && (
+              <span className="admin-prog-reviewed-when" title={fullDate(program.reviewedAt)}>
+                <span className="admin-prog-sr">Reviewed </span>
+                {reviewed}
+              </span>
+            )}
+          </span>
         )}
         <span className={`admin-prog-pill admin-prog-pill-${status.tone}`}>{status.label}</span>
       </div>
@@ -525,14 +554,14 @@ function LoadingCard() {
 export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
   const canReview = role === 'owner' || role === 'operations'
   const [state, setState] = useState<LoadState>({ status: 'loading' })
-  const [refreshing, setRefreshing] = useState(false)
+  // True from the first render: the page opens by loading.
+  const [refreshing, setRefreshing] = useState(true)
   const [action, setAction] = useState<PendingAction | null>(null)
   const [notice, setNotice] = useState<ActionMessage | null>(null)
   const request = useRef(0)
 
   const load = useCallback(async () => {
     const current = ++request.current
-    setRefreshing(true)
     let next: LoadState
     try {
       const result = await gateway.getProgramReviews?.()
@@ -550,6 +579,11 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
     setState(next)
     setRefreshing(false)
   }, [gateway])
+
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
 
   useEffect(() => {
     if (!canReview) return
@@ -588,13 +622,18 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
                 : `${waiting.length} waiting for review`}
             </p>
           )}
+          {state.status === 'loading' && (
+            <p aria-hidden="true">
+              <span className="admin-prog-bar" style={{ width: 150, height: 14 }} />
+            </p>
+          )}
         </div>
         {state.status !== 'unauthorized' && (
           <button
             className="admin-secondary-button"
             type="button"
             disabled={refreshing}
-            onClick={() => void load()}
+            onClick={refresh}
           >
             {refreshing ? (
               <LoaderCircle className="admin-spin" size={16} aria-hidden="true" />
@@ -607,9 +646,22 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
       </header>
 
       {state.status === 'loading' && (
-        <div className="admin-prog-queue" role="status">
-          <span className="admin-prog-sr">Loading programs…</span>
-          <LoadingCard />
+        <div className="admin-prog-layout" role="status">
+          <div className="admin-prog-queue">
+            <span className="admin-prog-sr">Loading programs…</span>
+            <LoadingCard />
+          </div>
+          <div className="admin-panel admin-prog-reviewed admin-prog-skeleton" aria-hidden="true">
+            <span className="admin-prog-bar" style={{ width: 140, height: 18 }} />
+            {[0, 1, 2].map((index) => (
+              <div className="admin-prog-reviewed-row" key={index}>
+                <div>
+                  <span className="admin-prog-bar" style={{ width: 110, height: 16 }} />
+                  <span className="admin-prog-bar" style={{ width: 64, height: 22 }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -632,7 +684,7 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
             className="admin-secondary-button"
             type="button"
             disabled={refreshing}
-            onClick={() => void load()}
+            onClick={refresh}
           >
             Try again
           </button>
@@ -670,6 +722,7 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
                   <ReviewedRow
                     key={program.id}
                     program={program}
+                    now={loadedAt}
                     disabled={busy}
                     onAction={(kind) => setAction({ kind, program })}
                   />
@@ -689,12 +742,12 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
           onDone={(message) => {
             setAction(null)
             setNotice(message)
-            void load()
+            refresh()
           }}
           onStale={(message) => {
             setAction(null)
             setNotice(message)
-            void load()
+            refresh()
           }}
         />
       )}

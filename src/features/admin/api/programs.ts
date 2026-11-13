@@ -20,7 +20,11 @@ export type AdminProgramPauseReason = (typeof ADMIN_PROGRAM_PAUSE_REASONS)[numbe
 export type AdminProgramCommissionType = 'percent' | 'fixed'
 export type AdminProgramCommissionDuration = 'first_payment' | 'months' | 'lifetime'
 
-/** The agreement KissMyApps generated from the program's terms. */
+/**
+ * The agreement KissMyApps generated from the program's terms. `extraTerms` is the brand's
+ * own text, exactly as typed: it belongs directly after the last section, whose heading
+ * already introduces it.
+ */
 export type AdminProgramAgreement = Readonly<{
   title: string
   brandName: string | null
@@ -55,6 +59,12 @@ export type AdminProgramReview = Readonly<{
   stripeAccountId: string | null
   stripeCountry: string | null
   submittedAt: string | null
+  /** When KissMyApps last approved it or sent it back. Null while it waits for a first review. */
+  reviewedAt: string | null
+  /**
+   * The published agreement for a live or paused program, the generated one otherwise. Null
+   * when the program is too incomplete to generate one.
+   */
   agreement: AdminProgramAgreement | null
 }>
 
@@ -77,12 +87,15 @@ export type AdminProgramReviewInput = Readonly<{
 export type AdminProgramStatusInput = Readonly<{
   programId: string
   status: 'paused' | 'live'
+  /** Optional: 5 to 1000 characters when given. A pause note is shown to the merchant. */
   note?: string | null
 }>
 
 export type AdminProgramStatusResult = Readonly<{
   programId: string
   status: AdminProgramStatus
+  /** Why the program is paused, when it is. */
+  pauseReason: AdminProgramPauseReason | null
 }>
 
 export const PROGRAM_NOTE_MIN = 5
@@ -163,7 +176,9 @@ function mapAgreement(value: unknown): AdminProgramAgreement | null {
     programName: text(row, 'program_name'),
     summary,
     sections,
-    extraTerms: text(row, 'extra_terms'),
+    // The brand's words stay as typed, line breaks included.
+    extraTerms:
+      typeof row.extra_terms === 'string' && row.extra_terms.trim() ? row.extra_terms : null,
   }
 }
 
@@ -202,6 +217,7 @@ export function mapAdminProgramReview(
     stripeAccountId: text(row, 'stripe_account_id'),
     stripeCountry: text(row, 'stripe_country')?.toUpperCase() ?? null,
     submittedAt: text(row, 'submitted_at'),
+    reviewedAt: text(row, 'reviewed_at'),
     agreement: mapAgreement(row.agreement),
   }
 }
@@ -233,24 +249,27 @@ export function mapAdminProgramStatusResult(
   if (row.program_id !== programId || !status || !expected.includes(status)) {
     throw new Error('Unexpected program result.')
   }
-  return { programId, status }
+  return { programId, status, pauseReason: oneOf(row.pause_reason, ADMIN_PROGRAM_PAUSE_REASONS) }
 }
 
 /**
- * The result of a pause or a lifted pause. The function reports the program's new status;
- * when it answers without one, the change itself went through, so the requested status
- * stands.
+ * `{"program_id", "status", "pause_reason"}` after a pause or a lifted pause. A pause leaves
+ * the program paused. A lifted pause leaves it live, or still paused when the workspace's
+ * Stripe account was disconnected meanwhile: the returned state is the truth, not the request.
  */
 export function mapAdminProgramStatusChange(
   value: unknown,
   programId: string,
   requested: 'paused' | 'live',
 ): AdminProgramStatusResult {
-  const row = Array.isArray(value) && value.length === 1 ? value[0] : value
-  if (!row || typeof row !== 'object' || Array.isArray(row)) return { programId, status: requested }
-  const fields = row as Record<string, unknown>
-  if (typeof fields.program_id === 'string' && fields.program_id !== programId) {
+  const result = mapAdminProgramStatusResult(
+    value,
+    programId,
+    requested === 'paused' ? ['paused'] : ['live', 'paused'],
+  )
+  const stillPaused = requested === 'live' && result.status === 'paused'
+  if (stillPaused && result.pauseReason !== 'stripe_disconnected') {
     throw new Error('Unexpected program result.')
   }
-  return { programId, status: oneOf(fields.status, ADMIN_PROGRAM_STATUSES) ?? requested }
+  return result
 }

@@ -1,6 +1,7 @@
 /**
  * Program review rows as `list_admin_program_reviews` returns them (the Phase 2 contract's
- * JSON), for tests and local previews. Not production data.
+ * JSON, with timestamps as Postgres writes them), for tests and local previews. Not
+ * production data.
  */
 export const programWorkspaceId = '7c3f2f6e-52c1-4c9a-9d0b-3f6c1a2b4d5e'
 
@@ -60,9 +61,10 @@ export function programRow(overrides: Record<string, unknown> = {}): Record<stri
     agreement_read: true,
     has_unpublished_changes: false,
     live_terms_version: null,
-    submitted_at: '2026-11-14T08:00:00Z',
+    submitted_at: '2026-11-14T08:00:00.550058+00:00',
+    reviewed_at: null,
     first_published_at: null,
-    updated_at: '2026-11-14T08:00:00Z',
+    updated_at: '2026-11-14T08:00:00.550058+00:00',
     workspace_id: programWorkspaceId,
     workspace_name: 'SpeakSix',
     brand_name: 'SpeakSix Ltd',
@@ -90,7 +92,7 @@ export function fixedProgramRow(overrides: Record<string, unknown> = {}) {
     commission_months: null,
     marketplace_listed: false,
     extra_terms: 'No discount codes in paid ads.',
-    submitted_at: '2026-11-13T15:30:00Z',
+    submitted_at: '2026-11-13T15:30:00.104233+00:00',
     workspace_id: '9d8c7b6a-1111-4222-8333-444455556666',
     workspace_name: 'Ledgerly Studio',
     brand_name: 'Ledgerly Inc',
@@ -102,6 +104,15 @@ export function fixedProgramRow(overrides: Record<string, unknown> = {}) {
       brand_name: 'Ledgerly Inc',
       program_name: 'Ledgerly',
       summary: [{ label: 'Commission', value: '$20.00 on the first payment' }],
+      sections: [
+        ...agreementFixture.sections,
+        {
+          heading: '12. Additional terms from Ledgerly Inc',
+          paragraphs: [
+            'Ledgerly Inc added the terms below. They are part of this agreement, but they cannot reduce commission you have already earned.',
+          ],
+        },
+      ],
       extra_terms: 'No discount codes in paid ads.',
     },
     ...overrides,
@@ -117,7 +128,8 @@ export function reviewedRows(): Record<string, unknown>[] {
       status: 'live',
       workspace_name: 'HabitLoop',
       live_terms_version: 1,
-      first_published_at: '2026-11-12T10:00:00Z',
+      reviewed_at: '2026-11-12T10:00:00.811420+00:00',
+      first_published_at: '2026-11-12T10:00:00.811420+00:00',
     }),
     programRow({
       id: 'a1b2c3d4-0000-4000-8000-000000000012',
@@ -127,7 +139,8 @@ export function reviewedRows(): Record<string, unknown>[] {
       pause_reason: 'admin',
       workspace_name: 'MealMap Kitchen',
       live_terms_version: 1,
-      first_published_at: '2026-11-10T10:00:00Z',
+      reviewed_at: '2026-11-10T10:00:00.300127+00:00',
+      first_published_at: '2026-11-10T10:00:00.300127+00:00',
     }),
     programRow({
       id: 'a1b2c3d4-0000-4000-8000-000000000013',
@@ -137,7 +150,8 @@ export function reviewedRows(): Record<string, unknown>[] {
       pause_reason: 'merchant',
       workspace_name: 'TrailNotes',
       live_terms_version: 2,
-      first_published_at: '2026-11-08T10:00:00Z',
+      reviewed_at: '2026-11-08T10:00:00.925501+00:00',
+      first_published_at: '2026-11-08T10:00:00.925501+00:00',
     }),
     programRow({
       id: 'a1b2c3d4-0000-4000-8000-000000000014',
@@ -145,6 +159,7 @@ export function reviewedRows(): Record<string, unknown>[] {
       name: 'PenPal',
       status: 'changes_requested',
       review_note: 'The landing page returns a 404.',
+      reviewed_at: '2026-11-07T16:20:00.044918+00:00',
       workspace_name: 'PenPal Labs',
     }),
   ]
