@@ -50,6 +50,7 @@ import { useRpc } from '../ui/useRpc'
 const REVIEW_REFRESH_MS = 60_000
 const TRACKING_REFRESH_MS = 60_000
 const CONNECTIONS = href({ name: 'connections' })
+const BALANCE = href({ name: 'balance' })
 
 /** What the page is busy with; one thing at a time. */
 type Busy = 'idle' | 'saving' | 'publishing' | 'pausing' | 'resuming' | 'uploading' | 'opening'
@@ -602,6 +603,11 @@ function Problem({
           Connect Stripe
         </a>
       )}
+      {problem.recovery === 'balance' && (
+        <a className="mc-text-btn" href={BALANCE}>
+          Add funds
+        </a>
+      )}
     </p>
   )
 }
@@ -645,6 +651,16 @@ function Banner({ state, workspaceName }: { state: ProgramState; workspaceName: 
               Connect Stripe
             </a>
           )}
+        </p>
+      )
+    else if (program.pause_reason === 'balance_empty')
+      body = (
+        <p>
+          This program is paused because its balance could not cover a commission. It goes live
+          again when you add funds.{' '}
+          <a className="mc-link" href={BALANCE}>
+            {state.can_manage ? 'Add funds' : 'Open Balance'}
+          </a>
         </p>
       )
     else body = <p>You paused this program. Resume it when you are ready.</p>
