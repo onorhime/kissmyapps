@@ -36,9 +36,9 @@ kma('track', 'plan_selected', { plan: 'annual', price: 59.99 })
 kma('reset') // on sign out
 ```
 
-After it loads, the same calls are methods: `kma.track(…)`, `kma.identify(…)`,
-`kma.setTraits(…)`, `kma.page()`, `kma.reset()`, `kma.optOut()`, `kma.optIn()`,
-`kma.flush()`.
+After it loads, the same calls are methods: `kma.track(…)`, `kma.revenue(…)`,
+`kma.identify(…)`, `kma.setTraits(…)`, `kma.page()`, `kma.reset()`, `kma.optOut()`,
+`kma.optIn()`, `kma.flush()`.
 
 Script attributes: `data-key` (required), `data-endpoint`, `data-replay="false"`
 to turn replays off, `data-app-version`. To pass other options, leave out
@@ -137,6 +137,64 @@ visitor whose browser blocked the script, so checkout never fails because of it.
 A value that is not a KissMyApps click ID (16 to 128 letters, numbers, `_` or
 `-`) is ignored.
 
+### Revenue
+
+Record each payment once it has gone through, so the console can show what the people
+from each ad or link paid and the return on what you spent:
+
+```js
+// The amount in major units (59.99, not 5999) and its ISO 4217 currency code
+kma.revenue(59.99, 'USD', { productId: 'annual', transactionId: 'pi_3Q8xLm…' })
+
+// A refund is a negative amount, with the same transaction ID
+kma.revenue(-59.99, 'USD', { transactionId: 'pi_3Q8xLm…' })
+
+// Before the script has loaded, like every other call
+kma('revenue', 59.99, 'USD', { productId: 'annual' })
+```
+
+It sends a `purchase` event (`refund` for a negative amount) with the reserved properties
+`kma_revenue` (the amount), `kma_currency` (sent upper case) and, when given,
+`kma_product_id` and `kma_transaction_id`. `event` gives the event your own name, such as
+`subscription_started`, and `properties` adds more; the four `kma_` properties always come
+from the call itself. An amount that is 0, not a number or over 1,000,000,000 either way,
+or a currency that is not three letters, sends nothing and logs a warning in the console.
+A product or transaction ID longer than 200 characters is left out. Reports show revenue
+in the project's currency, converted with the European Central Bank's daily rates.
+
+**Transaction IDs** make one payment count once. Pass the payment provider's ID for it,
+such as the Stripe PaymentIntent ID. The same ID reported again, by your server, by your
+app or by a RevenueCat or Adapty webhook, is not counted a second time. Without a
+transaction ID each call is a separate payment.
+
+From your server, send the same event with a server key (see the HTTP API below):
+
+```http
+POST https://events.kissmyapps.dev/v1/events
+Authorization: Bearer kma_sk_live_…
+Content-Type: application/json
+
+{
+  "user_id": "user-42",
+  "events": [
+    {
+      "name": "purchase",
+      "insert_id": "pi_3Q8xLm…",
+      "time": "2026-11-13T10:00:00Z",
+      "properties": {
+        "kma_revenue": 59.99,
+        "kma_currency": "USD",
+        "kma_product_id": "annual",
+        "kma_transaction_id": "pi_3Q8xLm…"
+      }
+    }
+  ]
+}
+```
+
+Use the user ID you pass to `identify`, so the payment joins the person who came from the
+ad. `kma_revenue` must be a JSON number.
+
 ### Session replay
 
 Recorded with rrweb in a separate file (`kma-replay.js`) loaded on demand.
@@ -196,6 +254,9 @@ Content-Type: application/json
   server imports many users in one call.
 - `screen_viewed` and `page_viewed` count as screens, `error_thrown` as an
   error. Send `{"events": []}` with a session to keep it online.
+- An event with the properties `kma_revenue` (a number in major units, negative
+  for a refund) and `kma_currency` (ISO 4217) is a payment; see
+  [Revenue](#revenue). `kma_product_id` and `kma_transaction_id` are optional.
 - Server keys ignore the request's own address: pass `context.country`
   (ISO 3166 code), `context.region`, `context.city` and `context.user_agent`
   for the person instead.

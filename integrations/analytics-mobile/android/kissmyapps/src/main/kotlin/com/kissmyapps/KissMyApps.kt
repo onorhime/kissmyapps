@@ -67,6 +67,25 @@ object KissMyApps {
     @JvmOverloads
     fun track(name: String, properties: Map<String, Any?> = emptyMap()) = call { it.track(name, properties) }
 
+    /**
+     * Records a payment: the amount in major units (9.99, not 999), negative for a refund, and
+     * its ISO 4217 currency code. Sent as a `purchase` (or `refund`) event with the reserved
+     * properties `kma_revenue` and `kma_currency`. Pass the store's transaction ID, such as
+     * Google Play's order ID, so the same payment reported by a RevenueCat or Adapty webhook
+     * counts once. An amount that is 0 or over 1,000,000,000 either way, or a currency that is
+     * not three letters, sends nothing (with a warning when `debug` is on).
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun revenue(
+        amount: Double,
+        currency: String,
+        productId: String? = null,
+        transactionId: String? = null,
+        event: String? = null,
+        properties: Map<String, Any?> = emptyMap(),
+    ) = call { it.revenue(amount, currency, productId, transactionId, event, properties) }
+
     /** Records a screen view; later events carry the screen's name. */
     @JvmStatic
     @JvmOverloads

@@ -36,7 +36,7 @@ const deviceKey = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00
 type Sent = {
   path: string
   body: {
-    events: { name: string; screen?: string }[]
+    events: { name: string; screen?: string; properties?: Record<string, unknown> }[]
     context: Record<string, unknown>
     [field: string]: unknown
   }
@@ -85,6 +85,7 @@ describe('React Native wiring', () => {
     vi.useFakeTimers()
     const { KissMyApps, trackNavigation } = await import('./src/index')
     KissMyApps.track('opened_from_push')
+    KissMyApps.revenue(9.99, 'usd', { transactionId: 'GPA.3309-9122-6177-47466' })
     const client = KissMyApps.init({
       key,
       appVersion: '1.2.0',
@@ -102,9 +103,15 @@ describe('React Native wiring', () => {
       'app_installed',
       'app_opened',
       'opened_from_push',
+      'purchase',
       'screen_viewed',
       'app_backgrounded',
     ])
+    expect(recorded[4].properties).toEqual({
+      kma_revenue: 9.99,
+      kma_currency: 'USD',
+      kma_transaction_id: 'GPA.3309-9122-6177-47466',
+    })
     expect(recorded.at(-1)?.screen).toBe('Home')
     expect(events()[0].body.context).toMatchObject({
       platform: 'android',

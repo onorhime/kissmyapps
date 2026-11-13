@@ -5,7 +5,7 @@ All notable changes to the KissMyApps iOS and Android SDKs. Releases follow
 
 ## 1.1.0 (unreleased)
 
-Install attribution and deep links.
+Install attribution, deep links and revenue.
 
 ### iOS
 
@@ -21,6 +21,13 @@ Install attribution and deep links.
   required-reason APIs.
 - Still no IDFA and no prompts. Events now go out right before the install call on the
   first launch, instead of up to 10 seconds later.
+- `KissMyApps.revenue(_:currency:productId:transactionId:event:properties:)` records a
+  payment, with the amount as a `Decimal` in major units (negative for a refund), as a
+  `purchase` (or `refund`) event with the reserved properties `kma_revenue`,
+  `kma_currency`, `kma_product_id` and `kma_transaction_id`. A transaction ID makes the
+  app's call and a RevenueCat or Adapty webhook for the same payment count once. An amount
+  that is 0 or over 1,000,000,000 either way, or a currency that is not three letters,
+  sends nothing.
 
 ### Android
 
@@ -34,6 +41,13 @@ Install attribution and deep links.
   listener is set waits for one.
 - No advertising ID and no `AD_ID` permission. The only new permission is the one the
   install referrer library declares.
+- `KissMyApps.revenue(amount, currency, productId, transactionId, event, properties)`
+  records a payment in major units (negative for a refund) as a `purchase` (or `refund`)
+  event with the reserved properties `kma_revenue`, `kma_currency`, `kma_product_id` and
+  `kma_transaction_id`; every parameter after `currency` is optional, with overloads for
+  Java. A transaction ID makes the app's call and a RevenueCat or Adapty webhook for the
+  same payment count once. An amount that is 0 or over 1,000,000,000 either way, or a
+  currency that is not three letters, sends nothing.
 
 ## 1.0.0 (2026-10-30)
 

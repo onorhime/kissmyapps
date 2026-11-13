@@ -127,23 +127,61 @@ Event names use letters, numbers and `_ . : -`, start with a letter and are up t
 characters; other names are ignored. Calls made before `init` are kept and run once it is
 called.
 
+### Revenue
+
+Record each payment once the store has confirmed it, so the console can show what the
+people from each ad or link paid and the return on what you spent:
+
+```ts
+// The amount in major units (9.99, not 999) and its ISO 4217 currency code
+KissMyApps.revenue(9.99, 'USD', {
+  productId: 'annual',
+  transactionId: purchase.transactionId, // the store's ID for this payment
+})
+
+// A refund is a negative amount, with the same transaction ID
+KissMyApps.revenue(-9.99, 'USD', { transactionId })
+```
+
+It sends a `purchase` event (`refund` for a negative amount) with the reserved properties
+`kma_revenue` (the amount), `kma_currency` (sent upper case) and, when given,
+`kma_product_id` and `kma_transaction_id`. `event` gives the event your own name, such as
+`subscription_started`, and `properties` adds more; the four `kma_` properties always come
+from the call itself. An amount that is 0, not a number or over 1,000,000,000 either way,
+or a currency that is not three letters, sends nothing (with a warning when `debug` is
+on). A product or transaction ID longer than 200 characters is left out. Reports show
+revenue in the project's currency, converted with the European Central Bank's daily rates.
+
+**Transaction IDs** make one payment count once. When the project also has RevenueCat or
+Adapty connected in the console, their webhook reports the same purchase: pass the store's
+transaction ID (on iOS the StoreKit transaction ID, on Android the Google Play order ID,
+`GPA.…`), which is the one those tools report, and the payment counts once. Without a
+transaction ID each call is a separate payment. If you cannot get the same ID, record
+payments in one place only: the webhook or the app.
+
+From a server, send the same event to `POST https://events.kissmyapps.dev/v1/events` with a
+server key (`kma_sk_`), the user ID you pass to `identify` and the same `kma_` properties;
+the [iOS and Android SDK guide](https://github.com/onorhime/kissmyapps-mobile#revenue)
+shows the request.
+
 ### Everything at a glance
 
-| Call                               | What it does                                          |
-| ---------------------------------- | ----------------------------------------------------- |
-| `KissMyApps.init(options)`         | Starts recording. Call once.                          |
-| `KissMyApps.track(name, props?)`   | Records one of your events.                           |
-| `KissMyApps.screen(name, props?)`  | Records a screen view.                                |
-| `trackNavigation(ref)`             | Records every React Navigation screen.                |
-| `KissMyApps.onDeepLink(handler)`   | Receives deep links; returns a function to stop.      |
-| `KissMyApps.handleDeepLink(url)`   | Reports a link that opened the app another way.       |
-| `KissMyApps.identify(id, traits?)` | Ties this install to your user ID.                    |
-| `KissMyApps.setTraits(traits)`     | Updates what you know about the person.               |
-| `KissMyApps.reset()`               | Forgets the person and starts a new anonymous one.    |
-| `KissMyApps.optOut()` / `optIn()`  | Stops or resumes sending. Remembered across launches. |
-| `KissMyApps.flush()`               | Sends what is queued now; returns a promise.          |
-| `KissMyApps.getAnonymousId()`      | This install's random ID, for support tickets.        |
-| `KissMyApps.getSessionId()`        | The current session's ID.                             |
+| Call                                             | What it does                                          |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| `KissMyApps.init(options)`                       | Starts recording. Call once.                          |
+| `KissMyApps.track(name, props?)`                 | Records one of your events.                           |
+| `KissMyApps.revenue(amount, currency, options?)` | Records a payment, or a refund (negative).            |
+| `KissMyApps.screen(name, props?)`                | Records a screen view.                                |
+| `trackNavigation(ref)`                           | Records every React Navigation screen.                |
+| `KissMyApps.onDeepLink(handler)`                 | Receives deep links; returns a function to stop.      |
+| `KissMyApps.handleDeepLink(url)`                 | Reports a link that opened the app another way.       |
+| `KissMyApps.identify(id, traits?)`               | Ties this install to your user ID.                    |
+| `KissMyApps.setTraits(traits)`                   | Updates what you know about the person.               |
+| `KissMyApps.reset()`                             | Forgets the person and starts a new anonymous one.    |
+| `KissMyApps.optOut()` / `optIn()`                | Stops or resumes sending. Remembered across launches. |
+| `KissMyApps.flush()`                             | Sends what is queued now; returns a promise.          |
+| `KissMyApps.getAnonymousId()`                    | This install's random ID, for support tickets.        |
+| `KissMyApps.getSessionId()`                      | The current session's ID.                             |
 
 ## Install attribution and deep links
 
