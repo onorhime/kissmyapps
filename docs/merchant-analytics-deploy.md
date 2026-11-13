@@ -286,6 +286,7 @@ accept them: there is nothing to migrate or redeploy for them. The ingest functi
    https://jitpack.io/#onorhime/kissmyapps-mobile/1.0.0 once, so JitPack builds it before
    the first app asks for it. The folder's `.github/workflows/ci.yml` only runs there, where
    it tests both SDKs on every push and tag and feeds the README's CI badge.
+
 2. npm. The scope belongs to the `kissmyappss` organization on npmjs.com (`kissmyapps` was
    taken). From a machine logged in to an account in that organization, run
    `cd integrations/analytics-react-native && npm publish` (it builds `lib/` first and
@@ -377,6 +378,7 @@ it keeps its own Caddy block. Moving everyone to a short domain later is one row
 
    Validate the full candidate with the installed Caddy, write it into the bind-mounted
    file's inode, and restart only `dramapal-caddy-1`, as the hosting README requires.
+
 7. Release the dashboard as in step 6: the console gains Attribution in the sidebar.
 8. Smoke test: turn attribution on for a test project with a name such as `kmatest`, fill
    in an iOS Team ID and bundle ID, then
@@ -461,9 +463,28 @@ the database which link brought the install. The link service keeps a creator's
 Do the steps in this order: an older function would take an attribution call for an empty
 batch of events and answer 200, which the SDK would read as done.
 
-1. Apply this release's migrations first (listed here by their owners). Until
+1. Apply this release's migrations first, in name order. Until
    `public.attribution_install` and `public.attribution_open` exist, both calls answer 503
    `unavailable` and the SDKs try again on the next launch.
+   - `20261120100000_attribution_installs_base.sql`: the install and re-engagement tables,
+     where a person was acquired, the clipboard handoff setting.
+   - `20261120101000_attribution_install_match.sql`: the install and link-open matching,
+     the minute check that matches an install when the person later signs in, the console's
+     install numbers and "Test on your phone", and a person's install kept when they sign in
+     (`analytics_resolve_person` now moves it to the signed-in person).
+   - `20261120102000_program_app_installs.sql`: creator programs that pay for app installs
+     (affiliate Phase 7). It needs the affiliate Phase 6 migrations; see
+     `docs/affiliate-self-serve-phase7-deploy.md`.
+
+   Then schedule the minute check, after checking `cron.job` has no `kma-attribution`:
+
+   ```sql
+   select cron.schedule('kma-attribution', '* * * * *', 'select public.attribution_tick(''{}''::jsonb);');
+   ```
+
+   It looks only at organic installs younger than 72 hours whose person has since signed in,
+   and does nothing for projects with attribution off.
+
 2. Deploy the ingest function. It needs no new secret. For an Apple Ads token it calls
    `https://api-adservices.apple.com/api/v1/` (3 seconds at most, once more after a second
    on 404) and passes on only Apple's answer; the token is never stored or logged.
@@ -487,8 +508,9 @@ batch of events and answer 200, which the SDK would read as done.
    - `curl -i -X POST -H 'content-type: application/json' -d '{}' https://events.kissmyapps.dev/v1/attribution/install`
      answers 401 `invalid_key`; with the project's development client key in
      `-H 'authorization: Bearer ...'` it answers 400 `missing_field`, and with
-     `-d '{"anonymous_id":"smoke-1","session_id":"smoke-1","platform":"android","installed_at":"2026-12-01T10:00:00.000Z","sdk":"curl/1"}'`
-     it answers 200 with `"matched"` and `"method"` (`"off"` while attribution is off).
+     `-d '{"anonymous_id":"smoke-1","session_id":"smoke-1","platform":"android","installed_at":"<now, as 2026-12-01T10:00:00.000Z>","sdk":"curl/1"}'`
+     it answers 200 with `"matched"` and `"method"` (`"off"` while attribution is off). A
+     client key takes install times from the last 7 days only.
    - `curl -s -o /dev/null -w '%{redirect_url}\n' -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' 'https://kmatest.go.kissmyapps.dev/<path>?kma_click=<48 hex characters>'`
      prints the website with that `kma_click` on it; an iPhone user agent still goes
      straight to the App Store until "clipboard handoff for iPhone" is on, then gets the
