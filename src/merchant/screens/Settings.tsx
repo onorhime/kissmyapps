@@ -1317,6 +1317,25 @@ function firstTab(platforms: Platform[]): InstallTab {
 const appsAutomatically =
   'It records installs, updates, opens, time in the app and sessions on its own, keeps events while the phone is offline and never reads the advertising ID.'
 
+/** The last step of each app tab: where links and install matching are set up. */
+function AttributionNext({ project, id }: { project: Project; id: string }) {
+  return (
+    <section aria-labelledby={id}>
+      <h2 id={id}>4. Match installs to your links</h2>
+      <p className="mc-muted">
+        With attribution on, the SDK asks on the app&rsquo;s first launch which link brought the
+        install, and hands your app the screen a link points to.{' '}
+        <a
+          className="mc-link"
+          href={href({ name: 'attribution', projectId: project.id, section: 'setup' })}
+        >
+          {project.attribution_enabled ? 'Let links open your app' : 'Turn on attribution'}
+        </a>
+      </p>
+    </section>
+  )
+}
+
 /** Install steps with the project's own key filled in, and a live check that data arrives. */
 export function InstallGuide({
   project,
@@ -1447,6 +1466,7 @@ export function InstallGuide({
               <h2 id="mc-step-ios-3">3. Name your users, screens and actions</h2>
               <CodeBlock code={code.iosEvents} label="Swift" />
             </section>
+            <AttributionNext project={project} id="mc-step-ios-4" />
           </>
         )}
         {tab === 'android' && (
@@ -1469,6 +1489,7 @@ export function InstallGuide({
               <h2 id="mc-step-android-3">3. Name your users, screens and actions</h2>
               <CodeBlock code={code.androidEvents} label="Kotlin" />
             </section>
+            <AttributionNext project={project} id="mc-step-android-4" />
           </>
         )}
         {tab === 'react-native' && (
@@ -1494,6 +1515,7 @@ export function InstallGuide({
               <h2 id="mc-step-rn-3">3. Name your users and their actions</h2>
               <CodeBlock code={code.reactNativeEvents} label="TypeScript" />
             </section>
+            <AttributionNext project={project} id="mc-step-rn-4" />
           </>
         )}
         {tab === 'flutter' && (
@@ -1519,6 +1541,7 @@ export function InstallGuide({
               <h2 id="mc-step-flutter-3">3. Name your users and their actions</h2>
               <CodeBlock code={code.flutterEvents} label="Dart" />
             </section>
+            <AttributionNext project={project} id="mc-step-flutter-4" />
           </>
         )}
         {tab === 'http' && (

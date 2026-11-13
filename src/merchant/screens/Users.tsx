@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { ArrowLeft, Bot, Download, Play, Search, ShieldCheck, ShieldOff } from 'lucide-react'
 import { api } from '../api'
 import type { PeopleQuery, Person, Project, Range, Session } from '../api'
+import { acquisitionLine, readAcquisition } from '../attribution'
 import { toCsv, downloadCsv } from '../csv'
 import {
   botRuleLabels,
@@ -545,6 +546,8 @@ export function PersonScreen({ project, personId }: { project: Project; personId
   }
 
   const person = data.person
+  // Where an app install came from; an older database sends nothing, which reads as none.
+  const acquisition = readAcquisition(data.acquisition)
   const label = personLabel(person)
   const traits = Object.entries(person.traits).filter(([key]) => !['name', 'email'].includes(key))
   const canEdit = canDo(workspace?.role, 'developer')
@@ -730,20 +733,50 @@ export function PersonScreen({ project, personId }: { project: Project; personId
           </dl>
         </Panel>
         <Panel title="How they found you" id="mc-source-person" className="mc-span-12">
-          <dl className="mc-facts mc-facts-row">
-            <Fact label="First visit from">
-              {referrerHost(person.initial_referrer) ??
-                (person.platform === 'web' ? 'Direct' : null)}
-            </Fact>
-            <Fact label="UTM source">{person.initial_utm_source}</Fact>
-            <Fact label="UTM medium">{person.initial_utm_medium}</Fact>
-            <Fact label="UTM campaign">{person.initial_utm_campaign}</Fact>
-            <Fact label="Landing page">
-              {person.initial_landing ? (
-                <span className="mc-mono">{person.initial_landing}</span>
-              ) : null}
-            </Fact>
-          </dl>
+          {acquisition && (
+            <div className="mc-at2-acquired">
+              <p className={acquisition.verdict === 'rejected' ? 'mc-warning-text' : undefined}>
+                {acquisitionLine(acquisition)}
+              </p>
+              {(acquisition.installed_at || acquisition.link_name) && (
+                <span className="mc-sub">
+                  {[
+                    acquisition.installed_at &&
+                      `Installed ${time.longDate(acquisition.installed_at)}`,
+                    acquisition.link_name &&
+                      (acquisition.verdict === 'rejected'
+                        ? `before the click on ${acquisition.link_name}`
+                        : `through the link ${acquisition.link_name}`),
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </span>
+              )}
+            </div>
+          )}
+          {/* An app install with no web visit before it leaves these empty: they are left out. */}
+          {(!acquisition ||
+            person.platform === 'web' ||
+            person.initial_referrer ||
+            person.initial_utm_source ||
+            person.initial_utm_medium ||
+            person.initial_utm_campaign ||
+            person.initial_landing) && (
+            <dl className="mc-facts mc-facts-row">
+              <Fact label="First visit from">
+                {referrerHost(person.initial_referrer) ??
+                  (person.platform === 'web' ? 'Direct' : null)}
+              </Fact>
+              <Fact label="UTM source">{person.initial_utm_source}</Fact>
+              <Fact label="UTM medium">{person.initial_utm_medium}</Fact>
+              <Fact label="UTM campaign">{person.initial_utm_campaign}</Fact>
+              <Fact label="Landing page">
+                {person.initial_landing ? (
+                  <span className="mc-mono">{person.initial_landing}</span>
+                ) : null}
+              </Fact>
+            </dl>
+          )}
         </Panel>
       </div>
 

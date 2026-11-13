@@ -218,7 +218,7 @@ set local role service_role;
 select pg_temp.check((select h = jsonb_build_object('host', 'speaksix.go.kissmyapps.dev', 'project_id', pg_temp.q('project'), 'kind', 'kma',
     'enabled', true, 'ios_app_ids', '["ABCDE12345.app.speaksix.ios"]'::jsonb,
     'android', jsonb_build_object('package', 'app.speaksix', 'sha256', jsonb_build_array(regexp_replace(repeat('AB', 32), '(..)(?!$)', '\1:', 'g'))),
-    'web_url', 'https://speaksix.app/Start?ref=Links')
+    'web_url', 'https://speaksix.app/Start?ref=Links', 'ios_clipboard_handoff', false)
   from (select public.attribution_link_host('SpeakSix.Go.KissMyApps.dev.') h) t), 'a host gives its project, apps and website');
 select pg_temp.check(public.attribution_link_host('nobody.go.kissmyapps.dev') is null, 'an unknown host gives nothing');
 select pg_temp.check((select h->'ios_app_ids' = '[]'::jsonb and h->'android' = 'null'::jsonb and h->>'web_url' is null

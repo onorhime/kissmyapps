@@ -8,7 +8,7 @@
 
 <p align="center">
   Installs, sessions, screens and your own events, from your app to your KissMyApps dashboard.<br>
-  One line to start. Works offline. No dependencies. No advertising ID.
+  One line to start. Works offline. No advertising ID.
 </p>
 
 <p align="center">
@@ -24,6 +24,7 @@
   <a href="#install">Install</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#track-what-matters">Track events</a> ·
+  <a href="#attribution-and-deep-links">Attribution and deep links</a> ·
   <a href="#what-gets-recorded">What gets recorded</a> ·
   <a href="#options">Options</a> ·
   <a href="#privacy">Privacy</a> ·
@@ -38,8 +39,9 @@
   screens are recorded on their own. Add your own events when you want more.
 - **Nothing is lost offline.** Events wait on the phone, survive a restart and go out with
   backoff once there is a connection.
-- **Small and plain.** Pure Swift and Kotlin on top of Foundation and the Android SDK. No
-  third-party libraries, no code generation, no ProGuard rules.
+- **Small and plain.** Pure Swift and Kotlin on top of Foundation and the Android SDK. On
+  Android, Google's Play Install Referrer library is the one dependency. No code generation,
+  no ProGuard rules.
 - **Respectful by default.** A random ID per install, no advertising ID, no fingerprinting,
   and an opt-out that is remembered across launches.
 - **One dashboard for every platform.** iOS, Android, React Native, Flutter and the web send
@@ -53,7 +55,10 @@
 | Build tools     | Xcode 14 or later (Swift 5.7) | Gradle; Kotlin 1.9+ or Java 8+ |
 | Languages       | Swift, SwiftUI or UIKit       | Kotlin or Java                 |
 | Install from    | Swift Package Manager         | JitPack                        |
-| Permissions     | None                          | `INTERNET`, added for you      |
+| Permissions     | None                          | `INTERNET`, added for you (1)  |
+
+(1) Google's Play Install Referrer library adds the one permission it needs to ask the Play
+Store which link brought the install. The SDK never asks for `AD_ID`.
 
 You also need a **client key** from your project in the KissMyApps console, under
 **Settings → API keys**. Keys starting `kma_pk_live_` count as production; keys starting
@@ -75,7 +80,7 @@ Or, in a `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/onorhime/kissmyapps-mobile", from: "1.0.0"),
+    .package(url: "https://github.com/onorhime/kissmyapps-mobile", from: "1.1.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
@@ -102,7 +107,7 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.onorhime:kissmyapps-mobile:1.0.0")
+    implementation("com.github.onorhime:kissmyapps-mobile:1.1.0")
 }
 ```
 
@@ -121,7 +126,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle
 dependencies {
-    implementation 'com.github.onorhime:kissmyapps-mobile:1.0.0'
+    implementation 'com.github.onorhime:kissmyapps-mobile:1.1.0'
 }
 ```
 
@@ -296,11 +301,246 @@ Apart from the SwiftUI modifier, every call is on `KissMyApps`, such as `KissMyA
 | `reset()`               | `reset()`                      | Forgets the person and starts a new anonymous one.    |
 | `optOut()` / `optIn()`  | `optOut()` / `optIn()`         | Stops or resumes sending. Remembered across launches. |
 | `flush()`               | `flush()`                      | Sends what is queued now.                             |
+| `handleDeepLink(_:)`    | `handleDeepLink(intent)`       | Hands over the link that opened the app.              |
+| `onDeepLink(_:)`        | `onDeepLink(listener)`         | Receives each deep link once, on the main thread.     |
 | `anonymousId`           | `getAnonymousId()`             | This install's random ID, for support tickets.        |
 | `sessionId`             | `getSessionId()`               | The current session's ID.                             |
 
 Every call is safe from any thread and returns at once; the work happens on the SDK's own
 serial queue. Calls made before `start` are kept and run as soon as it is called.
+
+## Attribution and deep links
+
+With attribution turned on for your project in the console, the SDK tells KissMyApps which
+smart link brought each install, and hands your app the deep link that link carries: right
+away when a link opens the app, or on the first launch after someone tapped a link, installed
+the app and opened it (a deferred deep link). Until attribution is on, the calls do nothing.
+
+### iOS
+
+Installs need nothing from you: on the first launch, right after `app_installed`, the SDK
+makes one call that KissMyApps matches to the link the person tapped. Links that open the
+app need the steps below.
+
+**1. Let your links open the app.** In the console, under **Attribution → Setup**, fill in
+your app's App Store ID, Bundle ID and Team ID. Then in Xcode, open your app target's
+**Signing & Capabilities**, add **Associated Domains** and enter your link domain (the
+console shows it):
+
+```text
+applinks:<your-name>.go.kissmyapps.dev
+```
+
+Add an `applinks:` line for your own link domain too if you use one.
+
+**2. Pass the links to the SDK.** In SwiftUI:
+
+```swift
+WindowGroup {
+    ContentView()
+        .onOpenURL { url in KissMyApps.handleDeepLink(url) }
+}
+```
+
+<details>
+<summary>Using a UIKit scene delegate</summary>
+
+```swift
+func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions
+) {
+    // The app was not running: the link that started it.
+    if let url = connectionOptions.userActivities
+        .first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb })?.webpageURL {
+        KissMyApps.handleDeepLink(url)
+    }
+}
+
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb, let url = userActivity.webpageURL {
+        KissMyApps.handleDeepLink(url)
+    }
+}
+```
+
+Without scenes, do the same in your app delegate's
+`application(_:continue:restorationHandler:)`.
+
+</details>
+
+`handleDeepLink` sends any `https` link to KissMyApps, which records the click when it is
+one of your links. It returns `false` for anything else, such as your own URL scheme, so
+you can route those yourself.
+
+**3. Take people where the link points.** Set the callback once, right after `start`:
+
+```swift
+KissMyApps.onDeepLink { link in
+    // link.value: "lesson", link.params: ["id": "4"], from the link's deep link in the console
+    // link.deferred: true when the person installed the app first
+    // link.url: the link that opened the app, or nil after an install from the App Store
+    if link.value == "lesson", let id = link.params["id"] {
+        router.openLesson(id)
+    }
+}
+```
+
+It runs on the main thread, once for each deep link. A deep link that arrives before you set
+the callback waits for it. When the phone is offline the link cannot be looked up and the
+callback is not called; route from the address you passed to `handleDeepLink` if you need a
+fallback.
+
+How an install is matched on iPhone, first match wins:
+
+- **Reinstall**: the same iPhone installed the app before, within your reattribution window;
+  it keeps the first install's source. iOS gives the phone a new `identifierForVendor` once
+  the last of your apps is deleted, so a reinstall then counts as a new install.
+- **The link opened the app** on its first launch: the SDK waits a moment (1.5 seconds) for
+  the link and sends it with the install call. Later links, and links on later launches
+  before the install call is answered, wait for that answer and then go on their own.
+- **Apple Ads**: the SDK passes Apple's attribution token (iOS 14.3 and later) and
+  KissMyApps asks Apple which campaign it was. No prompt and no advertising ID.
+- **Clipboard handoff**, if you turn it on (below).
+- **Sign-in**: the person signs in (`identify`) and had come to your website from a link.
+- Otherwise the install counts as **organic**.
+
+When the phone is offline on the first launch, the SDK tries again on up to three more
+launches, once on each, with the first launch's details. While the person is opted out
+nothing is sent; the install call goes when you call `optIn()`.
+
+#### Clipboard handoff for iPhone (optional)
+
+The App Store does not tell an app which link someone tapped before installing it. Clipboard
+handoff fills that gap: on an iPhone, your link shows a small page whose **Get the app**
+button copies a short code (`kma:` and the click) before it opens the App Store. On the
+first launch the SDK reads the clipboard once and sends that code.
+
+iOS shows the person that your app pasted from the clipboard, and from iOS 16 asks them to
+allow it first. Turn it on only if that suits your app. It takes two switches:
+
+1. In the console: **Attribution → Setup → Clipboard handoff for iPhone**.
+2. In the app:
+
+   ```swift
+   KissMyApps.start(key: "kma_pk_live_…", options: KissMyAppsOptions(clipboardHandoff: true))
+   ```
+
+Without the option the SDK never reads the clipboard. With it, the clipboard is read only on
+the first launch, only once, and only text starting with `kma:` is used; anything else is
+left alone and never sent.
+
+### Android
+
+On the first launch, the SDK reads Google Play's install referrer once (the smart link puts
+its click in it) and sends it with a device key: a SHA-256 of `Settings.Secure.ANDROID_ID`,
+worked out on the phone. If the connection fails, it tries again on the next three launches.
+No advertising ID is read.
+
+**1. Let your links open the app.** In the console, under **Attribution → Android app**, enter
+your package name and your app's SHA-256 signing certificate fingerprints. Google Play shows
+them under **Setup → App signing**; add your upload key's too if you install builds you sign
+yourself. Your link domain then serves `/.well-known/assetlinks.json` with them, which Android
+checks before it opens your links in the app. A build signed with a key that is not listed
+opens links in the browser.
+
+**2. Add an App Links intent filter** to the activity links should open, with your link domain
+from the console:
+
+```xml
+<!-- AndroidManifest.xml -->
+<activity android:name=".MainActivity" android:exported="true">
+    <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="yourapp.go.kissmyapps.dev" />
+    </intent-filter>
+</activity>
+```
+
+**3. Hand the link to the SDK** in `onCreate` and `onNewIntent`, and **4. receive deep links**
+with `onDeepLink`:
+
+```kotlin
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import com.kissmyapps.KissMyApps
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Once per link: not again when the activity is recreated, such as after a rotation.
+        if (savedInstanceState == null) KissMyApps.handleDeepLink(intent)
+        KissMyApps.onDeepLink { deepLink ->
+            // On the main thread, once per deep link.
+            when (deepLink.value) {
+                "lesson" -> openLesson(deepLink.params["id"])
+            }
+        }
+    }
+
+    // A link that opens the app while this activity is already running.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        KissMyApps.handleDeepLink(intent)
+    }
+
+    override fun onDestroy() {
+        KissMyApps.onDeepLink(null)
+        super.onDestroy()
+    }
+}
+```
+
+<details>
+<summary>Using Java</summary>
+
+```java
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    if (savedInstanceState == null) KissMyApps.handleDeepLink(getIntent());
+    KissMyApps.onDeepLink(deepLink -> {
+        if ("lesson".equals(deepLink.getValue())) openLesson(deepLink.getParams().get("id"));
+    });
+}
+
+@Override
+protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    KissMyApps.handleDeepLink(intent);
+}
+
+@Override
+protected void onDestroy() {
+    KissMyApps.onDeepLink(null);
+    super.onDestroy();
+}
+```
+
+</details>
+
+`handleDeepLink` returns `true` when the intent carries an https link, which the SDK sends;
+KissMyApps decides whether it is one of your links. A link that opens the app on its first
+launch goes with the install call, so it is counted once. A deep link that arrives before a
+listener is set waits and goes to the first one you set.
+
+| `DeepLink` | What it holds                                                               |
+| ---------- | --------------------------------------------------------------------------- |
+| `value`    | The link's deep link value, such as `lesson`, or `null`.                    |
+| `params`   | The link's deep link parameters, such as `id` = `4`.                        |
+| `deferred` | `true` when it came through an install, `false` when a link opened the app. |
+| `url`      | The link that opened the app, or `null` when it came through Google Play.   |
+
+To check that Android trusts your links (Android 12 and later):
+
+```sh
+adb shell pm verify-app-links --re-verify com.yourcompany.app
+adb shell pm get-app-links com.yourcompany.app   # yourapp.go.kissmyapps.dev: verified
+```
 
 ## What gets recorded
 
@@ -329,10 +569,26 @@ open, a light heartbeat every minute keeps the person counted as online in the d
 | Screen size            | `393 × 852`                         |
 | Language and time zone | `en-NG`, `Africa/Lagos`             |
 | App version            | `2.4.0`                             |
-| SDK version            | `kma-ios/1.0.0`                     |
+| SDK version            | `kma-ios/1.1.0`                     |
 
 Country, region and city are worked out by the KissMyApps server from the request's
 address, which is only ever kept as a salted hash.
+
+### Sent for install attribution
+
+The install call on the first launch, and a call each time a link opens the app. Besides the
+anonymous ID, the session, your user ID (after `identify`) and the app version:
+
+| Field                 | When                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| Device key            | Each call: the SHA-256 of `identifierForVendor` (iOS) or `ANDROID_ID` (Android), never the ID |
+| Apple Ads attribution | iOS, the install call, iOS 14.3 and later, when iOS has one                                   |
+| Clipboard click       | iOS, the install call, only with `clipboardHandoff` and a `kma:` code                         |
+| Install referrer      | Android, the install call: Google Play's referrer and its two times                           |
+| Opening link          | When a link opened the app                                                                    |
+
+KissMyApps answers with the link's deep link. While attribution is off for the project, the
+calls store nothing.
 
 ### Delivery and offline
 
@@ -380,6 +636,7 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
 | `maxQueue`              | `1000`                           | The most events kept while offline.                                   |
 | `trackLifecycle`        | `true`                           | Record installs, updates, opens and backgrounding.                    |
 | `debug`                 | `false`                          | Log refused events and other problems to the Xcode console or Logcat. |
+| `clipboardHandoff`      | `false`                          | iOS: read the clipboard once on the first launch, see above.          |
 
 ## Privacy
 
@@ -388,6 +645,10 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
   with other apps.
 - **No advertising identifiers.** The SDK never reads the IDFA or the Android advertising
   ID, and never asks for App Tracking Transparency.
+- **Attribution without tracking (Android).** The install call sends Google Play's install
+  referrer and a device key: a SHA-256 of `ANDROID_ID`, which Android already scopes to your
+  app's signing key. The ID itself never leaves the phone. In the Google Play Data safety
+  form, that is "Device or other IDs", used for analytics.
 - **No fingerprinting and no raw addresses.** The server turns the request's IP address into
   a country, region and city, then keeps only a salted hash of it.
 - **Consent is one call.** `optOut()` stops all sending and clears the queue until
@@ -397,6 +658,15 @@ KissMyApps.start(this, "kma_pk_live_…", KissMyAppsOptions(
 
 When you fill in the App Store privacy details or the Google Play Data safety form, the
 lists under [What gets recorded](#what-gets-recorded) are everything this SDK sends.
+
+On iOS, install attribution uses the SHA-256 of `identifierForVendor` (the ID itself never
+leaves the phone) and Apple Ads' attribution token, which needs no prompt. The iOS package
+includes a privacy manifest (`PrivacyInfo.xcprivacy`), which Xcode adds to your app's
+privacy report: no tracking and no tracking domains; it collects a device ID, product
+interaction and coarse location (the country, region and city the server works out from the
+address); and it uses none of the APIs Apple asks a reason for. The manifest says the data
+is not linked to the person, which is true until you call `identify`: if you do, answer
+"linked to the user" for that data in App Store Connect.
 
 ## React Native, Flutter and other platforms
 

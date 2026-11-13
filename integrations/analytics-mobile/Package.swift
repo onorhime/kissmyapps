@@ -8,7 +8,12 @@ let package = Package(
         .library(name: "KissMyApps", targets: ["KissMyApps"]),
     ],
     targets: [
-        .target(name: "KissMyApps", path: "ios/Sources/KissMyApps"),
+        .target(
+            name: "KissMyApps",
+            path: "ios/Sources/KissMyApps",
+            // The privacy manifest Xcode adds to the app's privacy report.
+            resources: [.copy("PrivacyInfo.xcprivacy")]
+        ),
         .testTarget(name: "KissMyAppsTests", dependencies: ["KissMyApps"], path: "ios/Tests/KissMyAppsTests"),
     ]
 )

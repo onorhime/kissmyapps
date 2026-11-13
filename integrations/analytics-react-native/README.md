@@ -7,8 +7,8 @@
 <h1 align="center">KissMyApps for React Native</h1>
 
 <p align="center">
-  Installs, sessions, screens and your own events, from your app to your KissMyApps dashboard.<br>
-  Plain JavaScript: nothing to link, works with Expo.
+  Installs, sessions, screens, your own events, install attribution and deep links, from your app to your KissMyApps dashboard.<br>
+  Plain JavaScript that works with Expo, plus an optional native module for exact install matching.
 </p>
 
 <p align="center">
@@ -27,8 +27,12 @@
   recorded on their own; React Navigation screens take one line.
 - **Nothing is lost offline.** Events wait in storage, survive a restart and go out with
   backoff once there is a connection.
-- **No native code.** Pure JavaScript with TypeScript types, so it works in Expo Go and needs
-  no `pod install`.
+- **Know which link brought each install.** On the first launch the SDK matches the install
+  to the smart link that brought it and hands your app the link's deep link, even when the
+  person had to install the app first.
+- **Native code only if you want it.** The core is plain JavaScript with TypeScript types, so
+  it works in Expo Go. The small optional native module adds the device key, the Google Play
+  install referrer and the Apple Ads token; it links itself.
 - **Respectful by default.** A random ID per install, no advertising ID, no fingerprinting,
   and an opt-out that is remembered across launches.
 - **One dashboard for every platform.** It sends the same events as the
@@ -79,7 +83,8 @@ KissMyApps.init({
 </details>
 
 Storage is what lets the SDK recognise a returning person and keep events through a restart.
-Without it the SDK still works, but every launch counts as a new install.
+Without it the SDK still works, but every launch counts as a new install (and installs are
+not matched to links).
 
 ## Track what matters
 
@@ -130,6 +135,8 @@ called.
 | `KissMyApps.track(name, props?)`   | Records one of your events.                           |
 | `KissMyApps.screen(name, props?)`  | Records a screen view.                                |
 | `trackNavigation(ref)`             | Records every React Navigation screen.                |
+| `KissMyApps.onDeepLink(handler)`   | Receives deep links; returns a function to stop.      |
+| `KissMyApps.handleDeepLink(url)`   | Reports a link that opened the app another way.       |
 | `KissMyApps.identify(id, traits?)` | Ties this install to your user ID.                    |
 | `KissMyApps.setTraits(traits)`     | Updates what you know about the person.               |
 | `KissMyApps.reset()`               | Forgets the person and starts a new anonymous one.    |
@@ -137,6 +144,111 @@ called.
 | `KissMyApps.flush()`               | Sends what is queued now; returns a promise.          |
 | `KissMyApps.getAnonymousId()`      | This install's random ID, for support tickets.        |
 | `KissMyApps.getSessionId()`        | The current session's ID.                             |
+
+## Install attribution and deep links
+
+Smart links (`https://<you>.go.kissmyapps.dev/…`, or your own domain) send people to the App
+Store, Google Play or your website, and open your app when it is installed. With attribution
+turned on for the project in the console, the SDK:
+
+- on the **first launch**, right after `app_installed`, asks KissMyApps once which link brought
+  the install, and hands you that link's deep link (a _deferred_ deep link);
+- each time a **smart link opens the app** later, reports it and hands you its deep link.
+
+```tsx
+import { KissMyApps } from '@kissmyappss/react-native'
+
+// For example next to your navigation container, as early as you can.
+useEffect(
+  () =>
+    KissMyApps.onDeepLink((link) => {
+      // link.value: the deep link value you set on the smart link, such as 'lesson'
+      // link.params: its parameters as text, such as { id: '4' }
+      // link.deferred: true after an install, false when a link opened the app
+      // link.url: the link that opened the app, or null after a store install
+      if (link.value === 'lesson') navigation.navigate('Lesson', { id: link.params.id })
+    }),
+  [],
+)
+```
+
+Each deep link is handed over once. One that arrives before you set a handler waits for it
+(only the newest is kept). `onDeepLink` returns a function that removes the handler.
+
+The SDK reads the link that opened the app (`Linking.getInitialURL()`) and links opened while
+it runs (Linking's `url` events) by itself, so your own linking setup (React Navigation's
+`linking`, Expo Router) keeps working as it is. If a link reaches your app some other way,
+pass it on with `KissMyApps.handleDeepLink(url)`; it returns `false` when nothing is sent (not
+an https link, attribution off, opted out). The same link reported twice within 3 seconds
+counts once.
+
+The install call is made once. If the phone is offline it is tried again on the next three
+launches, with the same details. Until attribution is on for the project, both calls answer
+"off" and nothing is stored.
+
+### Let your app open your links
+
+The console's **Attribution → Setup** shows the exact lines for your link domains. The
+[iOS and Android SDK guide](https://github.com/onorhime/kissmyapps-mobile#attribution-and-deep-links) explains
+them in full; in short:
+
+- **iOS:** in Xcode, under **Signing & Capabilities**, add **Associated Domains** with
+  `applinks:<your link domain>`. React Native's `Linking` needs the app delegate to pass
+  Universal Links on, as in React Native's
+  [linking guide](https://reactnative.dev/docs/linking#enabling-deep-links):
+
+  ```objc
+  // AppDelegate.mm
+  #import <React/RCTLinkingManager.h>
+
+  - (BOOL)application:(UIApplication *)application
+      continueUserActivity:(NSUserActivity *)userActivity
+        restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> *))restorationHandler
+  {
+    return [RCTLinkingManager application:application
+                     continueUserActivity:userActivity
+                       restorationHandler:restorationHandler];
+  }
+  ```
+
+- **Android:** in `AndroidManifest.xml`, inside the activity that opens links, an intent
+  filter with `android:autoVerify="true"` for `https` and your link domains.
+
+- **Expo:** set `ios.associatedDomains` (`["applinks:<your link domain>"]`) and
+  `android.intentFilters` (with `autoVerify: true`) in `app.json`; Expo writes both for you.
+
+### The optional native module
+
+The package brings a small native module, `KissMyAppsAttribution`, that React Native's
+autolinking adds to your app: run `cd ios && pod install` after installing; Android needs
+nothing. It adds to the install call:
+
+| Field           | Platform | What it gives                                                                                                                                                                        |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Device key      | Both     | A SHA-256 hash of `identifierForVendor` (iOS) or `ANDROID_ID` (Android), so a reinstall is recognised and not counted (or paid) twice. The identifier itself never leaves the phone. |
+| Play referrer   | Android  | The Google Play install referrer, which names the exact click that led to the install.                                                                                               |
+| Apple Ads       | iOS      | The Apple Ads attribution token, on iOS 14.3 and later, for installs from Apple Search Ads.                                                                                          |
+| Clipboard click | iOS      | With `clipboardHandoff` on, the click ID the smart link's page copied (see below).                                                                                                   |
+
+Without the module, as in **Expo Go**, the install call still runs, without those fields: an
+install is still matched when a smart link opens the app on its first launch (or when the
+person signs in on a site that saw the click), but not from the Play referrer, Apple Ads or
+the clipboard, and a reinstall is not recognised. The module works in **Expo development
+builds** and **bare** apps (`npx expo prebuild` links it like any native module). There is
+no Expo config plugin: the module needs none, and your link domains go in `app.json` as
+above.
+
+**Clipboard handoff for iPhone.** The App Store passes nothing from the link to the app, so
+an iPhone install that no link opens is otherwise matched only through Apple Ads or a later
+sign-in. With
+**Clipboard handoff for iPhone** on in the console, the smart link's page copies the click
+before opening the App Store; turn on `clipboardHandoff: true` too and the SDK reads it on the
+first launch. iOS asks the person before an app reads what another app copied, so this is off
+by default.
+
+No advertising identifier is used (no IDFA, no GAID, no `AD_ID` permission) and no tracking
+prompt is shown. The iOS pod brings a privacy manifest that declares the device ID and product
+interaction, used for analytics and not for tracking.
 
 ## What gets recorded
 
@@ -153,6 +265,8 @@ Every request also carries iOS or Android and the OS version, phone or tablet, t
 model on Android (iPhone or iPad on iOS), screen size, language, time zone, app version and
 the SDK version. Country, region and city are worked out by the KissMyApps server from the
 request's address, which is only ever kept as a salted hash. There is no advertising ID.
+The two attribution calls send what is described under
+[Install attribution and deep links](#install-attribution-and-deep-links).
 
 A session ends after 30 minutes in the background or without events. Events are sent every
 10 seconds, at once when 30 are waiting, and when the app goes to the background. While
@@ -161,18 +275,21 @@ backoff, including on the next launch.
 
 ## Options
 
-| Option                  | Default                         | What it does                                                   |
-| ----------------------- | ------------------------------- | -------------------------------------------------------------- |
-| `key`                   | Required                        | The project's client key.                                      |
-| `storage`               | None                            | AsyncStorage or anything with `getItem` and `setItem`.         |
-| `appVersion`            | None                            | The version shown in the dashboard.                            |
-| `build`                 | None                            | The build number, used to spot updates.                        |
-| `endpoint`              | `https://events.kissmyapps.dev` | Where events are sent.                                         |
-| `sessionTimeoutMinutes` | `30`                            | Minutes in the background or idle before a new session starts. |
-| `flushIntervalSeconds`  | `10`                            | How often queued events are sent while the app is open.        |
-| `maxQueue`              | `1000`                          | The most events kept while offline.                            |
-| `trackLifecycle`        | `true`                          | Record installs, updates, opens and backgrounding.             |
-| `debug`                 | `false`                         | Log refused events and other problems to the console.          |
+| Option                  | Default                         | What it does                                                    |
+| ----------------------- | ------------------------------- | --------------------------------------------------------------- |
+| `key`                   | Required                        | The project's client key.                                       |
+| `storage`               | None                            | AsyncStorage or anything with `getItem` and `setItem`.          |
+| `appVersion`            | None                            | The version shown in the dashboard.                             |
+| `build`                 | None                            | The build number, used to spot updates.                         |
+| `endpoint`              | `https://events.kissmyapps.dev` | Where events are sent.                                          |
+| `sessionTimeoutMinutes` | `30`                            | Minutes in the background or idle before a new session starts.  |
+| `flushIntervalSeconds`  | `10`                            | How often queued events are sent while the app is open.         |
+| `maxQueue`              | `1000`                          | The most events kept while offline.                             |
+| `trackLifecycle`        | `true`                          | Record installs, updates, opens and backgrounding.              |
+| `attribution`           | `true`                          | Match the install to a link and report links that open the app. |
+| `deepLinks`             | `true`                          | Read links from `Linking`; off, call `handleDeepLink` yourself. |
+| `clipboardHandoff`      | `false`                         | iPhone: read the click the smart link's page copied.            |
+| `debug`                 | `false`                         | Log refused events and other problems to the console.           |
 
 ## License
 

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { ChevronDown, Plus, TriangleAlert, X } from 'lucide-react'
-import { MAX_REWARDS, rewardField } from '../programs'
+import { INSTALL_EVENT, MAX_REWARDS, rewardEventChoice, rewardField } from '../programs'
 import type { DraftErrors, RewardEvent, RewardPart, RewardRow } from '../programs'
 import { Field, Skeleton } from '../ui/Primitives'
 
@@ -22,6 +22,7 @@ export function RewardFields({
   events,
   editable,
   installHref,
+  app = false,
   onRow,
   onAdd,
   onRemove,
@@ -36,6 +37,8 @@ export function RewardFields({
   editable: boolean
   /** Where the tracking code is set up, when the workspace has a project to set it up for. */
   installHref?: string
+  /** The program sends people to an app, so the install is always offered first. */
+  app?: boolean
   onRow: (index: number, patch: Partial<RewardRow>) => void
   onAdd: () => void
   onRemove: (index: number) => void
@@ -47,10 +50,15 @@ export function RewardFields({
   const add = useRef<HTMLButtonElement>(null)
   const moved = useRef<'added' | 'removed' | null>(null)
   const dollars = currency === 'USD'
-  const names = events.status === 'ready' ? events.events.map((event) => event.name) : []
+  const received = events.status === 'ready' ? events.events.map((event) => event.name) : []
+  // An app program pays for installs above all, so the install is there before the app has sent one.
+  const names =
+    app && received.length
+      ? [INSTALL_EVENT, ...received.filter((name) => name !== INSTALL_EVENT)]
+      : received
   // With nothing to pick from, the name is typed: before any event has arrived, or when
   // the list could not be read.
-  const typed = events.status === 'failed' || (events.status === 'ready' && names.length === 0)
+  const typed = events.status === 'failed' || (events.status === 'ready' && received.length === 0)
   const empty = rows.every((row) => !row.key && !row.label && !row.amount)
   const listErrorId = `${id}-list-error`
 
@@ -66,10 +74,11 @@ export function RewardFields({
 
   return (
     <>
-      {events.status === 'ready' && names.length === 0 && editable && (
+      {events.status === 'ready' && received.length === 0 && editable && (
         <p className="mc-prog-about">
-          No events have arrived from your site yet. They come from the KissMyApps tracking code, so
-          for now type the name your site will send.
+          {app
+            ? 'No events have arrived from your app yet. They come from the KissMyApps SDK, so for now type the name your app will send.'
+            : 'No events have arrived from your site yet. They come from the KissMyApps tracking code, so for now type the name your site will send.'}
           {installHref && (
             <>
               {' '}
@@ -135,7 +144,7 @@ export function RewardFields({
                       {...keyProps}
                       className="mc-mono"
                       value={row.key}
-                      placeholder="signup_completed"
+                      placeholder={app ? INSTALL_EVENT : 'signup_completed'}
                       maxLength={80}
                       autoComplete="off"
                       autoCapitalize="off"
@@ -146,14 +155,15 @@ export function RewardFields({
                     <span className="mc-select-box">
                       <select
                         {...keyProps}
-                        className="mc-mono"
+                        // The install is named in words, so it is not set as code.
+                        className={row.key === INSTALL_EVENT ? undefined : 'mc-mono'}
                         value={row.key}
                         onChange={(event) => onRow(index, { key: event.target.value })}
                       >
                         <option value="">Choose an event</option>
                         {choices.map((name) => (
                           <option key={name} value={name} disabled={taken.has(name)}>
-                            {name}
+                            {rewardEventChoice(name)}
                           </option>
                         ))}
                       </select>

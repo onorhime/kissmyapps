@@ -1,3 +1,24 @@
+## 1.1.0
+
+Install attribution and deep links.
+
+- On the first launch, right after `app_installed`, the SDK calls `/v1/attribution/install`
+  once to match the install to the smart link that brought it. Offline, it tries again on the
+  next three launches with the same details.
+- Links that open the app are reported to `/v1/attribution/open`; the first launch's opening
+  link goes with the install call instead.
+- `KissMyApps.onDeepLink(handler)` receives the deferred deep link after an install and the
+  deep link of each link that opens the app, once each, as a `KissMyAppsDeepLink`; one that
+  arrives before a handler is set waits for it.
+- `KissMyApps.handleDeepLink(uri)` reports a link that reached the app another way.
+- New options `attribution`, `deepLinks` and `clipboardHandoff`.
+- The plugin's new `attributionInfo` and `initialLink` methods and `kissmyapps/links` event
+  channel: the device key (a SHA-256 hash of `identifierForVendor` or `ANDROID_ID`), the
+  Google Play install referrer (Install Referrer 2.2), the Apple Ads token, the iPhone
+  clipboard handoff, and the App Links and Universal Links that open the app.
+- The iOS plugin brings a privacy manifest.
+- The SDK string is now `kma-flutter/1.1.0`.
+
 ## 1.0.0
 
 The first release.

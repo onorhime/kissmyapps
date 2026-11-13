@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { createServer, get } from 'node:http'
 import test from 'node:test'
+import { runInNewContext } from 'node:vm'
 import {
   classify,
   createClickQueue,
   createLinkService,
+  creatorClick,
   createUpstream,
+  HANDOFF_SCRIPT,
   newClickId,
   page,
   requestHost,
@@ -494,6 +498,272 @@ test('a paused link goes to the website without counting', async () => {
   assert.equal(nowhere.status, 404)
   assert.match(nowhere.body, /paused/)
   assert.deepEqual(clicks, [])
+})
+
+// public.clicks.public_click_id, as the creator's tracking redirect adds it.
+const creator = '9f2c4e6a8b0d1f3e5a7c9b1d3f5e7a9c0b2d4f6e8a1c3e5b'
+
+test("a creator's click is kept on the click and passed on to the website, never to a store", async () => {
+  const { service, links, clicks } = setup()
+  const desktop = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}&src=instagram`,
+  })
+  const web = new URL(desktop.headers.location)
+  assert.equal(web.searchParams.get('kma_click'), creator)
+  assert.equal(web.searchParams.get('kma_lc'), 'click00000000000000001')
+  assert.equal(web.searchParams.get('utm_source'), 'instagram')
+  const iphone = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}`,
+    ua: UA.iphone,
+  })
+  assert.equal(iphone.headers.location, 'https://apps.apple.com/app/id1612345678')
+  const android = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}`,
+    ua: UA.android,
+  })
+  assert.doesNotMatch(decodeURIComponent(android.headers.location), /kma_click/)
+  const referrer = new URLSearchParams(
+    new URL(android.headers.location).searchParams.get('referrer'),
+  )
+  assert.deepEqual([...referrer.keys()], ['kma_lc', 'utm_source', 'utm_campaign'])
+  // In an app's own browser, only the way to the website carries it.
+  const inApp = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}`,
+    ua: UA.instagram,
+  })
+  assert.match(inApp.body, /href="https:\/\/apps\.apple\.com\/app\/id1612345678"/)
+  assert.match(
+    inApp.body,
+    new RegExp(`href="https://speaksix\\.app/start\\?[^"]*kma_click=${creator}"`),
+  )
+  // A phone sent to the website, for a link without apps, carries it too.
+  links.set(`${speaksix.host}/web-only`, {
+    ...launch,
+    path: 'web-only',
+    ios_url: null,
+    android_package: null,
+  })
+  const phone = await call(service.handle, {
+    path: `/web-only?kma_click=${creator}`,
+    ua: UA.iphone,
+  })
+  assert.equal(new URL(phone.headers.location).searchParams.get('kma_click'), creator)
+  assert.deepEqual(
+    clicks.map((click) => [click.destination, click.params]),
+    [
+      ['web', { creator_click: creator }],
+      ['app_store', { creator_click: creator }],
+      ['play_store', { creator_click: creator }],
+      ['page', { creator_click: creator }],
+      ['web', { creator_click: creator }],
+    ],
+  )
+  // A robot's way to the website keeps it, as other address values, and is not counted.
+  const robot = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}`,
+    ua: UA.whatsapp,
+  })
+  assert.equal(new URL(robot.headers.location).searchParams.get('kma_click'), creator)
+  assert.equal(clicks.length, 5)
+})
+
+test('anything else in kma_click is ignored', async () => {
+  const { service, clicks } = setup()
+  for (const bad of [
+    creator.toUpperCase(),
+    creator.slice(1),
+    `${creator}0`,
+    'kc_7Hq2mW9xLp4RtZ8vB3nD',
+    `${creator.slice(2)}<>`,
+    '',
+  ]) {
+    assert.equal(creatorClick(new URLSearchParams({ kma_click: bad })), null, bad)
+    const response = await call(service.handle, {
+      path: `/october-launch?kma_click=${encodeURIComponent(bad)}&sub1=x`,
+    })
+    const web = new URL(response.headers.location)
+    assert.equal(web.searchParams.get('kma_click'), null, bad)
+    assert.deepEqual(clicks.at(-1).params, { sub1: 'x' })
+  }
+  assert.equal(creatorClick(new URLSearchParams({ kma_click: creator })), creator)
+})
+
+test('with clipboard handoff, an iPhone gets a page whose button copies the click', async () => {
+  const { service, hosts, clicks } = setup()
+  hosts.set(speaksix.host, { ...speaksix, ios_clipboard_handoff: true })
+  const response = await call(service.handle, {
+    path: `/october-launch?kma_click=${creator}`,
+    ua: UA.iphone,
+  })
+  assert.equal(response.status, 200)
+  assert.match(response.headers['content-type'], /^text\/html/)
+  assert.equal(response.headers['cache-control'], 'no-store, max-age=0')
+  assert.equal(response.headers['referrer-policy'], 'no-referrer')
+  const body = response.body
+  assert.match(body, /<html lang="en">/)
+  assert.match(body, /<meta name="viewport" content="width=device-width, initial-scale=1">/)
+  assert.match(body, /<title>SpeakSix<\/title>/)
+  assert.match(body, /<h1>SpeakSix<\/h1>/)
+  assert.match(body, /opens the App Store and copies a short code/)
+  // Without JavaScript the button is a plain link to the App Store.
+  assert.deepEqual(body.match(/<a [^>]*>[^<]*<\/a>/g), [
+    '<a class="button" href="https://apps.apple.com/app/id1612345678" rel="noreferrer" data-copy="kma:click00000000000000001">Get the app</a>',
+  ])
+  // Nothing else is loaded or sent: no address but the store's, and one script, the button's.
+  assert.deepEqual(body.match(/https?:\/\/[^\s"'<>]+/g), [
+    'https://apps.apple.com/app/id1612345678',
+  ])
+  assert.doesNotMatch(body, /<(img|link|iframe|form|object|embed)\b|\bsrc=/)
+  assert.doesNotMatch(body, new RegExp(`kma_click|${creator}`))
+  const scripts = [...body.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1])
+  assert.deepEqual(scripts, [HANDOFF_SCRIPT])
+  const hash = createHash('sha256').update(HANDOFF_SCRIPT).digest('base64')
+  assert.equal(
+    response.headers['content-security-policy'],
+    `default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-${hash}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+  )
+  // The click is counted once, as a click towards the App Store.
+  assert.deepEqual(
+    clicks.map((click) => [click.id, click.platform, click.destination, click.params]),
+    [['click00000000000000001', 'ios', 'app_store', { creator_click: creator }]],
+  )
+})
+
+test('the handoff button copies kma:<click>, then lets the link open the store', () => {
+  const value = 'kma:click00000000000000001'
+  const run = ({ execCommand, clipboard }) => {
+    const listeners = []
+    const attached = []
+    const copied = []
+    let selected = null
+    const link = {
+      getAttribute: (name) => (name === 'data-copy' ? value : null),
+      addEventListener: (type, listener) => listeners.push([type, listener]),
+    }
+    const document = {
+      querySelectorAll: (selector) => (selector === '[data-copy]' ? [link] : []),
+      createElement: (tag) => ({
+        tag,
+        style: {},
+        attributes: {},
+        setAttribute(name, attribute) {
+          this.attributes[name] = attribute
+        },
+        select() {
+          selected = this
+        },
+        setSelectionRange(start, end) {
+          this.range = [start, end]
+        },
+      }),
+      body: {
+        appendChild: (element) => attached.push(element),
+        removeChild: (element) => attached.splice(attached.indexOf(element), 1),
+      },
+      execCommand: (command) => {
+        const ok = execCommand()
+        if (ok && command === 'copy') copied.push(selected.value)
+        return ok
+      },
+    }
+    const navigator = clipboard
+      ? {
+          clipboard: {
+            writeText: (text) => {
+              copied.push(`api:${text}`)
+              return Promise.resolve()
+            },
+          },
+        }
+      : {}
+    runInNewContext(HANDOFF_SCRIPT, { document, navigator })
+    assert.deepEqual(
+      listeners.map(([type]) => type),
+      ['click'],
+    )
+    let prevented = false
+    listeners[0][1]({
+      preventDefault: () => {
+        prevented = true
+      },
+    })
+    assert.equal(prevented, false, 'the tap still follows the link to the store')
+    assert.deepEqual(attached, [], 'the copy field is removed again')
+    return { copied, selected }
+  }
+  const direct = run({ execCommand: () => true, clipboard: true })
+  assert.deepEqual(direct.copied, [value])
+  assert.equal(direct.selected.attributes.readonly, '')
+  assert.deepEqual(direct.selected.range, [0, value.length])
+  assert.deepEqual(run({ execCommand: () => false, clipboard: true }).copied, [`api:${value}`])
+  const refused = () => {
+    throw new Error('not allowed')
+  }
+  assert.deepEqual(run({ execCommand: refused, clipboard: true }).copied, [`api:${value}`])
+  assert.deepEqual(run({ execCommand: () => false, clipboard: false }).copied, [])
+})
+
+test('with clipboard handoff, everyone but an iPhone on its way to the App Store is unchanged', async () => {
+  const { service, hosts, links, clicks } = setup()
+  hosts.set(speaksix.host, { ...speaksix, ios_clipboard_handoff: true })
+  const android = await call(service.handle, { path: '/october-launch', ua: UA.android })
+  assert.equal(android.status, 302)
+  assert.match(android.headers.location, /^https:\/\/play\.google\.com\//)
+  const desktop = await call(service.handle, { path: '/october-launch' })
+  assert.equal(desktop.status, 302)
+  assert.match(desktop.headers.location, /^https:\/\/speaksix\.app\/start\?/)
+  const inApp = await call(service.handle, { path: '/october-launch', ua: UA.instagram })
+  assert.equal(inApp.status, 200)
+  assert.match(inApp.body, /Open in the app/)
+  assert.doesNotMatch(inApp.body, /Get the app|<script|data-copy/)
+  assert.doesNotMatch(inApp.headers['content-security-policy'], /script-src/)
+  const robot = await call(service.handle, { path: '/october-launch', ua: UA.facebookPreview })
+  assert.equal(robot.status, 302)
+  const head = await call(service.handle, {
+    path: '/october-launch',
+    method: 'HEAD',
+    ua: UA.iphone,
+  })
+  assert.equal(head.status, 302)
+  assert.equal(head.body, '')
+  links.set(`${speaksix.host}/web-only`, {
+    ...launch,
+    path: 'web-only',
+    ios_url: null,
+    android_package: null,
+  })
+  const webOnly = await call(service.handle, { path: '/web-only', ua: UA.iphone })
+  assert.equal(webOnly.status, 302)
+  // The link's own iPhone address is a way to the App Store too.
+  links.set(`${speaksix.host}/custom`, {
+    ...launch,
+    path: 'custom',
+    ios_url: 'https://apps.apple.com/app/id1612345678?ppid=abc',
+    ios_custom: true,
+  })
+  const custom = await call(service.handle, { path: '/custom', ua: UA.iphone })
+  assert.equal(custom.status, 200)
+  assert.match(custom.body, /href="https:\/\/apps\.apple\.com\/app\/id1612345678\?ppid=abc"/)
+  assert.deepEqual(
+    clicks.map((click) => [click.platform, click.destination]),
+    [
+      ['android', 'play_store'],
+      ['desktop', 'web'],
+      ['ios', 'page'],
+      ['ios', 'web'],
+      ['ios', 'custom'],
+    ],
+  )
+  const apple = await call(service.handle, { path: '/.well-known/apple-app-site-association' })
+  assert.equal(apple.status, 200)
+  // Off, missing or anything but true: straight to the App Store, as before.
+  for (const handoff of [false, undefined, 'true', 1]) {
+    const again = setup()
+    again.hosts.set(speaksix.host, { ...speaksix, ios_clipboard_handoff: handoff })
+    const iphone = await call(again.service.handle, { path: '/october-launch', ua: UA.iphone })
+    assert.equal(iphone.status, 302, String(handoff))
+    assert.equal(iphone.headers.location, 'https://apps.apple.com/app/id1612345678')
+  }
 })
 
 test('links are looked up once a minute and kept while the database is down', async () => {

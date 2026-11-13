@@ -1,6 +1,6 @@
 import Foundation
 
-let sdkVersion = "1.0.0"
+let sdkVersion = "1.1.0"
 let heartbeatMilliseconds: Int64 = 60_000
 
 private let batchSize = 50
@@ -124,6 +124,8 @@ final class Client {
     let key: String
     let options: KissMyAppsOptions
     private let endpoint: URL
+    private let installEndpoint: URL
+    private let openEndpoint: URL
     private let platform: Platform
     private let storageName: String
 
@@ -152,14 +154,28 @@ final class Client {
     private var firstLaunch = false
     private var stopped = false
 
+    private var installLaunch = false
+    private var install: InstallState?
+    private var installTask: Cancellable?
+    private var installCalled = false
+    private var linkForInstall = false
+    private var waitingLinks: [URL] = []
+    private var deepLinkHandler: ((DeepLink) -> Void)?
+    private var heldDeepLink: DeepLink?
+
     init(key: String, options: KissMyAppsOptions, platform: Platform) throws {
         guard matches(keyPattern, key) else { throw ClientError.invalidKey }
         var base = options.endpoint
         while base.hasSuffix("/") { base.removeLast() }
-        guard let endpoint = URL(string: "\(base)/v1/events") else { throw ClientError.invalidEndpoint }
+        guard let endpoint = URL(string: "\(base)/v1/events"),
+              let installEndpoint = URL(string: "\(base)/v1/attribution/install"),
+              let openEndpoint = URL(string: "\(base)/v1/attribution/open")
+        else { throw ClientError.invalidEndpoint }
         self.key = key
         self.options = options
         self.endpoint = endpoint
+        self.installEndpoint = installEndpoint
+        self.openEndpoint = openEndpoint
         self.platform = platform
         storageName = "kma-\(key.suffix(8))"
         loaded.enter()
@@ -265,6 +281,8 @@ final class Client {
         later { [self] in
             optedOut = false
             save()
+            // An install call that was due while the person was opted out goes now.
+            if foregroundAt != 0, let state = install, !state.done, !installCalled, installTask == nil { callInstall() }
         }
     }
 
@@ -285,6 +303,26 @@ final class Client {
     func getSessionId() -> String? {
         awaitLoad()
         return session?.id
+    }
+
+    /// A link opened the app. Any https link is sent to KissMyApps, whose answer decides whether
+    /// it is one of the project's links; returns false for anything else.
+    func handleDeepLink(_ url: URL) -> Bool {
+        guard isLinkURL(url) else { return false }
+        later { [self] in openLink(url) }
+        return true
+    }
+
+    /// Sets the callback for deep links. One that came before a callback was set is given to
+    /// this one; each deep link is given once.
+    func onDeepLink(_ handler: @escaping (DeepLink) -> Void) {
+        later { [self] in
+            deepLinkHandler = handler
+            if let held = heldDeepLink {
+                heldDeepLink = nil
+                deliver(held)
+            }
+        }
     }
 
     /// Runs after everything already asked of the client.
@@ -311,12 +349,15 @@ final class Client {
             let launch = foregroundAt == 0
             inForeground = true
             foregroundAt = platform.now()
+            // Due even while opted out: the call then waits for optIn.
+            if launch, installLaunch { beginInstall() }
             guard !optedOut else { return }
             let current = ensureSession()
             if options.trackLifecycle {
                 if launch { recordInstallOrUpdate(current) }
                 enqueue("app_opened", ["from_background": !launch], current)
             }
+            if launch { scheduleInstall() }
             if heartbeatTask == nil { scheduleHeartbeat() }
         }
     }
@@ -336,7 +377,14 @@ final class Client {
             }
             current?.last = platform.now()
             writeNow()
-            sendQueued()
+            if let pending = installTask {
+                // Leaving before the install call went: send it now, while iOS gives the app time.
+                pending.cancel()
+                installTask = nil
+                callInstall()
+            } else {
+                sendQueued()
+            }
         }
     }
 
@@ -365,9 +413,11 @@ final class Client {
             optedOut = saved["optedOut"] as? Bool ?? false
             version = saved["version"] as? String
             build = saved["build"] as? String
+            install = InstallState.from(saved["install"])
         }
         // Nothing saved means a first launch, or the app's data was cleared.
         firstLaunch = savedId == nil
+        installLaunch = firstLaunch
         identityPending = traits != nil
         loaded.leave()
         // What an earlier launch could not send goes now.
@@ -420,6 +470,7 @@ final class Client {
         ]
         state["version"] = version
         state["build"] = build
+        state["install"] = install?.json
         if let text = JSONValue.string(state) { store.write(storageName, text) }
         if let text = JSONValue.string(queue.map { $0.json }) { store.write("\(storageName)-queue", text) }
     }
@@ -602,6 +653,153 @@ final class Client {
         if !queue.isEmpty || identityPending { return sendQueued() }
         if platform.now() - lastSent < heartbeatMilliseconds - 1000 { return }
         if (try? post(body([]))) != nil { lastSent = platform.now() }
+    }
+
+    // Install attribution and deep links --------------------------------------------------------
+
+    /// The first launch: the install call is due, on this launch or, failing that, the next ones.
+    private func beginInstall() {
+        guard install == nil else { return }
+        install = InstallState(installedAt: isoTime(platform.now()))
+        save()
+    }
+
+    /// Gives the link that opened the app a moment to arrive, so it goes with the install call.
+    private func scheduleInstall() {
+        guard let state = install, !state.done, !installCalled, installTask == nil else { return }
+        installTask = platform.scheduler.schedule(after: linkForInstall ? 0 : installCallDelayMilliseconds) { [self] in
+            installTask = nil
+            callInstall()
+        }
+    }
+
+    private func openLink(_ url: URL) {
+        guard !stopped, !optedOut else { return }
+        if installLaunch, foregroundAt == 0 { beginInstall() }
+        if var state = install, !state.done {
+            if installLaunch, !installCalled, state.body == nil, state.linkUrl == nil {
+                // The first link of the first launch goes with the install call, which goes at once.
+                state.linkUrl = url.absoluteString
+                install = state
+                linkForInstall = true
+                save()
+                guard foregroundAt != 0 else { return } // the launch sends it at once
+                installTask?.cancel()
+                installTask = nil
+                callInstall()
+            } else if !installCalled {
+                // An open before the install call is answered would be taken for the install.
+                if waitingLinks.count < maxWaitingLinks { waitingLinks.append(url) }
+            } else {
+                // This launch's install call failed: the link is dropped, as opens are not retried.
+            }
+            return
+        }
+        callOpen(url)
+    }
+
+    private func callOpen(_ url: URL) {
+        let current = ensureSession()
+        // Events first, so the server knows the session the link opened.
+        sendQueued()
+        var body: [String: Any] = [
+            "anonymous_id": anonymousId,
+            "session_id": current.id,
+            "platform": platform.device().platform,
+            "url": url.absoluteString,
+            "opened_at": isoTime(platform.now()),
+            "sdk": platform.sdk,
+        ]
+        body["user_id"] = userId
+        body["app_version"] = options.appVersion
+        body["device_key"] = deviceKey(platform.device().vendorId)
+        if case let .answered(answer) = postAttribution(openEndpoint, body, url: url), let link = answer?.deepLink {
+            deliver(link)
+        }
+    }
+
+    private func callInstall() {
+        guard !stopped, !optedOut else { return }
+        if session == nil { _ = ensureSession() }
+        // Events first, so the server knows the install's session when it matches the install.
+        sendQueued()
+        guard var state = install, !state.done, !installCalled else { return }
+        installCalled = true
+        var body: [String: Any]
+        if let saved = state.body {
+            // A later try sends the first one's body again; the user ID only for the same person.
+            body = saved
+            body["user_id"] = saved["anonymous_id"] as? String == anonymousId ? userId : nil
+        } else {
+            body = [
+                "anonymous_id": anonymousId,
+                "session_id": session?.id ?? ensureSession().id,
+                "platform": platform.device().platform,
+                "installed_at": state.installedAt,
+                "sdk": platform.sdk,
+            ]
+            body["user_id"] = userId
+            body["app_version"] = options.appVersion
+            body["device_key"] = deviceKey(platform.device().vendorId)
+            body["link_url"] = state.linkUrl
+            // Read once, on the first try, and only when the app turned clipboard handoff on.
+            if options.clipboardHandoff { body["clipboard_click"] = clipboardClick(platform.readClipboard()) }
+            state.body = body
+        }
+        // Fresh on each try: Apple's values last a day.
+        body[appleAdsField] = appleAdsValue(platform.appleAdsAttribution())
+        let link = (body["link_url"] as? String).flatMap { URL(string: $0) }
+        let outcome = postAttribution(installEndpoint, body, url: link)
+        switch outcome {
+        case let .answered(answer):
+            state.done = true
+            if let deepLink = answer?.deepLink { deliver(deepLink) }
+        case .refused:
+            state.done = true
+        case .failed:
+            state.attempts += 1
+            state.done = state.attempts >= maxInstallAttempts
+        }
+        install = state
+        writeNow()
+        // Links that waited for the call: their own calls now, unless it failed.
+        let waiting = waitingLinks
+        waitingLinks = []
+        if case .failed = outcome { return }
+        waiting.forEach { callOpen($0) }
+    }
+
+    private enum Outcome {
+        case answered(AttributionAnswer?)
+        case refused
+        case failed
+    }
+
+    private func postAttribution(_ url: URL, _ body: [String: Any], url link: URL?) -> Outcome {
+        guard let data = JSONValue.data(body) else { return .refused }
+        let response: Response
+        do {
+            response = try platform.transport.post(url: url, key: key, body: data)
+        } catch {
+            return .failed
+        }
+        if (200 ... 299).contains(response.status) {
+            let answer = AttributionAnswer.parse(response.text, url: link)
+            if answer == nil { warn("KissMyApps answered \(url.path) with something unexpected: \(response.text)") }
+            return .answered(answer)
+        }
+        let refused = (400 ... 499).contains(response.status) && response.status != 408 && response.status != 429
+        warn("\(url.path) was \(refused ? "refused" : "not answered") (\(response.status)): \(response.text)")
+        return refused ? .refused : .failed
+    }
+
+    /// Hands a deep link to the app's callback on the main thread, or keeps it until one is set.
+    private func deliver(_ link: DeepLink) {
+        guard let handler = deepLinkHandler else {
+            heldDeepLink = link
+            return
+        }
+        platform.main { handler(link) }
     }
 
     private func warn(_ message: String) {

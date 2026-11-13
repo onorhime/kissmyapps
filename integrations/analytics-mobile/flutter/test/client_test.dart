@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kissmyapps/src/attribution.dart';
 import 'package:kissmyapps/src/client.dart';
 import 'package:kissmyapps/src/options.dart';
 import 'package:kissmyapps/src/platform/io.dart';
@@ -42,6 +43,9 @@ class MemoryStorage implements KmaStorage {
 
 typedef Body = Map<String, dynamic>;
 
+/// One attribution call: its path and body.
+typedef Call = ({String path, Body body});
+
 /// One test's clock, network and clients, driven by fake time.
 class Harness {
   Harness(this.async);
@@ -52,7 +56,25 @@ class Harness {
   Future<KmaResponse> Function() answer = ok;
   final List<KmaClient> clients = [];
 
+  /// The attribution calls, kept apart from event batches.
+  final List<Call> calls = [];
+  Future<KmaResponse> Function(Call call) attributionAnswer = (_) => organic();
+  final List<String> unexpected = [];
+
   static Future<KmaResponse> ok() async => const KmaResponse(200, '{}');
+
+  static Future<KmaResponse> organic() async =>
+      const KmaResponse(200, '{"matched":false,"method":"organic","deep_link":null}');
+
+  List<Body> get installs => [
+        for (final call in calls)
+          if (call.path == '/v1/attribution/install') call.body,
+      ];
+
+  List<Body> get opens => [
+        for (final call in calls)
+          if (call.path == '/v1/attribution/open') call.body,
+      ];
 
   KmaClient start(
     KmaStorage? storage, {
@@ -61,6 +83,11 @@ class Harness {
     String build = '120',
     int maxQueue = 1000,
     bool trackLifecycle = true,
+    bool attribution = true,
+    bool clipboardHandoff = false,
+    KmaDevice device = iphone,
+    KmaAttributionReader? native,
+    Future<String?> Function()? initialLink,
   }) {
     final client = KmaClient(
       clientKey,
@@ -69,18 +96,29 @@ class Harness {
         build: build,
         maxQueue: maxQueue,
         trackLifecycle: trackLifecycle,
+        attribution: attribution,
+        clipboardHandoff: clipboardHandoff,
       ),
       KmaEnvironment(
         storage: storage,
-        device: () => iphone,
-        sdk: 'kma-flutter/1.0.0',
+        device: () => device,
+        sdk: 'kma-flutter/$sdkVersion',
         now: () => clock,
+        attributionInfo: native,
+        initialLink: initialLink,
         post: (url, headers, body) {
-          expect(url.toString(), 'https://events.kissmyapps.dev/v1/events');
           expect(headers['authorization'], 'Bearer $key');
           expect(headers['content-type'], 'application/json');
-          sent.add(jsonDecode(body) as Body);
-          return answer();
+          final path = url.toString().replaceFirst('https://events.kissmyapps.dev', '');
+          if (path == '/v1/events') {
+            sent.add(jsonDecode(body) as Body);
+            return answer();
+          }
+          // An expect here would be caught by the client as a failed request.
+          if (path != installPath && path != openPath) unexpected.add(path);
+          final call = (path: path, body: jsonDecode(body) as Body);
+          calls.add(call);
+          return attributionAnswer(call);
         },
       ),
     );
@@ -100,6 +138,7 @@ class Harness {
       client.shutdown();
     }
     async.flushTimers(flushPeriodicTimers: false);
+    expect(unexpected, isEmpty);
   }
 }
 
@@ -162,6 +201,76 @@ void expectContract(Body body) {
   }
 }
 
+final Map<String, dynamic> attributionRules = contract['attribution'] as Map<String, dynamic>;
+
+/// The longest a field may be, from its rule's words ("at most 2048 characters").
+int longest(Object? rule) {
+  final match = RegExp(r'at most (\d+) characters').firstMatch('$rule');
+  if (match == null) throw StateError('No length in: $rule');
+  return int.parse(match.group(1)!);
+}
+
+/// The rules for both attribution calls, from the contract's attribution section.
+void expectAttributionContract(String kind, Map<String, dynamic> body) {
+  final call = attributionRules[kind] as Map<String, dynamic>;
+  final rules = attributionRules['fields'] as Map<String, dynamic>;
+  for (final field in call['required'] as List) {
+    expect(body, contains(field));
+  }
+  for (final field in body.keys) {
+    expect(fields(call), contains(field));
+  }
+  expect(rules['platform'], contains(body['platform']));
+  expect(body['anonymous_id'], isA<String>());
+  expect(body['session_id'], isA<String>());
+  expect(body['sdk'], matches(RegExp(r'^kma-[a-z-]+/\d+\.\d+\.\d+$')));
+  for (final name in ['installed_at', 'opened_at', 'device_key', 'clipboard_click']) {
+    if (body.containsKey(name)) expect(body[name], matches(RegExp(rules[name] as String)));
+  }
+  for (final link in ['link_url', 'url']) {
+    if (!body.containsKey(link)) continue;
+    expect(body[link], startsWith('https://'));
+    expect((body[link] as String).length, lessThanOrEqualTo(longest(rules[link])));
+  }
+  for (final name in ['referrer', 'apple_ads_token']) {
+    if (body.containsKey(name)) {
+      expect((body[name] as String).length, lessThanOrEqualTo(longest(rules[name])));
+    }
+  }
+  for (final stamp in ['referrer_click_ts', 'install_begin_ts']) {
+    if (body.containsKey(stamp)) expect(body[stamp], isA<int>());
+  }
+  // Android only, and iOS only.
+  for (final name in ['referrer', 'referrer_click_ts', 'install_begin_ts']) {
+    if (body.containsKey(name)) expect(body['platform'], 'android');
+  }
+  for (final name in ['apple_ads_token', 'clipboard_click']) {
+    if (body.containsKey(name)) expect(body['platform'], 'ios');
+  }
+}
+
+const pixel = KmaDevice(
+  platform: 'android',
+  osName: 'Android',
+  osVersion: '15',
+  deviceType: 'mobile',
+  deviceModel: 'Pixel 8',
+  screenWidth: 411,
+  screenHeight: 914,
+  timezone: 'Africa/Lagos',
+  language: 'en-NG',
+);
+const deviceKey = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+const playInfo = KmaAttributionInfo(
+  deviceKey: deviceKey,
+  referrer: 'kma_lc=Q2xpY2tJZDAwMDAwMDAwMQ&utm_source=tiktok&utm_campaign=launch',
+  referrerClickTs: 1761818300,
+  installBeginTs: 1761818320,
+);
+
+Future<KmaResponse> Function(Call) reply(Object? answer, [int status = 200]) =>
+    (_) async => KmaResponse(status, jsonEncode(answer));
+
 void main() {
   group('Flutter client', () {
     test('records the install, the open, screens and events, and sends them on backgrounding', () {
@@ -199,7 +308,7 @@ void main() {
           expect((body['session'] as Map)['id'], client.sessionId);
           expect(body['context'], {
             'platform': 'ios',
-            'sdk': 'kma-flutter/1.0.0',
+            'sdk': 'kma-flutter/1.1.0',
             'timezone': 'Africa/Lagos',
             'language': 'en-NG',
             'device_type': 'mobile',
@@ -308,7 +417,8 @@ void main() {
 
     test('drops a batch the server refuses but retries when it is busy', () {
       run((h) {
-        final client = h.start(MemoryStorage());
+        // The install call sends what is queued at once; this test times the batches itself.
+        final client = h.start(MemoryStorage(), attribution: false);
         h.answer = () async => const KmaResponse(503, 'busy');
         client.foreground();
         h.settle(10000);
@@ -563,6 +673,578 @@ void main() {
         Directory('${directory.path}/nested').listSync().map((file) => file.uri.pathSegments.last),
         ['kma_test.json'],
       );
+    });
+  });
+  group('Install attribution and deep links', () {
+    final examples = attributionRules['examples'] as Map<String, dynamic>;
+    final response = examples['response'] as Map<String, dynamic>;
+    const deferredLink = KissMyAppsDeepLink(value: 'lesson', params: {'id': '4'}, deferred: true);
+
+    test('matches the contract and its examples', () {
+      final install = examples['install'] as Map<String, dynamic>;
+      final open = examples['open'] as Map<String, dynamic>;
+      expectAttributionContract('install', install);
+      expectAttributionContract('open', open);
+      expect(
+        installBody(
+          anonymousId: install['anonymous_id'] as String,
+          sessionId: install['session_id'] as String,
+          platform: 'android',
+          installedAt: DateTime.parse(install['installed_at'] as String).millisecondsSinceEpoch,
+          sdk: install['sdk'] as String,
+          appVersion: install['app_version'] as String,
+          info: playInfo,
+          clipboard: false,
+        ),
+        {...install, 'referrer': playInfo.referrer},
+      );
+      expect(
+        openBody(
+          anonymousId: open['anonymous_id'] as String,
+          sessionId: open['session_id'] as String,
+          platform: 'ios',
+          url: open['url'] as String,
+          openedAt: DateTime.parse(open['opened_at'] as String).millisecondsSinceEpoch,
+          sdk: open['sdk'] as String,
+          userId: open['user_id'] as String,
+        ),
+        open,
+      );
+      final answer = attributionRules['response'] as Map<String, dynamic>;
+      for (final field in answer['required'] as List) {
+        expect(response, contains(field));
+      }
+      expect(answer['methods'], contains(response['method']));
+      expect(deepLinkFrom(response, null), deferredLink);
+      expect(deepLinkFrom({'matched': false, 'method': 'off', 'deep_link': null}, null), isNull);
+    });
+
+    test(
+        'calls install once after app_installed, with the Play referrer, and hands over the '
+        'deep link once', () {
+      run((h) {
+        final storage = MemoryStorage();
+        final asked = <String>[];
+        h.attributionAnswer = reply(response);
+        final client = h.start(
+          storage,
+          device: pixel,
+          native: ({required install, required clipboard}) async {
+            asked.add('install: $install, clipboard: $clipboard');
+            return playInfo;
+          },
+        );
+        final links = <KissMyAppsDeepLink>[];
+        client.onDeepLink(links.add);
+        client.foreground();
+        h.settle();
+
+        // app_installed and its session went first.
+        expect(names(h.sent), ['session_started', 'app_installed', 'app_opened']);
+        expect(h.installs, hasLength(1));
+        expect(h.opens, isEmpty);
+        expect(asked, ['install: true, clipboard: false']);
+        final body = h.installs.single;
+        expectAttributionContract('install', body);
+        expect(body, {
+          'anonymous_id': client.anonymousId,
+          'session_id': client.sessionId,
+          'platform': 'android',
+          'installed_at': '2026-10-30T09:59:00.000Z',
+          'sdk': 'kma-flutter/1.1.0',
+          'app_version': '2.4.0',
+          'device_key': deviceKey,
+          'referrer': playInfo.referrer,
+          'referrer_click_ts': 1761818300,
+          'install_begin_ts': 1761818320,
+        });
+        expect(links, [deferredLink]);
+
+        // Later launches make no install call, and the deep link is not handed over again.
+        unawaited(client.background());
+        h.settle();
+        client.shutdown();
+        final next = h.start(storage,
+            device: pixel, native: ({required install, required clipboard}) async => playInfo);
+        next.onDeepLink(links.add);
+        next.foreground();
+        h.settle(10000);
+        expect(h.installs, hasLength(1));
+        expect(links, hasLength(1));
+      });
+    });
+
+    test('sends the Apple Ads token on iPhone, and the clipboard click only when handoff is on',
+        () {
+      run((h) {
+        final asked = <bool>[];
+        final iosInfo = KmaAttributionInfo(
+          deviceKey: deviceKey,
+          appleAdsToken: 'A' * 200,
+          clipboardClick: 'Q2xpY2tJZDAwMDAwMDAwMQ',
+          referrer: 'never sent from an iPhone',
+        );
+        Future<KmaAttributionInfo?> native({required bool install, required bool clipboard}) async {
+          asked.add(clipboard);
+          return iosInfo;
+        }
+
+        h.start(MemoryStorage(), native: native).foreground();
+        h.settle();
+        h.start(MemoryStorage(), native: native, clipboardHandoff: true).foreground();
+        h.settle();
+
+        expect(asked, [false, true]);
+        final [first, second] = h.installs;
+        expectAttributionContract('install', first);
+        expectAttributionContract('install', second);
+        expect(first['platform'], 'ios');
+        expect(first['apple_ads_token'], 'A' * 200);
+        expect(first, isNot(contains('clipboard_click')));
+        expect(first, isNot(contains('referrer')));
+        expect(second['clipboard_click'], 'Q2xpY2tJZDAwMDAwMDAwMQ');
+      });
+    });
+
+    test('leaves out what the device gives that the contract does not allow', () {
+      run((h) {
+        h
+            .start(
+              MemoryStorage(),
+              clipboardHandoff: true,
+              native: ({required install, required clipboard}) async => KmaAttributionInfo(
+                deviceKey: 'NOT-A-HASH',
+                appleAdsToken: 'A' * 5000,
+                clipboardClick: 'too short',
+              ),
+            )
+            .foreground();
+        h.settle();
+        final body = h.installs.single;
+        expectAttributionContract('install', body);
+        expect(body.keys.toList()..sort(), [
+          'anonymous_id',
+          'app_version',
+          'installed_at',
+          'platform',
+          'sdk',
+          'session_id',
+        ]);
+      });
+    });
+
+    test('still calls install without the plugin, and when it fails or never answers', () {
+      run((h) {
+        h.start(MemoryStorage()).foreground();
+        h.settle();
+        h
+            .start(
+              MemoryStorage(),
+              native: ({required install, required clipboard}) async =>
+                  throw StateError('no referrer service'),
+            )
+            .foreground();
+        h.settle();
+        h
+            .start(
+              MemoryStorage(),
+              native: ({required install, required clipboard}) =>
+                  Completer<KmaAttributionInfo?>().future,
+            )
+            .foreground();
+        h.settle(12000);
+        expect(h.installs, hasLength(3));
+        for (final body in h.installs) {
+          expectAttributionContract('install', body);
+        }
+      });
+    });
+
+    test(
+        'tries again on the next launches when offline, three times at most, with the first '
+        "launch's details", () {
+      run((h) {
+        final storage = MemoryStorage();
+        h.attributionAnswer = (_) async => throw const SocketException('offline');
+        var client = h.start(storage, device: pixel);
+        client.foreground();
+        h.settle();
+        final person = client.anonymousId;
+        final session = client.sessionId;
+        for (var launch = 2; launch <= 6; launch += 1) {
+          unawaited(client.background());
+          h.settle();
+          client.shutdown();
+          h.clock += minutes(60);
+          client = h.start(storage, device: pixel);
+          client.foreground();
+          h.settle();
+        }
+        expect(h.installs, hasLength(4));
+        for (final body in h.installs) {
+          expectAttributionContract('install', body);
+          expect(body['anonymous_id'], person);
+          expect(body['session_id'], session);
+          expect(body['installed_at'], '2026-10-30T09:59:00.000Z');
+        }
+      });
+    });
+
+    test(
+        'resends the first try as it was, reading again only a referrer that timed out and '
+        'the Apple Ads token each time', () {
+      run((h) {
+        Future<KmaResponse> offline(Call _) async => throw const SocketException('offline');
+        h.attributionAnswer = offline;
+        final storage = MemoryStorage();
+        var launch = 1;
+        KmaClient android() => h.start(
+              storage,
+              device: pixel,
+              native: ({required install, required clipboard}) async => KmaAttributionInfo(
+                deviceKey: deviceKey,
+                referrer: 'kma_lc=FirstClickId0000001-$launch',
+              ),
+            );
+        var client = android()..foreground();
+        h.settle();
+        client.shutdown();
+        launch = 2;
+        client = android()..foreground();
+        h.settle();
+        client.shutdown();
+        expect(h.installs.map((body) => body['referrer']), [
+          'kma_lc=FirstClickId0000001-1',
+          'kma_lc=FirstClickId0000001-1',
+        ]);
+
+        // Google Play did not answer in time on the first launch: the next one asks again.
+        h.calls.clear();
+        final slow = MemoryStorage();
+        var answer = const KmaAttributionInfo(deviceKey: deviceKey, retryReferrer: true);
+        KmaClient late() => h.start(
+              slow,
+              device: pixel,
+              native: ({required install, required clipboard}) async => answer,
+            );
+        client = late()..foreground();
+        h.settle();
+        client.shutdown();
+        answer = playInfo;
+        client = late()..foreground();
+        h.settle();
+        client.shutdown();
+        expect(h.installs.map((body) => body['referrer']), [null, playInfo.referrer]);
+
+        // On iPhone the token is fetched for each try (it expires); the clipboard is read once.
+        h.calls.clear();
+        final phone = MemoryStorage();
+        final asked = <bool>[];
+        var adsAnswer = 'ads-1';
+        KmaClient ios() => h.start(
+              phone,
+              clipboardHandoff: true,
+              native: ({required install, required clipboard}) async {
+                asked.add(clipboard);
+                return KmaAttributionInfo(
+                  deviceKey: deviceKey,
+                  appleAdsToken: adsAnswer,
+                  clipboardClick: clipboard ? 'Q2xpY2tJZDAwMDAwMDAwMQ' : null,
+                );
+              },
+            );
+        client = ios()..foreground();
+        h.settle();
+        client.shutdown();
+        adsAnswer = 'ads-2';
+        client = ios()..foreground();
+        h.settle();
+        expect(asked, [true, false]);
+        expect(h.installs.map((body) => [body['apple_ads_token'], body['clipboard_click']]), [
+          ['ads-1', 'Q2xpY2tJZDAwMDAwMDAwMQ'],
+          ['ads-2', 'Q2xpY2tJZDAwMDAwMDAwMQ'],
+        ]);
+      });
+    });
+
+    test('cuts a long referrer to 1,024 characters and leaves out unknown Play times', () {
+      run((h) {
+        h
+            .start(
+              MemoryStorage(),
+              device: pixel,
+              native: ({required install, required clipboard}) async => KmaAttributionInfo(
+                referrer: 'r' * 1500,
+                referrerClickTs: 0,
+                installBeginTs: 0,
+              ),
+            )
+            .foreground();
+        h.settle();
+        final body = h.installs.single;
+        expectAttributionContract('install', body);
+        expect(body['referrer'], 'r' * 1024);
+        expect(body, isNot(contains('referrer_click_ts')));
+        expect(body, isNot(contains('install_begin_ts')));
+      });
+    });
+
+    test(
+        'calls install with lifecycle tracking off, and holds it back while opted out until '
+        'optIn', () {
+      run((h) {
+        h.start(MemoryStorage(), trackLifecycle: false).foreground();
+        h.settle();
+        expect(h.installs, hasLength(1));
+
+        h.calls.clear();
+        final slow = Completer<KmaAttributionInfo?>();
+        final client = h.start(
+          MemoryStorage(),
+          native: ({required install, required clipboard}) => slow.future,
+        )..foreground();
+        h.settle();
+        client.optOut();
+        slow.complete(const KmaAttributionInfo(deviceKey: deviceKey));
+        h.settle();
+        expect(h.calls, isEmpty);
+        client.optIn();
+        h.settle();
+        expect(h.installs.single['device_key'], deviceKey);
+      });
+    });
+
+    test(
+        'sends links that came while the install call was out once it is answered, and not '
+        'before', () {
+      run((h) {
+        final answered = Completer<KmaResponse>();
+        h.attributionAnswer =
+            (call) => call.path == installPath ? answered.future : Harness.organic();
+        final client = h.start(MemoryStorage())..foreground();
+        client.handleDeepLink('https://fluent.go.kissmyapps.dev/first');
+        client.handleDeepLink('https://fluent.go.kissmyapps.dev/second');
+        h.settle();
+        client.handleDeepLink('https://fluent.go.kissmyapps.dev/third');
+        h.settle();
+        expect(h.calls.map((call) => call.path), [installPath]);
+        expect(h.installs.single['link_url'], 'https://fluent.go.kissmyapps.dev/first');
+        answered.complete(const KmaResponse(200, '{"matched":false,"method":"organic"}'));
+        h.settle();
+        expect(h.opens.map((body) => body['url']), [
+          'https://fluent.go.kissmyapps.dev/second',
+          'https://fluent.go.kissmyapps.dev/third',
+        ]);
+      });
+    });
+
+    test(
+        'on a retry launch, sends a link to open only after the install is answered, never in '
+        'link_url', () {
+      run((h) {
+        final storage = MemoryStorage();
+        h.attributionAnswer = (_) async => throw const SocketException('offline');
+        var client = h.start(storage)..foreground();
+        h.settle();
+        client.shutdown();
+
+        // Still offline: the link is not sent, or the open would record an install first.
+        client = h.start(storage, initialLink: () async => 'https://fluent.go.kissmyapps.dev/again')
+          ..foreground();
+        h.settle();
+        client.handleDeepLink('https://fluent.go.kissmyapps.dev/later');
+        h.settle();
+        expect(h.calls.map((call) => call.path), [installPath, installPath]);
+        client.shutdown();
+
+        h.attributionAnswer = (_) => Harness.organic();
+        client = h.start(
+          storage,
+          initialLink: () async => 'https://fluent.go.kissmyapps.dev/third-launch',
+        )..foreground();
+        h.settle();
+        expect(h.calls.map((call) => call.path), [installPath, installPath, installPath, openPath]);
+        for (final body in h.installs) {
+          expect(body, isNot(contains('link_url')));
+        }
+        expect(h.opens.single['url'], 'https://fluent.go.kissmyapps.dev/third-launch');
+      });
+    });
+
+    test('reads at most 10 deep link parameters, as text', () {
+      final link = deepLinkFrom({
+        'matched': true,
+        'method': 'some_new_method',
+        'deep_link': {
+          'value': null,
+          'params': {
+            'on': true,
+            'list': [1],
+            for (var index = 0; index < 12; index += 1) 'p$index': index,
+          },
+          'deferred': false,
+        },
+      }, null)!;
+      expect(link.params['on'], 'true');
+      expect(link.params, isNot(contains('list')));
+      expect(link.params, hasLength(10));
+      expect(link.value, isNull);
+    });
+
+    test('stops trying once the server answers, and does not retry a refused body', () {
+      run((h) {
+        final storage = MemoryStorage();
+        h.attributionAnswer = reply({'error': 'busy'}, 503);
+        for (var launch = 1; launch <= 3; launch += 1) {
+          final client = h.start(storage)..foreground();
+          h.settle();
+          client.shutdown();
+          h.attributionAnswer = (_) => Harness.organic();
+        }
+        expect(h.installs, hasLength(2));
+
+        final refused = MemoryStorage();
+        h.attributionAnswer = reply({'error': 'invalid_body'}, 400);
+        for (var launch = 1; launch <= 2; launch += 1) {
+          final client = h.start(refused)..foreground();
+          h.settle();
+          client.shutdown();
+        }
+        expect(h.installs, hasLength(3));
+      });
+    });
+
+    test('sends the opening link with the install, and later links to open', () {
+      run((h) {
+        const opening = 'https://fluent.go.kissmyapps.dev/lesson-4?dl=lesson&id=4';
+        const promo = 'https://fluent.go.kissmyapps.dev/promo';
+        h.attributionAnswer = (call) async => KmaResponse(
+              200,
+              jsonEncode({
+                'matched': true,
+                'method': 'link_open',
+                'deep_link': call.path == installPath
+                    ? {
+                        'value': 'lesson',
+                        'params': {'id': '4'},
+                        'deferred': true,
+                      }
+                    : {
+                        'value': 'promo',
+                        'params': {'code': 7},
+                        'deferred': false,
+                      },
+              }),
+            );
+        final client = h.start(MemoryStorage(), initialLink: () async => opening);
+        final links = <KissMyAppsDeepLink>[];
+        client.onDeepLink(links.add);
+        client.foreground();
+        // The app reports the same link too: it counts once.
+        expect(client.handleDeepLink(opening), isTrue);
+        h.settle();
+        expect(h.opens, isEmpty);
+        expect(h.installs.single['link_url'], opening);
+
+        h.clock += 5000;
+        client.identify('user-42');
+        expect(client.handleDeepLink(promo), isTrue);
+        h.settle();
+        final body = h.opens.single;
+        expectAttributionContract('open', body);
+        expect(body, {
+          'anonymous_id': client.anonymousId,
+          'session_id': client.sessionId,
+          'platform': 'ios',
+          'url': promo,
+          'opened_at': '2026-10-30T09:59:05.000Z',
+          'sdk': 'kma-flutter/1.1.0',
+          'user_id': 'user-42',
+          'app_version': '2.4.0',
+        });
+        expect(links, [
+          KissMyAppsDeepLink(
+            value: 'lesson',
+            params: const {'id': '4'},
+            deferred: true,
+            url: Uri.parse(opening),
+          ),
+          KissMyAppsDeepLink(
+            value: 'promo',
+            params: const {'code': '7'},
+            deferred: false,
+            url: Uri.parse(promo),
+          ),
+        ]);
+      });
+    });
+
+    test('keeps a link that came before the launch for the install call', () {
+      run((h) {
+        final client = h.start(MemoryStorage());
+        expect(client.handleDeepLink('https://fluent.go.kissmyapps.dev/lesson-4'), isTrue);
+        h.settle();
+        expect(h.calls, isEmpty);
+        client.foreground();
+        h.settle();
+        expect(h.calls.map((call) => call.path), [installPath]);
+        expect(h.installs.single['link_url'], 'https://fluent.go.kissmyapps.dev/lesson-4');
+      });
+    });
+
+    test('holds a deep link until a handler is set, and hands it over once', () {
+      run((h) {
+        h.attributionAnswer = reply(response);
+        final client = h.start(MemoryStorage())..foreground();
+        h.settle();
+        final first = <KissMyAppsDeepLink>[];
+        final second = <KissMyAppsDeepLink>[];
+        client.onDeepLink(first.add);
+        h.settle();
+        client.onDeepLink(second.add);
+        h.settle();
+        expect(first, [deferredLink]);
+        expect(second, isEmpty);
+
+        // A handler that throws does not stop the SDK.
+        client.onDeepLink((_) => throw StateError('navigator not ready'));
+        h.attributionAnswer = reply({'matched': true, 'method': 'link_open', 'deep_link': null});
+        client.handleDeepLink('https://fluent.go.kissmyapps.dev/nothing');
+        h.settle();
+        expect(h.opens, hasLength(1));
+      });
+    });
+
+    test('sends nothing for other links, when opted out, or with attribution off', () {
+      run((h) {
+        final client = h.start(MemoryStorage(), initialLink: () async => 'fluent://lesson/4')
+          ..foreground();
+        h.settle();
+        expect(client.handleDeepLink('fluent://lesson/4'), isFalse);
+        expect(client.handleDeepLink('http://fluent.go.kissmyapps.dev/a'), isFalse);
+        expect(client.handleDeepLink('https://fluent.go.kissmyapps.dev/${'a' * 2048}'), isFalse);
+        client.optOut();
+        h.settle();
+        expect(client.handleDeepLink('https://fluent.go.kissmyapps.dev/a'), isFalse);
+        h.settle();
+        expect(h.calls.map((call) => call.path), [installPath]);
+        expect(h.installs.single, isNot(contains('link_url')));
+
+        h.calls.clear();
+        final off = h.start(
+          MemoryStorage(),
+          attribution: false,
+          initialLink: () async => 'https://fluent.go.kissmyapps.dev/a',
+        )..foreground();
+        expect(off.handleDeepLink('https://fluent.go.kissmyapps.dev/b'), isFalse);
+        h.settle();
+        expect(h.calls, isEmpty);
+
+        // Without storage every launch looks like the first: there is no install to match.
+        h.start(null).foreground();
+        h.settle();
+        expect(h.calls, isEmpty);
+      });
     });
   });
 }

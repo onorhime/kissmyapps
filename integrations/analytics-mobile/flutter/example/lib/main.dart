@@ -1,3 +1,5 @@
+// Flutter after 3.47 moves Material to package:material_ui; the SDK still supports 3.24.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:kissmyapps/kissmyapps.dart';
 
@@ -8,6 +10,11 @@ void main() {
         defaultValue: 'kma_pk_test_ReplaceWithYourOwnKey00'),
     options: const KissMyAppsOptions(debug: true),
   );
+  // The deferred deep link after an install, and one each time a smart link
+  // opens the app.
+  KissMyApps.onDeepLink((link) {
+    debugPrint('KissMyApps deep link: ${link.value} ${link.params}');
+  });
   runApp(const ExampleApp());
 }
 

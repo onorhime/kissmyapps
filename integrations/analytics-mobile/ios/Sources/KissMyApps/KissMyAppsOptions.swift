@@ -18,6 +18,11 @@ public struct KissMyAppsOptions {
     public var trackLifecycle: Bool
     /// Print refused events and other problems to the console.
     public var debug: Bool
+    /// Read the clipboard once, on the first launch, for the link the person tapped before
+    /// installing (`kma:` and a click ID, copied by the link's page when "Clipboard handoff for
+    /// iPhone" is on in the console). iOS shows the person that the app pasted, and from iOS 16
+    /// asks them first. Off by default: the SDK never reads the clipboard otherwise.
+    public var clipboardHandoff: Bool
 
     public init(
         appVersion: String? = nil,
@@ -27,7 +32,8 @@ public struct KissMyAppsOptions {
         flushIntervalSeconds: Int = 10,
         maxQueue: Int = 1000,
         trackLifecycle: Bool = true,
-        debug: Bool = false
+        debug: Bool = false,
+        clipboardHandoff: Bool = false
     ) {
         self.appVersion = appVersion
         self.build = build
@@ -37,5 +43,6 @@ public struct KissMyAppsOptions {
         self.maxQueue = maxQueue
         self.trackLifecycle = trackLifecycle
         self.debug = debug
+        self.clipboardHandoff = clipboardHandoff
     }
 }

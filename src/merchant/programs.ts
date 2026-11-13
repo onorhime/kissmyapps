@@ -96,6 +96,11 @@ export interface Program {
   earn_from?: EarnFrom
   rewards?: Reward[]
   reward_budget_minor?: number | null
+  /**
+   * The smart link the landing page is, when it is one of the workspace's apps' links; null for
+   * a web page. Missing in an answer from before programs could send people to an app.
+   */
+  app_link?: ProgramAppLink | null
 }
 
 export interface Checklist {
@@ -115,6 +120,11 @@ export interface ProgramState {
   can_submit: boolean
   /** Whether this workspace can pay for events. Missing in an answer from before it could. */
   events_available?: boolean
+  /**
+   * Whether the workspace has smart links of an app a program can send people to. Missing in an
+   * answer from before programs could send people to an app.
+   */
+  app_links_available?: boolean
 }
 
 /** An event KissMyApps has already received from the business's site or app. */
@@ -123,6 +133,8 @@ export interface RewardEvent {
   description: string | null
   first_seen: string | null
   last_seen: string | null
+  /** The words KissMyApps suggests creators read for it. Missing in an older answer. */
+  suggested_label?: string | null
 }
 
 export interface AgreementDoc {
@@ -299,6 +311,7 @@ function readProgram(value: unknown): Program | null {
     first_published_at: moment(row.first_published_at),
     updated_at: moment(row.updated_at),
     ...readEarning(row),
+    ...readProgramAppLink(row),
   }
 }
 
@@ -323,6 +336,9 @@ export function readState(value: unknown): ProgramState {
     ...(body.events_available === undefined
       ? {}
       : { events_available: body.events_available === true }),
+    ...(body.app_links_available === undefined
+      ? {}
+      : { app_links_available: body.app_links_available === true }),
   }
 }
 
@@ -342,6 +358,9 @@ export function readRewardEvents(value: unknown): RewardEvent[] {
         description: text(row.description),
         first_seen: moment(row.first_seen),
         last_seen: moment(row.last_seen),
+        ...(row.suggested_label === undefined
+          ? {}
+          : { suggested_label: readSuggestedLabel(row.suggested_label) }),
       },
     ]
   })
@@ -506,6 +525,8 @@ export const programs = {
     readRewardEvents(
       await call('workspace_program_reward_events', { p_workspace_id: workspaceId }),
     ),
+  appLinks: async (workspaceId: string) =>
+    readAppLinks(await call('workspace_program_app_links', { p_workspace_id: workspaceId })),
   /** Puts the image in the workspace's folder and returns its path, ready to be saved. */
   uploadLogo: async (workspaceId: string, file: File) => {
     const refusal = checkLogoFile(file)
@@ -1408,4 +1429,133 @@ const dayFormat = new Intl.DateTimeFormat('en-GB', {
 /** 14 Nov 2026 */
 export function formatDay(time: string): string {
   return dayFormat.format(Date.parse(time))
+}
+
+// Programs that send people to an app (Phase 7) ---------------------------------------------
+
+/** A saved program's landing page, when it is a smart link of one of the workspace's apps. */
+export interface ProgramAppLink {
+  /** The link's id, which names it in the list of links. */
+  id: string | null
+  url: string
+  name: string
+}
+
+/** A smart link of one of the workspace's apps, one a program's landing page can be. */
+export interface AppLink {
+  /** The link's id; its address when an answer has none. */
+  id: string
+  url: string
+  name: string
+  project_id: string
+  project_name: string
+  /** Whether the link's app is on iPhone, on Android, or both. */
+  ios: boolean
+  android: boolean
+}
+
+/** Where creator links send people: a web page, or the app through one of its smart links. */
+export type LandingKind = 'web' | 'app'
+
+/** https://fluent.go.kissmyapps.dev/start → fluent.go.kissmyapps.dev/start */
+export function linkAddress(url: string): string {
+  return url.replace(/^https:\/\//, '').replace(/\/$/, '')
+}
+
+/**
+ * The app link of a saved program. Nothing depends on it but how the form opens, so one that
+ * cannot be read is no link at all rather than a refused answer.
+ */
+function readProgramAppLink(row: Record<string, unknown>): Pick<Program, 'app_link'> {
+  if (row.app_link === undefined) return {}
+  const link = record(row.app_link)
+  const url = text(link?.url)
+  if (!link || !url || !httpsUrl(url)) return { app_link: null }
+  return {
+    app_link: { id: text(link.id), url, name: text(link.name)?.trim() || linkAddress(url) },
+  }
+}
+
+function readSuggestedLabel(value: unknown): string | null {
+  const label = typeof value === 'string' ? value.trim() : ''
+  return label && label.length <= REWARD_LABEL_MAX ? label : null
+}
+
+/** Reads the smart links a program can send people to. A link that is not a web address is left out. */
+export function readAppLinks(value: unknown): AppLink[] {
+  const body = record(value)
+  if (!body || !Array.isArray(body.links)) throw unreadable()
+  const seen = new Set<string>()
+  return body.links.flatMap((item) => {
+    const row = record(item)
+    const url = text(row?.url)
+    if (!row || !url || !httpsUrl(url) || seen.has(url)) return []
+    seen.add(url)
+    return [
+      {
+        id: text(row.id) ?? url,
+        url,
+        name: text(row.name)?.trim() || linkAddress(url),
+        project_id: text(row.project_id) ?? '',
+        project_name: text(row.project_name) ?? '',
+        ios: row.ios === true,
+        android: row.android === true,
+      },
+    ]
+  })
+}
+
+/**
+ * Whether the form asks where creator links send people: when the workspace has app links, and
+ * for a program whose landing page already is one, so its form shows the link it has.
+ */
+export function offersAppLanding(
+  state: Pick<ProgramState, 'app_links_available' | 'program'> | undefined,
+): boolean {
+  return state?.app_links_available === true || Boolean(state?.program?.app_link)
+}
+
+/** Whether a saved program's link is this one of the list: by id, or by address without one. */
+export function isAppLink(saved: ProgramAppLink, link: AppLink): boolean {
+  return saved.id ? link.id === saved.id : link.url === saved.url
+}
+
+/** What a saved program's landing page is. */
+export const landingKindOf = (program: Program | null | undefined): LandingKind =>
+  program?.app_link ? 'app' : 'web'
+
+/** The platforms of a link's app, in words: "iOS and Android", "iOS", "Android", or null. */
+export function appPlatforms(link: Pick<AppLink, 'ios' | 'android'>): string | null {
+  if (link.ios && link.android) return 'iOS and Android'
+  return link.ios ? 'iOS' : link.android ? 'Android' : null
+}
+
+/** The install event, which SDK 1.1 matches to the creator's click. */
+export const INSTALL_EVENT = 'app_installed'
+
+/** How the reward picker names an event: the install in words, every other event by its name. */
+export function rewardEventChoice(name: string): string {
+  return name === INSTALL_EVENT ? 'App installed (install)' : name
+}
+
+/** The words a reward starts with for an event: KissMyApps' suggestion, else the event's name. */
+export function suggestedRewardLabel(name: string, events: readonly RewardEvent[] = []): string {
+  return events.find((event) => event.name === name)?.suggested_label || labelFromEvent(name)
+}
+
+/**
+ * Names the event of a reward, with the suggested words for it. As with withRewardKey, the words
+ * follow the event until the person writes their own.
+ */
+export function withRewardEvent(
+  row: RewardRow,
+  key: string,
+  events: readonly RewardEvent[] = [],
+): RewardRow {
+  const label = row.label.trim()
+  const untouched =
+    !label ||
+    row.label === labelFromEvent(row.key) ||
+    row.label === suggestedRewardLabel(row.key, events)
+  return { ...row, key, label: untouched ? suggestedRewardLabel(key, events) : row.label }
 }

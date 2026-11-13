@@ -3,18 +3,11 @@
 # the oldest and newest Flutter it supports, then the example app built for Android and iOS).
 name: Mobile SDKs
 
+# Run by hand only (Actions tab, Mobile SDKs, Run workflow): the owner pays for Actions
+# minutes and chose (13 Nov 2026) no runs on pull requests or pushes. Run it before an SDK
+# release.
 on:
-  pull_request:
-    paths:
-      - 'integrations/analytics-mobile/**'
-      - 'integrations/analytics-react-native/**'
-      - '.github/workflows/mobile-sdks.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'integrations/analytics-mobile/**'
-      - 'integrations/analytics-react-native/**'
-      - '.github/workflows/mobile-sdks.yml'
+  workflow_dispatch:
 
 jobs:
   react-native:

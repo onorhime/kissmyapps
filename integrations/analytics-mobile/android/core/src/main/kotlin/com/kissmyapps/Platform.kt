@@ -53,6 +53,10 @@ internal class Platform(
     val sdk: String,
     val now: () -> Long = System::currentTimeMillis,
     val log: (String) -> Unit = { System.err.println(it) },
+    /** The device key and install referrer; without one, the install call goes without them. */
+    val attribution: AttributionSource? = null,
+    /** Runs app callbacks, such as deep links, on the app's main thread. */
+    val main: (() -> Unit) -> Unit = { it() },
 )
 
 /** Keeps each value in its own file, replaced whole so a crash never leaves half a file. */

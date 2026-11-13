@@ -19,6 +19,9 @@ let package = Package(
             name: "kissmyapps",
             dependencies: [
                 .product(name: "FlutterFramework", package: "FlutterFramework")
+            ],
+            resources: [
+                .process("PrivacyInfo.xcprivacy")
             ]
         )
     ]

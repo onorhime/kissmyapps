@@ -854,6 +854,7 @@ describe('the words on the page', () => {
     balance_empty: 'Your balance could not cover it',
     program_paused: 'Your program was paused',
     currency_mismatch: 'Your balance is in another currency',
+    install_rejected: 'The click came after the install',
   }
 
   it('has a plain word for every status', () => {

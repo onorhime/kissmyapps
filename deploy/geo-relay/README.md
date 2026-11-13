@@ -1,11 +1,13 @@
 # Geo relay
 
 The events relay for `events.kissmyapps.dev`. The edge Caddy sends each SDK request here
-with the visitor's address in `X-Kma-Client-Ip`; the relay looks the address up in
-DB-IP's free city database and passes the request on to the `analytics-ingest` function
-with the place (`X-Kma-Country`, and percent-encoded `X-Kma-Region` and `X-Kma-City`) and
-the proxy secret. For a server key it also looks up the address the merchant's server
-names in `context.ip`. Addresses are only looked up, never written down.
+(`/v1/events`, `/v1/replay`, and the app SDKs' `/v1/attribution/install` and
+`/v1/attribution/open`) with the visitor's address in `X-Kma-Client-Ip`; the relay looks
+the address up in DB-IP's free city database and passes the request on to the
+`analytics-ingest` function with the place (`X-Kma-Country`, and percent-encoded
+`X-Kma-Region` and `X-Kma-City`) and the proxy secret. For a server key's `/v1/events` it
+also looks up the address the merchant's server names in `context.ip`. Addresses are only
+looked up, never written down.
 
 - `mmdb.mjs` reads MaxMind DB files (the format DB-IP publishes), with nothing but Node.
 - `relay.mjs` is the request handler.
