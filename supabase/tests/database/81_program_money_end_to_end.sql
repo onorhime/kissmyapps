@@ -63,7 +63,8 @@ begin
   set constraints all immediate;
   set constraints all deferred;
 end $$;
-create function pg_temp.epoch(p_at timestamptz) returns bigint language sql as $$ select extract(epoch from p_at)::bigint $$;
+-- Rounded up: a payment recorded in the same second as the join must not fall before it.
+create function pg_temp.epoch(p_at timestamptz) returns bigint language sql as $$ select ceil(extract(epoch from p_at))::bigint $$;
 create function pg_temp.program() returns public.affiliate_programs language sql as $$
   select p from public.affiliate_programs p where workspace_id = pg_temp.q('workspace')
 $$;
