@@ -59,6 +59,10 @@ const suites = [
   ['90_program_checkout_promo.sql', /^ok \d+ program checkout promo assertions$/m],
   ['91_program_store_sales.sql', /^ok \d+ program store sales assertions$/m],
   ['92_analytics_destinations.sql', /^ok \d+ analytics destination assertions$/m],
+  ['93_attribution_revenue.sql', /^ok \d+ attribution revenue assertions$/m],
+  ['94_attribution_costs.sql', /^ok \d+ attribution cost assertions$/m],
+  ['95_attribution_roi.sql', /^ok \d+ attribution roi assertions$/m],
+  ['96_program_refund_recovery.sql', /^ok \d+ program refund recovery assertions$/m],
 ]
 
 const bin = postgresBin()
