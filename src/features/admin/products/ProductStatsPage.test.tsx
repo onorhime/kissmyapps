@@ -2,10 +2,14 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
 import { describe, expect, it, vi } from 'vitest'
-import { ProductStatsPage } from './ProductStatsPage'
+import { ProductStatsPage, type ProductStatsPageProps } from './ProductStatsPage'
 import { statsGateway, statsOwner } from './productStats.fixture'
 
-function renderStats(gateway = statsGateway(), role = statsOwner.role) {
+function renderStats(
+  gateway = statsGateway(),
+  role = statsOwner.role,
+  program: Pick<ProductStatsPageProps, 'program' | 'onOpenPrograms'> = {},
+) {
   const props = {
     productId: 'product-1',
     context: { ...statsOwner, role },
@@ -13,6 +17,7 @@ function renderStats(gateway = statsGateway(), role = statsOwner.role) {
     onBack: vi.fn(),
     onOpenSetup: vi.fn(),
     onOpenSubscriptions: vi.fn(),
+    ...program,
   }
   return { ...render(<ProductStatsPage {...props} />), props }
 }
@@ -56,6 +61,33 @@ describe('Product stats page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open setup' }))
     expect(props.onOpenSetup).toHaveBeenCalledOnce()
+  })
+
+  it('shows no setup progress and no way into setup for a program product', async () => {
+    const user = userEvent.setup()
+    const onOpenPrograms = vi.fn()
+    const { props } = renderStats(statsGateway(), statsOwner.role, {
+      program: true,
+      onOpenPrograms,
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Daily Planner', level: 1 })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Human clicks', level: 3 })).toBeVisible()
+    expect(screen.queryByText(/Setup is/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Continue setup' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open setup' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Open Programs' }))
+    expect(onOpenPrograms).toHaveBeenCalledOnce()
+    expect(props.onOpenSetup).not.toHaveBeenCalled()
+  })
+
+  it('leaves a program product with stats only for a role that cannot review programs', async () => {
+    renderStats(statsGateway(), 'finance', { program: true })
+
+    expect(await screen.findByRole('heading', { name: 'Human clicks', level: 3 })).toBeVisible()
+    expect(screen.queryByText(/Setup is/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /setup|Programs/i })).toBeNull()
   })
 
   it('shows a clear message instead of zeros when reporting fails', async () => {

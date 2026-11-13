@@ -16,6 +16,7 @@ export type {
   AdminProgramStatusInput,
   AdminProgramStatusResult,
 } from './programs'
+export type { AdminProgramProduct } from './programProducts'
 export type {
   AdminMoneyByCurrency,
   AdminProgramMoney,

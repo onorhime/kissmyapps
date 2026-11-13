@@ -1,5 +1,5 @@
 import { useFormNavigationGuard } from '../../components/useFormNavigationGuard'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   ArrowRightLeft,
@@ -30,6 +30,7 @@ import { AttributionPage } from './observability/AttributionPage'
 import { DataHealthPage } from './observability/DataHealthPage'
 import { ProductsPage } from './products/ProductsPage'
 import { ProductStatsPage } from './products/ProductStatsPage'
+import { programProductsById } from './products/programProducts'
 import { ProgramsPage } from './programs/ProgramsPage'
 import { PlatformSettingsPage } from './settings/PlatformSettingsPage'
 import { SubscriptionsPage } from './subscriptions/SubscriptionsPage'
@@ -191,7 +192,7 @@ export function AdminPortalApp({
   onSwitchToPartner,
 }: AdminPortalAppProps) {
   const effectiveGateway = gateway ?? defaultAdminGateway
-  const { state, retry, createProduct, replaceProduct } = useAdminWorkspace({
+  const { state, retry, retryProgramProducts, createProduct, replaceProduct } = useAdminWorkspace({
     sessionUserId,
     gateway: effectiveGateway,
   })
@@ -210,6 +211,12 @@ export function AdminPortalApp({
   const funnelsLinksRestricted = context?.role === 'support'
   const observabilityRestricted = context?.role === 'support'
   const settingsRestricted = context?.role === 'support'
+  // A program's product was set up by its merchant: no page offers the setup wizard for it.
+  const programProducts = useMemo(
+    () => programProductsById(state.programProducts),
+    [state.programProducts],
+  )
+  const program = productId ? programProducts.get(productId) : undefined
 
   function isRestrictedRoute(routeId: string): boolean {
     return (
@@ -236,6 +243,11 @@ export function AdminPortalApp({
       previousRoute.current = route
     }
   }, [route])
+
+  // A failed read of the program products is tried again on the way to another page.
+  useEffect(() => {
+    retryProgramProducts()
+  }, [retryProgramProducts, route])
 
   async function safelySwitchToPartner() {
     setShellError('')
@@ -264,6 +276,8 @@ export function AdminPortalApp({
     if (nextRoute === route) return
     guard.request(() => onNavigate(nextRoute))
   }
+
+  const openPrograms = isRestrictedRoute('programs') ? undefined : () => navigate('programs')
 
   return (
     <div
@@ -442,6 +456,9 @@ export function AdminPortalApp({
                     context={context}
                     gateway={effectiveGateway}
                     onBack={() => navigate('products')}
+                    program={
+                      program ? { name: program.programName, onOpenPrograms: openPrograms } : null
+                    }
                     onProductRead={replaceProduct}
                     onOpenSettings={settingsRestricted ? undefined : () => navigate('settings')}
                     onOpenStats={
@@ -478,6 +495,8 @@ export function AdminPortalApp({
                   gateway={effectiveGateway}
                   onBack={() => navigate('products')}
                   onOpenSetup={() => onOpenProductConfiguration(productId)}
+                  program={Boolean(program)}
+                  onOpenPrograms={openPrograms}
                   onOpenSubscriptions={
                     context.role === 'support' ? undefined : () => navigate('subscriptions')
                   }
@@ -488,6 +507,8 @@ export function AdminPortalApp({
                   products={state.products}
                   onCreate={createProduct}
                   onConfigure={(id) => guard.request(() => onOpenProductConfiguration(id))}
+                  programProducts={programProducts}
+                  onOpenPrograms={openPrograms}
                   onViewStats={
                     onOpenProductStats
                       ? (id) => guard.request(() => onOpenProductStats(id))
@@ -619,6 +640,8 @@ export function AdminPortalApp({
               ) : (
                 <AdminOverview
                   products={state.products}
+                  programProducts={programProducts}
+                  onOpenPrograms={openPrograms}
                   onOpenProducts={() => navigate('products')}
                 />
               )
