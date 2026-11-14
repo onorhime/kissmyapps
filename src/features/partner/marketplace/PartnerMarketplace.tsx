@@ -24,7 +24,7 @@ import { earningsLine, earningsOfProgram } from '../earnings/earnings'
 import type { ProgramEarnings } from '../earnings/earnings'
 import { useProgramEarnings } from '../earnings/useProgramEarnings'
 import { creditedFor, creditedTitle } from '../links/earnFrom'
-import { PromoCodeBody } from '../links/PromoCode'
+import { PromoCodeBody } from '../links/PromoCodeBody'
 import '../earnings/ProgramEarnings.css'
 import {
   brandOf,
