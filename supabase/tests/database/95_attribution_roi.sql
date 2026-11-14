@@ -638,21 +638,26 @@ select pg_temp.check((select jsonb_agg(jsonb_build_array(x->>'start', x->'users'
     jsonb_build_array(pg_temp.d(3), 2, 100), jsonb_build_array(pg_temp.d(4), 2, 0), jsonb_build_array(pg_temp.d(5), 1, 0),
     jsonb_build_array(pg_temp.d(6), 1, 10), jsonb_build_array(pg_temp.d(8), 0, 25)),
   'people and spend by day; a day with spend and nobody is still listed');
+-- A cell is future only when its day has not begun for anyone in the cohort: today's visitor is in
+-- day 0 (and has paid $3), so day 0 is partial, never future, though nobody has had it in full.
 select pg_temp.check(pg_temp.cohort(pg_temp.j('cohorts_day'), pg_temp.d(0))->'cells' = jsonb_build_array(
-    pg_temp.c(0, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(1, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(3, 'future', 0, 3, 3, 0.6, 0, null),
+    pg_temp.c(0, 'partial', 0, 3, 3, 0.6, 0, null), pg_temp.c(1, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(3, 'future', 0, 3, 3, 0.6, 0, null),
     pg_temp.c(7, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(14, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(30, 'future', 0, 3, 3, 0.6, 0, null),
     pg_temp.c(60, 'future', 0, 3, 3, 0.6, 0, null), pg_temp.c(90, 'future', 0, 3, 3, 0.6, 0, null)),
-  'today''s cohort: every day still to come, revenue so far shown');
+  'today''s cohort: day 0 under way with the money already paid, every later day still to come');
 select pg_temp.check(pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(1), 0) = pg_temp.c(0, 'partial', 1, 0, 0, 0, 1, 1)
-  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(1), 1) = pg_temp.c(1, 'future', 0, 0, 0, 0, 0, null),
-  'yesterday: one person has had day 0 in full and came back on it, the other not yet (their day 0 events wait)');
+  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(1), 1) = pg_temp.c(1, 'partial', 0, 0, 0, 0, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(1), 3) = pg_temp.c(3, 'future', 0, 0, 0, 0, 0, null),
+  'yesterday: one person has had day 0 in full and came back on it, the other not yet (their day 0 events wait); '
+  || 'day 1 has begun for the first only');
 select pg_temp.check(pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(2), 0) = pg_temp.c(0, 'complete', 1, 15, 15, 0.15, 1, 1)
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(2), 1) = pg_temp.c(1, 'complete', 1, 15, 15, 0.15, 0, 0)
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(2), 3) = pg_temp.c(3, 'future', 0, 15, 15, 0.15, 0, null), '2 days ago');
 select pg_temp.check(pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(3), 0) = pg_temp.c(0, 'complete', 2, 9.99, 4.995, 0.0999, 2, 1)
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(3), 1) = pg_temp.c(1, 'complete', 2, 9.6, 4.8, 0.096, 1, 0.5)
-  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(3), 3) = pg_temp.c(3, 'future', 0, 9.6, 4.8, 0.096, 0, null),
-  '3 days ago: revenue is cumulative and refunds subtract; the app person came back on day 1');
+  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(3), 3) = pg_temp.c(3, 'partial', 0, 9.6, 4.8, 0.096, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(3), 7) = pg_temp.c(7, 'future', 0, 9.6, 4.8, 0.096, 0, null),
+  '3 days ago: revenue is cumulative and refunds subtract; the app person came back on day 1; day 3 is under way');
 select pg_temp.check(pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(4), 0) = pg_temp.c(0, 'complete', 2, 29.99, 14.995, null, 1, 0.5)
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(4), 1) = pg_temp.c(1, 'complete', 2, 29.99, 14.995, null, 1, 0.5)
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(4), 3) = pg_temp.c(3, 'complete', 2, 59.98, 29.99, null, 0, 0)
@@ -670,7 +675,10 @@ select pg_temp.check((select jsonb_agg(c->>'state' order by (c->>'day')::integer
     = '["complete", "complete", "complete", "partial", "future", "future", "future", "future"]'::jsonb
   and pg_temp.cell(pg_temp.j('cohorts_day'), pg_temp.d(8), 0) = pg_temp.c(0, 'complete', 0, 0, null, 0, 0, null)
   and (select jsonb_agg(c->>'state' order by (c->>'day')::integer) from jsonb_array_elements(pg_temp.cohort(pg_temp.j('cohorts_day'), pg_temp.d(29))->'cells') c)
-    = '["complete", "complete", "complete", "complete", "complete", "future", "future", "future"]'::jsonb,
+    = '["complete", "complete", "complete", "complete", "complete", "future", "future", "future"]'::jsonb
+  -- 7 days ago: day 7 has begun for someone acquired at that day's start, and is over for no one.
+  and (select jsonb_agg(c->>'state' order by (c->>'day')::integer) from jsonb_array_elements(pg_temp.cohort(pg_temp.j('cohorts_day'), pg_temp.d(7))->'cells') c)
+    = '["complete", "complete", "complete", "partial", "future", "future", "future", "future"]'::jsonb,
   'a cohort nobody joined takes its states from its dates');
 select pg_temp.check((select jsonb_agg(x order by (x->>'day')::integer) from jsonb_array_elements(pg_temp.j('cohorts_day')->'curve') x
     where (x->>'day')::integer <= 6) = '[
@@ -690,7 +698,8 @@ select pg_temp.check(pg_temp.j('cohorts_meta')->'filters' = '{"source": "meta"}'
   and pg_temp.j('cohorts_meta')->'totals' = '{"users": 4, "cost": 200, "revenue": 104.98, "payers": 3}'::jsonb
   and pg_temp.cohort(pg_temp.j('cohorts_meta'), pg_temp.d(3))->'users' = '0' and pg_temp.cohort(pg_temp.j('cohorts_meta'), pg_temp.d(3))->'cost' = '100'
   and pg_temp.cell(pg_temp.j('cohorts_meta'), pg_temp.d(2), 0) = pg_temp.c(0, 'complete', 1, 15, 15, 0.25, 1, 1)
-  and pg_temp.cell(pg_temp.j('cohorts_meta'), pg_temp.d(1), 0) = pg_temp.c(0, 'future', 0, 0, 0, 0, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_meta'), pg_temp.d(1), 0) = pg_temp.c(0, 'partial', 0, 0, 0, 0, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_meta'), pg_temp.d(1), 1) = pg_temp.c(1, 'future', 0, 0, 0, 0, 0, null)
   and pg_temp.point(pg_temp.j('cohorts_meta'), 1) = '{"day": 1, "users": 3, "revenue_per_user": 18.33, "retention": 0.6667}'::jsonb
   and pg_temp.point(pg_temp.j('cohorts_meta'), 3) = '{"day": 3, "users": 2, "revenue_per_user": 44.99, "retention": 0.5}'::jsonb,
   'cohorts of one source, with that source''s spend');
@@ -704,7 +713,8 @@ select pg_temp.check(pg_temp.j('cohorts_meta_none')->'filters' = '{"source": "me
 -- Cohorts by week and month -----------------------------------------------------------------------------
 -- Which week or month each person falls in depends on the date the suite runs, so the expected
 -- counts are worked out from the cast: the local day each was acquired (k days ago), and the
--- last day each has had in full (complete_k - 1).
+-- whole days since each was acquired (complete_k): day n has begun for them when n <= complete_k
+-- and they have had it in full when n + 1 <= complete_k.
 create temporary table cast_k(who text, k integer, complete_k integer);
 insert into cast_k values ('meta_utm', 5, 5), ('meta_link', 2, 2), ('meta_fbclid', 1, 0), ('tiktok_web', 3, 3),
   ('tiktok_install', 3, 3), ('organic', 4, 4), ('direct', 6, 6), ('speaksix', 4, 4), ('today', 0, 0), ('reinstall', 1, 1),
@@ -724,7 +734,9 @@ select pg_temp.check((select bool_and((x->>'users')::integer = (select count(*) 
         where date_trunc('week', pg_temp.date(ck.k))::date = (x->>'start')::date and ck.complete_k >= (ce->>'day')::integer + 1)
       and (ce->>'state' = case when (x->>'users')::integer = 0 then ce->>'state'
         when (ce->>'complete_users')::integer = (x->>'users')::integer then 'complete'
-        when (ce->>'complete_users')::integer = 0 then 'future' else 'partial' end))
+        when not exists (select 1 from cast_k ck where date_trunc('week', pg_temp.date(ck.k))::date = (x->>'start')::date
+          and ck.complete_k >= (ce->>'day')::integer) then 'future'
+        else 'partial' end))
       from jsonb_array_elements(x->'cells') ce))
   from jsonb_array_elements(pg_temp.j('cohorts_week')->'cohorts') x), 'each week has the people acquired in it, each cell the right state');
 select pg_temp.check(pg_temp.cohort(pg_temp.j('cohorts_week'), to_char(date_trunc('week', pg_temp.date(40)), 'YYYY-MM-DD'))->'cells' = jsonb_build_array(
@@ -755,7 +767,8 @@ select pg_temp.keep('cohorts_empty', pg_temp.cohorts('{"interval":"day"}', 'quie
 select pg_temp.capture('cohorts_empty', pg_temp.j('cohorts_empty'));
 select pg_temp.check(jsonb_array_length(pg_temp.j('cohorts_empty')->'cohorts') = 30
   and (select bool_and(x->'users' = '0' and x->'cost' = '0') from jsonb_array_elements(pg_temp.j('cohorts_empty')->'cohorts') x)
-  and pg_temp.cell(pg_temp.j('cohorts_empty'), pg_temp.d(0), 0) = pg_temp.c(0, 'future', 0, 0, null, null, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_empty'), pg_temp.d(0), 0) = pg_temp.c(0, 'partial', 0, 0, null, null, 0, null)
+  and pg_temp.cell(pg_temp.j('cohorts_empty'), pg_temp.d(0), 1) = pg_temp.c(1, 'future', 0, 0, null, null, 0, null)
   and pg_temp.cell(pg_temp.j('cohorts_empty'), pg_temp.d(1), 0) = pg_temp.c(0, 'partial', 0, 0, null, null, 0, null)
   and pg_temp.cell(pg_temp.j('cohorts_empty'), pg_temp.d(2), 0) = pg_temp.c(0, 'complete', 0, 0, null, null, 0, null)
   and (select bool_and(x->'users' = '0' and x->'revenue_per_user' = 'null' and x->'retention' = 'null')

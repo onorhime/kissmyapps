@@ -364,10 +364,12 @@ end $$;
 -- as null means the null key).
 --
 -- A cell is complete when every person in the cohort has had that day in full, future when
--- none has, partial otherwise (for a cohort nobody joined, by its dates). Revenue counts
--- everyone in the cohort; coming back counts the people who have had the day in full, so
--- retention is over the same people. The curve averages each day 0 to 30 over the people
--- who have had it in full.
+-- that day has not begun for anyone in it yet, partial otherwise, so a cell with money in it
+-- is never shown as still to come. For a cohort nobody joined the same goes by its dates:
+-- future when the day has not begun for someone acquired at its start, complete when it is
+-- over for someone acquired at its end. Revenue counts everyone in the cohort; coming back
+-- counts the people who have had the day in full, so retention is over the same people. The
+-- curve averages each day 0 to 30 over the people who have had it in full.
 create function public.attribution_cohorts(p_project uuid, p_input jsonb) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -470,7 +472,9 @@ begin
     select c.cohort, sum(c.cost) cost from costs c where c.cost is not null group by c.cohort
   ), cell_people as (
     select c.cohort, d.n, c.starts_at, c.ends_at, coalesce(sum(g.users), 0) users,
-      coalesce(sum(g.users) filter (where g.done >= d.n), 0) complete_users
+      coalesce(sum(g.users) filter (where g.done >= d.n), 0) complete_users,
+      -- Day n has begun for someone once n whole days have passed (done >= n - 1).
+      coalesce(sum(g.users) filter (where g.done >= d.n - 1), 0) begun_users
     from cohorts c cross join unnest(v_days) d(n) left join members g on g.cohort = c.cohort
     group by c.cohort, d.n, c.starts_at, c.ends_at
   ), cell_revenue as (
@@ -504,10 +508,10 @@ begin
             'day', ce.n,
             'state', case
               when ce.users > 0 and ce.complete_users = ce.users then 'complete'
-              when ce.users > 0 and ce.complete_users = 0 then 'future'
+              when ce.users > 0 and ce.begun_users = 0 then 'future'
               when ce.users > 0 then 'partial'
               when ce.ends_at + make_interval(hours => 24 * (ce.n + 1)) <= now() then 'complete'
-              when ce.starts_at + make_interval(hours => 24 * (ce.n + 1)) > now() then 'future'
+              when ce.starts_at + make_interval(hours => 24 * ce.n) > now() then 'future'
               else 'partial' end,
             'complete_users', ce.complete_users,
             'revenue', kma_internal.attribution_money(ce.revenue),
