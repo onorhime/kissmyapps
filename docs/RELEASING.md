@@ -84,6 +84,40 @@ release checks them but never changes them:
   [merchant-analytics-deploy.md](merchant-analytics-deploy.md) describes. The web SDK ships
   with the dashboard.
 
+## Switching features on
+
+A release ships new features switched off. `scripts/kma-features.mjs` switches them on in
+production, from the same linked checkout, doing what each deploy document describes: the
+Edge Function flags, a fresh value for each schedule (stored as the function secret and in
+Vault under the documented name), the pg_cron jobs, the schedule rows and the program money
+switches.
+
+```sh
+node scripts/kma-features.mjs status   # one line per feature: on, or what it waits for
+node scripts/kma-features.mjs on       # switch on everything that can be, then the checks
+node scripts/kma-features.mjs stripe   # ask for the Stripe values, then run `on`
+```
+
+- Features that need no Stripe value go on at once: the public marketplace, attribution
+  install matching and exchange rates, event and install rewards (they pay once balances
+  are on), RevenueCat and Adapty sales, and the Amplitude export.
+- The money features (Connections, receipts, sale tracking, balances, promo codes, checkout
+  links, payouts) stay off until their Stripe values are stored. Switched on without them
+  their pages only show errors. `on` offers the Stripe step at the end.
+- `stripe` reads the live secret key without echoing it, reads the platform account from
+  Stripe, asks for the Connect client ID and the publishable key, creates the three webhook
+  endpoints (connect payments, program balance, creator payout accounts) with the pinned API
+  version, stores their signing secrets, and writes the console entry of
+  `CREATOR_CONNECT_BINDINGS_JSON` when that secret is unset. The OAuth redirect URI
+  (`https://merchant.kissmyapps.dev/`) is the one setting it cannot make: add it in Stripe
+  first.
+- Creator payouts switch on only once a program has a balance (the admin switch refuses
+  before that). Run `on` again after the first deposit, or switch it on in the admin app.
+- Every step can be run again: it changes only what is not on yet.
+- Not covered: routing `kissmyapps.dev` itself. Invite links (`/marketplace/<slug>`) and
+  checkout links (`/checkout/<slug>`) are on the main domain, which does not point at the
+  VPS; `status` says where it points.
+
 ## The first release with this tool
 
 Releases before November 2026 have no record, so tell the tool which commit is live. On
