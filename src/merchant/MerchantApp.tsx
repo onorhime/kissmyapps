@@ -60,6 +60,9 @@ const titles: Record<Route['name'], string> = {
 const attributionTitles = {
   links: 'Links',
   sources: 'Sources',
+  roi: 'ROI',
+  cohorts: 'Cohorts',
+  costs: 'Costs',
   settings: 'Attribution settings',
 } as const
 
