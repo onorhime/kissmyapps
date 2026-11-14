@@ -64,6 +64,32 @@ public enum KissMyApps {
         call { $0.track(name, properties: properties) }
     }
 
+    /// Records a payment: the amount in major units, such as StoreKit's `product.price`,
+    /// negative for a refund, and its ISO 4217 currency code. Sent as a `purchase` (or `refund`)
+    /// event with the reserved properties `kma_revenue` and `kma_currency`. Pass the store's
+    /// transaction ID so the same payment reported by a RevenueCat or Adapty webhook counts once.
+    /// An amount that is 0 or over 1,000,000,000 either way, or a currency that is not three
+    /// letters, sends nothing (with a warning when `debug` is on).
+    public static func revenue(
+        _ amount: Decimal,
+        currency: String,
+        productId: String? = nil,
+        transactionId: String? = nil,
+        event: String? = nil,
+        properties: [String: Any] = [:]
+    ) {
+        call {
+            $0.revenue(
+                amount,
+                currency: currency,
+                productId: productId,
+                transactionId: transactionId,
+                event: event,
+                properties: properties
+            )
+        }
+    }
+
     /// Records a screen view; later events carry the screen's name.
     public static func screen(_ name: String, properties: [String: Any] = [:]) {
         call { $0.screen(name, properties: properties) }

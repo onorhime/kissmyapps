@@ -1,5 +1,5 @@
 {
-  "about": "What every KissMyApps app SDK sends to POST /v1/events. The React Native, Android and iOS tests check their requests against these rules, and the analytics-ingest tests check it keeps every field the example sends.",
+  "about": "What every KissMyApps app SDK sends to POST /v1/events. The React Native, Android, iOS and Flutter tests check their requests against these rules (the web SDK's tests check its revenue events against the revenue section), and the analytics-ingest tests check it keeps every field the example sends.",
   "body": {
     "required": ["anonymous_id", "session", "sent_at", "context", "events"],
     "optional": ["user_id", "traits"]
@@ -111,8 +111,22 @@
         "user_id": "user-42"
       },
       {
-        "name": "app_backgrounded",
+        "name": "purchase",
         "insert_id": "e-6",
+        "time": "2026-10-30T09:59:50.000Z",
+        "screen": "Lesson",
+        "properties": {
+          "plan": "annual",
+          "kma_revenue": 59.99,
+          "kma_currency": "USD",
+          "kma_product_id": "annual",
+          "kma_transaction_id": "2000000812345678"
+        },
+        "user_id": "user-42"
+      },
+      {
+        "name": "app_backgrounded",
+        "insert_id": "e-7",
         "time": "2026-10-30T10:00:04.000Z",
         "screen": "Lesson",
         "properties": {
@@ -121,6 +135,25 @@
         "user_id": "user-42"
       }
     ]
+  },
+  "revenue": {
+    "about": "A payment is an ordinary event with these reserved properties, sent by each SDK's revenue call, or by a server with a kma_sk_ key. Reports read revenue from them; a refund is a negative amount. The same payment reported twice with the same kma_transaction_id, by the app and by a RevenueCat or Adapty webhook, counts once. The SDKs send nothing when the amount or currency is not valid, and leave out a product or transaction ID that is not 1 to id_max_length characters.",
+    "properties": {
+      "required": ["kma_revenue", "kma_currency"],
+      "optional": ["kma_product_id", "kma_transaction_id"]
+    },
+    "kma_revenue": "A JSON number in major units (9.99, not 999): finite, not 0, at most max_amount either way, negative for a refund",
+    "kma_currency": "^[A-Z]{3}$",
+    "kma_currency_about": "The ISO 4217 code, upper case. The SDKs accept any three letters and send them upper case.",
+    "kma_product_id": "Text, 1 to id_max_length characters: your product or plan",
+    "kma_transaction_id": "Text, 1 to id_max_length characters: the store's or payment provider's ID for the payment",
+    "max_amount": 1000000000,
+    "id_max_length": 200,
+    "default_event": {
+      "payment": "purchase",
+      "refund": "refund"
+    },
+    "other_properties": "Any other properties the app passes go in the same event; the four above always come from the call itself."
   },
   "attribution": {
     "about": "What every KissMyApps app SDK sends to the two attribution calls, and what it gets back. Both use the same key as /v1/events (Authorization: Bearer). They do nothing until the merchant turns attribution on for the project: the answer is then {\"matched\": false, \"method\": \"off\", \"deep_link\": null}.",

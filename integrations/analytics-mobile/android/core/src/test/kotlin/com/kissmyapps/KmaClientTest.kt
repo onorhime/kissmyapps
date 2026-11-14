@@ -97,6 +97,21 @@ internal fun expectContract(body: JSONObject) {
     }
 }
 
+/** The reserved revenue properties, from the contract's revenue section. */
+internal fun expectRevenueContract(properties: JSONObject) {
+    val revenue = contract.getJSONObject("revenue")
+    val fields = revenue.getJSONObject("properties")
+    for (field in strings(fields.getJSONArray("required"))) assertTrue(field, properties.has(field))
+    val amount = properties.getDouble("kma_revenue")
+    assertTrue(amount.isFinite() && amount != 0.0)
+    assertTrue(Math.abs(amount) <= revenue.getDouble("max_amount"))
+    assertTrue(Regex(revenue.getString("kma_currency")).matches(properties.getString("kma_currency")))
+    for (field in strings(fields.getJSONArray("optional")).filter { properties.has(it) }) {
+        val id = properties.get(field)
+        assertTrue(field, id is String && id.isNotEmpty() && id.length <= revenue.getInt("id_max_length"))
+    }
+}
+
 class KmaClientTest {
     private lateinit var scheduler: ManualScheduler
     private val sent = ArrayList<JSONObject>()
@@ -362,6 +377,74 @@ class KmaClientTest {
         client.track("valid_name", emptyMap())
         settle(10_000)
         assertEquals(listOf("session_started", "valid_name"), names())
+        assertTrue(logs.any { it.contains("not a valid event name") })
+    }
+
+    @Test
+    fun sendsAPaymentAndARefundWithTheReservedPropertiesWhichWinOverExtras() {
+        val client = start(MemoryStore(), KissMyAppsOptions(trackLifecycle = false))
+        client.foreground()
+        client.revenue(
+            59.99,
+            "usd",
+            "annual",
+            "GPA.3309-9122-6177-47466",
+            null,
+            mapOf("plan" to "annual", "kma_revenue" to 1, "kma_currency" to "GBP", "kma_product_id" to "x"),
+        )
+        client.revenue(-59.99, "USD", null, "GPA.3309-9122-6177-47466", null, emptyMap())
+        client.revenue(4.5, "EUR", null, null, "coins_bought", mapOf("kma_transaction_id" to "x"))
+        settle(10_000)
+
+        assertEquals(listOf("session_started", "purchase", "refund", "coins_bought"), names())
+        val defaults = contract.getJSONObject("revenue").getJSONObject("default_event")
+        assertEquals(defaults.getString("payment"), names()[1])
+        assertEquals(defaults.getString("refund"), names()[2])
+        val all = events()
+        val purchase = all[1].getJSONObject("properties")
+        assertEquals(setOf("plan", "kma_revenue", "kma_currency", "kma_product_id", "kma_transaction_id"), purchase.keys().asSequence().toSet())
+        assertEquals(59.99, purchase.getDouble("kma_revenue"), 0.0)
+        assertEquals("USD", purchase.getString("kma_currency"))
+        assertEquals("annual", purchase.getString("kma_product_id"))
+        assertEquals("GPA.3309-9122-6177-47466", purchase.getString("kma_transaction_id"))
+        assertEquals("annual", purchase.getString("plan"))
+        val refund = all[2].getJSONObject("properties")
+        assertEquals(setOf("kma_revenue", "kma_currency", "kma_transaction_id"), refund.keys().asSequence().toSet())
+        assertEquals(-59.99, refund.getDouble("kma_revenue"), 0.0)
+        val coins = all[3].getJSONObject("properties")
+        assertEquals(setOf("kma_revenue", "kma_currency"), coins.keys().asSequence().toSet())
+        assertEquals(4.5, coins.getDouble("kma_revenue"), 0.0)
+        assertEquals("EUR", coins.getString("kma_currency"))
+        all.drop(1).forEach { expectRevenueContract(it.getJSONObject("properties")) }
+        sent.forEach { expectContract(it) }
+    }
+
+    @Test
+    fun sendsNothingForAnAmountOrCurrencyThatIsNotValid() {
+        val client = start(MemoryStore(), KissMyAppsOptions(trackLifecycle = false, debug = true))
+        client.foreground()
+        for (amount in listOf(0.0, -0.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 1e9 + 1, -2e9)) {
+            client.revenue(amount, "USD", null, null, null, emptyMap())
+        }
+        for (currency in listOf("US", "USDT", "", "U\$D", "\u00DCSD", "US\n")) {
+            client.revenue(9.99, currency, null, null, null, emptyMap())
+        }
+        client.revenue(1e9, "USD", null, null, null, emptyMap())
+        client.revenue(-1e9, " gbp\n", null, null, null, emptyMap())
+        client.revenue(2.0, "USD", "  ", "x".repeat(201), "", emptyMap())
+        client.revenue(2.0, "USD", null, null, "not valid!", emptyMap())
+        settle(10_000)
+
+        assertEquals(listOf("session_started", "purchase", "refund", "purchase"), names())
+        val all = events()
+        assertEquals(1e9, all[1].getJSONObject("properties").getDouble("kma_revenue"), 0.0)
+        assertEquals("GBP", all[2].getJSONObject("properties").getString("kma_currency"))
+        assertEquals(-1e9, all[2].getJSONObject("properties").getDouble("kma_revenue"), 0.0)
+        assertEquals(setOf("kma_revenue", "kma_currency"), all[3].getJSONObject("properties").keys().asSequence().toSet())
+        assertEquals(7, logs.count { it.contains("revenue needs an amount") })
+        assertEquals(6, logs.count { it.contains("three-letter currency") })
+        assertTrue(logs.any { it.contains("productId must be") })
+        assertTrue(logs.any { it.contains("transactionId must be") })
         assertTrue(logs.any { it.contains("not a valid event name") })
     }
 

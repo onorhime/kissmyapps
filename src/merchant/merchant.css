@@ -7549,3 +7549,435 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
 }
 /* ---- end of Phase 8 ------------------------------------------------------------------------ */
+/* ---- Attribution Phase 3: ROI, cohorts, costs and revenue (mc-at3-) ---------------------- */
+/* A report keeps its last answer on screen, dimmed, while the next one loads. */
+.mc-at3-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mc-gap);
+  min-width: 0;
+  transition: opacity 150ms ease-out;
+}
+.mc-at3-body.is-stale {
+  opacity: 0.55;
+}
+/* The trail back up from a campaign, ad set or ad. */
+.mc-at3-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-crumbs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.mc-at3-crumbs li > svg {
+  flex: none;
+  color: var(--mc-faint);
+}
+.mc-at3-crumbs [aria-current='page'] {
+  font-weight: 600;
+}
+.mc-at3-callout {
+  display: grid;
+  gap: 6px;
+}
+/* Day 7 and day 30 while some people have not reached them. */
+.mc-at3-filling {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--mc-muted);
+  vertical-align: -1px;
+}
+.mc-at3-roi-table td.is-filling {
+  color: var(--mc-muted);
+}
+.mc-at3-roi-table td:first-child {
+  min-width: 180px;
+  max-width: 280px;
+}
+.mc-at3-table-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--mc-rule);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-at3-table-note > svg {
+  flex: none;
+  margin-top: 3px;
+}
+.mc-at3-start .mc-link {
+  font-weight: 500;
+}
+/* Cohorts: the two curves side by side. */
+.mc-at3-curves {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mc-gap);
+  min-width: 0;
+}
+.mc-at3-cohorts td {
+  min-width: 68px;
+}
+.mc-at3-cohorts .mc-cohort-cell {
+  gap: 3px;
+  padding: 0 6px;
+}
+/* A day some of the group have not finished: the value so far, marked as still filling. */
+.mc-at3-cell-mark {
+  flex: none;
+  opacity: 0.75;
+}
+.mc-at3-inline-icon {
+  vertical-align: -2px;
+}
+/* Costs */
+.mc-at3-form-head {
+  flex-wrap: nowrap;
+}
+.mc-at3-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mc-at3-costs-table td:first-child {
+  white-space: nowrap;
+}
+.mc-at3-costs-table td[data-label='Campaign'] {
+  max-width: 300px;
+}
+.mc-at3-costs-table .mc-row-actions,
+.mc-at3-rules-table .mc-row-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+.mc-at3-inline-edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px 8px;
+}
+.mc-at3-inline-edit input {
+  width: 112px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--mc-control);
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-field);
+  color: var(--mc-text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.mc-at3-inline-edit input:focus {
+  border-color: var(--mc-link);
+}
+.mc-at3-inline-edit input[aria-invalid='true'] {
+  border-color: #ff6767;
+}
+.mc-at3-inline-edit .mc-btn {
+  height: 36px;
+}
+.mc-at3-inline-edit .mc-field-error {
+  flex-basis: 100%;
+  text-align: right;
+}
+.mc-at3-confirm {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+.mc-at3-amount {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 150px);
+  align-items: start;
+  gap: 12px;
+}
+.mc-at3-amount .mc-select,
+.mc-at3-amount .mc-select-box {
+  width: 100%;
+}
+/* A select beside text fields sits on the same line as they do. */
+.mc-at3-amount .mc-select,
+.mc-at3-event-fields .mc-select {
+  gap: 8px;
+}
+.mc-at3-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.mc-field input[type='date'] {
+  color-scheme: dark;
+}
+.mc-at3-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mc-at3-file {
+  cursor: pointer;
+}
+.mc-at3-file:focus-within {
+  outline: 2px solid var(--mc-link);
+  outline-offset: 2px;
+}
+.mc-at3-upload-summary {
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-upload-summary strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mc-at3-preview {
+  overflow-x: auto;
+  border: 1px solid var(--mc-rule);
+  border-radius: var(--mc-radius-inner);
+}
+.mc-at3-preview-more {
+  padding: 10px 20px 12px;
+  border-top: 1px solid var(--mc-rule);
+  font-size: 13px;
+  line-height: 18px;
+}
+.mc-at3-problems {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid #4a2626;
+  border-radius: var(--mc-radius-inner);
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-problems ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-at3-problems strong {
+  margin-right: 6px;
+  color: var(--mc-negative);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.mc-at3-uploads {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mc-at3-uploads li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--mc-rule);
+}
+.mc-at3-uploads li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.mc-at3-upload-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-upload-text strong {
+  font-weight: 500;
+}
+.mc-at3-rules-table td:first-child {
+  min-width: 160px;
+  max-width: 280px;
+}
+.mc-at3-rule-form {
+  display: grid;
+  gap: 16px;
+  margin: 0 20px 16px;
+  padding: 16px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-raised);
+}
+.mc-at3-rule-form h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.mc-at3-rule-form .mc-segmented {
+  align-self: flex-start;
+}
+.mc-at3-field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 20px;
+}
+/* Settings > Revenue */
+.mc-at3-revenue .mc-facts-row {
+  padding: 14px 16px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-raised);
+}
+.mc-at3-revenue .mc-facts-row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.mc-at3-revenue .mc-facts-row dd {
+  font-size: 18px;
+  line-height: 24px;
+}
+.mc-at3-status {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-status li {
+  position: relative;
+  padding-left: 16px;
+}
+.mc-at3-status li::before {
+  position: absolute;
+  top: 8px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mc-faint);
+  content: '';
+}
+.mc-at3-skipped {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 20px;
+}
+.mc-at3-skipped ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 24px;
+  color: var(--mc-muted);
+}
+.mc-at3-event {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--mc-radius-inner);
+  background: var(--mc-raised);
+}
+.mc-at3-event-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px 16px;
+}
+.mc-at3-event-fields .mc-select,
+.mc-at3-event-fields .mc-select-box {
+  width: 100%;
+}
+.mc-at3-event-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.mc-at3-event-actions {
+  justify-content: space-between;
+}
+.mc-at3-readonly {
+  font-size: 14px;
+}
+.mc-at3-revenue-note {
+  font-size: 14px;
+  line-height: 20px;
+}
+@media (min-width: 721px) {
+  /* Wide tables scroll inside their panel rather than widening the page. */
+  .mc-at3-table-frame {
+    overflow-x: auto;
+  }
+  .mc-at3-roi-table {
+    min-width: 940px;
+  }
+}
+@media (max-width: 900px) {
+  .mc-at3-curves {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .mc-at3-actions {
+    width: 100%;
+  }
+  .mc-at3-actions .mc-btn {
+    flex: 1;
+  }
+  .mc-at3-roi-table td:first-child,
+  .mc-at3-rules-table td:first-child,
+  .mc-at3-costs-table td[data-label='Campaign'] {
+    max-width: none;
+  }
+  .mc-at3-costs-table td.is-action,
+  .mc-at3-rules-table td.is-action {
+    grid-column: 1 / -1;
+  }
+  .mc-at3-inline-edit,
+  .mc-at3-confirm,
+  .mc-at3-costs-table .mc-row-actions,
+  .mc-at3-rules-table .mc-row-actions {
+    justify-content: flex-start;
+  }
+  .mc-at3-inline-edit .mc-field-error {
+    text-align: left;
+  }
+  .mc-at3-confirm {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .mc-at3-revenue .mc-facts-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mc-at3-preview-table td:first-child::before {
+    display: inline;
+    margin-right: 4px;
+    content: attr(data-label);
+  }
+  .mc-at3-event-fields,
+  .mc-at3-dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc-at3-rule-form {
+    margin: 0 16px 16px;
+    padding: 14px;
+  }
+  .mc-at3-event-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+/* ---- end of Attribution Phase 3 ----------------------------------------------------------- */

@@ -19,6 +19,10 @@ internal const val HEARTBEAT_MS = 60_000L
 private const val MAX_PROPERTIES_BYTES = 32_000
 internal const val REFERRER_TIMEOUT_MS = 10_000L
 private const val MAX_HELD_OPENS = 10
+private val CURRENCY = Regex("[A-Za-z]{3}")
+// The properties a payment event carries; reports read revenue from them.
+private val REVENUE_KEYS = listOf("kma_revenue", "kma_currency", "kma_product_id", "kma_transaction_id")
+private const val MAX_REVENUE = 1_000_000_000.0
 
 internal fun uuid(): String = UUID.randomUUID().toString()
 
@@ -182,6 +186,42 @@ internal class KmaClient(
             return@later
         }
         enqueue(name, clean(properties), ensureSession())
+    }
+
+    /**
+     * A payment in major units (negative for a refund) and its ISO 4217 code, sent as an event
+     * with kma_revenue and kma_currency. An amount or currency that is not valid sends nothing.
+     */
+    fun revenue(
+        amount: Double,
+        currency: String,
+        productId: String?,
+        transactionId: String?,
+        event: String?,
+        properties: Map<String, Any?>,
+    ) {
+        if (!amount.isFinite() || amount == 0.0 || Math.abs(amount) > MAX_REVENUE) {
+            return warn("revenue needs an amount that is not 0 and at most 1,000,000,000 either way (negative for a refund).")
+        }
+        val code = currency.trim()
+        if (!CURRENCY.matches(code)) return warn("revenue needs a three-letter currency code such as USD, not \"$currency\".")
+        val values = LinkedHashMap<String, Any?>(properties)
+        for (field in REVENUE_KEYS) values.remove(field)
+        values["kma_revenue"] = amount
+        values["kma_currency"] = code.uppercase(Locale.ROOT)
+        val product = revenueId(productId)
+        val transaction = revenueId(transactionId)
+        if (product != null) {
+            values["kma_product_id"] = product
+        } else if (productId != null) {
+            warn("productId must be 1 to 200 characters; it was left out.")
+        }
+        if (transaction != null) {
+            values["kma_transaction_id"] = transaction
+        } else if (transactionId != null) {
+            warn("transactionId must be 1 to 200 characters; it was left out.")
+        }
+        track(if (event.isNullOrEmpty()) (if (amount > 0) "purchase" else "refund") else event, values)
     }
 
     fun screen(name: String, properties: Map<String, Any?>) {
@@ -512,6 +552,9 @@ internal class KmaClient(
         save()
         scheduleFlush(if (queue.size >= FLUSH_AT) 0 else options.flushIntervalSeconds * 1000L)
     }
+
+    /** A product or transaction ID as reports keep it: text of 1 to 200 characters. */
+    private fun revenueId(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() && it.length <= 200 }
 
     private fun clean(properties: Map<String, Any?>): JSONObject {
         return try {

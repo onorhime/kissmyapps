@@ -87,6 +87,21 @@ function groups(project: Project | undefined): NavGroup[] {
                 match: (r) => r.name === 'attribution' && r.section === 'sources',
               },
               {
+                label: 'ROI',
+                route: { name: 'attribution', projectId, section: 'roi' },
+                match: (r) => r.name === 'attribution' && r.section === 'roi',
+              },
+              {
+                label: 'Cohorts',
+                route: { name: 'attribution', projectId, section: 'cohorts' },
+                match: (r) => r.name === 'attribution' && r.section === 'cohorts',
+              },
+              {
+                label: 'Costs',
+                route: { name: 'attribution', projectId, section: 'costs' },
+                match: (r) => r.name === 'attribution' && r.section === 'costs',
+              },
+              {
                 label: 'Settings',
                 route: { name: 'attribution', projectId, section: 'settings' },
                 match: (r) => r.name === 'attribution' && r.section === 'settings',

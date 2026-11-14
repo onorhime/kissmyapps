@@ -7,9 +7,12 @@
 // the connection up by the hash. The tool's body is turned into one plain shape
 // and handed to record_program_store_event, which stores the call once per
 // event ID and turns a purchase into a program sale when it can find the
-// creator. Nothing else of the body is kept or logged: no app user ID, alias,
-// email, device or attribution data leaves this function except the app user
-// ID and aliases passed to that one call, used for a lookup and dropped.
+// creator. Right after that call succeeds, the same body goes to
+// attribution_store_revenue, which records the payment as the project's
+// revenue (attribution ROI); its failure is logged and never changes the answer
+// the tool gets. Nothing else of the body is kept or logged: no app user ID,
+// alias, email, device or attribution data leaves this function except the app
+// user ID and aliases passed to those two calls, used for a lookup and dropped.
 //
 // Fields read, as the tools document them:
 //   RevenueCat (https://www.revenuecat.com/docs/integrations/webhooks/event-types-and-fields):
@@ -94,11 +97,28 @@ export interface ProgramStoreLogEntry {
   provider?: StoreProvider;
   event_type?: StoreEventType;
   database_code?: string;
+  /** What attribution_store_revenue did with the call, or "failed". */
+  revenue?: StoreRevenueOutcome | "failed";
 }
+
+/** attribution_store_revenue's answer. */
+export type StoreRevenueOutcome =
+  | "recorded"
+  | "duplicate"
+  | "skipped"
+  | "ignored";
+const REVENUE_OUTCOMES: ReadonlySet<string> = new Set([
+  "recorded",
+  "duplicate",
+  "skipped",
+  "ignored",
+]);
 
 export interface ProgramStoreWebhookDependencies {
   enabled: () => boolean;
   record: (call: StoreEventCall) => Promise<unknown>;
+  /** The same call for the project's revenue, after record succeeded. */
+  revenue: (call: StoreEventCall) => Promise<unknown>;
   log: (entry: ProgramStoreLogEntry) => void;
 }
 
@@ -439,7 +459,23 @@ function defaults(): ProgramStoreWebhookDependencies {
       if (error) throw new DatabaseBoundaryError(error.code);
       return data;
     },
+    revenue: async (call) => {
+      const { data, error } = await serviceClient().rpc(
+        "attribution_store_revenue",
+        { p: call },
+      );
+      if (error) throw new DatabaseBoundaryError(error.code);
+      return data;
+    },
   };
+}
+
+/** The database code of a refusal, when it is one. */
+function databaseCode(error: unknown): string | undefined {
+  const code = error instanceof DatabaseBoundaryError
+    ? error.databaseCode
+    : undefined;
+  return code && /^[0-9A-Z]{5}$/.test(code) ? code : undefined;
 }
 
 export function createProgramStoreWebhook(
@@ -450,17 +486,46 @@ export function createProgramStoreWebhook(
     const rid = requestId(request);
     // Only values that passed their checks are ever logged.
     const seen: { provider?: StoreProvider; event_type?: StoreEventType } = {};
-    const answer = (outcome: string, body: Json): Response => {
+    const answer = (
+      outcome: string,
+      body: Json,
+      revenue?: StoreRevenueOutcome | "failed",
+    ): Response => {
       deps.log({
         level: "info",
         worker: WORKER,
         outcome,
         request_id: rid,
         ...seen,
+        ...(revenue ? { revenue } : {}),
       });
       return jsonResponse(200, { received: true, ...body, request_id: rid }, {
         "X-Request-ID": rid,
       });
+    };
+    // The project's revenue: whatever happens here, the tool's answer stays.
+    const recordRevenue = async (
+      call: StoreEventCall,
+    ): Promise<StoreRevenueOutcome | "failed"> => {
+      try {
+        const result: unknown = await deps.revenue(call);
+        if (
+          !isPlainObject(result) || typeof result.outcome !== "string" ||
+          !REVENUE_OUTCOMES.has(result.outcome)
+        ) throw new DatabaseBoundaryError();
+        return result.outcome as StoreRevenueOutcome;
+      } catch (caught) {
+        const code = databaseCode(caught);
+        deps.log({
+          level: "warning",
+          worker: WORKER,
+          outcome: "revenue_failed",
+          request_id: rid,
+          ...seen,
+          ...(code ? { database_code: code } : {}),
+        });
+        return "failed";
+      }
     };
     try {
       requireMethod(request, ["POST"]);
@@ -519,23 +584,23 @@ export function createProgramStoreWebhook(
         ? normalizeRevenueCat(body)
         : normalizeAdapty(body);
       seen.event_type = event.type;
-      const outcome: unknown = await deps.record({
+      const call: StoreEventCall = {
         ...event,
         header_sha256: await sha256Hex(authorization),
         provider,
-      });
+      };
+      const outcome: unknown = await deps.record(call);
       if (
         !isPlainObject(outcome) || typeof outcome.outcome !== "string" ||
         typeof outcome.duplicate !== "boolean"
       ) throw new DatabaseBoundaryError();
+      const revenue = await recordRevenue(call);
       return answer(outcome.duplicate ? "duplicate" : outcome.outcome, {
         outcome: outcome.outcome,
         duplicate: outcome.duplicate,
-      });
+      }, revenue);
     } catch (caught) {
-      const code = caught instanceof DatabaseBoundaryError
-        ? caught.databaseCode
-        : undefined;
+      const code = databaseCode(caught);
       // An unknown or removed connection, and a body the database refused.
       const error = code === "28000"
         ? new RequestError(
@@ -559,7 +624,7 @@ export function createProgramStoreWebhook(
           : "internal_error",
         request_id: rid,
         ...seen,
-        ...(code && /^[0-9A-Z]{5}$/.test(code) ? { database_code: code } : {}),
+        ...(code ? { database_code: code } : {}),
       });
       return response;
     }

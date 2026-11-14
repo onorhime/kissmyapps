@@ -1,4 +1,4 @@
-import { Kma, type Attribution, type KmaOptions, type Properties } from './kma'
+import { Kma, type Attribution, type KmaOptions, type Properties, type RevenueOptions } from './kma'
 
 type Call = [method: string, ...args: unknown[]]
 type Stub = ((...args: unknown[]) => void) & { q?: IArguments[] | Call[] }
@@ -7,6 +7,8 @@ interface Global {
   (method: string, ...args: unknown[]): void
   init(key: string, options?: Omit<KmaOptions, 'key'>): Kma
   track(name: string, properties?: Properties): void
+  /** A payment in major units (negative for a refund) and its ISO 4217 currency code. */
+  revenue(amount: number, currency: string, options?: RevenueOptions): void
   page(properties?: Properties): void
   identify(userId: string | number, traits?: Properties): void
   setTraits(traits: Properties): void
@@ -32,6 +34,7 @@ for (const call of existing?.q ?? []) pending.push(Array.from(call as ArrayLike<
 let instance: Kma | null = null
 const methods = [
   'track',
+  'revenue',
   'page',
   'identify',
   'setTraits',

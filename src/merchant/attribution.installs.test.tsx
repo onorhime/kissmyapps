@@ -12,6 +12,7 @@ import type {
   Role,
 } from './api'
 import { attributionBackendFixture as captured } from './attribution-backend.fixture'
+import { attributionRevenueBackendFixture as revenueBackend } from './attribution-revenue-backend.fixture'
 import { sdkSnippets } from './attribution'
 import { MerchantApp } from './MerchantApp'
 
@@ -123,6 +124,7 @@ beforeEach(() => {
     },
     attribution_links: () => linksAnswer(),
     attribution_sources: () => sourcesAnswer(),
+    attribution_revenue_setup: () => structuredClone(revenueBackend.revenue_setup_empty),
   }
   localStorage.clear()
   window.history.replaceState(null, '', '/?app=merchant')
@@ -175,7 +177,7 @@ describe('attribution setup: the SDK step', () => {
     const step = heading.closest('section')!
     expect(within(step).getByText('Done')).toBeInTheDocument()
     // The database counts the SDK step done once the app has sent events; conversions are not set.
-    expect(screen.getByText('3 of 4 steps done')).toBeInTheDocument()
+    expect(screen.getByText('3 of 5 steps done')).toBeInTheDocument()
     expect(within(step).getByText(/30 installs matched so far/)).toBeInTheDocument()
     // Nothing about the SDK is left for later.
     const plan = screen.getByRole('heading', { name: 'Coming next' }).closest('section')!
@@ -379,7 +381,7 @@ describe('attribution setup: the SDK step', () => {
     render(<MerchantApp />)
     await screen.findByRole('heading', { name: 'Conversions', level: 2 })
     expect(screen.queryByRole('heading', { name: 'SDK and deep links' })).toBeNull()
-    expect(screen.getByText(/of 3 steps done/)).toBeInTheDocument()
+    expect(screen.getByText(/of 4 steps done/)).toBeInTheDocument()
   })
 })
 

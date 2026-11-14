@@ -64,6 +64,20 @@ export interface Attribution {
   last: Touch
 }
 
+export interface RevenueOptions {
+  /** Your product or plan, such as annual_plan. */
+  productId?: string
+  /**
+   * The payment's ID at the store or payment provider. The same payment reported by the app
+   * and by a RevenueCat or Adapty webhook with the same ID counts once.
+   */
+  transactionId?: string
+  /** The event's name. Default purchase, or refund for a negative amount. */
+  event?: string
+  /** More properties for the event. The kma_ revenue properties always win. */
+  properties?: Properties
+}
+
 interface Session {
   id: string
   started: number
@@ -123,6 +137,16 @@ const CLICK_KEYS = [
 // A creator click ID, as KissMyApps issues it. Anything else in kma_click is ignored.
 const CREATOR_CLICK = /^[A-Za-z0-9_-]{16,128}$/
 const TOUCH_MS = 30 * 24 * 60 * 60_000
+// The properties a payment event carries; reports read revenue from them.
+const REVENUE_KEYS = ['kma_revenue', 'kma_currency', 'kma_product_id', 'kma_transaction_id']
+const MAX_REVENUE = 1e9
+const CURRENCY = /^[A-Za-z]{3}$/
+
+/** A product or transaction ID as reports keep it: text of 1 to 200 characters. */
+function revenueId(value: unknown): string | undefined {
+  const id = typeof value === 'string' ? value.trim() : ''
+  return id && id.length <= 200 ? id : undefined
+}
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
@@ -282,6 +306,49 @@ export class Kma {
     }
     const session = this.ensureSession()
     this.enqueue(name, properties, session, options)
+  }
+
+  /**
+   * Records a payment: the amount in major units (9.99, not 999), negative for a refund, and
+   * its ISO 4217 currency code. Sent as a purchase (or refund) event with kma_revenue and
+   * kma_currency. An amount or currency that is not valid is reported in the console and
+   * nothing is sent.
+   */
+  revenue(amount: number, currency: string, options: RevenueOptions = {}): void {
+    if (
+      typeof amount !== 'number' ||
+      !Number.isFinite(amount) ||
+      amount === 0 ||
+      Math.abs(amount) > MAX_REVENUE
+    ) {
+      this.warn(
+        'revenue needs an amount that is not 0 and at most 1,000,000,000 either way (negative for a refund).',
+      )
+      return
+    }
+    const code = typeof currency === 'string' ? currency.trim() : ''
+    if (!CURRENCY.test(code)) {
+      this.warn(
+        `revenue needs a three-letter currency code such as USD, not "${String(currency)}".`,
+      )
+      return
+    }
+    const { productId, transactionId, event, properties } = options ?? {}
+    const values: Properties =
+      properties && typeof properties === 'object' && !Array.isArray(properties)
+        ? { ...properties }
+        : {}
+    for (const field of REVENUE_KEYS) delete values[field]
+    values.kma_revenue = amount
+    values.kma_currency = code.toUpperCase()
+    const product = revenueId(productId)
+    const transaction = revenueId(transactionId)
+    if (product) values.kma_product_id = product
+    else if (productId != null) this.warn('productId must be 1 to 200 characters; it was left out.')
+    if (transaction) values.kma_transaction_id = transaction
+    else if (transactionId != null)
+      this.warn('transactionId must be 1 to 200 characters; it was left out.')
+    this.track(event || (amount > 0 ? 'purchase' : 'refund'), values)
   }
 
   /** Records a page or screen view. Called automatically when the URL changes. */

@@ -761,6 +761,260 @@ export interface SubdomainCheck {
   reason: string | null
 }
 
+// Attribution Phase 3: revenue, costs, return on ad spend and cohorts ---------------------------
+//
+// Money is in normal units (4.99, not 499), rounded to cents by the database. Every report is in
+// the project's currency, converted at the European Central Bank's daily rates; a cost row keeps
+// the currency it was entered in. Ratios (ROAS, retention) are fractions: 0.86 is 86%. The
+// readers at the end of this file turn each answer into these shapes.
+
+/** The ranges the money reports cover: the last 7, 30 or 90 days, today included. */
+export type MoneyRange = '7d' | '30d' | '90d'
+
+/** How a payment event names its amount: major is 4.99, minor is 499 cents. */
+export type RevenueUnit = 'major' | 'minor'
+
+/** An event the merchant says is a payment, and where in it the amount and currency are. */
+export interface RevenueEvent {
+  event: string
+  amount_property: string
+  unit: RevenueUnit
+  /** Exactly one of these two: the property with the currency code, or the one fixed currency. */
+  currency_property: string | null
+  currency: string | null
+}
+
+/** What `attribution_revenue_setup` answers: how revenue reaches the project, and how it is going. */
+export interface RevenueSetup {
+  currency: string
+  events: RevenueEvent[]
+  /** RevenueCat and Adapty connections of this project. */
+  stores: Array<{ provider: StoreProvider; connected: boolean }>
+  /** Production payments in the last 7 days, in the project's currency. */
+  last_7d: {
+    payments: number
+    refunds: number
+    payers: number
+    revenue: number
+    unconverted: number
+  }
+  last_received_at: string | null
+  /** The latest payment from a development build: kept, never counted in reports. */
+  last_development_at: string | null
+  by_origin: Array<{ origin: 'event' | 'store'; payments: number }>
+  /** Payments that could not be counted in the last 7 days, by reason. */
+  skipped_7d: Array<{ reason: string; events: number }>
+  /** The latest day of exchange rates stored. */
+  rates_day: string | null
+}
+
+export type CostOrigin = 'manual' | 'csv' | 'meta' | 'tiktok'
+export type CostRuleKind = 'install' | 'click'
+
+/** A day's spend for a source and campaign, typed in or uploaded. Names are '' when not split. */
+export interface CostRow {
+  id: string
+  day: string
+  source: string
+  campaign: string
+  adset: string
+  ad: string
+  amount: number
+  currency: string
+  origin: CostOrigin
+  import_id: string | null
+  updated_at: string | null
+}
+
+/** What a link's price per install or click added on one day. */
+export interface LinkCost {
+  day: string
+  link_id: string
+  link_name: string
+  source: string
+  campaign: string
+  kind: CostRuleKind
+  count: number
+  amount: number
+  currency: string
+}
+
+/** One spreadsheet upload; remaining is how many of its rows are still its own. */
+export interface CostImport {
+  id: string
+  file_name: string | null
+  rows: number
+  created_at: string | null
+  remaining: number
+}
+
+/** A link's fixed price per install or per click. */
+export interface CostRule {
+  id: string
+  link_id: string
+  link_name: string
+  link_source: string
+  link_campaign: string
+  kind: CostRuleKind
+  amount: number
+  currency: string
+  starts_on: string
+  ends_on: string | null
+  updated_at: string | null
+}
+
+/** What `attribution_costs` answers. Totals are in the project's currency. */
+export interface CostsReport {
+  currency: string
+  range: MoneyRange
+  from: string | null
+  to: string | null
+  rows: CostRow[]
+  link_costs: LinkCost[]
+  totals: { cost: number; typed: number; uploaded: number; links: number; unconverted: number }
+  imports: CostImport[]
+  rules: CostRule[]
+  /** Source names seen in this project, to suggest while typing one. */
+  sources: string[]
+}
+
+/** One day's spend to save; with an id it changes that row. */
+export interface CostInput {
+  id?: string
+  day: string
+  source: string
+  campaign?: string
+  adset?: string
+  ad?: string
+  amount: number
+  currency?: string
+}
+
+/** What an upload answers: nothing written and the problems by row, or what was written. */
+export interface CostImportResult {
+  import_id: string | null
+  imported: number
+  replaced: number
+  /** Row is the 1-based position in the rows sent. */
+  errors: Array<{ row: number; message: string }>
+}
+
+export interface CostRuleInput {
+  link_id: string
+  kind: CostRuleKind
+  amount: number
+  currency?: string
+  starts_on: string
+  ends_on?: string | null
+}
+
+export type RoiGroup = 'source' | 'campaign' | 'adset' | 'ad' | 'day'
+
+/**
+ * Which part of the report to open. A key that is there with null means "none": direct and
+ * organic, or no campaign. A key left out does not filter.
+ */
+export interface RoiFilters {
+  source?: string | null
+  campaign?: string | null
+  adset?: string | null
+}
+
+/** The figures of a whole report or one of its rows. Money in the project's currency. */
+export interface RoiMetrics {
+  users: number
+  installs: number
+  cost: number
+  payers: number
+  revenue: number
+  revenue_d0: number
+  revenue_d7: number
+  revenue_d30: number
+  cpi: number | null
+  cost_per_user: number | null
+  cost_per_payer: number | null
+  arpu: number | null
+  roas: number | null
+  roas_d0: number | null
+  roas_d7: number | null
+  roas_d30: number | null
+}
+
+export interface RoiRow extends RoiMetrics {
+  /** A source, campaign, ad set or ad name, or a YYYY-MM-DD day; null for none. */
+  key: string | null
+}
+
+/** Revenue and cost rows left out because their currency had no exchange rate. */
+export interface Unconverted {
+  revenue: number
+  cost: number
+  currencies: string[]
+}
+
+/** What `attribution_roi` answers. */
+export interface RoiReport {
+  currency: string
+  range: MoneyRange
+  from: string | null
+  to: string | null
+  timezone: string
+  group: RoiGroup
+  filters: RoiFilters
+  /** Whether every person in the range has finished day 0, 7 and 30. */
+  complete: { d0: boolean; d7: boolean; d30: boolean }
+  totals: RoiMetrics
+  rows: RoiRow[]
+  unconverted: Unconverted
+  has_costs: boolean
+  has_revenue: boolean
+}
+
+export type CohortInterval = 'day' | 'week' | 'month'
+
+export interface CohortCell {
+  day: number
+  state: 'complete' | 'partial' | 'future'
+  /** The cohort's people who have finished this day. */
+  complete_users: number
+  /** What the cohort's people paid by the end of this day, together. */
+  revenue: number
+  revenue_per_user: number | null
+  roas: number | null
+  /** People active on this day after they arrived. */
+  returned: number
+  retention: number | null
+}
+
+export interface Cohort {
+  /** The first day of the cohort, YYYY-MM-DD, in the project's time zone. */
+  start: string
+  users: number
+  cost: number
+  cells: CohortCell[]
+}
+
+/** What `attribution_cohorts` answers. */
+export interface CohortsReport {
+  currency: string
+  interval: CohortInterval
+  timezone: string
+  today: string | null
+  filters: RoiFilters
+  days: number[]
+  /** Newest first. */
+  cohorts: Cohort[]
+  /** Day 0 to 30, over the people who have finished each day. */
+  curve: Array<{
+    day: number
+    users: number
+    revenue_per_user: number | null
+    retention: number | null
+  }>
+  totals: { users: number; cost: number; revenue: number; payers: number }
+  unconverted: Unconverted
+}
+
 export class ApiError extends Error {
   readonly code?: string
 
@@ -1044,6 +1298,58 @@ export const api = {
   /** Raw: read it with readTestDevice, which tolerates a missing or partial answer. */
   attributionTestDevice: (project: string, link: string) =>
     rpc<unknown>('attribution_test_device', { p_project: project, p_link: link }),
+  revenueSetup: async (project: string) =>
+    readRevenueSetup(await rpc<unknown>('attribution_revenue_setup', { p_project: project })),
+  /** Replaces the project's payment events with these; answers the setup as it is after. */
+  saveRevenueEvents: async (project: string, events: RevenueEvent[]) =>
+    readRevenueSetup(
+      await rpc<unknown>('attribution_revenue_events_save', {
+        p_project: project,
+        p_events: events.map(revenueEventInput),
+      }),
+    ),
+  attributionCosts: async (project: string, input: { range: MoneyRange; source?: string }) =>
+    readCosts(await rpc<unknown>('attribution_costs', { p_project: project, p_input: input })),
+  saveCosts: async (project: string, rows: CostInput[]) =>
+    countIn(
+      await rpc<unknown>('attribution_cost_save', { p_project: project, p_input: { rows } }),
+      'saved',
+    ),
+  deleteCosts: async (project: string, ids: string[]) =>
+    countIn(
+      await rpc<unknown>('attribution_cost_delete', { p_project: project, p_ids: ids }),
+      'deleted',
+    ),
+  importCosts: async (project: string, input: { file_name?: string; rows: CostInput[] }) =>
+    readCostImport(
+      await rpc<unknown>('attribution_cost_import', { p_project: project, p_input: input }),
+    ),
+  undoCostImport: async (project: string, importId: string) =>
+    countIn(
+      await rpc<unknown>('attribution_cost_import_undo', {
+        p_project: project,
+        p_import: importId,
+      }),
+      'deleted',
+    ),
+  saveCostRule: async (project: string, input: CostRuleInput) => {
+    const rule = readCostRule(
+      await rpc<unknown>('attribution_cost_rule_save', { p_project: project, p_input: input }),
+    )
+    if (!rule) throw unreadable()
+    return rule
+  },
+  deleteCostRule: async (project: string, rule: string) =>
+    countIn(
+      await rpc<unknown>('attribution_cost_rule_delete', { p_project: project, p_rule: rule }),
+      'deleted',
+    ),
+  attributionRoi: async (
+    project: string,
+    input: { range: MoneyRange; group: RoiGroup } & RoiFilters,
+  ) => readRoi(await rpc<unknown>('attribution_roi', { p_project: project, p_input: input })),
+  attributionCohorts: async (project: string, input: { interval: CohortInterval } & RoiFilters) =>
+    readCohorts(await rpc<unknown>('attribution_cohorts', { p_project: project, p_input: input })),
 }
 
 export type Api = typeof api
@@ -1311,4 +1617,408 @@ export const analyticsDestinations = {
       ? readDestinations(answer)
       : analyticsDestinations.get(projectId)
   },
+}
+
+// Attribution Phase 3 readers ------------------------------------------------------------------
+//
+// Each answer is read defensively, like the other attribution readers: a missing number is 0, a
+// missing ratio is null (nothing to divide by), a row that cannot be used is left out. An answer
+// that is not a report at all fails with a plain message, so the screen says it could not load
+// instead of showing an empty report.
+
+const unreadable = () => new ApiError('The answer could not be read. Try again in a moment.')
+
+function reportBody(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw unreadable()
+  return value as Record<string, unknown>
+}
+
+const recordOrNull = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+
+const listIn = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
+
+/** A number sent as JSON or as text (Postgres numeric); anything else is null. */
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+const amountIn = (value: unknown) => numberOrNull(value) ?? 0
+
+const wholeIn = (value: unknown) => {
+  const parsed = numberOrNull(value)
+  return parsed !== null && parsed > 0 ? Math.round(parsed) : 0
+}
+
+const textOrNull = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : null
+
+/** A name that may be empty ('' means not split further). */
+const nameIn = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
+
+const dayOrNull = (value: unknown) =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() : null
+
+const momentOrNull = (value: unknown) => {
+  const text = textOrNull(value)
+  return text && Number.isFinite(Date.parse(text)) ? text : null
+}
+
+const currencyOr = (value: unknown, fallback: string) =>
+  typeof value === 'string' && /^[A-Za-z]{3}$/.test(value.trim())
+    ? value.trim().toUpperCase()
+    : fallback
+
+const moneyRangeOf = (value: unknown): MoneyRange =>
+  value === '7d' || value === '90d' ? value : '30d'
+
+function unconvertedOf(value: unknown): Unconverted {
+  const body = recordOrNull(value) ?? {}
+  return {
+    revenue: wholeIn(body.revenue),
+    cost: wholeIn(body.cost),
+    currencies: listIn(body.currencies).flatMap((item) => {
+      const code = currencyOr(item, '')
+      return code ? [code] : []
+    }),
+  }
+}
+
+function filtersOf(value: unknown): RoiFilters {
+  const body = recordOrNull(value) ?? {}
+  const filters: RoiFilters = {}
+  for (const key of ['source', 'campaign', 'adset'] as const)
+    if (key in body) filters[key] = typeof body[key] === 'string' ? (body[key] as string) : null
+  return filters
+}
+
+function metricsOf(value: unknown): RoiMetrics {
+  const row = recordOrNull(value) ?? {}
+  return {
+    users: wholeIn(row.users),
+    installs: wholeIn(row.installs),
+    cost: amountIn(row.cost),
+    payers: wholeIn(row.payers),
+    revenue: amountIn(row.revenue),
+    revenue_d0: amountIn(row.revenue_d0),
+    revenue_d7: amountIn(row.revenue_d7),
+    revenue_d30: amountIn(row.revenue_d30),
+    cpi: numberOrNull(row.cpi),
+    cost_per_user: numberOrNull(row.cost_per_user),
+    cost_per_payer: numberOrNull(row.cost_per_payer),
+    arpu: numberOrNull(row.arpu),
+    roas: numberOrNull(row.roas),
+    roas_d0: numberOrNull(row.roas_d0),
+    roas_d7: numberOrNull(row.roas_d7),
+    roas_d30: numberOrNull(row.roas_d30),
+  }
+}
+
+const ROI_GROUPS: readonly RoiGroup[] = ['source', 'campaign', 'adset', 'ad', 'day']
+
+/** Reads an `attribution_roi` answer. */
+export function readRoi(value: unknown): RoiReport {
+  const body = reportBody(value)
+  if (!Array.isArray(body.rows)) throw unreadable()
+  const complete = recordOrNull(body.complete) ?? {}
+  return {
+    currency: currencyOr(body.currency, 'USD'),
+    range: moneyRangeOf(body.range),
+    from: dayOrNull(body.from),
+    to: dayOrNull(body.to),
+    timezone: textOrNull(body.timezone) ?? 'UTC',
+    group: ROI_GROUPS.includes(body.group as RoiGroup) ? (body.group as RoiGroup) : 'source',
+    filters: filtersOf(body.filters),
+    // A day the answer does not vouch for is still filling.
+    complete: { d0: complete.d0 === true, d7: complete.d7 === true, d30: complete.d30 === true },
+    totals: metricsOf(body.totals),
+    rows: body.rows.flatMap((item) => {
+      const row = recordOrNull(item)
+      if (!row) return []
+      return [{ key: typeof row.key === 'string' ? row.key : null, ...metricsOf(row) }]
+    }),
+    unconverted: unconvertedOf(body.unconverted),
+    has_costs: body.has_costs === true,
+    has_revenue: body.has_revenue === true,
+  }
+}
+
+const CELL_STATES = ['complete', 'partial', 'future'] as const
+
+/** Reads an `attribution_cohorts` answer. */
+export function readCohorts(value: unknown): CohortsReport {
+  const body = reportBody(value)
+  if (!Array.isArray(body.cohorts)) throw unreadable()
+  const interval = body.interval === 'week' || body.interval === 'month' ? body.interval : 'day'
+  const days = listIn(body.days).flatMap((item) => {
+    const day = numberOrNull(item)
+    return day !== null && Number.isInteger(day) && day >= 0 ? [day] : []
+  })
+  const totals = recordOrNull(body.totals) ?? {}
+  return {
+    currency: currencyOr(body.currency, 'USD'),
+    interval,
+    timezone: textOrNull(body.timezone) ?? 'UTC',
+    today: dayOrNull(body.today),
+    filters: filtersOf(body.filters),
+    days: days.length ? days : [0, 1, 3, 7, 14, 30, 60, 90],
+    cohorts: body.cohorts.flatMap((item) => {
+      const row = recordOrNull(item)
+      const start = dayOrNull(row?.start)
+      if (!row || !start) return []
+      return [
+        {
+          start,
+          users: wholeIn(row.users),
+          cost: amountIn(row.cost),
+          cells: listIn(row.cells).flatMap((entry) => {
+            const cell = recordOrNull(entry)
+            const day = numberOrNull(cell?.day)
+            if (!cell || day === null) return []
+            return [
+              {
+                day,
+                // A state the console has no word for is drawn as a day still to come.
+                state: CELL_STATES.includes(cell.state as CohortCell['state'])
+                  ? (cell.state as CohortCell['state'])
+                  : 'future',
+                complete_users: wholeIn(cell.complete_users),
+                revenue: amountIn(cell.revenue),
+                revenue_per_user: numberOrNull(cell.revenue_per_user),
+                roas: numberOrNull(cell.roas),
+                returned: wholeIn(cell.returned),
+                retention: numberOrNull(cell.retention),
+              },
+            ]
+          }),
+        },
+      ]
+    }),
+    curve: listIn(body.curve).flatMap((item) => {
+      const point = recordOrNull(item)
+      const day = numberOrNull(point?.day)
+      if (!point || day === null) return []
+      return [
+        {
+          day,
+          users: wholeIn(point.users),
+          revenue_per_user: numberOrNull(point.revenue_per_user),
+          retention: numberOrNull(point.retention),
+        },
+      ]
+    }),
+    totals: {
+      users: wholeIn(totals.users),
+      cost: amountIn(totals.cost),
+      revenue: amountIn(totals.revenue),
+      payers: wholeIn(totals.payers),
+    },
+    unconverted: unconvertedOf(body.unconverted),
+  }
+}
+
+function readRevenueEvent(value: unknown): RevenueEvent[] {
+  const row = recordOrNull(value)
+  const event = textOrNull(row?.event)
+  const amount = textOrNull(row?.amount_property)
+  if (!row || !event || !amount) return []
+  const currencyProperty = textOrNull(row.currency_property)
+  const fixed = currencyProperty ? null : currencyOr(row.currency, '') || null
+  return [
+    {
+      event,
+      amount_property: amount,
+      unit: row.unit === 'minor' ? 'minor' : 'major',
+      currency_property: currencyProperty,
+      currency: fixed,
+    },
+  ]
+}
+
+/** Reads what `attribution_revenue_setup` and `attribution_revenue_events_save` answer. */
+export function readRevenueSetup(value: unknown): RevenueSetup {
+  const body = reportBody(value)
+  const last = recordOrNull(body.last_7d) ?? {}
+  return {
+    currency: currencyOr(body.currency, 'USD'),
+    events: listIn(body.events).flatMap(readRevenueEvent),
+    stores: listIn(body.stores).flatMap((item) => {
+      const row = recordOrNull(item)
+      return row && STORE_PROVIDERS.includes(row.provider as StoreProvider)
+        ? [{ provider: row.provider as StoreProvider, connected: row.connected !== false }]
+        : []
+    }),
+    last_7d: {
+      payments: wholeIn(last.payments),
+      refunds: wholeIn(last.refunds),
+      payers: wholeIn(last.payers),
+      revenue: amountIn(last.revenue),
+      unconverted: wholeIn(last.unconverted),
+    },
+    last_received_at: momentOrNull(body.last_received_at),
+    last_development_at: momentOrNull(body.last_development_at),
+    by_origin: listIn(body.by_origin).flatMap((item) => {
+      const row = recordOrNull(item)
+      return row && (row.origin === 'event' || row.origin === 'store')
+        ? [{ origin: row.origin, payments: wholeIn(row.payments) }]
+        : []
+    }),
+    skipped_7d: listIn(body.skipped_7d).flatMap((item) => {
+      const row = recordOrNull(item)
+      const reason = textOrNull(row?.reason)
+      return row && reason && wholeIn(row.events) > 0
+        ? [{ reason, events: wholeIn(row.events) }]
+        : []
+    }),
+    rates_day: dayOrNull(body.rates_day),
+  }
+}
+
+/** What saving sends for one event: the currency property or the fixed currency, never both. */
+function revenueEventInput(event: RevenueEvent): Record<string, string> {
+  return {
+    event: event.event,
+    amount_property: event.amount_property,
+    unit: event.unit,
+    ...(event.currency_property
+      ? { currency_property: event.currency_property }
+      : { currency: event.currency ?? '' }),
+  }
+}
+
+const COST_ORIGINS: readonly CostOrigin[] = ['manual', 'csv', 'meta', 'tiktok']
+const ruleKindOf = (value: unknown): CostRuleKind | null =>
+  value === 'install' || value === 'click' ? value : null
+
+/** A link price from `attribution_costs` or `attribution_cost_rule_save`; null if unusable. */
+export function readCostRule(value: unknown): CostRule | null {
+  const row = recordOrNull(value)
+  const id = textOrNull(row?.id)
+  const link = textOrNull(row?.link_id)
+  const kind = ruleKindOf(row?.kind)
+  const starts = dayOrNull(row?.starts_on)
+  if (!row || !id || !link || !kind || !starts) return null
+  return {
+    id,
+    link_id: link,
+    link_name: textOrNull(row.link_name) ?? 'A link',
+    link_source: nameIn(row.link_source),
+    link_campaign: nameIn(row.link_campaign),
+    kind,
+    amount: amountIn(row.amount),
+    currency: currencyOr(row.currency, 'USD'),
+    starts_on: starts,
+    ends_on: dayOrNull(row.ends_on),
+    updated_at: momentOrNull(row.updated_at),
+  }
+}
+
+/** Reads an `attribution_costs` answer. */
+export function readCosts(value: unknown): CostsReport {
+  const body = reportBody(value)
+  if (!Array.isArray(body.rows)) throw unreadable()
+  const currency = currencyOr(body.currency, 'USD')
+  const totals = recordOrNull(body.totals) ?? {}
+  return {
+    currency,
+    range: moneyRangeOf(body.range),
+    from: dayOrNull(body.from),
+    to: dayOrNull(body.to),
+    rows: body.rows.flatMap((item) => {
+      const row = recordOrNull(item)
+      const id = textOrNull(row?.id)
+      const day = dayOrNull(row?.day)
+      const source = textOrNull(row?.source)
+      if (!row || !id || !day || !source) return []
+      return [
+        {
+          id,
+          day,
+          source,
+          campaign: nameIn(row.campaign),
+          adset: nameIn(row.adset),
+          ad: nameIn(row.ad),
+          amount: amountIn(row.amount),
+          currency: currencyOr(row.currency, currency),
+          origin: COST_ORIGINS.includes(row.origin as CostOrigin)
+            ? (row.origin as CostOrigin)
+            : 'manual',
+          import_id: textOrNull(row.import_id),
+          updated_at: momentOrNull(row.updated_at),
+        },
+      ]
+    }),
+    link_costs: listIn(body.link_costs).flatMap((item) => {
+      const row = recordOrNull(item)
+      const day = dayOrNull(row?.day)
+      const link = textOrNull(row?.link_id)
+      const kind = ruleKindOf(row?.kind)
+      if (!row || !day || !link || !kind) return []
+      return [
+        {
+          day,
+          link_id: link,
+          link_name: textOrNull(row.link_name) ?? 'A link',
+          source: nameIn(row.source),
+          campaign: nameIn(row.campaign),
+          kind,
+          count: wholeIn(row.count),
+          amount: amountIn(row.amount),
+          currency: currencyOr(row.currency, currency),
+        },
+      ]
+    }),
+    totals: {
+      cost: amountIn(totals.cost),
+      typed: amountIn(totals.typed),
+      uploaded: amountIn(totals.uploaded),
+      links: amountIn(totals.links),
+      unconverted: wholeIn(totals.unconverted),
+    },
+    imports: listIn(body.imports).flatMap((item) => {
+      const row = recordOrNull(item)
+      const id = textOrNull(row?.id)
+      if (!row || !id) return []
+      return [
+        {
+          id,
+          file_name: textOrNull(row.file_name),
+          rows: wholeIn(row.rows),
+          created_at: momentOrNull(row.created_at),
+          remaining: wholeIn(row.remaining),
+        },
+      ]
+    }),
+    rules: listIn(body.rules).flatMap((item) => readCostRule(item) ?? []),
+    sources: [
+      ...new Set(listIn(body.sources).flatMap((item) => textOrNull(item)?.toLowerCase() ?? [])),
+    ],
+  }
+}
+
+/** Reads what `attribution_cost_import` answers, whether it wrote the rows or not. */
+export function readCostImport(value: unknown): CostImportResult {
+  const body = reportBody(value)
+  return {
+    import_id: textOrNull(body.import_id),
+    imported: wholeIn(body.imported),
+    replaced: wholeIn(body.replaced),
+    errors: listIn(body.errors).flatMap((item) => {
+      const row = recordOrNull(item)
+      const message = textOrNull(row?.message)
+      return row && message ? [{ row: wholeIn(row.row), message }] : []
+    }),
+  }
+}
+
+/** A count in a small answer such as {"saved": 3}; 0 when it is not there. */
+function countIn(value: unknown, key: string): number {
+  return wholeIn(recordOrNull(value)?.[key])
 }

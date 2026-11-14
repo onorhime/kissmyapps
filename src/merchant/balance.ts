@@ -680,7 +680,8 @@ export function entryLabel(entry: Pick<BalanceEntry, 'kind' | 'topup_kind'>): st
 
 /**
  * Who and what a line is about: "Ada Okafor · $49.00 sale", or for a reward
- * "Reward for Mira Maker: Account created". Null when there is nothing to add.
+ * "Reward for Mira Maker: Account created", with the entry's note when it has
+ * one. Null when there is nothing to add.
  */
 export function entryDetail(
   entry: Pick<
@@ -704,6 +705,9 @@ export function entryDetail(
         entry.sale_amount_minor !== null
           ? `${formatAmount(entry.sale_amount_minor, currency)} sale`
           : null,
+        // "Refund recovered from the creator's later earnings", when a refund
+        // after approval is paid back out of what the creator earned next.
+        entry.note,
       ]
     : [entry.note]
   const line = parts.filter(Boolean).join(' · ')

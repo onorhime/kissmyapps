@@ -460,9 +460,17 @@ select pg_temp.publish('owner', 'acme', '{"name":"SpeakSix","category":"educatio
 select pg_temp.publish('rival_owner', 'rival', '{"name":"Rival Reader","category":"entertainment","tagline":"Stories worth an evening.",
   "landing_url":"https://rivalreader.co/","commission_type":"percent","commission_rate_bps":2000,
   "commission_duration":"lifetime","hold_days":14}');
-select pg_temp.publish('euro_owner', 'euro', '{"name":"Lingot","category":"education","tagline":"Le francais en un mois.",
-  "landing_url":"https://lingot.fr/","commission_type":"percent","commission_rate_bps":2500,"currency":"EUR",
-  "commission_duration":"lifetime","hold_days":14}');
+-- Programs pay creators in US dollars only now (20261122104000_program_refund_recovery.sql), so
+-- Lingot is a program published in euros before that rule: saved in dollars, moved to euros on
+-- the row, and published with the first-publish check switched off.
+select pg_temp.call('euro_owner', format('select public.workspace_program_save(%L, %L)', pg_temp.q('euro'),
+  '{"name":"Lingot","category":"education","tagline":"Le francais en un mois.",
+  "landing_url":"https://lingot.fr/","commission_type":"percent","commission_rate_bps":2500,
+  "commission_duration":"lifetime","hold_days":14}'::jsonb));
+update public.affiliate_programs set currency = 'EUR' where workspace_id = pg_temp.q('euro');
+alter table public.affiliate_programs disable trigger affiliate_programs_require_usd;
+select pg_temp.publish('euro_owner', 'euro', jsonb_build_object('revision', (pg_temp.program('euro')).revision));
+alter table public.affiliate_programs enable trigger affiliate_programs_require_usd;
 select pg_temp.publish('quiet_owner', 'quiet', '{"name":"Quiet Club","category":"lifestyle","tagline":"A calmer phone.",
   "landing_url":"https://quietclub.io/join","commission_type":"percent","commission_rate_bps":2000,
   "commission_duration":"lifetime","hold_days":14}');
@@ -1274,20 +1282,29 @@ select pg_temp.check((select pg_temp.roll(a) = 'Ada Okafor USD 3000 ready; Ben C
     || 'and one waiting to be tried again, and the paid, failed and canceled ones newest first');
 
 -- A refund after a payout -------------------------------------------------------------------------------------------------
--- The buyer of Ada's Rival Reader sale is refunded after her 14.10 was paid out.
+-- The buyer of Ada's Rival Reader sale is refunded after her 14.10 was paid out. Since
+-- 20261122104000_program_refund_recovery.sql the whole commission is taken back: her Rival Reader
+-- sum goes below nothing, to be taken from what she earns there later, and nothing of it is
+-- paid back to the merchant yet. KissMyApps's fee on it goes back to the merchant now.
 select pg_temp.refund('s_ada_rival', 7050);
-select pg_temp.check(pg_temp.owed('ada', 'rival') = 0
-  and (select c.status = 'approved' and c.amount_minor = 1410 from public.program_commissions c where c.sale_id = pg_temp.q('s_ada_rival'))
-  and pg_temp.n(format('public.program_creator_entries where kind = ''clawback'' and affiliate_id = %L', pg_temp.q('creator_ada'))) = 0
+select pg_temp.check(pg_temp.owed('ada', 'rival') = -1410
+  and (select c.status = 'approved' and c.amount_minor = 0 and c.fee_minor = 0 and c.recovery_due_minor = 1410
+    and (select count(*) = 0 from public.program_balance_entries b where b.commission_id = c.id and b.kind = 'commission_returned')
+    and (select sum(b.amount_minor) = c.fee_earned_minor from public.program_balance_entries b
+      where b.commission_id = c.id and b.kind = 'fee_returned')
+    from public.program_commissions c where c.sale_id = pg_temp.q('s_ada_rival'))
+  and pg_temp.n(format('public.program_creator_entries where kind = ''clawback'' and affiliate_id = %L and amount_minor = -1410',
+    pg_temp.q('creator_ada'))) = 1
   and pg_temp.moved('p2', 'payout') = '2x-7410' and (pg_temp.payout('p2')).status = 'paid',
-  'money that was paid out is not taken back by a later refund: the sum stays at nothing and the payout is untouched');
--- Eve's second sale is refunded while her first payout is under way: only what is still in the sum goes back.
+  'a refund after a payout takes the whole commission back: the sum goes below nothing, the payout is untouched '
+    || 'and the fee goes back to the merchant');
+-- Eve's second sale is refunded while her first payout is under way: what is still in the sum covers it.
 select pg_temp.refund('s_eve2', 5000);
 select pg_temp.check(pg_temp.owed('eve', 'rival') = 0 and pg_temp.moved('p6', 'payout') = '1x-4000'
   and pg_temp.n(format('public.program_creator_entries where kind = ''clawback'' and affiliate_id = %L and amount_minor = -1000',
     pg_temp.q('creator_eve'))) = 1
   and pg_temp.listed(pg_temp.panel(), 'eve') is null,
-  'a refund while a payout is under way takes back only what is still in the creator''s sum');
+  'a refund while a payout is under way is taken from what is still in the creator''s sum');
 
 -- The schedule ------------------------------------------------------------------------------------------------------------
 select pg_temp.check(kma_internal.tick_program_payout_schedule() = '{"status":"paused"}'::jsonb,
@@ -1445,15 +1462,19 @@ select pg_temp.check(pg_temp.health()->>'ledger_mismatches' = '0'
   and (select bool_and(i.amount_minor = -(select e.amount_minor from public.program_creator_entries e
       where e.payout_id = i.payout_id and e.program_id = i.program_id and e.kind = 'payout'))
     from public.program_payout_items i)
-  and not exists (select 1 from public.program_creator_entries e group by e.affiliate_id, e.program_id having sum(e.amount_minor) < 0)
+  -- A sum is below zero only by what refunds after a payout still owe back
+  -- (20261122104000_program_refund_recovery.sql).
+  and not exists (select 1 from public.program_creator_entries e group by e.affiliate_id, e.program_id
+    having greatest(-sum(e.amount_minor), 0) <> (select coalesce(sum(c.recovery_due_minor), 0) from public.program_commissions c
+      where c.affiliate_id = e.affiliate_id and c.program_id = e.program_id))
   and (select count(*) = count(distinct (p.affiliate_id, p.platform_account_id, p.currency))
     from public.program_payouts p where p.status in ('approved', 'processing')),
   'every payout agrees with its items and its entries, money that came back came back once, no creator''s sum is below '
-    || 'zero, and no creator has two payouts under way in one currency');
+    || 'zero but by what refunds still owe back, and no creator has two payouts under way in one currency');
 select pg_temp.check((select sum(e.amount_minor) from public.program_creator_entries e
     where e.affiliate_id in (pg_temp.q('creator_ada'), pg_temp.q('creator_eve')))
-    = (3000 + 1410 + 3000 + 3000 + 3000) + (4000 + 1000 - 1000) - (7410 + 3000),
-  'what Ada and Eve earned, less what was paid to them, is what they still have coming');
+    = (3000 + 1410 + 3000 + 3000 + 3000 - 1410) + (4000 + 1000 - 1000) - (7410 + 3000),
+  'what Ada and Eve earned, less what was refunded and what was paid to them, is what they still have coming');
 select pg_temp.check(pg_temp.fails('update public.program_creator_entries set amount_minor = 1') <> 'ok'
   and pg_temp.fails('delete from public.program_creator_entries') <> 'ok',
   'creator entries still cannot be changed or deleted');

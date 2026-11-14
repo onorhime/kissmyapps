@@ -57,7 +57,9 @@ export const categoryLabels = {
 } as const
 export type Category = keyof typeof categoryLabels
 
-export const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'] as const
+// Programs pay creators in US dollars for now. A program saved in another currency before
+// that keeps it; the form shows it and sends it back unchanged.
+export const currencies = ['USD'] as const
 
 export interface Program {
   id: string

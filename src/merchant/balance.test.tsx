@@ -813,6 +813,15 @@ describe('the activity list: wording', () => {
     expect(entryDetail(row({ sale_amount_minor: null }), 'USD')).toBe('Ada Okafor')
     expect(entryDetail(row({ creator_name: null }), 'EUR')).toBe('49.00 EUR sale')
     expect(entryDetail(row({ kind: 'fee_returned' }), 'USD')).toBe('Ada Okafor · $49.00 sale')
+    expect(
+      entryDetail(
+        row({
+          kind: 'commission_returned',
+          note: "Refund recovered from the creator's later earnings",
+        }),
+        'USD',
+      ),
+    ).toBe("Ada Okafor · $49.00 sale · Refund recovered from the creator's later earnings")
     expect(entryDetail(row({ kind: 'deposit', topup_kind: 'auto' }), 'USD')).toBeNull()
     expect(entryDetail(row({ kind: 'adjustment', note: 'Goodwill credit' }), 'USD')).toBe(
       'Goodwill credit',

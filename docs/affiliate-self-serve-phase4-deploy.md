@@ -56,8 +56,12 @@ the owner.
   counted from the payment. The worker approves what has passed its hold, about once a
   minute.
 - **Refunds.** Inside the hold a refund returns commission and fee to the balance in
-  proportion. A lost dispute counts as a full refund. After approval a refund is taken back
-  from what the creator has not been paid yet, never below zero.
+  proportion. A lost dispute counts as a full refund. After approval the refunded share is
+  taken back in full and its fee returns to the balance at once; what the creator has not
+  been paid yet covers it first, and anything left (because it was already paid out) is
+  taken from the creator's later earnings in the same program and paid back to the balance
+  as they arrive ("Refund recovered from the creator's later earnings"). Since
+  `20261122104000_program_refund_recovery.sql`.
 - **Empty balance.** A sale whose commission and fee the balance cannot cover earns
   nothing, and the program pauses with the reason "balance". Its links keep opening the
   landing page without credit. A deposit or a successful automatic top-up makes it live
@@ -103,8 +107,9 @@ Use your own workspace, program and creator account from the Phase 3 live check.
   merchant goes live (open with the owner's lawyer).
 - With program money off, a creator who already has program earnings is shown none.
 - A sale that earned nothing because the balance was empty is not paid when funds arrive.
-- A refund after approval that is larger than what the creator still has is not collected
-  later.
+- A refund after approval that is larger than what the creator still has is collected
+  only from that creator's later earnings in the same program; if they never earn there
+  again, the merchant carries it.
 - No emails: a merchant is not told by email that a top-up failed or the program paused,
   and a creator is not told that commission was approved. Both see it on their pages.
 - Stripe's processing fee on a deposit is paid by KissMyApps.

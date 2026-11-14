@@ -61,6 +61,9 @@ class Harness {
   Future<KmaResponse> Function(Call call) attributionAnswer = (_) => organic();
   final List<String> unexpected = [];
 
+  /// What the client logged, with debug on.
+  final List<String> logs = [];
+
   static Future<KmaResponse> ok() async => const KmaResponse(200, '{}');
 
   static Future<KmaResponse> organic() async =>
@@ -85,6 +88,7 @@ class Harness {
     bool trackLifecycle = true,
     bool attribution = true,
     bool clipboardHandoff = false,
+    bool debug = false,
     KmaDevice device = iphone,
     KmaAttributionReader? native,
     Future<String?> Function()? initialLink,
@@ -98,12 +102,14 @@ class Harness {
         trackLifecycle: trackLifecycle,
         attribution: attribution,
         clipboardHandoff: clipboardHandoff,
+        debug: debug,
       ),
       KmaEnvironment(
         storage: storage,
         device: () => device,
         sdk: 'kma-flutter/$sdkVersion',
         now: () => clock,
+        log: logs.add,
         attributionInfo: native,
         initialLink: initialLink,
         post: (url, headers, body) {
@@ -198,6 +204,25 @@ void expectContract(Body body) {
     }
     expect(map['name'], matches(RegExp(rules['event_name'] as String)));
     expect(map['time'], matches(RegExp(rules['time'] as String)));
+  }
+}
+
+/// The reserved revenue properties, from the contract's revenue section.
+void expectRevenueContract(Map<String, dynamic> properties) {
+  final revenue = contract['revenue'] as Map<String, dynamic>;
+  final rules = revenue['properties'] as Map<String, dynamic>;
+  for (final field in rules['required'] as List) {
+    expect(properties, contains(field));
+  }
+  final amount = properties['kma_revenue'] as num;
+  expect(amount.isFinite && amount != 0, isTrue);
+  expect(amount.abs(), lessThanOrEqualTo(revenue['max_amount'] as num));
+  expect(properties['kma_currency'], matches(RegExp(revenue['kma_currency'] as String)));
+  for (final field in rules['optional'] as List) {
+    if (!properties.containsKey(field)) continue;
+    final id = properties[field];
+    expect(id, isA<String>());
+    expect((id as String).length, inInclusiveRange(1, revenue['id_max_length'] as int));
   }
 }
 
@@ -545,6 +570,83 @@ void main() {
         client.track('valid_name');
         h.settle(10000);
         expect(names(h.sent), ['session_started', 'valid_name']);
+      });
+    });
+  });
+
+  group('Revenue', () {
+    test('sends a payment and a refund with the reserved properties, which win over extras', () {
+      run((h) {
+        final client = h.start(MemoryStorage(), trackLifecycle: false);
+        client.foreground();
+        client.revenue(
+          59.99,
+          'usd',
+          productId: 'annual',
+          transactionId: '2000000812345678',
+          properties: {
+            'plan': 'annual',
+            'kma_revenue': 1,
+            'kma_currency': 'GBP',
+            'kma_product_id': 'x'
+          },
+        );
+        client.revenue(-59.99, 'USD', transactionId: '2000000812345678');
+        client.revenue(4.5, 'EUR', event: 'coins_bought', properties: {'kma_transaction_id': 'x'});
+        h.settle(10000);
+        expect(names(h.sent), ['session_started', 'purchase', 'refund', 'coins_bought']);
+        final defaults = (contract['revenue'] as Map<String, dynamic>)['default_event'] as Map;
+        expect(names(h.sent)[1], defaults['payment']);
+        expect(names(h.sent)[2], defaults['refund']);
+        final events = eventsOf(h.sent);
+        expect(events[1]['properties'], {
+          'plan': 'annual',
+          'kma_revenue': 59.99,
+          'kma_currency': 'USD',
+          'kma_product_id': 'annual',
+          'kma_transaction_id': '2000000812345678',
+        });
+        expect(events[2]['properties'], {
+          'kma_revenue': -59.99,
+          'kma_currency': 'USD',
+          'kma_transaction_id': '2000000812345678',
+        });
+        expect(events[3]['properties'], {'kma_revenue': 4.5, 'kma_currency': 'EUR'});
+        for (final event in events.skip(1)) {
+          expectRevenueContract(event['properties'] as Map<String, dynamic>);
+        }
+        for (final body in h.sent) {
+          expectContract(body);
+        }
+      });
+    });
+
+    test('sends nothing for an amount or currency that is not valid, with a warning in debug', () {
+      run((h) {
+        final client = h.start(MemoryStorage(), trackLifecycle: false, debug: true);
+        client.foreground();
+        final amounts = [0.0, -0.0, double.nan, double.infinity, -double.infinity, 1e9 + 1, -2e9];
+        for (final amount in amounts) {
+          client.revenue(amount, 'USD');
+        }
+        for (final currency in ['US', 'USDT', '', r'U$D', '\u00DCSD', 'US\n']) {
+          client.revenue(9.99, currency);
+        }
+        client.revenue(1e9, 'USD');
+        client.revenue(-1e9, ' gbp\n');
+        client.revenue(2, 'USD', productId: '  ', transactionId: 'x' * 201, event: '');
+        client.revenue(2, 'USD', event: 'not valid!');
+        h.settle(10000);
+        expect(names(h.sent), ['session_started', 'purchase', 'refund', 'purchase']);
+        final events = eventsOf(h.sent);
+        expect(events[1]['properties'], {'kma_revenue': 1e9, 'kma_currency': 'USD'});
+        expect(events[2]['properties'], {'kma_revenue': -1e9, 'kma_currency': 'GBP'});
+        expect(events[3]['properties'], {'kma_revenue': 2, 'kma_currency': 'USD'});
+        expect(h.logs.where((line) => line.contains('revenue needs an amount')), hasLength(7));
+        expect(h.logs.where((line) => line.contains('three-letter currency')), hasLength(6));
+        expect(h.logs, contains(contains('productId must be')));
+        expect(h.logs, contains(contains('transactionId must be')));
+        expect(h.logs, contains(contains('not a valid event name')));
       });
     });
   });

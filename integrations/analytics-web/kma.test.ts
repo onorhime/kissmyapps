@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Kma, type KmaOptions } from './src/kma'
+import { Kma, type KmaOptions, type Properties, type RevenueOptions } from './src/kma'
+import contract from '../analytics-mobile/contract/app-events.json'
 
 const key = 'kma_pk_live_ABCDEFGHJKLMNPQRSTUVWXYZ'
 type Body = {
@@ -523,6 +524,103 @@ describe('creator click', () => {
   })
 })
 
+describe('revenue', () => {
+  /** The reserved properties, as integrations/analytics-mobile/contract sets them. */
+  function expectRevenueContract(properties: Record<string, unknown>) {
+    const { revenue } = contract
+    for (const field of revenue.properties.required) expect(properties).toHaveProperty(field)
+    const amount = properties.kma_revenue as number
+    expect(Number.isFinite(amount) && amount !== 0).toBe(true)
+    expect(Math.abs(amount)).toBeLessThanOrEqual(revenue.max_amount)
+    expect(properties.kma_currency).toMatch(new RegExp(revenue.kma_currency))
+    for (const field of revenue.properties.optional.filter((name) => name in properties)) {
+      expect(String(properties[field]).length).toBeGreaterThan(0)
+      expect(String(properties[field]).length).toBeLessThanOrEqual(revenue.id_max_length)
+    }
+  }
+
+  it('sends a payment and a refund with the reserved properties, which win over extras', async () => {
+    const kma = start({ autoPageViews: false })
+    kma.revenue(59.99, 'usd', {
+      productId: 'annual',
+      transactionId: 'pi_3Q8x',
+      properties: { plan: 'annual', kma_revenue: 1, kma_currency: 'GBP', kma_product_id: 'x' },
+    })
+    kma.revenue(-59.99, 'USD', { transactionId: 'pi_3Q8x' })
+    kma.revenue(4.5, 'EUR', { event: 'coins_bought', properties: { kma_transaction_id: 'x' } })
+    await vi.advanceTimersByTimeAsync(2000)
+    const [, purchase, refund, coins] = eventsSent()
+    expect(purchase.name).toBe(contract.revenue.default_event.payment)
+    expect(purchase.properties).toEqual({
+      plan: 'annual',
+      kma_revenue: 59.99,
+      kma_currency: 'USD',
+      kma_product_id: 'annual',
+      kma_transaction_id: 'pi_3Q8x',
+    })
+    expect(refund.name).toBe(contract.revenue.default_event.refund)
+    expect(refund.properties).toEqual({
+      kma_revenue: -59.99,
+      kma_currency: 'USD',
+      kma_transaction_id: 'pi_3Q8x',
+    })
+    expect(coins).toMatchObject({
+      name: 'coins_bought',
+      properties: { kma_revenue: 4.5, kma_currency: 'EUR' },
+    })
+    expect(coins.properties).not.toHaveProperty('kma_transaction_id')
+    for (const event of [purchase, refund, coins]) expectRevenueContract(event.properties)
+  })
+
+  it('sends nothing for an amount or currency that is not valid, and never throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const kma = start({ autoPageViews: false, debug: true })
+    for (const amount of [0, -0, NaN, Infinity, -Infinity, 1e9 + 1, -2e9, '9.99', null])
+      kma.revenue(amount as number, 'USD')
+    for (const currency of ['US', 'USDT', '', 'U$D', 'ÜSD', 12, null, undefined])
+      kma.revenue(9.99, currency as string)
+    expect(eventsSent()).toEqual([])
+    kma.revenue(1e9, 'USD')
+    kma.revenue(-1e9, ' gbp ', null as unknown as RevenueOptions)
+    kma.revenue(2, 'USD', {
+      productId: '  ',
+      transactionId: 'x'.repeat(201),
+      properties: [] as unknown as Properties,
+    })
+    kma.revenue(2, 'USD', { event: 'not valid!' })
+    await vi.advanceTimersByTimeAsync(2000)
+    const sentEvents = eventsSent()
+    expect(sentEvents.map((e) => e.name)).toEqual([
+      'session_started',
+      'purchase',
+      'refund',
+      'purchase',
+    ])
+    expect(sentEvents[1].properties).toEqual({ kma_revenue: 1e9, kma_currency: 'USD' })
+    expect(sentEvents[2].properties).toEqual({ kma_revenue: -1e9, kma_currency: 'GBP' })
+    expect(sentEvents[3].properties).toEqual({ kma_revenue: 2, kma_currency: 'USD' })
+    const warnings = warn.mock.calls.map(([message]) => String(message))
+    expect(warnings.filter((message) => message.includes('revenue needs an amount'))).toHaveLength(
+      9,
+    )
+    expect(warnings.filter((message) => message.includes('three-letter currency'))).toHaveLength(8)
+    expect(warnings.some((message) => message.includes('productId must be'))).toBe(true)
+    expect(warnings.some((message) => message.includes('transactionId must be'))).toBe(true)
+    expect(warnings.some((message) => message.includes('not a valid event name'))).toBe(true)
+    warn.mockRestore()
+  })
+
+  it('sends nothing after opting out', async () => {
+    const kma = start({ autoPageViews: false })
+    await vi.advanceTimersByTimeAsync(2000)
+    sent.length = 0
+    kma.optOut()
+    kma.revenue(9.99, 'USD')
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(sent).toEqual([])
+  })
+})
+
 describe('script tag build', () => {
   it('answers getClickId with null before init and with the click after', async () => {
     vi.resetModules()
@@ -568,19 +666,32 @@ describe('script tag build', () => {
           },
         ],
         ['track', 'early_event', { from: 'stub' }],
+        ['revenue', 4.99, 'eur', { productId: 'coins_100' }],
       ],
     })
     ;(window as unknown as { kma: unknown }).kma = stub
     await import('./src/global')
-    const api = (window as unknown as { kma: { instance: Kma; track(name: string): void } }).kma
+    const api = (
+      window as unknown as {
+        kma: { instance: Kma; track(name: string): void; revenue(a: number, c: string): void }
+      }
+    ).kma
     expect(api.instance.getAnonymousId()).toMatch(/^[0-9a-f-]{36}$/)
     instances.push(api.instance)
     api.track('late_event')
+    api.revenue(-4.99, 'EUR')
     await vi.advanceTimersByTimeAsync(2000)
     expect(eventsSent().map((e) => e.name)).toEqual([
       'session_started',
       'early_event',
+      'purchase',
       'late_event',
+      'refund',
     ])
+    expect(eventsSent()[2].properties).toEqual({
+      kma_revenue: 4.99,
+      kma_currency: 'EUR',
+      kma_product_id: 'coins_100',
+    })
   })
 })

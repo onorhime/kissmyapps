@@ -128,6 +128,7 @@ void main() {
   testWidgets('starts from the device, follows the app and records each page', (tester) async {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     KissMyApps.track('before_start');
+    KissMyApps.revenue(4.99, 'eur', productId: 'coins_100');
     await KissMyApps.start(key);
     expect(lifecycleCalls(), ['info']);
     expect(KissMyApps.anonymousId, isNotNull);
@@ -162,11 +163,18 @@ void main() {
       'app_installed',
       'app_opened',
       'before_start',
+      'purchase',
       'screen_viewed',
       'screen_viewed',
       'screen_viewed',
       'app_backgrounded',
     ]);
+    final purchase = [
+      for (final body in sent)
+        for (final event in body['events'] as List)
+          if ((event as Map)['name'] == 'purchase') event['properties'],
+    ].single;
+    expect(purchase, {'kma_revenue': 4.99, 'kma_currency': 'EUR', 'kma_product_id': 'coins_100'});
     expect(screens(), ['/', '/lesson', '/']);
     // The second release, for paused after hidden, finds nothing held.
     expect(lifecycleCalls(), ['info', 'releaseBackground', 'releaseBackground']);
