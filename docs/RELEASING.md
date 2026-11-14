@@ -36,7 +36,9 @@ to "Ask permissions" in the desktop app's Code tab first.
 3. **Uploads** the archive to `/srv/kissmyapps/releases/<id>/` and checks every file.
    Nothing switches yet.
 4. **Database**: `supabase db push --linked --skip-vault` when migrations are pending, then
-   checks none are left.
+   checks none are left. Both `status` and this step check that the CLI's migration list
+   names every file in `supabase/migrations`, so a list it cannot read stops the release
+   instead of passing as "up to date".
 5. **Edge Functions**: deploys all of them from this commit with `--use-api`, with the
    `verify_jwt` each one has in `supabase/config.toml`. It never deletes a function.
 6. **VPS services**: copies the compose file, `dashboard.Caddyfile`, the events relay and the
@@ -54,6 +56,12 @@ to "Ask permissions" in the desktop app's Code tab first.
 
 Every step is safe to repeat. If one fails, `apply` says which steps finished; fix the cause
 and run `apply` again.
+
+## Naming a new migration
+
+`db push` refuses a migration that sorts before the newest one already applied. Some
+migrations on `main` are dated ahead (up to `20261122104000`), so name a new file after the
+newest one in `supabase/migrations`, not with today's time, until the calendar passes it.
 
 ## What stays a hand step
 
