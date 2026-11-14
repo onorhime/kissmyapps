@@ -1143,7 +1143,12 @@ describe('city location', () => {
     render(<MerchantApp />)
     const choice = await screen.findByRole('combobox', { name: 'Region or city' })
     expect(choice).toHaveValue(JSON.stringify(['Lagos', 'Ikeja']))
-    const first = fake.state.calls.find((call) => call.name === 'analytics_people_page')!
+    // The list's first request can land just after the filter renders on a busy machine.
+    const first = await waitFor(() => {
+      const call = fake.state.calls.find((c) => c.name === 'analytics_people_page')
+      expect(call).toBeDefined()
+      return call!
+    })
     expect(first.args.p_query).toMatchObject({
       range: '7d',
       country: 'NG',
