@@ -28,7 +28,7 @@ import {
   otherLinks,
 } from './links'
 import type { LinkProgram, ProgramLink, ProgramLinks } from './links'
-import { PromoCodeBody } from './PromoCode'
+import { PromoCodeBody } from './PromoCodeBody'
 import { useProgramLinks } from './useProgramLinks'
 import type { LinkChange } from './useProgramLinks'
 import './ProgramLinks.css'
