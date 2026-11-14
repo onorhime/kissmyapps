@@ -453,8 +453,12 @@ relied on and were not confirmed against Stripe:
   15 minutes for as long as it takes; nobody is told except through the admin page.
 - A payout is the creator's whole payable sum in one currency. There are no partial
   payouts and no schedule: an admin presses Pay.
-- A refund after a payout was made is not taken back from the creator (part one caps a
-  clawback at the creator's current sum).
+- A refund after a payout was made is taken from the creator's later earnings in the same
+  program, never billed to them (20261122104000_program_refund_recovery.sql). The whole
+  refunded share is clawed back even when that takes their sum for the program below zero;
+  the merchant gets back at once what the sum covered and KissMyApps's fee on the refunded
+  share, and the rest as the creator earns again there, oldest refund first. A program below
+  zero is left out of payouts; the creator's other programs are paid as usual.
 - Stripe's fees for Connect (per active account, per bank payout, cross-border) are paid by
   KissMyApps and are not taken from the creator's sum.
 - KissMyApps is liable for a negative balance on a creator's account. Only transfers go

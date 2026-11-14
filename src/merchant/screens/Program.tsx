@@ -14,7 +14,6 @@ import {
   checkLogoFile,
   checkoutLinkOf,
   commissionExample,
-  currencies,
   describeProblem,
   discountBps,
   discountLine,
@@ -1188,10 +1187,6 @@ function ProgramForm({
   const dollars = draft.currency === 'USD'
   const idle = busy === 'idle'
   const wrong = Object.keys(errors).length > 0
-  // A currency saved outside the short list stays selectable.
-  const currencyChoices = (currencies as readonly string[]).includes(draft.currency)
-    ? currencies
-    : [...currencies, draft.currency]
 
   const toggleOptions = () => {
     toggled.current = true
@@ -1570,24 +1565,18 @@ function ProgramForm({
                     </div>
                   )}
                 </Field>
-                <Field label="Currency" error={errors.currency}>
-                  {(props) => (
-                    <span className="mc-select-box">
-                      <select
-                        {...props}
-                        value={draft.currency}
-                        onChange={(event) => set('currency', event.target.value, 'currency')}
-                      >
-                        {currencyChoices.map((code) => (
-                          <option key={code} value={code}>
-                            {code}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown size={16} aria-hidden="true" />
-                    </span>
-                  )}
-                </Field>
+                {/* Programs pay creators in US dollars for now. A program saved in another
+                    currency before that keeps it, and it is shown as it is. */}
+                <div className={errors.currency ? 'mc-field has-error' : 'mc-field'}>
+                  <span className="mc-prog-caption">Currency</span>
+                  <span>{dollars ? 'US dollars (USD)' : draft.currency}</span>
+                  <p className="mc-field-hint">
+                    {dollars
+                      ? 'Other currencies are coming later.'
+                      : 'Kept from before programs paid in US dollars only.'}
+                  </p>
+                  {errors.currency && <p className="mc-field-error">{errors.currency}</p>}
+                </div>
                 {draft.duration === 'months' && earnFrom !== 'events' && (
                   <Field label="Months of commission" error={errors.months}>
                     {(props) => (
