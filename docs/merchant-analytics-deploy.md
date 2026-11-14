@@ -521,6 +521,103 @@ Rollback: put the previous `@ingest` line back and restart only `dramapal-caddy-
 two paths then answer 404 and the SDKs try again on later launches, at most three times);
 the relay, function and link service can stay, as events and links work as before.
 
+### Attribution, ROI and cohorts
+
+Not deployed yet; it goes out after the app installs release above. The console gets ROI,
+Cohorts and Costs tabs under Attribution and a Revenue card in its Settings. Revenue comes
+from the merchant's own events (the SDKs' `revenue()` call, which sets `kma_revenue` and
+`kma_currency`, or an event the merchant names in Settings) and from RevenueCat or Adapty
+webhooks; ad spend is typed in, uploaded as a CSV, or a fixed price per install or per click
+on a smart link. Everything is shown in the project's currency at the European Central Bank's
+daily rates. Meta and TikTok spend import comes later, after their app reviews.
+
+This release also carries three affiliate changes the owner decided on 2026-11-13: programs
+pay in US dollars only for now, the creator agreement says how store sales, the checkout link
+and refunds after payout work, and a refund after a commission was approved is taken back in
+full (from the creator's later earnings in the same program when it was already paid out),
+with the KissMyApps fee on it returned to the merchant's balance.
+
+1. Apply the migrations in name order:
+   - `20261122100000_attribution_roi_base.sql`: the revenue, spend, upload, link price and
+     exchange rate tables, and a person's revenue kept when they sign in.
+   - `20261122101000_attribution_revenue.sql`: the trigger that records revenue from events
+     (it writes only for projects that have turned attribution on at least once), the store
+     revenue call, the rates call and the console's revenue settings.
+   - `20261122102000_attribution_costs.sql`: the Costs screen's functions and link prices.
+   - `20261122103000_attribution_roi.sql`: the ROI and cohort reports. Everything is worked
+     out when a report is read; 30,000 people over 90 days took about a second on an untuned
+     database.
+   - `20261122104000_program_refund_recovery.sql`: the affiliate changes. Before applying,
+     look for never-published programs in another currency
+     (`select id, status, currency from affiliate_programs where first_published_at is null and currency <> 'USD';`):
+     they can still be saved but must switch to USD to be published. Every sales agreement's
+     text, and so its fingerprint, changes: live and paused programs show unpublished changes
+     (creators keep the terms they accepted until the merchant publishes again), drafts need
+     the agreement read again, and a program in review at that moment fails approval with
+     `agreement_not_read` (ask the merchant to read it again). Commissions refunded under the
+     old rule pick up the new one only if their sale changes again; there is no backfill.
+2. Function secrets: `ATTRIBUTION_FX_SCHEDULER_SECRET` (new, a random value of at least 32
+   characters, used only by the schedule); leave `ATTRIBUTION_FX_ENABLED` unset for now.
+   `INTERNAL_WORKER_SECRET` is already set and lets a person run the worker by hand.
+3. Deploy the new `attribution-fx-worker` and redeploy `program-store-webhook` (after step 1;
+   without the store revenue call it only logs `revenue_failed`, and the store tool's answer
+   never changes):
+
+   ```sh
+   supabase functions deploy attribution-fx-worker --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   supabase functions deploy program-store-webhook --project-ref mmyruzjemjecqyivhrgr --no-verify-jwt
+   ```
+
+   The worker fetches `https://www.ecb.europa.eu/stats/eurofxref/` files (no key); that
+   host must be reachable from Edge Functions.
+
+4. Store the scheduler value in Vault and schedule the daily rates, after checking `cron.job`
+   has no `kma-attribution-fx` (ECB publishes around 16:00 CET; the default body reads the
+   last 90 days, which fills any missed day):
+
+   ```sql
+   select vault.create_secret('<the value>', 'kma_attribution_fx_scheduler');
+   select cron.schedule(
+     'kma-attribution-fx', '30 16 * * *',
+     $job$
+     select net.http_post(
+       url := 'https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/attribution-fx-worker',
+       body := '{}'::jsonb,
+       headers := jsonb_build_object(
+         'Content-Type', 'application/json',
+         'x-kma-scheduler-secret', s.decrypted_secret),
+       timeout_milliseconds := 60000)
+     from vault.decrypted_secrets s
+     where s.name = 'kma_attribution_fx_scheduler' and length(s.decrypted_secret) >= 32
+     $job$
+   );
+   ```
+
+5. Set `ATTRIBUTION_FX_ENABLED=true`, then load the full history once by hand:
+
+   ```sh
+   curl -s -X POST -H "x-kma-worker-secret: $INTERNAL_WORKER_SECRET" -H 'content-type: application/json' \
+     -d '{"range":"all"}' https://mmyruzjemjecqyivhrgr.supabase.co/functions/v1/attribution-fx-worker
+   ```
+
+   Until rates are stored, amounts outside the project's currency are left out of the
+   numbers and the screens say how many. The ECB publishes no naira rate, so NGN amounts
+   stay out; a project that sells in naira should set its currency to NGN.
+
+6. Release the dashboard build (console screens).
+7. Smoke test with the `kmatest` project (attribution on): in Settings, Revenue, the status
+   shows the ECB rates date; send a development event with
+   `{"kma_revenue": 4.99, "kma_currency": "USD"}` and "last received" moves; type one day of
+   spend in Costs and it appears on ROI under its source.
+
+The SDKs' `revenue()` call ships in the unpublished 1.1.0 SDKs (the web SDK is part of the
+dashboard build). Run the manual "Mobile SDKs" workflow once more, then test on a real phone,
+before publishing 1.1.0.
+
+Rollback: `select cron.unschedule('kma-attribution-fx');` and unset `ATTRIBUTION_FX_ENABLED`.
+The reports only read; the revenue trigger never refuses or delays an event (its errors are
+swallowed), so the migrations can stay.
+
 ## Not in this release
 
 - Replays for apps: the mobile SDKs record events, sessions and screens, not replays.
