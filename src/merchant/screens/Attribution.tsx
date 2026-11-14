@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Check, ExternalLink, LoaderCircle, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { api } from '../api'
@@ -18,7 +18,11 @@ import type { AttributionSection } from '../routes'
 import { canDo, useStore } from '../store'
 import { CopyButton, ErrorNote, Field, PageHeader, Pill, Select, Skeleton } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
+import { CohortsScreen } from './AttributionCohorts'
+import { CostsScreen } from './AttributionCosts'
 import { LinksScreen } from './AttributionLinks'
+import { RevenueSettings, TrackRevenueStep } from './AttributionRevenue'
+import { RoiScreen } from './AttributionRoi'
 import { SdkStep } from './AttributionSdk'
 import { SourcesScreen } from './AttributionSources'
 import { SettingsRow } from './Settings'
@@ -31,7 +35,42 @@ const SECTION_TITLES: Record<AttributionSection, string> = {
   setup: 'Attribution',
   links: 'Links',
   sources: 'Sources',
+  roi: 'ROI',
+  cohorts: 'Cohorts',
+  costs: 'Costs',
   settings: 'Attribution settings',
+}
+
+const TABS: ReadonlyArray<readonly [AttributionSection, string]> = [
+  ['setup', 'Setup'],
+  ['links', 'Links'],
+  ['sources', 'Sources'],
+  ['roi', 'ROI'],
+  ['cohorts', 'Cohorts'],
+  ['costs', 'Costs'],
+  ['settings', 'Settings'],
+]
+
+/** What each section's header says under its title. */
+function sectionDescription(
+  section: AttributionSection,
+  project: Project,
+  view: Attribution | undefined,
+): string {
+  switch (section) {
+    case 'links':
+      return `One link for each place you share ${project.name}. Each sends people to the right store or page and says where they came from.`
+    case 'sources':
+      return `Where the people who ${hasApp(project, view?.settings ?? null) ? 'install and visit' : 'visit'} ${project.name} came from, and which sources bring conversions.`
+    case 'roi':
+      return `What each source cost and what the people it brought have paid since, so you can see which ones earn back their spend.`
+    case 'cohorts':
+      return `What the people who arrived each day, week or month went on to pay, and how many came back.`
+    case 'costs':
+      return `What you spend on ads and creators for ${project.name}, by day, source and campaign. ROI sets it against revenue.`
+    default:
+      return `Which links, ads and partners bring the people who install ${project.name} and sign up.`
+  }
 }
 
 function useAction() {
@@ -73,29 +112,26 @@ export function AttributionScreen({
   const state = useRpc(`attribution:${project.id}`, () => api.attribution(project.id))
   const view = state.data
   const on = view?.enabled ?? project.attribution_enabled ?? false
+  const tabs = useRef<HTMLElement>(null)
+
+  // On a phone the tabs scroll sideways: bring the open one into view.
+  useEffect(() => {
+    const nav = tabs.current
+    const current = nav?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (!nav || !current || nav.scrollWidth <= nav.clientWidth) return
+    const left = current.getBoundingClientRect().left - nav.getBoundingClientRect().left
+    nav.scrollLeft += left - (nav.clientWidth - current.offsetWidth) / 2
+  }, [section, on])
 
   return (
     <div className="mc-page">
       <PageHeader
         title={on ? SECTION_TITLES[section] : 'Attribution'}
-        description={
-          on && section === 'links'
-            ? `One link for each place you share ${project.name}. Each sends people to the right store or page and says where they came from.`
-            : on && section === 'sources'
-              ? `Where the people who ${hasApp(project, view?.settings ?? null) ? 'install and visit' : 'visit'} ${project.name} came from, and which sources bring conversions.`
-              : `Which links, ads and partners bring the people who install ${project.name} and sign up.`
-        }
+        description={sectionDescription(on ? section : 'setup', project, view)}
       />
       {on && (
-        <nav className="mc-tabs" aria-label="Attribution">
-          {(
-            [
-              ['setup', 'Setup'],
-              ['links', 'Links'],
-              ['sources', 'Sources'],
-              ['settings', 'Settings'],
-            ] as const
-          ).map(([value, label]) => (
+        <nav ref={tabs} className="mc-tabs is-wide" aria-label="Attribution">
+          {TABS.map(([value, label]) => (
             <a
               key={value}
               href={href({ name: 'attribution', projectId: project.id, section: value })}
@@ -121,6 +157,12 @@ export function AttributionScreen({
         <LinksScreen project={project} view={view} role={role} />
       ) : section === 'sources' ? (
         <SourcesScreen project={project} view={view} />
+      ) : section === 'roi' ? (
+        <RoiScreen project={project} view={view} />
+      ) : section === 'cohorts' ? (
+        <CohortsScreen project={project} />
+      ) : section === 'costs' ? (
+        <CostsScreen project={project} view={view} role={role} />
       ) : (
         <Setup project={project} view={view} role={role} onChange={state.refresh} />
       )}
@@ -303,14 +345,9 @@ function HowItWorks() {
 
 const LATER_STEPS: Array<{ key: string; title: string; text: string; ios?: boolean }> = [
   {
-    key: 'revenue',
-    title: 'Revenue and ad spend',
-    text: 'Add revenue to conversions and what each campaign cost, to see what it earned back.',
-  },
-  {
     key: 'partners',
     title: 'Ad partners',
-    text: 'Connect Meta and TikTok so their ads are credited with the installs they bring.',
+    text: 'Connect Meta and TikTok so their ads are credited with the installs they bring, and their spend arrives on its own.',
   },
   {
     key: 'skan',
@@ -330,8 +367,8 @@ function StepList({ project, view }: { project: Project; view: Attribution | nul
           <h2 id="mc-attr-plan">{view ? 'Coming next' : 'What you will set up'}</h2>
           {!view && (
             <p>
-              The first {ready.length === 4 ? 'four' : 'three'} steps are ready now; the rest arrive
-              in later releases.
+              The first {COUNT_WORDS[ready.length] ?? ready.length} steps are ready now; the rest
+              arrive in later releases.
             </p>
           )}
         </div>
@@ -362,7 +399,9 @@ function StepList({ project, view }: { project: Project; view: Attribution | nul
   )
 }
 
-type SetupStep = 'apps' | 'domain' | 'sdk' | 'conversions'
+const COUNT_WORDS: Record<number, string> = { 3: 'three', 4: 'four', 5: 'five' }
+
+type SetupStep = 'apps' | 'domain' | 'sdk' | 'revenue' | 'conversions'
 
 /** The steps that can be set up now, in order: the SDK one only for a project with an app. */
 function setupSteps(
@@ -375,13 +414,19 @@ function setupSteps(
     ...(hasApp(project, view?.settings ?? null)
       ? [{ key: 'sdk' as const, title: 'SDK and deep links' }]
       : []),
+    { key: 'revenue' as const, title: 'Track revenue' },
     { key: 'conversions' as const, title: 'Conversions' },
   ]
 }
 
 function Setup({ project, view, role, onChange }: Props) {
   const steps = setupSteps(project, view)
-  const done = steps.filter((step) => view.setup[step.key]).length
+  // Loaded here, not in the step, so the progress line counts it too.
+  const revenue = useRpc(`attribution-revenue:${project.id}`, () => api.revenueSetup(project.id))
+  // Revenue is set up once the first live payment has arrived.
+  const isDone = (key: SetupStep) =>
+    key === 'revenue' ? Boolean(revenue.data?.last_received_at) : Boolean(view.setup[key])
+  const done = steps.filter((step) => isDone(step.key)).length
   return (
     <div className="mc-install mc-attr-layout">
       <div className="mc-attr-main">
@@ -412,18 +457,15 @@ function Setup({ project, view, role, onChange }: Props) {
           </span>
         </div>
         {steps.map((step, index) => (
-          <Step
-            key={step.key}
-            number={index + 1}
-            title={step.title}
-            done={Boolean(view.setup[step.key])}
-          >
+          <Step key={step.key} number={index + 1} title={step.title} done={isDone(step.key)}>
             {step.key === 'apps' ? (
               <AppsForm project={project} view={view} role={role} onChange={onChange} />
             ) : step.key === 'domain' ? (
               <Domains project={project} view={view} role={role} onChange={onChange} />
             ) : step.key === 'sdk' ? (
               <SdkStep project={project} view={view} role={role} onChange={onChange} />
+            ) : step.key === 'revenue' ? (
+              <TrackRevenueStep project={project} revenue={revenue} />
             ) : (
               <ConversionsForm project={project} view={view} role={role} onChange={onChange} />
             )}
@@ -1289,6 +1331,8 @@ function AttributionSettings({ project, view, role, onChange }: Props) {
           )}
         </div>
       </SettingsRow>
+
+      <RevenueSettings project={project} view={view} role={role} />
 
       {isAdmin && (
         <SettingsRow

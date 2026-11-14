@@ -29,6 +29,7 @@ import {
   suggestedPath,
   suggestedSubdomain,
 } from './attribution'
+import { attributionRevenueBackendFixture as revenueBackend } from './attribution-revenue-backend.fixture'
 import { csvText, toCsv } from './csv'
 import {
   formatChange,
@@ -1283,6 +1284,9 @@ describe('attribution', () => {
   beforeEach(() => {
     view = viewOf({ enabled: false, ever_enabled: false, settings: null, domains: [] })
     fake.state.handlers.attribution_get = () => view
+    // No payments yet: the Track revenue step is still to do.
+    fake.state.handlers.attribution_revenue_setup = () =>
+      structuredClone(revenueBackend.revenue_setup_empty)
     fake.state.handlers.attribution_check_subdomain = ({ p_subdomain }) => ({
       subdomain: p_subdomain,
       host: `${p_subdomain}.${root}`,
@@ -1381,7 +1385,7 @@ describe('attribution', () => {
     await screen.findByRole('heading', { name: 'Your apps and website' })
     // The project lists web and iOS, so there is nothing to fill in for Android.
     expect(screen.queryByText('Android app')).not.toBeInTheDocument()
-    expect(screen.getByText('1 of 4 steps done')).toBeInTheDocument()
+    expect(screen.getByText('1 of 5 steps done')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('App Store ID'), 'id1234567890')
     await user.type(screen.getByLabelText('Bundle ID'), 'app.speaksix.ios')
@@ -1408,7 +1412,7 @@ describe('attribution', () => {
       'href',
       `https://speaksix.${root}/.well-known/apple-app-site-association`,
     )
-    expect(screen.getByText('2 of 4 steps done')).toBeInTheDocument()
+    expect(screen.getByText('2 of 5 steps done')).toBeInTheDocument()
   })
 
   it('adds a domain of its own and says how to point it here', async () => {
@@ -1828,7 +1832,7 @@ describe('attribution', () => {
     expect(within(trial).getByText('Not seen yet')).toBeInTheDocument()
 
     window.location.hash = '#p/proj-1/attribution'
-    await screen.findByText('2 of 4 steps done')
+    await screen.findByText('2 of 5 steps done')
     const step = screen.getByRole('heading', { name: 'Conversions', level: 2 }).closest('section')!
     expect(within(step).getByText('Done')).toBeInTheDocument()
     expect(within(step).getByRole('checkbox', { name: /sign_up/ })).toBeChecked()
