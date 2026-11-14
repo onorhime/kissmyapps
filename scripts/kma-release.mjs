@@ -167,22 +167,50 @@ export function checkEdge(text, requires) {
 
 // ---------------------------------------------------------------- Supabase CLI output
 
-/** `supabase migration list` prints a Local | Remote | Time table. */
+/**
+ * `supabase migration list`. CLI 2.115 prints JSON ({"migrations":[{local, remote, time}]})
+ * when its output is piped, and a table with each value in backticks with
+ * `--output-format text`; older versions print a bare table. All three are read here, and
+ * `checkMigrationList` makes sure the result covers this commit's migrations, so a format
+ * this does not know can never read as "up to date".
+ */
 export function parseMigrationList(text) {
   const pending = []
   const remoteOnly = []
   const applied = []
-  for (const line of text.split('\n')) {
-    const cells = line.split('|').map((cell) => cell.trim())
-    if (cells.length < 2) continue
-    const [local, remote] = cells
-    const isVersion = (value) => /^\d{14}$/.test(value)
-    if (!isVersion(local) && !isVersion(remote)) continue
+  const isVersion = (value) => /^\d{14}$/.test(value)
+  const add = (local, remote) => {
+    if (!isVersion(local) && !isVersion(remote)) return
     if (isVersion(local) && isVersion(remote)) applied.push(local)
     else if (isVersion(local)) pending.push(local)
     else remoteOnly.push(remote)
   }
+  const rows = jsonRows(text, 'migrations')
+  if (rows) {
+    for (const row of rows) add(String(row?.local ?? '').trim(), String(row?.remote ?? '').trim())
+    return { pending, remoteOnly, applied }
+  }
+  for (const line of text.split('\n')) {
+    const cells = line.split('|').map((cell) => cell.replace(/`/g, '').trim())
+    if (cells.length < 2) continue
+    add(cells[0], cells[1])
+  }
   return { pending, remoteOnly, applied }
+}
+
+/** Throws unless the list names every migration file of this commit, and nothing else local. */
+export function checkMigrationList(list, localVersions) {
+  const listed = new Set([...list.pending, ...list.applied])
+  const missing = localVersions.filter((version) => !listed.has(version))
+  const unknown = [...listed].filter((version) => !localVersions.includes(version))
+  if (missing.length || unknown.length) {
+    throw new Error(
+      `could not read its output: it named ${listed.size} of this commit's ${localVersions.length} migrations` +
+        (unknown.length ? ` and ${unknown.length} that are not in supabase/migrations` : '') +
+        '. Check the Supabase CLI version (node_modules/.bin/supabase --version).',
+    )
+  }
+  return list
 }
 
 function parseTable(text) {
@@ -195,20 +223,36 @@ function parseTable(text) {
   return rows.slice(1).map((cells) => Object.fromEntries(header.map((key, i) => [key, cells[i]])))
 }
 
-function parseJsonArray(text) {
-  const start = text.indexOf('[')
-  if (start < 0) return null
-  try {
-    const value = JSON.parse(text.slice(start))
-    return Array.isArray(value) ? value : null
-  } catch {
-    return null
+/** The first JSON value in the text (CLI output can start with a status line). */
+function parseJsonValue(text) {
+  const starts = ['{', '[']
+    .map((opener) => text.indexOf(opener))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)
+  for (const start of starts) {
+    try {
+      return JSON.parse(text.slice(start).trim())
+    } catch {
+      // try the next opener
+    }
   }
+  return null
+}
+
+/** Rows from JSON output: a bare array, or the array under `key` in an object. */
+function jsonRows(text, key) {
+  const value = parseJsonValue(text)
+  if (Array.isArray(value)) return value
+  if (value && typeof value === 'object') {
+    if (Array.isArray(value[key])) return value[key]
+    return Object.values(value).find(Array.isArray) ?? null
+  }
+  return null
 }
 
 /** `supabase functions list`, as JSON or as its table. */
 export function parseFunctionList(text) {
-  const json = parseJsonArray(text)
+  const json = jsonRows(text, 'functions')
   const rows = json ?? parseTable(text)
   return rows
     .map((row) => ({
@@ -222,7 +266,7 @@ export function parseFunctionList(text) {
 
 /** `supabase secrets list`: names only. Values are digests and are never printed. */
 export function parseSecretNames(text) {
-  const json = parseJsonArray(text)
+  const json = jsonRows(text, 'secrets')
   const rows = json ?? parseTable(text)
   return rows.map((row) => row.name).filter(Boolean)
 }
@@ -237,6 +281,14 @@ export function toTime(value) {
 }
 
 // ---------------------------------------------------------------- repo facts
+
+/** Versions of supabase/migrations/<version>_<name>.sql, the files `supabase db push` reads. */
+export function localMigrations(repo) {
+  return readdirSync(join(repo, 'supabase', 'migrations'))
+    .map((name) => /^(\d{14})_.*\.sql$/.exec(name)?.[1])
+    .filter(Boolean)
+    .sort()
+}
 
 export function localFunctions(repo) {
   const dir = join(repo, 'supabase', 'functions')
@@ -810,6 +862,9 @@ function makeContext(repo, config) {
   const supabase = (args, { quiet = true } = {}) => {
     const result = spawnSync(supabaseBin, args, {
       cwd: repo,
+      // A stale ~/.supabase/profile can name a profile the CLI cannot load ("Unsupported
+      // Config Type"); the default profile is the one this release talks to.
+      env: { ...process.env, SUPABASE_PROFILE: process.env.SUPABASE_PROFILE || 'supabase' },
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', quiet ? 'pipe' : 'inherit'],
       maxBuffer: 16 * 1024 * 1024,
@@ -849,6 +904,7 @@ export function gatherLocal(ctx, liveCommit) {
       .split('\n')
       .filter(Boolean)
       .map((line) => line.slice(3)),
+    migrations: localMigrations(repo),
     functions: localFunctions(repo),
     vpsFiles: localVpsFiles(repo, ctx.config),
     liveKnown: null,
@@ -873,7 +929,7 @@ export function gatherLocal(ctx, liveCommit) {
   return local
 }
 
-export function gatherSupabase(ctx) {
+export function gatherSupabase(ctx, localVersions) {
   const ref = ctx.config.supabase.projectRef
   const facts = {
     migrations: { pending: [], remoteOnly: [], applied: [] },
@@ -889,7 +945,8 @@ export function gatherSupabase(ctx) {
     }
   }
   attempt('migrations', () => {
-    facts.migrations = parseMigrationList(ctx.supabase(['migration', 'list', '--linked']))
+    const list = parseMigrationList(ctx.supabase(['migration', 'list', '--linked']))
+    facts.migrations = checkMigrationList(list, localVersions)
   })
   attempt('functions', () => {
     facts.functions = parseFunctionList(
@@ -915,7 +972,7 @@ function gatherAll(ctx, options) {
   const remote = gatherRemote(ctx)
   const liveCommit = remote.record?.commit ?? remote.build?.commit ?? options.assumeLive ?? null
   const local = gatherLocal(ctx, liveCommit)
-  const supabase = gatherSupabase(ctx)
+  const supabase = gatherSupabase(ctx, local.migrations)
   const plan = buildPlan({ local, remote, supabase, config: ctx.config, options })
   return { remote, local, supabase, plan }
 }
@@ -1041,7 +1098,10 @@ export async function applyRelease(ctx, options, gathered, hooks = {}) {
     step('Database migrations')
     if (gathered.supabase.migrations.pending.length) {
       ctx.supabase(['db', 'push', '--linked', '--skip-vault', '--yes'], { quiet: false })
-      const after = parseMigrationList(ctx.supabase(['migration', 'list', '--linked']))
+      const after = checkMigrationList(
+        parseMigrationList(ctx.supabase(['migration', 'list', '--linked'])),
+        local.migrations,
+      )
       if (after.pending.length)
         throw new Error(`Migrations still pending after db push: ${after.pending.join(', ')}`)
       done.push('migrations applied')

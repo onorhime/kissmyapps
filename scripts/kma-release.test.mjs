@@ -20,11 +20,14 @@ import {
   applyRelease,
   buildPlan,
   checkEdge,
+  checkMigrationList,
   composeImages,
   dashboardScript,
   formatPlan,
   functionGroups,
+  gatherSupabase,
   localFunctions,
+  localMigrations,
   localVpsFiles,
   packRelease,
   parseArgs,
@@ -130,6 +133,67 @@ describe('Supabase CLI output', () => {
       applied: ['20261030160000'],
     })
   })
+  // Captured from Supabase CLI 2.115.0 (`migration list --db-url ...` against a test
+  // database): piped output is JSON, and --output-format text puts every value in backticks.
+  const cli115Json =
+    'Connecting to remote database...\n{"migrations":[{"local":"","remote":"20261104000000","time":"2026-11-04 00:00:00"},{"local":"20261030160000","remote":"20261030160000","time":"2026-10-30 16:00:00"},{"local":"20261103100000","remote":"","time":"2026-11-03 10:00:00"}],"message":"Migrations listed"}\n'
+  const cli115Text = `
+
+   Local            | Remote           | Time (UTC)
+  ------------------|------------------|-----------------------
+   \` \`              | \`20261104000000\` | \`2026-11-04 00:00:00\`
+   \`20261030160000\` | \`20261030160000\` | \`2026-10-30 16:00:00\`
+   \`20261103100000\` | \` \`              | \`2026-11-03 10:00:00\`
+`
+  test('migration list: the JSON and backtick table of CLI 2.115', () => {
+    const expected = {
+      pending: ['20261103100000'],
+      remoteOnly: ['20261104000000'],
+      applied: ['20261030160000'],
+    }
+    assert.deepEqual(parseMigrationList(cli115Json), expected)
+    assert.deepEqual(parseMigrationList(cli115Text), expected)
+  })
+  test('migration list output that names none of the local migrations never reads as up to date', () => {
+    const local = ['20261030160000', '20261103100000']
+    assert.throws(
+      () => checkMigrationList(parseMigrationList('{"message":"Migrations listed"}'), local),
+      /could not read its output: it named 0 of this commit's 2 migrations/,
+    )
+    assert.throws(
+      () => checkMigrationList(parseMigrationList('Local | Remote\n`x` | `y`'), local),
+      /named 0 of this commit's 2/,
+    )
+    assert.doesNotThrow(() => checkMigrationList(parseMigrationList(cli115Json), local))
+    const fakeCtx = (output) => ({
+      config,
+      supabase: (args) => (args[0] === 'migration' ? output : '[]'),
+    })
+    const unreadable = gatherSupabase(fakeCtx('Migrations listed'), local)
+    assert.match(unreadable.error.migrations, /could not read its output/)
+    const plan = buildPlan(facts({ supabase: { error: unreadable.error } }))
+    assert.ok(plan.blockers.some((b) => /Supabase migration list failed: could not read/.test(b)))
+    const read = gatherSupabase(fakeCtx(cli115Json), local)
+    assert.deepEqual(read.migrations.pending, ['20261103100000'])
+    assert.equal(read.error.migrations, undefined)
+  })
+  test('local migrations are the versions of supabase/migrations', () => {
+    const versions = localMigrations(repo)
+    assert.ok(versions.length > 70)
+    assert.ok(versions.every((v) => /^\d{14}$/.test(v)))
+    assert.deepEqual(versions, [...versions].sort())
+  })
+  test('functions and secrets lists wrapped in a JSON object', () => {
+    assert.deepEqual(
+      parseFunctionList('{"functions":[{"slug":"marketplace","version":1,"status":"ACTIVE"}]}').map(
+        (f) => f.slug,
+      ),
+      ['marketplace'],
+    )
+    assert.deepEqual(parseSecretNames('{"secrets":[{"name":"ANALYTICS_IP_SALT","value":"x"}]}'), [
+      'ANALYTICS_IP_SALT',
+    ])
+  })
   test('functions list as JSON and as a table', () => {
     const json =
       '[{"slug":"analytics-ingest","version":3,"status":"ACTIVE","updated_at":1793400000000}]'
@@ -196,6 +260,7 @@ function facts(overrides = {}) {
     branch: 'main',
     originMain: head,
     dirty: [],
+    migrations: ['20261030160000', '20261103100000'],
     functions: ['analytics-ingest', 'attribution-links'],
     functionGroups: { noVerify: ['analytics-ingest', 'attribution-links'], verify: [], unset: [] },
     vpsFiles: { 'compose.yaml': { sha: '1'.repeat(64), service: 'compose' } },
@@ -224,7 +289,7 @@ function facts(overrides = {}) {
     ...overrides.remote,
   }
   const supabase = {
-    migrations: { pending: ['20261103100000'], remoteOnly: [], applied: [] },
+    migrations: { pending: ['20261103100000'], remoteOnly: [], applied: ['20261030160000'] },
     functions: [{ slug: 'analytics-ingest', updatedAt: '2026-10-30 22:10:11' }],
     secrets: ['ANALYTICS_IP_SALT', 'ANALYTICS_PROXY_SECRET', 'ATTRIBUTION_LINK_SECRET'],
     error: {},
@@ -590,7 +655,11 @@ describe('remote steps on a fake VPS', () => {
 })
 
 describe('apply', () => {
-  function fakeContext({ failOn } = {}) {
+  const cli115Pending =
+    '{"migrations":[{"local":"20261030160000","remote":"20261030160000"},{"local":"20261103100000","remote":""}]}'
+  const allApplied =
+    '{"migrations":[{"local":"20261030160000","remote":"20261030160000"},{"local":"20261103100000","remote":"20261103100000"}]}'
+  function fakeContext({ failOn, afterPush = allApplied } = {}) {
     const calls = []
     const ctx = {
       config,
@@ -610,7 +679,7 @@ describe('apply', () => {
       supabase: (args) => {
         calls.push(`supabase ${args.slice(0, 2).join(' ')}`)
         if (failOn === args[0]) throw new Error(`${args[0]} broke`)
-        return args[0] === 'migration' ? '' : ''
+        return args[0] === 'migration' ? afterPush : ''
       },
     }
     return { ctx, calls }
@@ -644,6 +713,16 @@ describe('apply', () => {
     assert.equal(result.record.commit, gathered.local.head)
     assert.equal(result.record.previousCommit, 'b'.repeat(40))
     assert.deepEqual(result.record.migrations, ['20261103100000'])
+  })
+
+  test('stops when migrations are still pending after db push', async () => {
+    const { ctx, calls } = fakeContext({ afterPush: cli115Pending })
+    const gathered = facts()
+    await assert.rejects(
+      applyRelease(ctx, {}, { ...gathered, plan: buildPlan(gathered) }, hooks),
+      /Migrations still pending after db push: 20261103100000/,
+    )
+    assert.ok(!calls.includes('supabase functions deploy'))
   })
 
   test('stops at the first failure and says what already happened', async () => {
