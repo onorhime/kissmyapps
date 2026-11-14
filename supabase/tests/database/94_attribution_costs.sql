@@ -620,6 +620,14 @@ select pg_temp.keep('undo_bulk', public.attribution_cost_import_undo(pg_temp.q('
 select pg_temp.check(pg_temp.j('undo_bulk') = '{"deleted": 1001}'
   and pg_temp.costs()->'totals' = pg_temp.j('costs')->'totals', 'and undoing it takes them all back');
 
+-- Spend in the ROI report (piece C) ------------------------------------------------------------
+select pg_temp.as_user('f9400000-0000-4000-8000-000000000001');
+select pg_temp.check((select (r->'totals'->>'cost')::numeric = (c->'totals'->>'cost')::numeric
+    and (r->'unconverted'->>'cost')::integer = (c->'totals'->>'unconverted')::integer
+    and r->'has_costs' = 'true'::jsonb
+  from public.attribution_roi(pg_temp.q('project'), '{"range":"30d"}') r, pg_temp.costs() c),
+  'the ROI report counts the same spend as the Costs screen, link prices included');
+
 -- Deleting ---------------------------------------------------------------------------------------
 select pg_temp.as_user('f9400000-0000-4000-8000-000000000001');
 select public.analytics_delete_project(pg_temp.q('project'), 'Kanji');
