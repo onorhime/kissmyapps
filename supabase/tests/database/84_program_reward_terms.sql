@@ -366,6 +366,33 @@ begin
     'sections', v_sections,
     'extra_terms', v_extra);
 end $$;
+-- The wording of 2026-11-13 (20261122104000_program_refund_recovery.sql) changed every sales
+-- agreement on purpose. This is the document from before, with exactly those changes: what a
+-- share of a sale is worked out on, app store purchases, and a refund after a payout.
+create function pg_temp.agreement_now(p_terms jsonb) returns jsonb language plpgsql as $$
+declare
+  d jsonb := pg_temp.agreement_before(p_terms);
+  v_brand text := coalesce(p_terms->>'brand_name', p_terms->>'program_name');
+  v_last integer;
+begin
+  if d->'sections'->2->>'heading' <> '3. Commission' or d->'sections'->3->>'heading' <> '4. How a sale is credited to you'
+    or d->'sections'->4->'paragraphs'->>-1 <> 'If that commission was already paid to you, the amount is taken out of your later commission.' then
+    raise exception 'agreement_now does not know this document';
+  end if;
+  if p_terms->>'commission_type' = 'percent' then
+    d := jsonb_set(d, '{sections,2,paragraphs}', jsonb_insert(d->'sections'->2->'paragraphs', '{1}', to_jsonb(
+      'Commission is worked out on what the customer paid after tax and, for a purchase made in an app store, after the app store''s fee.'::text)));
+  end if;
+  v_last := jsonb_array_length(d->'sections'->3->'paragraphs') - 1;
+  d := jsonb_set(d, array['sections', '3', 'paragraphs', v_last::text], to_jsonb(format(
+    'App store purchases that %s reports to KissMyApps through RevenueCat or Adapty count like any other sale. ', v_brand)
+    || (d->'sections'->3->'paragraphs'->>v_last)));
+  v_last := jsonb_array_length(d->'sections'->4->'paragraphs') - 1;
+  d := jsonb_set(d, array['sections', '4', 'paragraphs', v_last::text], to_jsonb(
+    'If that happens after the commission was approved, even after it was paid out to you, the amount is taken from your later '
+    || 'commission in this program. You are never billed for it.'::text));
+  return d;
+end $$;
 -- Terms as Phase 2 wrote them: no earn_from, no rewards.
 create function pg_temp.old_terms(overrides jsonb default '{}') returns jsonb language sql as $$
   select '{"program_name":"SpeakSix","brand_name":"SpeakSix Ltd","landing_url":"https://speaksix.com/start",
@@ -485,22 +512,26 @@ from (values ('{}'::jsonb), ('{"commission_rate_bps":1250}'),
   (values ('{}'::jsonb), ('{"currency":"EUR"}')) y(o);
 grant select on sales_shapes to anon, authenticated, service_role;
 select pg_temp.check((select count(*) = 1536 and count(distinct pg_temp.sha(pg_temp.agreement_before(s.terms))) > 1000
-    and bool_and(kma_internal.program_agreement(s.terms)::text = pg_temp.agreement_before(s.terms)::text
-      and kma_internal.program_agreement_sha256(kma_internal.program_agreement(s.terms)) = pg_temp.sha(pg_temp.agreement_before(s.terms))
+    and bool_and(kma_internal.program_agreement(s.terms)::text = pg_temp.agreement_now(s.terms)::text
+      and kma_internal.program_agreement_sha256(kma_internal.program_agreement(s.terms)) = pg_temp.sha(pg_temp.agreement_now(s.terms))
       and kma_internal.program_commission_headline(s.terms) = pg_temp.headline_before(s.terms))
   from sales_shapes s),
-  'terms from before Phase 6 give the document, the hash and the headline they gave before, in all 1536 shapes');
+  'terms from before Phase 6 give the document they gave before with only the wording of 2026-11-13 changed, its hash, '
+    || 'and the headline they gave before, in all 1536 shapes');
 select pg_temp.check((select bool_and(
-      kma_internal.program_agreement(s.terms || '{"earn_from":"sales","rewards":[]}')::text = pg_temp.agreement_before(s.terms)::text
+      kma_internal.program_agreement(s.terms || '{"earn_from":"sales","rewards":[]}')::text = pg_temp.agreement_now(s.terms)::text
       and kma_internal.program_agreement(s.terms || '{"earn_from":"sales","rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200}]}')::text
-        = pg_temp.agreement_before(s.terms)::text
-      and kma_internal.program_agreement(s.terms || '{"earn_from":null,"rewards":null}')::text = pg_temp.agreement_before(s.terms)::text)
+        = pg_temp.agreement_now(s.terms)::text
+      and kma_internal.program_agreement(s.terms || '{"earn_from":null,"rewards":null}')::text = pg_temp.agreement_now(s.terms)::text)
   from sales_shapes s),
   'terms that say they pay for sales give the same document byte for byte, whatever rewards they carry');
--- The first twelve characters of the hash each of these terms had on the day before Phase 6.
-select pg_temp.check(left(pg_temp.sha(pg_temp.doc(pg_temp.old_terms(v.overrides))), 12) = v.fingerprint
-  and left(pg_temp.sha(pg_temp.doc(pg_temp.old_terms(v.overrides) || '{"earn_from":"sales","rewards":[]}')), 12) = v.fingerprint,
-  format('the sales agreement still hashes to %s', v.fingerprint))
+-- The first twelve characters of the hash each of these terms had on the day before Phase 6:
+-- the document from before still hashes to it, and the agreement is that document with the
+-- wording of 2026-11-13.
+select pg_temp.check(left(pg_temp.sha(pg_temp.agreement_before(pg_temp.old_terms(v.overrides))), 12) = v.fingerprint
+  and pg_temp.doc(pg_temp.old_terms(v.overrides)) = pg_temp.agreement_now(pg_temp.old_terms(v.overrides))
+  and pg_temp.doc(pg_temp.old_terms(v.overrides) || '{"earn_from":"sales","rewards":[]}') = pg_temp.agreement_now(pg_temp.old_terms(v.overrides)),
+  format('the sales agreement from before still hashes to %s', v.fingerprint))
 from (values
   ('{}'::jsonb, '1114402db03d'),
   ('{"commission_duration":"first_payment","commission_months":null}', '4a2c60ebf248'),
@@ -537,12 +568,12 @@ select pg_temp.check((select t.version = 1 and t.terms = '{"program_name":"Quiet
       "commission_type":"percent","commission_rate_bps":2000,"commission_fixed_minor":null,"currency":"USD",
       "commission_duration":"lifetime","commission_months":null,"attribution_window_days":30,"hold_days":14,
       "minimum_payout_minor":2000,"approval_mode":"automatic","extra_terms":null,"earn_from":"sales","rewards":[]}'::jsonb
-    and t.agreement::text = pg_temp.agreement_before(t.terms - 'earn_from' - 'rewards')::text
-    and t.agreement_sha256 = pg_temp.sha(pg_temp.agreement_before(t.terms - 'earn_from' - 'rewards'))
+    and t.agreement::text = pg_temp.agreement_now(t.terms - 'earn_from' - 'rewards')::text
+    and t.agreement_sha256 = pg_temp.sha(pg_temp.agreement_now(t.terms - 'earn_from' - 'rewards'))
     and t.agreement->'summary'->0 = '{"label":"Commission","value":"20% of every payment"}'::jsonb
     and jsonb_array_length(t.agreement->'summary') = 4 and jsonb_array_length(t.agreement->'sections') = 11
   from pg_temp.terms_row('quiet') t),
-  'the published terms of a sales program say earn_from sales and no rewards; its agreement is the Phase 2 document');
+  'the published terms of a sales program say earn_from sales and no rewards; its agreement is the Phase 2 document with the wording of 2026-11-13');
 -- The three new columns are touched: rewards and a budget are saved while the program
 -- still pays for sales, and earn_from is sent as it is.
 select pg_temp.check((select s->'program' @> '{"earn_from":"sales","reward_budget_minor":50000,"has_unpublished_changes":false,"agreement_read":true,
@@ -958,7 +989,7 @@ select pg_temp.check((select d - 'sections' = '{"title":"Rival Reader Affiliate 
     and pg_temp.section(d, 'How you may promote')->>3 = 'Sales and actions that break these rules earn nothing.'
     and d::text !~ 'Sales made through your link earn no commission'
   from pg_temp.agreement('rival_owner', 'rival') a, lateral (select a->'agreement' as d) x,
-    lateral (select pg_temp.agreement_before((select kma_internal.program_terms(p) from pg_temp.program('rival') p)) as b) y),
+    lateral (select pg_temp.agreement_now((select kma_internal.program_terms(p) from pg_temp.program('rival') p)) as b) y),
   'the agreement of a program that pays for both has the commission and the sale sections as a sales program has them, and the reward sections');
 select pg_temp.fund('rival', 'rival_owner', 100000);
 select pg_temp.read('rival_owner', 'rival');
@@ -982,7 +1013,7 @@ select pg_temp.check((select (s->'program'->>'has_unpublished_changes')::boolean
       and jsonb_array_length(s->'program'->'rewards') = 1
     from pg_temp.save('rival_owner', 'rival', '{"earn_from":"sales"}') s)
   and pg_temp.agreement('rival_owner', 'rival')->'agreement'
-    = pg_temp.agreement_before((select kma_internal.program_terms(p) from pg_temp.program('rival') p))
+    = pg_temp.agreement_now((select kma_internal.program_terms(p) from pg_temp.program('rival') p))
   and (select kma_internal.program_terms(p)->'rewards' = '[]' from pg_temp.program('rival') p)
   and (select not (s->'program'->>'has_unpublished_changes')::boolean and (s->'program'->>'agreement_read')::boolean
     from pg_temp.save('rival_owner', 'rival', '{"earn_from":"both"}') s),

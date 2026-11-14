@@ -350,6 +350,9 @@ from (values
   ('{"currency":"JPY"}', 'invalid_currency'),
   ('{"currency":"KWD"}', 'invalid_currency'),
   ('{"currency":840}', 'invalid_currency'),
+  -- Programs pay creators in US dollars for now (20261122104000_program_refund_recovery.sql).
+  ('{"currency":"EUR"}', 'invalid_input'),
+  ('{"currency":"GBP"}', 'invalid_input'),
   ('{"commission_duration":"forever"}', 'invalid_commission_duration'),
   ('{"commission_duration":"months"}', 'invalid_commission_months'),
   ('{"commission_duration":"months","commission_months":0}', 'invalid_commission_months'),
@@ -388,9 +391,9 @@ select pg_temp.save('admin', 'acme', '{"tagline":null,"extra_terms":"   ","logo_
 select pg_temp.check((select p.revision = 3 and p.tagline is null and p.extra_terms is null and p.logo_path is null
     and p.category = 'education' and p.updated_by = pg_temp.q('admin') from pg_temp.program('acme') p),
   'null or blank clears a field; the save is stamped with who made it');
-select pg_temp.save('owner', 'acme', '{"currency":"EUR","attribution_window_days":60,"hold_days":0,"minimum_payout_minor":0,
+select pg_temp.save('owner', 'acme', '{"currency":"USD","attribution_window_days":60,"hold_days":0,"minimum_payout_minor":0,
   "approval_mode":"manual","marketplace_listed":false}');
-select pg_temp.check((select p.currency = 'EUR' and p.attribution_window_days = 60 and p.hold_days = 0 and p.minimum_payout_minor = 0
+select pg_temp.check((select p.currency = 'USD' and p.attribution_window_days = 60 and p.hold_days = 0 and p.minimum_payout_minor = 0
     and p.approval_mode = 'manual' and not p.marketplace_listed from pg_temp.program('acme') p), 'the options are saved');
 select pg_temp.save('owner', 'acme', '{"currency":null,"attribution_window_days":null,"hold_days":null,"minimum_payout_minor":null,
   "approval_mode":null,"marketplace_listed":null}');

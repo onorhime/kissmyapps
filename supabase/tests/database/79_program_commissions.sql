@@ -277,14 +277,16 @@ $$;
 -- The books: every balance is the sum of its entries and each entry carries the running
 -- total; no commission or fee ever took a balance below zero; every commission agrees with
 -- its entries on both ledgers; what a merchant paid in is what is available plus what
--- commissions hold or have passed on.
+-- commissions hold or have passed on. Since 20261122104000_program_refund_recovery.sql a
+-- commission also holds what a refund after a payout still owes back (recovery_due_minor),
+-- and per creator and program that is exactly how far the creator's sum is below zero.
 create function pg_temp.books() returns boolean language sql as $$
   select (select coalesce(bool_and(a.available_minor = coalesce((select sum(e.amount_minor)
         from public.program_balance_entries e where e.account_id = a.id), 0)), true)
       from public.program_balance_accounts a)
     and not exists (select 1 from public.program_balance_entries e
       where e.kind in ('commission_reserved', 'fee_reserved') and e.available_after_minor < 0)
-    and (select coalesce(bool_and(-(c.amount_minor + c.fee_minor) = coalesce((select sum(e.amount_minor)
+    and (select coalesce(bool_and(-(c.amount_minor + c.fee_minor + c.recovery_due_minor) = coalesce((select sum(e.amount_minor)
           from public.program_balance_entries e where e.commission_id = c.id), 0)
         and (case when c.status = 'approved' then c.amount_minor else 0 end) = coalesce((select sum(e.amount_minor)
           from public.program_creator_entries e where e.commission_id = c.id), 0)
@@ -292,9 +294,12 @@ create function pg_temp.books() returns boolean language sql as $$
       from public.program_commissions c)
     and (select coalesce(bool_and(a.available_minor = coalesce((select sum(e.amount_minor)
           from public.program_balance_entries e where e.account_id = a.id and e.topup_id is not null), 0)
-        - coalesce((select sum(c.amount_minor + c.fee_minor) from public.program_commissions c
+        - coalesce((select sum(c.amount_minor + c.fee_minor + c.recovery_due_minor) from public.program_commissions c
           where c.program_id = a.program_id), 0)), true)
       from public.program_balance_accounts a)
+    and not exists (select 1 from public.program_creator_entries e group by e.affiliate_id, e.program_id
+      having greatest(-sum(e.amount_minor), 0) <> (select coalesce(sum(c.recovery_due_minor), 0) from public.program_commissions c
+        where c.affiliate_id = e.affiliate_id and c.program_id = e.program_id))
 $$;
 
 -- The worker's calls, for the sales that go through the real functions ------------------------
@@ -980,23 +985,26 @@ select pg_temp.check(pg_temp.tick() = '{"approved":0,"retried":0,"remaining":0}'
   'a reversed commission is never approved');
 
 -- Refunds after approval --------------------------------------------------------------------------
+-- Since 20261122104000_program_refund_recovery.sql the KissMyApps fee on the refunded share goes
+-- back to the merchant too, and a refund after a payout is taken back in full (below).
 insert into qa select 'ada_owed', pg_temp.owed('ada', 'acme');
 insert into qa select 'acme_before_clawback', pg_temp.available('acme');
 select pg_temp.refund('m1', 2450);
-select pg_temp.check(pg_temp.c('m1') = 'approved 735+147' and pg_temp.credited('m1', 'clawback') = '1x-735'
-  and pg_temp.moved('m1', 'commission_returned') = '1x735' and pg_temp.moved('m1', 'fee_returned') = '0x0'
+select pg_temp.check(pg_temp.c('m1') = 'approved 735+73' and pg_temp.credited('m1', 'clawback') = '1x-735'
+  and pg_temp.moved('m1', 'commission_returned') = '1x735' and pg_temp.moved('m1', 'fee_returned') = '1x74'
   and pg_temp.owed('ada', 'acme') = pg_temp.t('ada_owed')::bigint - 735
-  and pg_temp.available('acme') = pg_temp.t('acme_before_clawback')::bigint + 735,
+  and pg_temp.available('acme') = pg_temp.t('acme_before_clawback')::bigint + 735 + 74,
   'half the payment refunded after approval: half the commission is taken back from the creator and returned to the '
-    || 'merchant; the fee is kept');
+    || 'merchant, and so is the fee on that half');
 select pg_temp.refund('m1', 4900);
-select pg_temp.check(pg_temp.c('m1') = 'approved 0+147' and pg_temp.credited('m1', 'clawback') = '2x-1470'
-  and pg_temp.moved('m1', 'commission_returned') = '2x1470' and (pg_temp.com('m1')).earned_minor = 1470
-  and pg_temp.available('acme') = pg_temp.t('acme_before_clawback')::bigint + 1470,
-  'the whole payment refunded after approval: the whole commission is taken back; the fee is still kept');
+select pg_temp.check(pg_temp.c('m1') = 'approved 0+0' and pg_temp.credited('m1', 'clawback') = '2x-1470'
+  and pg_temp.moved('m1', 'commission_returned') = '2x1470' and pg_temp.moved('m1', 'fee_returned') = '2x147'
+  and (pg_temp.com('m1')).earned_minor = 1470 and (pg_temp.com('m1')).recovery_due_minor = 0
+  and pg_temp.available('acme') = pg_temp.t('acme_before_clawback')::bigint + 1470 + 147,
+  'the whole payment refunded after approval: the whole commission and its fee go back to the merchant');
 select pg_temp.check((pg_temp.dispute('p_d3', 'acct_SpeakSix', 'lost') @> '{"recorded":true,"status":"disputed"}')
-  and pg_temp.c('p_d3') = 'approved 0+147' and pg_temp.credited('p_d3', 'clawback') = '1x-1470'
-  and pg_temp.moved('p_d3', 'commission_returned') = '1x1470',
+  and pg_temp.c('p_d3') = 'approved 0+0' and pg_temp.credited('p_d3', 'clawback') = '1x-1470'
+  and pg_temp.moved('p_d3', 'commission_returned') = '1x1470' and pg_temp.moved('p_d3', 'fee_returned') = '1x147',
   'a dispute lost after approval takes the whole commission back the same way');
 -- A payout (suite 82 covers how one is made) that left Ada only $5.00 from SpeakSix.
 with payout as (
@@ -1008,16 +1016,20 @@ with payout as (
 insert into public.program_creator_entries(affiliate_id, program_id, currency, kind, amount_minor, payout_id)
   select pg_temp.q('creator_ada'), (pg_temp.program('acme')).id, 'USD', 'payout', -amount_minor, id from payout;
 select pg_temp.refund('m_in', 4900);
-select pg_temp.check(pg_temp.c('m_in') = 'approved 970+147' and pg_temp.credited('m_in', 'clawback') = '1x-500'
-  and pg_temp.moved('m_in', 'commission_returned') = '1x500' and pg_temp.owed('ada', 'acme') = 0,
-  'a refund never takes back more than the creator still has coming from the program');
+select pg_temp.check(pg_temp.c('m_in') = 'approved 0+0' and pg_temp.credited('m_in', 'clawback') = '1x-1470'
+  and pg_temp.moved('m_in', 'commission_returned') = '1x500' and pg_temp.moved('m_in', 'fee_returned') = '1x147'
+  and (pg_temp.com('m_in')).recovery_due_minor = 970 and pg_temp.owed('ada', 'acme') = -970,
+  'a refund after a payout takes the whole commission back: the merchant gets back now what the creator still had coming, '
+    || 'and the rest is owed back from what the creator earns later');
 select kma_internal.program_commission_sync(pg_temp.q('m_in'));
 select pg_temp.refund('p_d1', 4900);
-select pg_temp.check(pg_temp.c('m_in') = 'approved 970+147' and pg_temp.c('p_d1') = 'approved 1470+147'
-  and pg_temp.credited('p_d1', 'clawback') = '0x0' and pg_temp.owed('ada', 'acme') = 0
+select pg_temp.check(pg_temp.c('m_in') = 'approved 0+0' and (pg_temp.com('m_in')).recovery_due_minor = 970
+  and pg_temp.c('p_d1') = 'approved 0+0' and pg_temp.credited('p_d1', 'clawback') = '1x-1470'
+  and pg_temp.moved('p_d1', 'commission_returned') = '0x0' and pg_temp.moved('p_d1', 'fee_returned') = '1x147'
+  and (pg_temp.com('p_d1')).recovery_due_minor = 1470 and pg_temp.owed('ada', 'acme') = -970 - 1470
   and pg_temp.n('public.program_commission_retries') = 0,
-  'with nothing left to take from, a refund of an approved sale moves nothing and what the creator has coming never goes '
-    || 'below zero');
+  'with nothing left to take from, a refund of an approved sale is owed back in full: what the creator has coming goes '
+    || 'below zero by what is owed back, and only the fee goes back now');
 select pg_temp.check(pg_temp.books(), 'the books balance after refunds of approved sales');
 
 -- A refund that arrives while the switch is off -------------------------------------------------
@@ -1116,7 +1128,8 @@ select pg_temp.check((select jsonb_array_length(e->'programs') = 2
 select pg_temp.check((select p->>'program_id' = (pg_temp.program('acme')).id::text and p->>'slug' = 'speaksix' and p->>'currency' = 'USD'
       and (p->>'pending_minor')::bigint = (select sum(c.amount_minor) from public.program_commissions c
         where c.affiliate_id = pg_temp.q('creator_ada') and c.program_id = (pg_temp.program('acme')).id and c.status = 'held')
-      and (p->>'approved_minor')::bigint = 0
+      -- Ada's SpeakSix sum is below zero by the refunds she still owes back: nothing to be paid, never less.
+      and (p->>'approved_minor')::bigint = 0 and pg_temp.owed('ada', 'acme') < 0
       and (p->>'paid_minor')::bigint = (select -sum(e.amount_minor) from public.program_creator_entries e
         where e.affiliate_id = pg_temp.q('creator_ada') and e.kind = 'payout')
       and (p->>'sales')::bigint = (select count(*) from public.program_commissions c
@@ -1140,7 +1153,7 @@ select pg_temp.check((select jsonb_array_length(e->'recent') = (select least(cou
       and (select r @> jsonb_build_object('program_name', 'SpeakSix', 'status', 'reversed', 'amount_minor', 0, 'earned_minor', 1470,
           'currency', 'USD', 'sale_amount_minor', 4900, 'approved_at', null)
         from jsonb_array_elements(e->'recent') r where r->>'id' = (pg_temp.com('a1')).id::text)
-      and (select r @> jsonb_build_object('status', 'approved', 'amount_minor', 970, 'earned_minor', 1470)
+      and (select r @> jsonb_build_object('status', 'approved', 'amount_minor', 0, 'earned_minor', 1470)
           and (r->>'approved_at') is not null and (r->>'hold_until')::timestamptz = (pg_temp.com('m_in')).hold_until
         from jsonb_array_elements(e->'recent') r where r->>'id' = (pg_temp.com('m_in')).id::text)
       and not exists (select 1 from jsonb_array_elements(e->'recent') r where r->>'id' = (pg_temp.com('a_zero')).id::text)
@@ -1171,8 +1184,11 @@ select pg_temp.check((select (m->>'programs_with_balance')::bigint = 4
       and m->'available_minor_by_currency' = jsonb_build_object('USD', (select sum(available_minor) from public.program_balance_accounts))
       and m->'reserved_minor_by_currency' = jsonb_build_object('USD',
         (select sum(c.amount_minor + c.fee_minor) from public.program_commissions c where c.status = 'held'))
+      -- A sum below zero is a refund still owed back, not money owed to a creator
+      -- (20261122104000_program_refund_recovery.sql): only sums above zero are added up.
       and m->'owed_to_creators_minor_by_currency' = jsonb_build_object('USD',
-        (select sum(e.amount_minor) from public.program_creator_entries e))
+        (select sum(greatest(x.owed, 0)) from (select sum(e.amount_minor) as owed from public.program_creator_entries e
+          group by e.affiliate_id, e.program_id) x))
       and (m->'reserved_minor_by_currency'->>'USD')::bigint > 0 and (m->'owed_to_creators_minor_by_currency'->>'USD')::bigint > 0
     from pg_temp.call('kma_operations', 'select public.get_admin_program_money()') m),
   'the admin totals are the balances available, what held commissions set aside and what creators have coming, by currency');
@@ -1182,8 +1198,9 @@ select set_config('request.jwt.claims', '', true);
 select pg_temp.check(pg_temp.books()
   and (select bool_and(e.available_after_minor >= 0) from public.program_balance_entries e where e.commission_id is not null)
   and (select bool_and(a.available_minor >= 0) from public.program_balance_accounts a)
-  and (select bool_and(s >= 0) from (select sum(e.amount_minor) as s from public.program_creator_entries e
-    group by e.affiliate_id, e.program_id) x)
+  -- A creator's sum is below zero only by the refunds still owed back, which books() checks
+  -- (20261122104000_program_refund_recovery.sql); this suite leaves one there.
+  and exists (select 1 from public.program_creator_entries e group by e.affiliate_id, e.program_id having sum(e.amount_minor) < 0)
   and (select count(*) = count(distinct c.sale_id) from public.program_commissions c)
   and not exists (select 1 from public.program_commissions c join public.program_sales s on s.id = c.sale_id
     where c.status = 'approved' and c.approved_at < c.hold_until)
@@ -1191,8 +1208,8 @@ select pg_temp.check(pg_temp.books()
     where e.kind = 'commission_approved' and c.status <> 'approved')
   and (select count(*) = count(distinct e.commission_id) from public.program_creator_entries e where e.kind = 'commission_approved'),
   'at the end every balance equals the sum of its entries and never went below zero through a commission, every commission '
-    || 'agrees with both ledgers, there is one commission per sale and one approval per commission, and no creator is owed '
-    || 'less than nothing');
+    || 'agrees with both ledgers, there is one commission per sale and one approval per commission, and a creator''s sum is '
+    || 'below zero only by the refunds still owed back');
 select pg_temp.check((select count(*) = 8 from (select distinct c.reason from public.program_commissions c where c.status = 'not_earned') r)
   and (select count(*) = 4 from (select distinct c.status from public.program_commissions c) s),
   'this suite produced every reason a sale earns nothing and every status a commission has');

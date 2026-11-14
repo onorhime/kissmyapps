@@ -728,8 +728,8 @@ describe('the form and what is sent', () => {
     expect(agreementReady({ ...filled, percent: '' })).toBe(false)
   })
 
-  it('offers only currencies the database takes', () => {
-    expect(currencies).toEqual(['USD', 'EUR', 'GBP', 'CAD', 'AUD'])
+  it('pays creators in US dollars only, for now', () => {
+    expect(currencies).toEqual(['USD'])
   })
 })
 
@@ -1125,7 +1125,12 @@ describe('program page', () => {
       expect(field('Attribution window')).toHaveValue('30')
       expect(field('Hold before payout')).toHaveValue('30')
       expect(field('Minimum payout')).toHaveValue('20.00')
-      expect(field('Currency')).toHaveValue('USD')
+      const currency = within(screen.getByRole('region', { name: 'More options' }))
+        .getByText('Currency')
+        .closest('div') as HTMLElement
+      expect(currency).toHaveTextContent('US dollars (USD)')
+      expect(currency).toHaveTextContent('Other currencies are coming later.')
+      expect(within(currency).queryByRole('combobox')).not.toBeInTheDocument()
       expect(field('Months of commission')).toHaveValue('12')
       expect(screen.getByRole('switch', { name: 'Listed in the marketplace' })).toBeChecked()
     })
@@ -1253,6 +1258,31 @@ describe('program page', () => {
       expect(within(form()).getByText('All changes saved')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument()
       expect(page().textContent).not.toMatch(/3000|2000|5000/)
+    })
+
+    it('shows a currency saved before programs paid in US dollars only, and keeps it', async () => {
+      signedInAs('owner')
+      const user = await openProgram(programState(program({ currency: 'EUR' })))
+      await user.click(button('Change'))
+      const currency = within(screen.getByRole('region', { name: 'More options' }))
+        .getByText('Currency')
+        .closest('div') as HTMLElement
+      expect(currency).toHaveTextContent('EUR')
+      expect(currency).toHaveTextContent('Kept from before programs paid in US dollars only.')
+      expect(currency).not.toHaveTextContent('US dollars (USD)')
+      answers({
+        ...fake.state.table,
+        workspace_program_save: programState(
+          program({ revision: 4, currency: 'EUR', tagline: 'Six weeks' }),
+        ),
+      })
+      await user.clear(field('One-line description'))
+      await user.type(field('One-line description'), 'Six weeks')
+      await user.click(button('Save'))
+      await screen.findByText('Draft saved')
+      expect(sent('save')).toEqual([
+        { p_workspace_id: 'ws-1', p_input: { tagline: 'Six weeks', revision: 3 } },
+      ])
     })
 
     it('sends only what changed, with the revision it was given', async () => {

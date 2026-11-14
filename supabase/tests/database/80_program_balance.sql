@@ -571,8 +571,9 @@ select pg_temp.check((select a.auto_topup and a.payment_method_id is null from p
     'platform_account_id', 'acct_Platform')) @> '{"business_name":"Draft","program_name":"Draft Thing","currency":"USD"}',
   'a draft program can open its balance; automatic top-up cannot be switched on without a card');
 -- Nothing has happened on that account, so it follows a change of the program's currency.
-select pg_temp.call('draft_owner', format('select public.workspace_program_save(%L, %L)', pg_temp.q('draft'),
-  jsonb_build_object('currency', 'EUR', 'revision', (pg_temp.program('draft')).revision)));
+-- Programs are saved in US dollars only now (20261122104000_program_refund_recovery.sql), so
+-- the currency is changed on the row, as for a program saved in another currency before that.
+update public.affiliate_programs set currency = 'EUR' where workspace_id = pg_temp.q('draft');
 select pg_temp.check(pg_temp.svc('open_program_balance', jsonb_build_object('workspace_id', pg_temp.q('draft'),
     'user_id', pg_temp.q('draft_owner'), 'platform_account_id', 'acct_Platform')) @> '{"currency":"EUR","program_currency":"EUR"}'
   and (pg_temp.account('draft')).currency = 'EUR',
@@ -581,8 +582,7 @@ select pg_temp.check(pg_temp.svc('open_program_balance', jsonb_build_object('wor
 select pg_temp.svc('attach_program_balance_customer', jsonb_build_object('account_id', (pg_temp.account('draft')).id,
   'stripe_customer_id', 'cus_Draft', 'platform_account_id', 'acct_Platform'));
 select pg_temp.deposit('t_draft', 'draft', 'draft_owner', 5000);
-select pg_temp.call('draft_owner', format('select public.workspace_program_save(%L, %L)', pg_temp.q('draft'),
-  jsonb_build_object('currency', 'GBP', 'revision', (pg_temp.program('draft')).revision)));
+update public.affiliate_programs set currency = 'GBP' where workspace_id = pg_temp.q('draft');
 select pg_temp.check(pg_temp.svc('open_program_balance', jsonb_build_object('workspace_id', pg_temp.q('draft'),
     'user_id', pg_temp.q('draft_owner'), 'platform_account_id', 'acct_Platform')) @> '{"currency":"EUR","program_currency":"GBP"}'
   and (pg_temp.topup('t_draft')).currency = 'EUR'
