@@ -28,6 +28,10 @@ Required server configuration (defaults remain disabled):
   `account.updated` and `account.application.deauthorized` at the pinned API
   version for `merchant-connect-webhook?binding_id=<id>`. Each endpoint must use
   its own signing secret. Missing webhook configuration fails closed.
+- The binding ID `console` is reserved:
+  `merchant-connect-webhook?binding_id=console` serves the merchant console's
+  own platform (`workspace-stripe-connect`), built from the `CONSOLE_CONNECT_*`
+  settings and `CONSOLE_MERCHANT_WEBHOOK_SIGNING`, never from this JSON.
 
 The invitation URL is a KMA URL with a 256-bit token in its fragment. The UI
 must remove it from the address bar and keep it only for the intended session.

@@ -20,8 +20,38 @@ import {
   MerchantProvider,
   object,
 } from "../merchant-connect/provider.ts";
+import {
+  consoleConnectConfig,
+  consoleConnectEnabled,
+} from "../workspace-stripe-connect/config.ts";
+type Env = (name: string) => string | undefined;
+/**
+ * The merchant console's own live platform (workspace-stripe-connect) as the
+ * reserved binding `console`. Its connections are merchant_connections rows like
+ * the invited ones, so the same account events apply to them. Absent until
+ * Connections is on and this endpoint's signing secret is stored.
+ */
+export function consoleMerchantBinding(
+  env: Env = (name) => Deno.env.get(name),
+): MerchantBinding | undefined {
+  const webhookSecret = (env("CONSOLE_MERCHANT_WEBHOOK_SIGNING") ?? "").trim();
+  if (!consoleConnectEnabled(env) || !webhookSecret) return undefined;
+  const config = consoleConnectConfig(env);
+  return {
+    id: "console",
+    platformAccountId: config.platformAccountId,
+    livemode: true,
+    clientId: config.clientId,
+    secret: config.secret,
+    origin: config.origin,
+    callbackUrl: config.callbackUrl,
+    providerEnabled: true,
+    webhookSecret,
+  };
+}
 export interface MerchantWebhookDependencies {
   bindings: () => Map<string, MerchantBinding>;
+  consoleBinding: () => MerchantBinding | undefined;
   persist: (input: Json) => Promise<Json>;
   connectionExists: (input: Json) => Promise<boolean>;
   provider: (binding: MerchantBinding) => MerchantProvider;
@@ -32,6 +62,7 @@ export function createMerchantConnectWebhook(
 ) {
   const deps: MerchantWebhookDependencies = {
     bindings: merchantBindings,
+    consoleBinding: consoleMerchantBinding,
     now: Date.now,
     provider: (b) => new MerchantProvider(b),
     connectionExists: async (input) => {
@@ -64,9 +95,13 @@ export function createMerchantConnectWebhook(
           "Provider authentication is required.",
         );
       }
-      const b = deps.bindings().get(
-        new URL(request.url).searchParams.get("binding_id") ?? "",
-      );
+      const bindingId = new URL(request.url).searchParams.get("binding_id") ??
+        "";
+      // "console" always means the merchant console's platform, never an entry
+      // of MERCHANT_CONNECT_BINDINGS_JSON.
+      const b = bindingId === "console"
+        ? deps.consoleBinding()
+        : deps.bindings().get(bindingId);
       if (!b?.providerEnabled || !b.webhookSecret?.startsWith("whsec_")) {
         throw new RequestError(
           503,
