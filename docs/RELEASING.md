@@ -96,6 +96,7 @@ switches.
 node scripts/kma-features.mjs status   # one line per feature: on, or what it waits for
 node scripts/kma-features.mjs on       # switch on everything that can be, then the checks
 node scripts/kma-features.mjs stripe   # ask for the Stripe values, then run `on`
+node scripts/kma-features.mjs webhooks # only the missing webhook endpoints (restricted key)
 ```
 
 - Features that need no Stripe value go on at once: the public marketplace, attribution
@@ -117,6 +118,10 @@ node scripts/kma-features.mjs stripe   # ask for the Stripe values, then run `on
 - Every step can be run again: it changes only what is not on yet. Running `stripe` again
   keeps the endpoints it already made and creates only the missing ones; press Enter at the
   client ID and publishable key prompts to keep the stored values.
+- `webhooks` creates only the missing endpoints and stores their signing values, without the
+  live secret key (Stripe shows a live secret key once, and Supabase never shows it again).
+  A restricted key with **Webhook Endpoints: Write** is enough; it is not stored and can be
+  deleted afterwards. It refuses a key whose account has none of the endpoints `stripe` made.
 - Not covered: routing `kissmyapps.dev` itself. Invite links (`/marketplace/<slug>`) and
   checkout links (`/checkout/<slug>`) are on the main domain, which does not point at the
   VPS; `status` says where it points.

@@ -11,6 +11,7 @@
 //   node scripts/kma-features.mjs status
 //   node scripts/kma-features.mjs on        # then offers the Stripe step if values are missing
 //   node scripts/kma-features.mjs stripe
+//   node scripts/kma-features.mjs webhooks  # only the missing endpoints, restricted key is enough
 
 import { spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
@@ -538,6 +539,8 @@ export const KEY = /^sk_live_[A-Za-z0-9]+$/
 export const CLIENT_ID = /^ca_[A-Za-z0-9]{3,128}$/
 export const PUBLISHABLE = /^pk_live_[A-Za-z0-9]+$/
 export const SIGNING = /^whsec_[A-Za-z0-9]+$/
+/** `webhooks` needs only to manage webhook endpoints: a restricted key is enough. */
+export const WEBHOOK_KEY = /^(rk|sk)_live_[A-Za-z0-9]+$/
 
 // ---------------------------------------------------------------------------------------------
 // Talking to Supabase, Stripe and the person at the Terminal.
@@ -868,8 +871,37 @@ The secret key is not shown while you paste it and is stored only in Supabase.
   }
 
   console.log('\nWebhook endpoints')
-  const existing = (await stripeApi(key, 'GET', 'webhook_endpoints?limit=100')).data ?? []
-  for (const spec of webhookSpecs(ctx.ref)) {
+  await ensureWebhooks(key, ctx.ref, stored, values)
+
+  const plain = {}
+  if (!stored.has('CREATOR_CONNECT_BINDINGS_JSON')) {
+    plain.CREATOR_CONNECT_BINDINGS_JSON = JSON.stringify(consoleBinding(account.id))
+  } else if (
+    stored.get('CREATOR_CONNECT_BINDINGS_JSON') !==
+    sha256(JSON.stringify(consoleBinding(account.id)))
+  ) {
+    console.log(
+      '\nCREATOR_CONNECT_BINDINGS_JSON already holds a value this tool did not write, so it was\n' +
+        'left alone. Creator payouts need it to contain this entry (see\n' +
+        'docs/affiliate-self-serve-phase4-payouts.md, "The console binding"):\n' +
+        JSON.stringify(consoleBinding(account.id)),
+    )
+  }
+  ctx.setSecrets(values, { private: true })
+  ctx.setSecrets(plain)
+  console.log(
+    `\nStored in Supabase: ${[...Object.keys(values), ...Object.keys(plain)].join(', ')}\n`,
+  )
+  await on(ctx, { offerStripe: false })
+}
+
+/**
+ * Makes sure every endpoint in webhookSpecs exists in Stripe and its signing value is stored
+ * (or about to be: new values go into `values`). Endpoints already made and stored are kept.
+ */
+async function ensureWebhooks(key, ref, stored, values, existing = null) {
+  existing ??= (await stripeApi(key, 'GET', 'webhook_endpoints?limit=100')).data ?? []
+  for (const spec of webhookSpecs(ref)) {
     const found = existing.find((e) => e.url === spec.url)
     if (found && stored.has(spec.env)) {
       const events = [...new Set([...(found.enabled_events ?? []), ...spec.events])]
@@ -912,26 +944,43 @@ The secret key is not shown while you paste it and is stored only in Supabase.
     values[spec.env] = made.secret
     console.log(`  created  ${spec.url}`)
   }
-  const plain = {}
-  if (!stored.has('CREATOR_CONNECT_BINDINGS_JSON')) {
-    plain.CREATOR_CONNECT_BINDINGS_JSON = JSON.stringify(consoleBinding(account.id))
-  } else if (
-    stored.get('CREATOR_CONNECT_BINDINGS_JSON') !==
-    sha256(JSON.stringify(consoleBinding(account.id)))
-  ) {
-    console.log(
-      '\nCREATOR_CONNECT_BINDINGS_JSON already holds a value this tool did not write, so it was\n' +
-        'left alone. Creator payouts need it to contain this entry (see\n' +
-        'docs/affiliate-self-serve-phase4-payouts.md, "The console binding"):\n' +
-        JSON.stringify(consoleBinding(account.id)),
-    )
-  }
-  ctx.setSecrets(values, { private: true })
-  ctx.setSecrets(plain)
-  console.log(
-    `\nStored in Supabase: ${[...Object.keys(values), ...Object.keys(plain)].join(', ')}\n`,
+}
+
+/**
+ * Creates the webhook endpoints that are missing, without the live secret key: a restricted
+ * key with "Webhook Endpoints: Write" is enough. The account is recognised by the endpoints
+ * `stripe` already made for this project, so a key from another account changes nothing.
+ */
+async function webhooks(ctx) {
+  const stored = ctx.secrets()
+  console.log(`
+Stripe webhook endpoints, live mode. In the Stripe dashboard of the KissMyApps account
+(live mode), Developers > API keys > Create restricted key, with Webhook Endpoints set to
+Write, is enough. The live secret key works too. The key is not shown while you paste it,
+is used only for this step and is not stored. You can delete a restricted key afterwards.
+`)
+  const key = await askHidden('Restricted key (rk_live_...) or secret key (sk_live_...): ')
+  if (!WEBHOOK_KEY.test(key))
+    throw new Error('That is not a live rk_live_ or sk_live_ key. Nothing was changed.')
+  const existing = (await stripeApi(key, 'GET', 'webhook_endpoints?limit=100')).data ?? []
+  const ours = webhookSpecs(ctx.ref).filter(
+    (spec) => stored.has(spec.env) && existing.some((e) => e.url === spec.url),
   )
-  await on(ctx, { offerStripe: false })
+  if (ours.length === 0)
+    throw new Error(
+      'This Stripe account has none of the KissMyApps webhook endpoints, so it is not the\n' +
+        'KissMyApps platform account in live mode. Nothing was changed.',
+    )
+  const values = {}
+  console.log('Webhook endpoints')
+  await ensureWebhooks(key, ctx.ref, stored, values, existing)
+  ctx.setSecrets(values, { private: true })
+  const names = Object.keys(values)
+  console.log(
+    names.length
+      ? `\nStored in Supabase: ${names.join(', ')}`
+      : '\nNothing to store: every endpoint was already set up.',
+  )
 }
 
 async function main() {
@@ -947,8 +996,10 @@ async function main() {
     await on(ctx)
   } else if (command === 'stripe') {
     await stripe(ctx)
+  } else if (command === 'webhooks') {
+    await webhooks(ctx)
   } else {
-    console.log('Usage: node scripts/kma-features.mjs status | on | stripe')
+    console.log('Usage: node scripts/kma-features.mjs status | on | stripe | webhooks')
   }
 }
 
