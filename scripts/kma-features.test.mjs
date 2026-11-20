@@ -285,7 +285,7 @@ describe('Stripe', () => {
   })
 
   test('webhook endpoints match the deploy documents', () => {
-    const [receipts, balance, creators] = webhookSpecs(REF)
+    const [receipts, balance, creators, merchants] = webhookSpecs(REF)
     assert.equal(receipts.url, `https://${REF}.supabase.co/functions/v1/connect-payments-webhook`)
     assert.equal(receipts.connect, true)
     assert.equal(receipts.events.length, 9)
@@ -304,14 +304,22 @@ describe('Stripe', () => {
     )
     assert.ok('console' in consoleBinding('acct_1'))
     assert.deepEqual(creators.events, ['account.updated'])
+    assert.equal(
+      merchants.url,
+      `https://${REF}.supabase.co/functions/v1/merchant-connect-webhook?binding_id=console`,
+    )
+    assert.equal(merchants.connect, true)
+    assert.deepEqual(merchants.events, ['account.updated', 'account.application.deauthorized'])
     assert.deepEqual(
-      [receipts.env, balance.env, creators.env],
+      [receipts.env, balance.env, creators.env, merchants.env],
       [
         'CONNECT_PAYMENTS_WEBHOOK_SECRET',
         'PROGRAM_BALANCE_WEBHOOK_SIGNING',
         'CONSOLE_CREATOR_WEBHOOK_SIGNING',
+        'CONSOLE_MERCHANT_WEBHOOK_SIGNING',
       ],
     )
+    assert.equal(webhookSpecs(REF).length, 4)
   })
 
   test('form encoding and key checks', () => {

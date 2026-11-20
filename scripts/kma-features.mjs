@@ -4,7 +4,7 @@
 // secrets and in Vault), the pg_cron jobs, the schedule rows and the program money switches,
 // exactly as the deploy documents describe. A feature that needs a Stripe value stays off
 // until that value is stored: switched on without it, its pages would only show errors.
-// `stripe` asks for those values in the Terminal, creates the three Stripe webhook
+// `stripe` asks for those values in the Terminal, creates the four Stripe webhook
 // endpoints with the live key and stores everything in Supabase. See docs/RELEASING.md,
 // "Switching features on".
 //
@@ -470,7 +470,7 @@ export function consoleBinding(platformAccountId) {
   }
 }
 
-/** The three Stripe webhook endpoints the money features listen on. */
+/** The four Stripe webhook endpoints the money features listen on. */
 export function webhookSpecs(ref) {
   const base = `https://${ref}.supabase.co/functions/v1`
   return [
@@ -511,6 +511,15 @@ export function webhookSpecs(ref) {
       connect: true,
       description: 'KissMyApps: creator payout accounts',
       events: ['account.updated'],
+    },
+    {
+      // Lets Connections notice a merchant who disconnects KissMyApps, or whose account
+      // changes, on Stripe's side.
+      env: 'CONSOLE_MERCHANT_WEBHOOK_SIGNING',
+      url: `${base}/merchant-connect-webhook?binding_id=console`,
+      connect: true,
+      description: 'KissMyApps: merchant Stripe connections',
+      events: ['account.updated', 'account.application.deauthorized'],
     },
   ]
 }
@@ -903,20 +912,6 @@ The secret key is not shown while you paste it and is stored only in Supabase.
     values[spec.env] = made.secret
     console.log(`  created  ${spec.url}`)
   }
-  const legacy = existing.filter((e) => e.url.includes('/functions/v1/merchant-connect-webhook'))
-  const legacyOk = legacy.some((e) =>
-    ['account.updated', 'account.application.deauthorized'].every(
-      (ev) => e.enabled_events?.includes(ev) || e.enabled_events?.includes('*'),
-    ),
-  )
-  if (!legacyOk) {
-    console.log(
-      '  Note: no merchant-connect-webhook endpoint here listens to account.updated and\n' +
-        '  account.application.deauthorized. Connections still work; the console just will not\n' +
-        "  notice changes a merchant makes on Stripe's side until they reconnect.",
-    )
-  }
-
   const plain = {}
   if (!stored.has('CREATOR_CONNECT_BINDINGS_JSON')) {
     plain.CREATOR_CONNECT_BINDINGS_JSON = JSON.stringify(consoleBinding(account.id))

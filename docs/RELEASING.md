@@ -105,15 +105,18 @@ node scripts/kma-features.mjs stripe   # ask for the Stripe values, then run `on
   links, payouts) stay off until their Stripe values are stored. Switched on without them
   their pages only show errors. `on` offers the Stripe step at the end.
 - `stripe` reads the live secret key without echoing it, reads the platform account from
-  Stripe, asks for the Connect client ID and the publishable key, creates the three webhook
-  endpoints (connect payments, program balance, creator payout accounts) with the pinned API
-  version, stores their signing secrets, and writes the console entry of
+  Stripe, asks for the Connect client ID and the publishable key, creates the four webhook
+  endpoints (connect payments, program balance, creator payout accounts, merchant
+  connections) with the pinned API version, stores their signing secrets, and writes the
+  console entry of
   `CREATOR_CONNECT_BINDINGS_JSON` when that secret is unset. The OAuth redirect URI
   (`https://merchant.kissmyapps.dev/`) is the one setting it cannot make: add it in Stripe
   first.
 - Creator payouts switch on only once a program has a balance (the admin switch refuses
   before that). Run `on` again after the first deposit, or switch it on in the admin app.
-- Every step can be run again: it changes only what is not on yet.
+- Every step can be run again: it changes only what is not on yet. Running `stripe` again
+  keeps the endpoints it already made and creates only the missing ones; press Enter at the
+  client ID and publishable key prompts to keep the stored values.
 - Not covered: routing `kissmyapps.dev` itself. Invite links (`/marketplace/<slug>`) and
   checkout links (`/checkout/<slug>`) are on the main domain, which does not point at the
   VPS; `status` says where it points.

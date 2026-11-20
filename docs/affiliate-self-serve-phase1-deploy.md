@@ -40,6 +40,7 @@ The admin invitation flow (`merchant-connect`) is unchanged and keeps working.
 | `CONSOLE_CONNECT_CALLBACK_URL` | `https://merchant.kissmyapps.dev/` |
 | `CONNECT_PAYMENTS_WEBHOOK_ENABLED` | `true` to switch receipts on |
 | `CONNECT_PAYMENTS_WEBHOOK_SECRET` | the signing secret of the Connect webhook endpoint, `whsec_...` |
+| `CONSOLE_MERCHANT_WEBHOOK_SIGNING` | the signing value of the merchant connections endpoint (step 3 below), `whsec_...` |
 
 `CONSOLE_CONNECT_ALLOW_LOCAL` stays unset in production.
 
@@ -53,9 +54,13 @@ The admin invitation flow (`merchant-connect`) is unchanged and keeps working.
    `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
    `payment_intent.succeeded`, `invoice.paid`, `charge.refunded`, `refund.created`,
    `refund.updated`, `charge.dispute.created`, `charge.dispute.closed`.
-3. The existing `merchant-connect-webhook` endpoint must receive `account.updated` and
-   `account.application.deauthorized` for the same platform account, so the console
-   follows changes made on Stripe's side.
+3. A second Connect endpoint at
+   `https://<project-ref>.supabase.co/functions/v1/merchant-connect-webhook?binding_id=console`
+   with `account.updated` and `account.application.deauthorized`, so the console follows
+   changes made on Stripe's side (a merchant who disconnects KissMyApps there shows as
+   disconnected). `binding_id=console` uses the `CONSOLE_CONNECT_*` values above and its own
+   signing value, `CONSOLE_MERCHANT_WEBHOOK_SIGNING`; it answers 503 until both are set.
+   `node scripts/kma-features.mjs stripe` creates this endpoint and stores the value.
 
 ## First live check
 
