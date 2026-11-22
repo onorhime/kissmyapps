@@ -1,6 +1,6 @@
 # Merchant platform remediation and release checks
 
-November 22, 2026. The dashboard and landing changes are local. The Swift, Android and Flutter 1.1.0 distributions are public. The production merchant console still serves dashboard commit `1dd6137` and web SDK 1.2.0. The public npm registry still lists React Native 1.0.0.
+November 22, 2026. The merchant fixes were deployed in dashboard commit `8328280`. The landing pages and web SDK 1.2.1 are live. Swift, Android, Flutter and React Native 1.1.0 are available from their public distributions.
 
 ## Merchant-to-creator rehearsal
 
@@ -14,7 +14,7 @@ November 22, 2026. The dashboard and landing changes are local. The Swift, Andro
 
 The browser used the production frontend bundle with isolated authentication and real local SQL functions. Provider confirmation, bank settlement, live emails and an external ad-account connection were outside this rehearsal. [Money-flow assertions](../supabase/tests/database/81_program_money_end_to_end.sql) · [Payout assertions](../supabase/tests/database/82_program_payouts.sql)
 
-## Changes ready for release
+## Changes deployed
 
 | Area | Implemented behavior |
 | --- | --- |
@@ -36,11 +36,11 @@ The landing pages retain the site’s typography, color palette, navigation and 
 | Flutter 1.1.0 | Published on pub.dev. The downloaded package passed 45 tests, including delivery to the local ingest service. [Published package](https://pub.dev/packages/kissmyapps/versions/1.1.0) |
 | Swift 1.1.0 | Published for Swift Package Manager. A fresh tag checkout passed all 32 tests with the local ingest service. The iOS simulator also passed its suite, with the separately configured delivery test skipped there. [Native release](https://github.com/onorhime/kissmyapps-mobile/releases/tag/1.1.0) |
 | Android 1.1.0 | Published through JitPack. The Gradle unit tests and release build passed. The registry POM and AAR were retrieved and the archive was verified. [Published Android artifact](https://jitpack.io/com/github/onorhime/kissmyapps-mobile/1.1.0/kissmyapps-mobile-1.1.0.pom) |
-| React Native / Expo 1.1.0 | Type checks, 35 tests and packaging passed. The verified tarball is in the local dashboard release directory. npm requires account authentication before publishing. [Package registry](https://www.npmjs.com/package/@kissmyappss/react-native) |
-| Web and React web 1.2.1 | Both use the same script distribution. The compiled SDK passed Chrome checks for withdrawal with queued data, reload, renewed consent and masking. It ships through the dashboard release. [Dashboard release process](RELEASING.md) |
+| React Native / Expo 1.1.0 | Published as npm’s `latest` version. The registry archive matched the verified tarball. A clean npm project installed the package with React Native 0.88.1 and AsyncStorage 3.1.1. The install, deep-link, revenue and consent examples passed TypeScript checks. [Published package](https://www.npmjs.com/package/@kissmyappss/react-native/v/1.1.0) |
+| Web and React web 1.2.1 | Both use the same script distribution. The compiled SDK passed Chrome checks for withdrawal with queued data, reload, renewed consent and masking. The public script and replay bundle matched the deployed release and passed the same browser checks. [Dashboard release process](RELEASING.md) |
 
 ## Release and acceptance
 
 All 3,132 dashboard and integration tests passed. The database harness applied 118 migrations and passed all 96 suites, including 58 merchant-to-creator money-flow assertions and 247 payout assertions. The Edge suite passed 744 runtime tests, formatting, lint and type checks. All 127 operational tests and seven cross-project funnel UI checks passed. The production build and SDK type checks passed. The dashboard build still reports large JavaScript chunks and repository lint has warnings.
 
-Production acceptance still requires the dashboard and landing releases, npm authentication and a designated real-device attribution rehearsal. The financial switch remains under platform-owner control. Actual advertiser billing, a live transfer and receipt in a creator’s bank require separate provider evidence. Apple’s postback signatures and report semantics were checked against its published test vectors. [Apple postback verification](https://developer.apple.com/documentation/storekit/verifying-an-install-validation-postback)
+The deployed database passed 16 merchant-to-creator checks in a rolled-back transaction with simulated payment receipts. A designated physical-device attribution rehearsal remains open. The financial switch remains under platform-owner control. Actual advertiser billing, a live transfer and receipt in a creator’s bank require separate provider evidence. Apple’s postback signatures and report semantics were checked against its published test vectors. [Apple postback verification](https://developer.apple.com/documentation/storekit/verifying-an-install-validation-postback)

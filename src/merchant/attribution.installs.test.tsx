@@ -147,7 +147,9 @@ describe('SDK 1.1 code', () => {
     expect(off.androidCode.match(/KissMyApps\.handleDeepLink\(intent\)/g)).toHaveLength(2)
     expect(off.androidCode).toContain('override fun onNewIntent(intent: Intent)')
     expect(off.androidCode).toContain('KissMyApps.onDeepLink { link ->')
-    expect(off.reactNativeInstall).toContain('npm install @kissmyappss/react-native@^1.1.0')
+    expect(off.reactNativeInstall).toContain(
+      'npm install @kissmyappss/react-native@1.1.0 @react-native-async-storage/async-storage',
+    )
     expect(off.reactNativeCode).toContain('KissMyApps.onDeepLink((link) => {')
     expect(off.reactNativeCode).toContain('KissMyApps.handleDeepLink(url)')
     expect(off.flutterInstall).toBe('flutter pub add kissmyapps:^1.1.0')
@@ -197,10 +199,11 @@ describe('attribution setup: the SDK step', () => {
     expect(code('Intent filter')).toContain('<data android:host="fluent.go.kissmyapps.dev" />')
     expect(code('Kotlin')).toContain('KissMyApps.handleDeepLink(intent)')
     await user.click(within(tabs).getByRole('button', { name: 'React Native' }))
-    expect(within(step).getByRole('link', { name: 'Check the npm release' })).toHaveAttribute(
-      'href',
-      'https://www.npmjs.com/package/@kissmyappss/react-native',
+    expect(code('Terminal')).toContain(
+      'npm install @kissmyappss/react-native@1.1.0 @react-native-async-storage/async-storage',
     )
+    expect(code('TypeScript')).toContain(`key: '${publicKey}'`)
+    expect(code('TypeScript')).toContain('KissMyApps.onDeepLink(')
     await user.click(within(tabs).getByRole('button', { name: 'Flutter' }))
     expect(code('Dart')).toContain('KissMyApps.onDeepLink((link) {')
   })

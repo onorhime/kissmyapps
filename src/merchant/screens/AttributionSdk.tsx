@@ -187,9 +187,9 @@ export function SdkStep({ project, view, role, onChange }: Props) {
                 <li>
                   <h3>Update the package</h3>
                   <p className="mc-muted">
-                    The pod adds the native part that reads Google Play&rsquo;s install referrer and
-                    Apple Ads attribution. Without it, an install still matches when a link opens
-                    the app. {installFirst}
+                    Rebuild your bare app or Expo development build to include the native module.
+                    Android reads the Google Play install referrer. On iOS, install the pods for
+                    Apple Ads attribution. {installFirst}
                   </p>
                   <CodeBlock label="Terminal" code={code.reactNativeInstall} />
                 </li>

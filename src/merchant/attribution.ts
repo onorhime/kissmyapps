@@ -10,7 +10,7 @@ import type {
   Project,
   SourceRow,
 } from './api'
-import { ANALYTICS_ENDPOINT, MOBILE_SDK, jitpackArtifact } from './config'
+import { ANALYTICS_ENDPOINT, MOBILE_SDK, REACT_NATIVE_INSTALL, jitpackArtifact } from './config'
 
 /** A subdomain made from the project's name, or '' when the name gives too little. */
 export function suggestedSubdomain(name: string): string {
@@ -462,8 +462,8 @@ class MainActivity : ComponentActivity() {
         KissMyApps.handleDeepLink(intent)
     }
 }`,
-    reactNativeInstall: `npm install ${MOBILE_SDK.npmPackage}@^${MOBILE_SDK.version}
-cd ios && pod install`,
+    reactNativeInstall: `${REACT_NATIVE_INSTALL}
+(cd ios && pod install)`,
     reactNativeCode: `import AsyncStorage from '@react-native-async-storage/async-storage'
 import { KissMyApps } from '${MOBILE_SDK.npmPackage}'
 
@@ -479,7 +479,7 @@ KissMyApps.onDeepLink((link) => {
 
 // The SDK reads the link that opened the app by itself. Pass on
 // any link your app receives another way:
-KissMyApps.handleDeepLink(url)`,
+// KissMyApps.handleDeepLink(url)`,
     flutterInstall: `flutter pub add ${MOBILE_SDK.pubPackage}:^${MOBILE_SDK.version}`,
     flutterCode: `import 'package:flutter/material.dart';
 import 'package:kissmyapps/kissmyapps.dart';

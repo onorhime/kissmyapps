@@ -12,7 +12,13 @@ import {
 } from 'lucide-react'
 import { api } from '../api'
 import type { ApiKey, KeyEnvironment, KeyKind, Members, Platform, Project, Role } from '../api'
-import { ANALYTICS_ENDPOINT, MOBILE_SDK, SDK_URL, jitpackArtifact } from '../config'
+import {
+  ANALYTICS_ENDPOINT,
+  MOBILE_SDK,
+  REACT_NATIVE_INSTALL,
+  SDK_URL,
+  jitpackArtifact,
+} from '../config'
 import { formatAgo, formatCount, platformLabels, plural, timeIn } from '../format'
 import { href, navigate } from '../routes'
 import type { ProjectSettingsSection } from '../routes'
@@ -1224,7 +1230,7 @@ navController.addOnDestinationChangedListener { _, destination, _ ->
 
 // When they sign out
 KissMyApps.reset()`,
-    reactNativeInstall: `npm install ${MOBILE_SDK.npmPackage} @react-native-async-storage/async-storage`,
+    reactNativeInstall: REACT_NATIVE_INSTALL,
     reactNativeStart: `import AsyncStorage from '@react-native-async-storage/async-storage'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { KissMyApps, trackNavigation } from '${MOBILE_SDK.npmPackage}'
@@ -1501,8 +1507,9 @@ export function InstallGuide({
             <section aria-labelledby="mc-step-rn-1">
               <h2 id="mc-step-rn-1">1. Install the package</h2>
               <p className="mc-muted">
-                Plain JavaScript, so it works with Expo and needs no linking. React Native 0.70 or
-                later.
+                Use React Native 0.70 or later. Expo Go supports event analytics. For native install
+                attribution, rebuild your bare app or Expo development build after installing. On
+                iOS, install the pods before rebuilding.
               </p>
               <CodeBlock code={code.reactNativeInstall} label="Terminal" />
             </section>

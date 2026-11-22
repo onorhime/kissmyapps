@@ -255,10 +255,13 @@ failed download shows there and in the logs, and the old file keeps working).
 
 ### Mobile SDKs
 
-iOS and Android released 2026-10-30 as 1.0.0 at https://github.com/onorhime/kissmyapps-mobile,
-built by JitPack. React Native published to npm as `@kissmyappss/react-native` 1.0.0 the
-same day. Flutter (`kissmyapps` on pub.dev) is in the repository but not published yet: see
-step 3.
+Version 1.1.0 is available for Swift Package Manager, Android through JitPack,
+React Native through npm and Flutter through pub.dev. The merchant integration guide
+covers installation, consent and verification for each platform.
+[Native release](https://github.com/onorhime/kissmyapps-mobile/releases/tag/1.1.0) ·
+[React Native 1.1.0](https://www.npmjs.com/package/@kissmyappss/react-native/v/1.1.0) ·
+[Flutter 1.1.0](https://pub.dev/packages/kissmyapps/versions/1.1.0) ·
+[Integration guide](https://kissmyapps.dev/integrations)
 
 SDKs for iOS (Swift package), Android (Kotlin, built by JitPack), React Native (npm) and
 Flutter (pub.dev) record installs, updates, opens, time in the app, sessions and screens on their own, and keep events on the phone while it is offline. They send the same
@@ -453,8 +456,7 @@ columns and tables; the previous console and SDK ignore them.
 
 ### Attribution, app installs
 
-Not deployed yet; it goes out after the two attribution releases above, before the 1.1.0
-app SDKs are published. On an app's first launch the SDK calls
+With attribution enabled for the project, on an app's first launch the SDK calls
 `POST /v1/attribution/install`, and when a link opens the app `POST /v1/attribution/open`
 (bodies in the `attribution` section of `integrations/analytics-mobile/contract/app-events.json`).
 The ingest function checks the body, swaps an Apple Ads token for Apple's answer and asks

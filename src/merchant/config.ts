@@ -18,9 +18,11 @@ export const MOBILE_SDK = {
     import.meta.env.VITE_MOBILE_SDK_REPOSITORY?.trim() ||
     'https://github.com/onorhime/kissmyapps-mobile',
   npmPackage: '@kissmyappss/react-native',
-  npmVersion: '1.0.0',
+  npmVersion: '1.1.0',
   pubPackage: 'kissmyapps',
 }
+
+export const REACT_NATIVE_INSTALL = `npm install ${MOBILE_SDK.npmPackage}@${MOBILE_SDK.npmVersion} @react-native-async-storage/async-storage`
 
 /** JitPack's coordinates for a single-library repository: com.github.<owner>:<repository>. */
 export function jitpackArtifact(repository = MOBILE_SDK.repository, version = MOBILE_SDK.version) {
