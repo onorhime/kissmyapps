@@ -446,7 +446,7 @@ final class AttributionTests: XCTestCase {
         XCTAssertEqual(opens[0]["anonymous_id"] as? String, "5f0c7a9e-3b1d-4c2a-9e8f-1a2b3c4d5e6f")
     }
 
-    func testSendsNothingWhileOptedOutAndTheInstallCallAtOptIn() throws {
+    func testDiscardsTheInstallWhileOptedOutAcrossLaunches() throws {
         let store = MemoryStore()
         let client = try start(store)
         client.optOut()
@@ -463,12 +463,7 @@ final class AttributionTests: XCTestCase {
 
         scheduler.advance(60_000)
         next.optIn()
-        XCTAssertEqual(installs.count, 1)
-        expectAttributionContract("install", installs[0])
-        XCTAssertEqual(installs[0]["installed_at"] as? String, isoTime(1_793_354_340_000), "the first launch")
-        XCTAssertNil(installs[0]["link_url"], "links are not kept while opted out")
-        XCTAssertEqual(installs[0]["session_id"] as? String, next.getSessionId())
-        XCTAssertEqual(transport.calls.first?.path, "/v1/events", "with the new session's first events before it")
+        XCTAssertTrue(installs.isEmpty, "An install during withdrawal is never replayed")
     }
 
     func testCallsInstallWithLifecycleTrackingOff() throws {

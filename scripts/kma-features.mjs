@@ -86,6 +86,10 @@ export function schedulers(ref) {
       row: 'kma_internal.analytics_destination_schedule',
       command: 'select kma_internal.tick_analytics_destination_schedule();',
     },
+    adSpend: {
+      env: 'AD_SPEND_SCHEDULER_SECRET', vault: 'kma_ad_spend_scheduler', job: 'kma-ad-spend',
+      schedule: '*/15 * * * *', command: workerPost(ref, 'attribution-ad-spend', 'kma_ad_spend_scheduler', '{}', 100000),
+    },
     fx: {
       env: 'ATTRIBUTION_FX_SCHEDULER_SECRET',
       vault: 'kma_attribution_fx_scheduler',
@@ -135,6 +139,10 @@ export const FEATURES = [
     name: 'Attribution ROI exchange rates',
     flags: ['ATTRIBUTION_FX_ENABLED'],
     scheduler: 'fx',
+  },
+  {
+    id: 'ad-spend', name: 'Advertiser spend imports',
+    flags: ['AD_SPEND_ENABLED'], scheduler: 'adSpend',
   },
   {
     id: 'rewards',

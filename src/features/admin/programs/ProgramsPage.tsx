@@ -1,3 +1,5 @@
+import { JourneyRequests } from '../../program-activity/JourneyRequests'
+import { ProgramActivity } from '../../program-activity/ProgramActivity'
 import {
   useCallback,
   useEffect,
@@ -672,6 +674,13 @@ export function ProgramsPage({ gateway, role }: ProgramsPageProps) {
 
   return (
     <section className="admin-programs" aria-labelledby="admin-programs-title">
+      {(role === 'owner' || role === 'operations') && (
+        <>
+          <ProgramActivity mode="exceptions" />
+          <ProgramActivity mode="history" />
+          <JourneyRequests />
+        </>
+      )}
       <header className="admin-prog-heading">
         <div>
           <h1 id="admin-programs-title">Programs</h1>

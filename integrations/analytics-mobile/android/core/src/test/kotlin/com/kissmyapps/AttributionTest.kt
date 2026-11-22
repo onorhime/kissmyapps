@@ -524,7 +524,7 @@ class AttributionTest {
     }
 
     @Test
-    fun sendsNothingWhileOptedOutAndTheInstallOnceOptedIn() {
+    fun discardsInstallsAndOpensCollectedWhileOptedOut() {
         val store = MemoryStore()
         val client = start(store)
         client.optOut()
@@ -537,11 +537,8 @@ class AttributionTest {
 
         client.optIn()
         scheduler.advance(300)
-        assertEquals(1, installs().size)
-        assertEquals(0, opens().size)
-        expectAttributionContract("install", installs()[0])
-        assertNotNull(client.getSessionId())
-        assertEquals(client.getSessionId(), installs()[0].getString("session_id"))
+        assertTrue(installs().isEmpty())
+        assertTrue(opens().isEmpty())
     }
 
     @Test

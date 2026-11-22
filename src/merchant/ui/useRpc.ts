@@ -1,3 +1,4 @@
+import type { ReportCursor } from '../api'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type RpcState<T> = {
@@ -78,5 +79,47 @@ export function useRpc<T>(
     loading: current ? state.refreshing : enabled,
     updatedAt: current ? state.updatedAt : null,
     refresh,
+  }
+}
+
+/** Keep the pages already read while a bounded request loads the next page. */
+export function usePagedRpc<
+  T extends { rows: { id: string }[]; total: number; next_cursor?: ReportCursor | null },
+>(key: string, load: (offset: number, cursor?: ReportCursor) => Promise<T>, pollMs: number) {
+  const [history, setHistory] = useState<{ key: string; offset: number; page: T }>()
+  const previous = history?.key === key ? history : undefined
+  const offset = previous?.offset ?? 0
+  const current = useRpc(
+    `${key}:${offset}`,
+    () => load(offset, previous?.page.next_cursor ?? undefined),
+    {
+      pollMs: offset ? undefined : pollMs,
+    },
+  )
+  const latest = current.data
+  const ids = new Set(previous?.page.rows.map((row) => row.id))
+  const data =
+    latest && previous
+      ? ({
+          ...latest,
+          rows: [...previous.page.rows, ...latest.rows.filter((row) => !ids.has(row.id))],
+        } as T)
+      : (latest ?? previous?.page)
+  const hasNext = Boolean(
+    latest?.rows.length &&
+    (latest.next_cursor === undefined
+      ? offset + latest.rows.length < latest.total
+      : latest.next_cursor),
+  )
+  const more = () => {
+    if (data && latest && hasNext) {
+      setHistory({ key, offset: offset + latest.rows.length, page: data })
+    }
+  }
+  return {
+    ...current,
+    data,
+    more,
+    canLoadMore: hasNext,
   }
 }

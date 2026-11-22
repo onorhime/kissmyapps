@@ -118,10 +118,10 @@ create function pg_temp.audits(workspace text, action_name text) returns bigint 
   where action = action_name and target_table = 'affiliate_programs' and target_id = (pg_temp.program(workspace)).id
 $$;
 create function pg_temp.terms(overrides jsonb default '{}') returns jsonb language sql as $$
-  select '{"program_name":"SpeakSix","brand_name":"SpeakSix Ltd","landing_url":"https://speaksix.com/start",
+  select '{"payout_policy":"pooled","program_name":"SpeakSix","brand_name":"SpeakSix Ltd","landing_url":"https://speaksix.com/start",
     "commission_type":"percent","commission_rate_bps":3000,"commission_fixed_minor":null,"currency":"USD",
     "commission_duration":"months","commission_months":12,"attribution_window_days":30,"hold_days":30,
-    "minimum_payout_minor":2000,"approval_mode":"automatic","extra_terms":null,
+    "minimum_payout_minor":2500,"approval_mode":"automatic","extra_terms":null,
     "earn_from":"sales","rewards":[]}'::jsonb || overrides
 $$;
 create function pg_temp.doc(overrides jsonb default '{}') returns jsonb language sql as $$
@@ -250,7 +250,7 @@ select pg_temp.check(pg_temp.try('owner', 'select public.workspace_program_get(n
   and pg_temp.try('rival_owner', pg_temp.sql('workspace_program_agreement', 'acme')) like 'P0002%'
   and pg_temp.try('rival_owner', pg_temp.sql('workspace_program_save', 'acme', '''{"name":"Mine"}''::jsonb')) like 'P0002%',
   'people outside the workspace cannot see or change its program');
-select pg_temp.check(pg_temp.state('owner', 'acme') = '{"can_manage":true,"stripe_connected":false,"stripe_charges_enabled":false,"brand_name":null,"events_available":false,"app_links_available":false,"program":null,
+select pg_temp.check(pg_temp.state('owner', 'acme') = '{"platform_minimum_minor":2500,"can_manage":true,"stripe_connected":false,"stripe_charges_enabled":false,"brand_name":null,"events_available":false,"app_links_available":false,"program":null,
     "checklist":{"stripe_connected":false,"details":false,"landing_page":false,"commission":false,"agreement_read":false},
     "can_submit":false}'::jsonb, 'a workspace with no program gets an empty state');
 select pg_temp.check((pg_temp.state('analyst', 'acme')->>'can_manage')::boolean = false
@@ -288,7 +288,7 @@ select pg_temp.check(
   = '{"revision":1,"status":"draft","pause_reason":null,"review_note":null,"slug":"speaksix","name":"SpeakSix","category":null,
     "tagline":null,"logo_path":null,"landing_url":null,"commission_type":null,"commission_rate_bps":null,
     "commission_fixed_minor":null,"currency":"USD","commission_duration":null,"commission_months":null,
-    "attribution_window_days":30,"hold_days":30,"minimum_payout_minor":2000,"approval_mode":"automatic",
+    "attribution_window_days":30,"hold_days":30,"minimum_payout_minor":2500,"approval_mode":"automatic",
     "marketplace_listed":true,"extra_terms":null,"agreement_read":false,"has_unpublished_changes":false,
     "live_terms_version":null,"submitted_at":null,"first_published_at":null,
     "earn_from":"sales","rewards":[],"reward_budget_minor":null,"app_link":null,
@@ -393,11 +393,11 @@ select pg_temp.check((select p.revision = 3 and p.tagline is null and p.extra_te
   'null or blank clears a field; the save is stamped with who made it');
 select pg_temp.save('owner', 'acme', '{"currency":"USD","attribution_window_days":60,"hold_days":0,"minimum_payout_minor":0,
   "approval_mode":"manual","marketplace_listed":false}');
-select pg_temp.check((select p.currency = 'USD' and p.attribution_window_days = 60 and p.hold_days = 0 and p.minimum_payout_minor = 0
+select pg_temp.check((select p.currency = 'USD' and p.attribution_window_days = 60 and p.hold_days = 0 and p.minimum_payout_minor = 2500
     and p.approval_mode = 'manual' and not p.marketplace_listed from pg_temp.program('acme') p), 'the options are saved');
 select pg_temp.save('owner', 'acme', '{"currency":null,"attribution_window_days":null,"hold_days":null,"minimum_payout_minor":null,
   "approval_mode":null,"marketplace_listed":null}');
-select pg_temp.check((select p.currency = 'USD' and p.attribution_window_days = 30 and p.hold_days = 30 and p.minimum_payout_minor = 2000
+select pg_temp.check((select p.currency = 'USD' and p.attribution_window_days = 30 and p.hold_days = 30 and p.minimum_payout_minor = 2500
     and p.approval_mode = 'automatic' and p.marketplace_listed from pg_temp.program('acme') p),
   'clearing an option puts back its default');
 
@@ -464,7 +464,7 @@ select pg_temp.check((select kma_internal.program_terms(p) = pg_temp.terms('{"br
   'the terms snapshot holds the commercial fields; without Stripe the brand is the program name');
 select pg_temp.check((select d - 'sections' = '{"title":"SpeakSix Affiliate Agreement","brand_name":"SpeakSix Ltd","program_name":"SpeakSix",
     "summary":[{"label":"Commission","value":"30% of every payment for 12 months"},{"label":"Attribution window","value":"30 days"},
-      {"label":"Hold before payout","value":"30 days"},{"label":"Minimum payout","value":"$20.00"}],"extra_terms":null}'::jsonb
+      {"label":"Hold before payout","value":"30 days"},{"label":"Minimum payout","value":"$25.00"}],"extra_terms":null}'::jsonb
     and jsonb_array_length(d->'sections') = 11
     and (select bool_and(s.value->>'heading' ~ ('^' || s.n || '\. \S') and jsonb_array_length(s.value->'paragraphs') between 1 and 4
         and (select bool_and(jsonb_typeof(x) = 'string' and length(x #>> '{}') between 20 and 400) from jsonb_array_elements(s.value->'paragraphs') x))
@@ -507,7 +507,7 @@ select pg_temp.check((select d->'summary' @> '[{"label":"Attribution window","va
     and d->'sections'->1->'paragraphs'->>1 = 'SpeakSix Ltd approves each creator. You can start once you have been approved.'
   from pg_temp.doc('{"attribution_window_days":1,"hold_days":0,"minimum_payout_minor":0,"approval_mode":"manual"}') d)
   and pg_temp.doc()->'sections'->5->'paragraphs'->>1
-    = 'Commission becomes payable once it has passed the hold. It is paid when your payable commission reaches $20.00.'
+    = 'Commission becomes payable once it has passed the hold. KissMyApps combines approved earnings across your programs in this currency. The platform payout minimum at publication is $25.00. Your Earnings page shows the current minimum.'
   and pg_temp.doc()->'sections'->1->'paragraphs'
     = '["You promote SpeakSix. KissMyApps gives you your own link, and people who click it land on https://speaksix.com/start.",
       "You can start as soon as you accept this agreement."]'::jsonb,
@@ -544,10 +544,10 @@ select pg_temp.check(not (pg_temp.save('owner', 'acme', v.input)->'program'->>'a
   format('changing %s makes the agreement unread until it is opened again', v.input))
 from (values ('{"commission_rate_bps":2500}'::jsonb), ('{"hold_days":45}'), ('{"extra_terms":"No coupon sites."}'),
   ('{"name":"SpeakSix Pro"}'), ('{"landing_url":"https://speaksix.com/go"}'), ('{"approval_mode":"manual"}'),
-  ('{"attribution_window_days":45}'), ('{"minimum_payout_minor":5000}'), ('{"commission_duration":"lifetime"}')) v(input);
+  ('{"attribution_window_days":45}'), ('{"commission_duration":"lifetime"}')) v(input);
 select pg_temp.save('owner', 'acme', '{"name":"SpeakSix","category":"education","tagline":"Speak English with confidence in six weeks.",
   "landing_url":"https://speaksix.com/start","commission_type":"percent","commission_rate_bps":3000,"commission_duration":"months",
-  "commission_months":12,"attribution_window_days":30,"hold_days":30,"minimum_payout_minor":2000,"approval_mode":"automatic",
+  "commission_months":12,"attribution_window_days":30,"hold_days":30,"minimum_payout_minor":2500,"approval_mode":"automatic",
   "marketplace_listed":true,"extra_terms":null}');
 select pg_temp.read('owner', 'acme');
 

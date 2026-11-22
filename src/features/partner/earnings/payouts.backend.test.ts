@@ -75,7 +75,9 @@ describe("a creator's payouts and the real backend answers", () => {
       ['canceled', 4410],
     ])
     const paid = earnings.payouts![1]
-    expect(payoutStatusLine(paid, new Date('2026-11-20T00:00:00Z'))).toMatch(/^Paid \d{1,2} Nov$/)
+    expect(payoutStatusLine(paid, new Date('2026-11-20T00:00:00Z'))).toMatch(
+      /^Transferred to Stripe \d{1,2} Nov$/,
+    )
     expect(payoutStatusLine(earnings.payouts![2])).toBe('Not sent: back in your approved earnings')
     expect(payableNow(earnings.payout!)).toBeNull()
     // A creator is never shown Stripe ids or anyone's address.

@@ -1,3 +1,4 @@
+import { ApplePostbacks } from './ApplePostbacks'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Check, ExternalLink, LoaderCircle, Plus, Trash2, TriangleAlert } from 'lucide-react'
@@ -343,63 +344,50 @@ function HowItWorks() {
 
 // Setup ------------------------------------------------------------------------------------------
 
-const LATER_STEPS: Array<{ key: string; title: string; text: string; ios?: boolean }> = [
-  {
-    key: 'partners',
-    title: 'Ad partners',
-    text: 'Connect Meta and TikTok so their ads are credited with the installs they bring, and their spend arrives on its own.',
-  },
-  {
-    key: 'skan',
-    title: 'SKAdNetwork',
-    text: "Apple's private install counts for iPhone ads, for people who do not allow tracking.",
-    ios: true,
-  },
-]
-
 function StepList({ project, view }: { project: Project; view: Attribution | null }) {
-  const later = LATER_STEPS.filter((step) => !step.ios || project.platforms.includes('ios'))
   const ready = setupSteps(project, null).map((step) => step.title)
+  if (view)
+    return (
+      <section className="mc-panel" aria-labelledby="mc-attr-plan">
+        <h2 id="mc-attr-plan">Ad network reporting</h2>
+        <details>
+          <summary>Match an install from a paid campaign</summary>
+          <p>
+            Have your server forward a permitted Meta or TikTok attribution report with the original
+            first-launch SDK session and anonymous ID. The match appears in Sources and the person’s
+            acquisition history.
+          </p>
+          <p>
+            An existing link or Apple Ads attribution keeps its credit. The reporting server must
+            already have access to the network data and permission to associate it with the install.
+          </p>
+          <a href="https://kissmyapps.dev/integrations#network-reports">
+            Network report format and verification
+          </a>
+          <p>
+            Functions base URL ·{' '}
+            <code>{(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')}/functions/v1</code>
+          </p>
+        </details>
+        {project.platforms.includes('ios') && <ApplePostbacks project={project.id} />}
+      </section>
+    )
   return (
     <section className="mc-panel" aria-labelledby="mc-attr-plan">
       <div className="mc-panel-head">
-        <div>
-          <h2 id="mc-attr-plan">{view ? 'Coming next' : 'What you will set up'}</h2>
-          {!view && (
-            <p>
-              The first {COUNT_WORDS[ready.length] ?? ready.length} steps are ready now; the rest
-              arrive in later releases.
-            </p>
-          )}
-        </div>
+        <h2 id="mc-attr-plan">What you will set up</h2>
       </div>
       <ol className="mc-check-list mc-attr-plan">
-        {!view &&
-          ready.map((title) => (
-            <li key={title}>
-              <span className="mc-status-dot is-on" aria-hidden="true" />
-              <span className="mc-attr-plan-text">
-                <strong>{title}</strong>
-              </span>
-              <span className="mc-muted">Ready now</span>
-            </li>
-          ))}
-        {later.map((step) => (
-          <li key={step.key}>
-            <span className="mc-status-dot" aria-hidden="true" />
-            <span className="mc-attr-plan-text">
-              <strong>{step.title}</strong>
-              {view && <span className="mc-muted">{step.text}</span>}
-            </span>
-            <span className="mc-muted">Coming soon</span>
+        {ready.map((title) => (
+          <li key={title}>
+            <span className="mc-status-dot is-on" aria-hidden="true" />
+            <strong>{title}</strong>
           </li>
         ))}
       </ol>
     </section>
   )
 }
-
-const COUNT_WORDS: Record<number, string> = { 3: 'three', 4: 'four', 5: 'five' }
 
 type SetupStep = 'apps' | 'domain' | 'sdk' | 'revenue' | 'conversions'
 

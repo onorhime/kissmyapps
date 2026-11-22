@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useState } from 'react'
 import { ShieldCheck, ShieldOff, Wifi } from 'lucide-react'
 import { api } from '../api'
@@ -15,22 +17,13 @@ import {
 import { rangeOptions, rangePhrase } from '../ranges'
 import { href } from '../routes'
 import { canDo, useStore } from '../store'
-import {
-  Empty,
-  ErrorNote,
-  PageHeader,
-  Panel,
-  PersonCell,
-  Pill,
-  Segmented,
-  Skeleton,
-} from '../ui/Primitives'
+import { Empty, ErrorNote, PageHeader, Panel, PersonCell, Pill, Skeleton } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
 
 export function BotsScreen({ project }: { project: Project }) {
   const { workspace, notify } = useStore()
   const time = timeIn(project.timezone)
-  const [range, setRange] = useState<Range>('7d')
+  const [range, setRange] = useReportPeriod<Range>('7d', rangeOptions)
   const report = useRpc(`bots:${project.id}:${range}`, () => api.bots(project.id, range), {
     pollMs: 60_000,
   })
@@ -56,9 +49,14 @@ export function BotsScreen({ project }: { project: Project }) {
     <div className="mc-page">
       <PageHeader
         title="Bots"
-        description={`Automated traffic found in ${project.name} ${rangePhrase[range]}. Sessions caught by a rule are left out of every report.`}
+        description={`Automated traffic found in ${project.name} ${rangePhrase(range)}. Sessions caught by a rule are left out of every report.`}
         actions={
-          <Segmented label="Date range" value={range} onChange={setRange} options={rangeOptions} />
+          <ReportRange
+            label="Date range"
+            value={range}
+            onChange={setRange}
+            options={rangeOptions}
+          />
         }
       />
       {report.error && (
@@ -154,7 +152,7 @@ export function BotsScreen({ project }: { project: Project }) {
 
       <Panel
         title="Flagged sessions"
-        description={`Newest first, ${rangePhrase[range]}`}
+        description={`Newest first, ${rangePhrase(range)}`}
         id="mc-bot-flagged"
         flush
       >
@@ -292,7 +290,7 @@ export function BotsScreen({ project }: { project: Project }) {
             </tbody>
           </table>
         ) : (
-          <Empty>{data ? `No sessions looked automated ${rangePhrase[range]}.` : 'Loading.'}</Empty>
+          <Empty>{data ? `No sessions looked automated ${rangePhrase(range)}.` : 'Loading.'}</Empty>
         )}
       </Panel>
 

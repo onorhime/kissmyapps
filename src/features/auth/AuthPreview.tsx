@@ -431,15 +431,15 @@ export function AuthPreview({
               : 'THE PARTNER SIDE OF POSSIBILITY'}
           </span>
           <h2>
-            {workspace === 'admin' ? 'Clear operations.' : 'Good partnerships.'}
+            {workspace === 'admin' ? 'Clear operations.' : 'Creator dashboard'}
             <br />
-            {workspace === 'admin' ? 'Better launches' : 'Clear possibilities'}
+            {workspace === 'admin' ? 'Better launches' : 'Links and earnings'}
             <span>.</span>
           </h2>
           <p>
             {workspace === 'admin'
               ? 'Create the product foundation now, then connect funnels, partners, and data when each part is ready.'
-              : 'Your work deserves a clear picture. Bring your links, results, and rewards into one workspace.'}
+              : 'Find programs, copy your links, and see what you’ve earned.'}
           </p>
           <div className="auth-story-visual" aria-hidden="true">
             <div className="auth-orbit auth-orbit-one" />
@@ -460,30 +460,19 @@ export function AuthPreview({
               {workspace === 'admin' ? 'Launch readiness' : 'Your connections'}
             </span>
           </div>
-          <div className="auth-story-footer">
-            <BadgeCheck size={20} />
-            <span>
-              {workspace === 'admin'
-                ? 'Built for focused operations.'
-                : 'Built for better partnerships.'}
-              <br />
-              <small>
-                {workspace === 'admin'
-                  ? 'Protected tools. Deliberate releases.'
-                  : 'Thoughtful tools. A shared direction.'}
-              </small>
-            </span>
-          </div>
+          {workspace === 'admin' && (
+            <div className="auth-story-footer">
+              <BadgeCheck size={20} />
+              <span>Admin workspace</span>
+            </div>
+          )}
         </aside>
         <section className="auth-form-panel" aria-label={`${workspaceLabelTitle} account access`}>
           <div className="auth-preview-notice" id="auth-security-notice">
             <ShieldCheck size={20} />
             <div>
               <strong>Secure {workspaceLabel} access</strong>
-              <p>
-                Registration, sign-in sessions, and password recovery are protected by Supabase
-                Auth.
-              </p>
+              <p>Use the email address associated with your account.</p>
             </div>
           </div>
 

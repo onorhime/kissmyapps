@@ -472,6 +472,15 @@ select pg_temp.check((select i.creator_click = pg_temp.t('ann_creator_click') an
     and (pg_temp.session('sess-ann-2')).creator_click is null,
   'Ann''s install is matched to the creator''s smart-link click, and she signs in as u-ann; her app sessions carry no creator click');
 
+savepoint reversed_receipts;
+select pg_temp.check(pg_temp.store('rc_header', 'revenuecat', pg_temp.rc('early-partial','refund','u-ann','reversed-1','reversed-1',clock_timestamp(), '{"currency":"USD","refunded_minor":333}')) ->> 'outcome' = 'ignored_no_sale','early refund waits for a sale');
+select pg_temp.store('rc_header','revenuecat',pg_temp.rc('late-payment','initial_purchase','u-ann','reversed-1','reversed-1',clock_timestamp()+interval '3 minutes'));
+select pg_temp.store('rc_header','revenuecat',pg_temp.rc('early-partial','refund','u-ann','reversed-1','reversed-1',clock_timestamp(),'{"currency":"USD","refunded_minor":333}'));
+select pg_temp.check((pg_temp.sale('reversed-1')).refunded_minor=333 and (pg_temp.commission('reversed-1')).amount_minor < 224 and
+ (select count(*)=1 from public.program_sale_events where sale_id=(pg_temp.sale('reversed-1')).id and kind='refund'),
+ 'reversed partial refund settles once and reduces the creator commission');
+rollback to reversed_receipts;
+
 -- RevenueCat: Ann's first payment ------------------------------------------------------------------
 insert into qa select 'ann_paid_at', (clock_timestamp() + interval '3 minutes')::text;
 insert into qa select 'purchase', pg_temp.store('rc_header', 'revenuecat',

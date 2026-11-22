@@ -11,5 +11,6 @@ example/linux/
 example/macos/
 example/web/
 example/windows/
+example/.flutter-plugins-dependencies
 example/.metadata
 example/test/

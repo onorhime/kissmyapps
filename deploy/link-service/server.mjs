@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url'
 // Runs the link service: public link-domain traffic on PORT, and Caddy's on-demand TLS
 // check on ASK_PORT, which only the edge Caddy reaches. Clicks are sent every two seconds,
 // and once more on the way down. See links.mjs.
@@ -48,4 +49,4 @@ function main() {
   process.on('SIGINT', stop)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

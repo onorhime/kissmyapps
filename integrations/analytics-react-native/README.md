@@ -332,3 +332,5 @@ backoff, including on the next launch.
 ## License
 
 MIT © KissMyApps
+
+Withdrawing consent with `optOut` clears queued events, identity, session and pending install attribution. After `optIn`, tracking starts with a new anonymous ID.

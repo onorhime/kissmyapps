@@ -126,6 +126,7 @@ export interface Checklist {
 }
 
 export interface ProgramState {
+  platform_minimum_minor?: number
   can_manage: boolean
   stripe_connected: boolean
   brand_name: string | null
@@ -346,6 +347,9 @@ export function readState(value: unknown): ProgramState {
   if (!body || typeof body.can_manage !== 'boolean') throw unreadable()
   const list = record(body.checklist) ?? {}
   return {
+    ...(whole(body.platform_minimum_minor) != null
+      ? { platform_minimum_minor: whole(body.platform_minimum_minor)! }
+      : {}),
     can_manage: body.can_manage,
     stripe_connected: body.stripe_connected === true,
     brand_name: text(body.brand_name),
@@ -736,6 +740,7 @@ export function draftFromProgram(
   program: Program | null,
   earning = false,
   paying = false,
+  platformMinimum = program?.minimum_payout_minor ?? 2500,
 ): ProgramDraft {
   const rewards = (program?.rewards ?? []).map((reward) => ({
     key: reward.key,
@@ -744,6 +749,7 @@ export function draftFromProgram(
   }))
   return {
     ...draftWithoutEarning(program),
+    minimumPayout: minorToDollars(platformMinimum),
     ...(earning
       ? {
           earnFrom: program?.earn_from ?? 'sales',
@@ -1697,7 +1703,7 @@ export interface PromoCodeCounts {
 }
 
 /** The address of a program's checkout link, as KissMyApps makes it. */
-export const CHECKOUT_LINK_PREFIX = 'https://kissmyapps.dev/checkout/'
+export const CHECKOUT_LINK_PREFIX = 'https://partners.kissmyapps.dev/checkout/'
 
 /** A product exactly as the database stores it. Any part that is there must read right. */
 function readCheckout(value: unknown): ProgramCheckout | null {

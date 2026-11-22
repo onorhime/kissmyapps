@@ -588,7 +588,7 @@ select pg_temp.publish('rival_owner', 'rival', '{"name":"Rival Reader","category
   "commission_duration":"lifetime","hold_days":14}');
 select pg_temp.check((select p.status = 'live' and p.currency = 'USD' from pg_temp.program('acme') p)
   and pg_temp.has(pg_temp.section((pg_temp.terms_row('acme')).agreement, 'Hold, refunds and chargebacks'), 'You are never billed for it.')
-  and pg_temp.has(pg_temp.section((pg_temp.terms_row('acme')).agreement, 'Commission'), 'worked out on what the customer paid'),
+  and pg_temp.has(pg_temp.section((pg_temp.terms_row('acme')).agreement, 'Commission'), 'worked out on the payment amount excluding tax'),
   'a program published now carries the new wording in the terms creators accept');
 select pg_temp.check(pg_temp.join(j.creator, j.workspace)->'membership'->>'status' = 'active',
   format('%s joins %s', j.creator, j.workspace))

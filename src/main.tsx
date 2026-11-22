@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
 import { isMarketplacePath } from './features/marketplace/routing'
 import { isMerchantConsole } from './merchant/host'
 
@@ -26,9 +25,11 @@ if (isMarketplacePath(window.location.pathname)) {
     ),
   )
 } else {
-  root.render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
+  void import('./App').then(({ default: App }) =>
+    root.render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    ),
   )
 }

@@ -198,6 +198,7 @@ const time = (value: unknown) => {
 export const INSTALL_METHODS: InstallMethod[] = [
   'link_open',
   'install_referrer',
+  'network_report',
   'apple_ads',
   'clipboard',
   'login',
@@ -258,6 +259,7 @@ export function clipboardHandoff(view: Attribution): boolean {
 export const METHOD_WORDS: Record<InstallMethod, string> = {
   link_open: 'a link that opened the app',
   install_referrer: 'Google Play install referrer',
+  network_report: 'merchant-reported ad network install',
   apple_ads: 'Apple Ads',
   clipboard: 'clipboard handoff',
   login: 'sign-in after a web visit',

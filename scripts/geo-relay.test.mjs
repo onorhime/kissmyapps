@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { MmdbError, openMmdb } from '../deploy/geo-relay/mmdb.mjs'
 import { buildMmdb } from '../deploy/geo-relay/mmdb-writer.mjs'
@@ -339,7 +340,7 @@ test("the server downloads the month's database, swaps it in and relays with it"
   const port = 20000 + Math.floor(Math.random() * 20000)
   const child = spawn(
     process.execPath,
-    [new URL('../deploy/geo-relay/server.mjs', import.meta.url).pathname],
+    [fileURLToPath(new URL('../deploy/geo-relay/server.mjs', import.meta.url))],
     {
       env: {
         ...process.env,
@@ -384,7 +385,7 @@ test('a download that is not a usable database is thrown away', async () => {
   const port = 20000 + Math.floor(Math.random() * 20000)
   const child = spawn(
     process.execPath,
-    [new URL('../deploy/geo-relay/server.mjs', import.meta.url).pathname],
+    [fileURLToPath(new URL('../deploy/geo-relay/server.mjs', import.meta.url))],
     {
       env: {
         ...process.env,

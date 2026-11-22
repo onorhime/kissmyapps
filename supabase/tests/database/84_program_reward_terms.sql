@@ -550,7 +550,7 @@ select pg_temp.check(kma_internal.program_terms_earn_from(pg_temp.old_terms()) =
   'terms with no earn_from are read as sales with no rewards; sales terms never have rewards');
 
 -- A sales program, published while program money is off, as before Phase 6 -----------------------
-select pg_temp.check(pg_temp.state('quiet_owner', 'quiet') = '{"can_manage":true,"stripe_connected":true,"stripe_charges_enabled":true,"brand_name":"Quiet Club",
+select pg_temp.check(pg_temp.state('quiet_owner', 'quiet') = '{"platform_minimum_minor":2500,"can_manage":true,"stripe_connected":true,"stripe_charges_enabled":true,"brand_name":"Quiet Club",
     "events_available":false,"app_links_available":false,"program":null,
     "checklist":{"stripe_connected":true,"details":false,"landing_page":false,"commission":false,"agreement_read":false},
     "can_submit":false}'::jsonb, 'a workspace with no program is told that events are not available while program money is off');
@@ -564,16 +564,16 @@ select pg_temp.read('quiet_owner', 'quiet');
 select pg_temp.submit('quiet_owner', 'quiet');
 select pg_temp.approve('quiet');
 insert into qa select 'quiet_sha', (pg_temp.terms_row('quiet')).agreement_sha256;
-select pg_temp.check((select t.version = 1 and t.terms = '{"program_name":"Quiet Club","brand_name":"Quiet Club","landing_url":"https://quietclub.io/join",
+select pg_temp.check((select t.version = 1 and t.terms = '{"payout_policy":"pooled","program_name":"Quiet Club","brand_name":"Quiet Club","landing_url":"https://quietclub.io/join",
       "commission_type":"percent","commission_rate_bps":2000,"commission_fixed_minor":null,"currency":"USD",
       "commission_duration":"lifetime","commission_months":null,"attribution_window_days":30,"hold_days":14,
-      "minimum_payout_minor":2000,"approval_mode":"automatic","extra_terms":null,"earn_from":"sales","rewards":[]}'::jsonb
-    and t.agreement::text = pg_temp.agreement_now(t.terms - 'earn_from' - 'rewards')::text
-    and t.agreement_sha256 = pg_temp.sha(pg_temp.agreement_now(t.terms - 'earn_from' - 'rewards'))
+      "minimum_payout_minor":2500,"approval_mode":"automatic","extra_terms":null,"earn_from":"sales","rewards":[]}'::jsonb
+    and t.agreement::text = kma_internal.program_agreement(t.terms)::text
+    and t.agreement_sha256 = pg_temp.sha(kma_internal.program_agreement(t.terms))
     and t.agreement->'summary'->0 = '{"label":"Commission","value":"20% of every payment"}'::jsonb
     and jsonb_array_length(t.agreement->'summary') = 4 and jsonb_array_length(t.agreement->'sections') = 11
   from pg_temp.terms_row('quiet') t),
-  'the published terms of a sales program say earn_from sales and no rewards; its agreement is the Phase 2 document with the wording of 2026-11-13');
+  'the published terms of a sales program say earn_from sales and no rewards; its agreement uses the published platform payout policy');
 -- The three new columns are touched: rewards and a budget are saved while the program
 -- still pays for sales, and earn_from is sent as it is.
 select pg_temp.check((select s->'program' @> '{"earn_from":"sales","reward_budget_minor":50000,"has_unpublished_changes":false,"agreement_read":true,
@@ -729,10 +729,10 @@ select pg_temp.check((select s->'program' @> '{"earn_from":"events","commission_
     from pg_temp.save('owner', 'fluent', '{"earn_from":"events","category":"education","tagline":"Speak a new language in ten minutes a day.",
       "approval_mode":"manual","rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},
         {"key":"trial_started","label":"Trial started","amount_minor":500}]}') s)
-  and (select kma_internal.program_terms(p) = pg_temp.event_terms('{"approval_mode":"manual"}') from pg_temp.program('fluent') p),
+  and (select kma_internal.program_terms(p) = pg_temp.event_terms('{"approval_mode":"manual","payout_policy":"pooled","minimum_payout_minor":2500}') from pg_temp.program('fluent') p),
   'going back to events keeps the commission on the form but leaves it out of the terms');
 select pg_temp.capture('workspace_program_get.events_draft', pg_temp.state('owner', 'fluent'));
-select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'app_links_available brand_name can_manage can_submit checklist events_available program stripe_charges_enabled stripe_connected'
+select pg_temp.check(pg_temp.keys(pg_temp.state('owner', 'fluent')) = 'app_links_available brand_name can_manage can_submit checklist events_available platform_minimum_minor program stripe_charges_enabled stripe_connected'
   and pg_temp.keys(pg_temp.state('owner', 'fluent')->'program') = 'agreement_read app_link approval_mode attribution_window_days buyer_discount_bps category '
     || 'checkout commission_duration commission_fixed_minor commission_months commission_rate_bps commission_type currency earn_from extra_terms '
     || 'first_published_at has_unpublished_changes hold_days id landing_url live_terms_version logo_path marketplace_listed '
@@ -778,7 +778,7 @@ select pg_temp.check(pg_temp.try('stranger', pg_temp.sql('workspace_program_rewa
 -- The agreement of a program that pays for events --------------------------------------------------
 select pg_temp.capture('workspace_program_agreement.events', pg_temp.agreement('owner', 'fluent'));
 select pg_temp.check((select a->>'sha256' = pg_temp.sha(a->'agreement') and (a->>'complete')::boolean
-    and a->'agreement' = pg_temp.doc(pg_temp.event_terms('{"approval_mode":"manual"}'))
+    and a->'agreement' = pg_temp.doc(pg_temp.event_terms('{"approval_mode":"manual","payout_policy":"pooled","minimum_payout_minor":2500}'))
     and pg_temp.keys(a->'agreement') = 'brand_name extra_terms program_name sections summary title'
   from pg_temp.agreement('owner', 'fluent') a),
   'the agreement of an events program is generated from its terms and nothing else, in the shape every agreement has');
@@ -858,7 +858,7 @@ select pg_temp.capture('list_admin_program_reviews.events', pg_temp.reviews());
 select pg_temp.check((select r @> '{"status":"in_review","earn_from":"events","reward_budget_minor":50000,"commission_type":"percent",
       "workspace_name":"Fluent","brand_name":"Fluent Labs","stripe_account_id":"acct_Fluent",
       "rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},{"key":"trial_started","label":"Trial started","amount_minor":500}]}'
-    and r->'agreement' = pg_temp.doc(pg_temp.event_terms('{"approval_mode":"manual"}'))
+    and r->'agreement' = pg_temp.doc(pg_temp.event_terms('{"approval_mode":"manual","payout_policy":"pooled","minimum_payout_minor":2500}'))
     and r - 'agreement' = pg_temp.state('owner', 'fluent')->'program' || jsonb_build_object(
       'workspace_id', pg_temp.q('fluent'), 'workspace_name', 'Fluent', 'brand_name', 'Fluent Labs',
       'stripe_account_id', 'acct_Fluent', 'stripe_country', 'GB', 'reviewed_at', null)
@@ -868,10 +868,10 @@ select pg_temp.check((select r @> '{"status":"in_review","earn_from":"events","r
 select pg_temp.check(pg_temp.approve('fluent') = jsonb_build_object('program_id', (pg_temp.program('fluent')).id, 'status', 'live'),
   'KissMyApps approves it');
 select pg_temp.capture('workspace_program_get.events_live', pg_temp.state('owner', 'fluent'));
-select pg_temp.check((select t.version = 1 and t.terms = '{"program_name":"Fluent","brand_name":"Fluent Labs","landing_url":"https://fluent.speaksix.com/start",
+select pg_temp.check((select t.version = 1 and t.terms = '{"payout_policy":"pooled","program_name":"Fluent","brand_name":"Fluent Labs","landing_url":"https://fluent.speaksix.com/start",
       "commission_type":null,"commission_rate_bps":null,"commission_fixed_minor":null,"currency":"USD",
       "commission_duration":null,"commission_months":null,"attribution_window_days":30,"hold_days":30,
-      "minimum_payout_minor":2000,"approval_mode":"manual","extra_terms":null,"earn_from":"events",
+      "minimum_payout_minor":2500,"approval_mode":"manual","extra_terms":null,"earn_from":"events",
       "rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},{"key":"trial_started","label":"Trial started","amount_minor":500}]}'::jsonb
     and not (t.terms ? 'reward_budget_minor') and t.agreement = kma_internal.program_agreement(t.terms) and t.agreement_sha256 = pg_temp.sha(t.agreement)
   from pg_temp.terms_row('fluent') t)
@@ -882,7 +882,7 @@ select pg_temp.check((select t.version = 1 and t.terms = '{"program_name":"Fluen
 select pg_temp.check((select c = '{"slug":"fluent","name":"Fluent","category":"education","tagline":"Speak a new language in ten minutes a day.",
       "logo_path":null,"brand_name":"Fluent Labs","commission_type":null,"commission_rate_bps":null,"commission_fixed_minor":null,
       "currency":"USD","commission_duration":null,"commission_months":null,"attribution_window_days":30,"hold_days":30,
-      "minimum_payout_minor":2000,"approval_mode":"manual","terms_version":1,"earn_from":"events",
+      "minimum_payout_minor":2500,"approval_mode":"manual","terms_version":1,"earn_from":"events",
       "rewards":[{"key":"signup_completed","label":"Account created","amount_minor":200},{"key":"trial_started","label":"Trial started","amount_minor":500}],
       "payment_mode":"own_checkout","checkout":null,"buyer_discount_bps":null}'::jsonb
     from pg_temp.card('fluent') c),
@@ -973,7 +973,7 @@ select pg_temp.capture('workspace_program_agreement.both', pg_temp.agreement('ri
 select pg_temp.check((select d - 'sections' = '{"title":"Rival Reader Affiliate Agreement","brand_name":"Rival Media","program_name":"Rival Reader",
       "summary":[{"label":"Commission","value":"20% of every payment for 6 months"},{"label":"Rewards","value":"$1.50 per First chapter read"},
         {"label":"Attribution window","value":"30 days"},{"label":"Hold before payout","value":"14 days"},
-        {"label":"Minimum payout","value":"$20.00"}],"extra_terms":null}'::jsonb
+        {"label":"Minimum payout","value":"$25.00"}],"extra_terms":null}'::jsonb
     and pg_temp.headings(d) = '1. Who this agreement is between | 2. What you promote | 3. Commission | 4. How a sale is credited to you | '
       || '5. Rewards | 6. How a reward is credited to you | 7. Limits on rewards | 8. Hold, refunds and chargebacks | '
       || '9. Hold and rejected rewards | 10. Payouts | 11. How you may promote | 12. The Rival Reader name and logo | '
@@ -985,11 +985,11 @@ select pg_temp.check((select d - 'sections' = '{"title":"Rival Reader Affiliate 
       "Each reward is earned once per person. If the same person does the same thing again, you earn nothing more for it."]'::jsonb
     and pg_temp.section(d, 'Hold, refunds and chargebacks')->>0 = pg_temp.section(b, 'Hold, refunds and chargebacks')->>0
     and pg_temp.section(d, 'Hold and rejected rewards')->>0 = 'A reward is held for 14 days after it is earned before it can be paid out.'
-    and pg_temp.section(d, 'Payouts')->>1 = 'Commission and rewards become payable once they have passed the hold. They are paid when what is payable to you reaches $20.00.'
+    and pg_temp.section(d, 'Payouts')->>1 = 'Commission and rewards become payable once they have passed the hold. KissMyApps combines approved earnings across programs in this currency. The platform payout minimum at publication is $25.00. Your Earnings page shows the current minimum.'
     and pg_temp.section(d, 'How you may promote')->>3 = 'Sales and actions that break these rules earn nothing.'
     and d::text !~ 'Sales made through your link earn no commission'
   from pg_temp.agreement('rival_owner', 'rival') a, lateral (select a->'agreement' as d) x,
-    lateral (select pg_temp.agreement_now((select kma_internal.program_terms(p) from pg_temp.program('rival') p)) as b) y),
+    lateral (select kma_internal.program_agreement((select (kma_internal.program_terms(p) || '{"earn_from":"sales"}'::jsonb) from pg_temp.program('rival') p)) as b) y),
   'the agreement of a program that pays for both has the commission and the sale sections as a sales program has them, and the reward sections');
 select pg_temp.fund('rival', 'rival_owner', 100000);
 select pg_temp.read('rival_owner', 'rival');
@@ -1013,7 +1013,7 @@ select pg_temp.check((select (s->'program'->>'has_unpublished_changes')::boolean
       and jsonb_array_length(s->'program'->'rewards') = 1
     from pg_temp.save('rival_owner', 'rival', '{"earn_from":"sales"}') s)
   and pg_temp.agreement('rival_owner', 'rival')->'agreement'
-    = pg_temp.agreement_now((select kma_internal.program_terms(p) from pg_temp.program('rival') p))
+    = kma_internal.program_agreement((select kma_internal.program_terms(p) from pg_temp.program('rival') p))
   and (select kma_internal.program_terms(p)->'rewards' = '[]' from pg_temp.program('rival') p)
   and (select not (s->'program'->>'has_unpublished_changes')::boolean and (s->'program'->>'agreement_read')::boolean
     from pg_temp.save('rival_owner', 'rival', '{"earn_from":"both"}') s),

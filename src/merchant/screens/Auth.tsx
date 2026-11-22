@@ -66,7 +66,7 @@ function SignIn() {
     <form className="mc-auth-form" onSubmit={submit} noValidate>
       <div className="mc-auth-intro">
         <h1>Sign in to your merchant workspace</h1>
-        <p>See who uses your apps, where they are, what they do, and watch their sessions.</p>
+        <p>Track app events, replay website sessions, and manage your affiliate program.</p>
       </div>
       <FormError message={error} />
       <Field label="Work email" error={errors.email}>
@@ -233,9 +233,7 @@ function SignUp({ email: invitedEmail, invited = false }: { email?: string; invi
         ) : (
           <>
             <h1>Create your merchant account</h1>
-            <p>
-              Add a project for each app, get its key and see your first users in a few minutes.
-            </p>
+            <p>Create a workspace to track a website or app, or launch an affiliate program.</p>
           </>
         )}
       </div>
@@ -288,6 +286,10 @@ function SignUp({ email: invitedEmail, invited = false }: { email?: string; invi
           />
         )}
       </Field>
+      <p className="mc-field-hint">
+        Read the <a href="https://kissmyapps.dev/terms">terms of service</a> and{' '}
+        <a href="https://kissmyapps.dev/privacy">privacy policy</a>.
+      </p>
       <Submit busy={busy} idle="Create account" working="Creating your account" />
       <p className="mc-auth-switch">
         Already have an account?{' '}
@@ -552,7 +554,7 @@ function ProfileExample() {
         </div>
         <div>
           <dt>Device</dt>
-          <dd>iPhone 15 · iOS 18.1 · app 2.4.0</dd>
+          <dd>iPhone 15 · Safari · Website</dd>
         </div>
         <div>
           <dt>Came from</dt>

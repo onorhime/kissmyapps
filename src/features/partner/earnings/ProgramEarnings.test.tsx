@@ -467,9 +467,13 @@ describe('the Program earnings panel', () => {
     await screen.findByRole('table', { name: 'Recent commissions' })
 
     expect(panel()).toHaveTextContent(
-      'Payouts of approved earnings are coming. Approved money has already been collected from the brand.',
+      'Payouts are not enabled yet. Your approved earnings are recorded here. Approved money has already been collected from the brand.',
     )
-    expect(within(panel()).queryByRole('button')).not.toBeInTheDocument()
+    expect(
+      within(panel()).queryByRole('button', {
+        name: /set up|request payout|review details|continue setup/i,
+      }),
+    ).not.toBeInTheDocument()
     expect(panel().textContent).not.toMatch(/test mode|sandbox|withdraw|pay ?out now|paid on/i)
   })
 

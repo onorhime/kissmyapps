@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useEffect, useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowLeft, Download, Pause, Pencil, Play, Plus, QrCode, Trash2 } from 'lucide-react'
@@ -30,7 +32,6 @@ import {
   Field,
   Panel,
   Pill,
-  Segmented,
   Skeleton,
 } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
@@ -47,7 +48,7 @@ export function LinksScreen({
   role?: Role
 }) {
   const { notify } = useStore()
-  const [range, setRange] = useState<Range>('30d')
+  const [range, setRange] = useReportPeriod<Range>('30d', rangeOptions)
   const [editing, setEditing] = useState<Editing>(null)
   const [sharing, setSharing] = useState<AttributionLink | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -91,7 +92,7 @@ export function LinksScreen({
   return (
     <>
       <div className="mc-toolbar">
-        <Segmented label="Date range" value={range} onChange={setRange} options={rangeOptions} />
+        <ReportRange label="Date range" value={range} onChange={setRange} options={rangeOptions} />
         {canEdit && (
           <button
             type="button"
@@ -112,8 +113,8 @@ export function LinksScreen({
         title="Links"
         description={
           apps
-            ? `Clicks, the installs and visits they brought, and the conversions they got ${rangePhrase[range]}.`
-            : `Clicks, the visits they opened and the conversions they got ${rangePhrase[range]}.`
+            ? `Clicks, the installs and visits they brought, and the conversions they got ${rangePhrase(range)}.`
+            : `Clicks, the visits they opened and the conversions they got ${rangePhrase(range)}.`
         }
         id="mc-attr-links"
         flush

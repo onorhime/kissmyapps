@@ -138,3 +138,11 @@ export async function verifyFunnelSignature(
     );
   }
 }
+
+export async function sha256TextHex(value: string): Promise<string> {
+  return bytesToHex(
+    new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
+    ),
+  );
+}

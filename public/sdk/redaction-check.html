@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Check replay masking | KissMyApps</title>
+    <style>
+      body {
+        font: 1rem/1.55 system-ui;
+        color: #20202b;
+        background: #faf9f7;
+        max-width: 40rem;
+        margin: 3rem auto;
+        padding: 0 1rem;
+      }
+      label {
+        display: block;
+      }
+      button,
+      input {
+        font: inherit;
+        padding: 0.5rem;
+      }
+      button {
+        cursor: pointer;
+      }
+      output {
+        display: block;
+        margin-block: 1rem;
+        font-weight: 600;
+      }
+    </style>
+    <script defer src="kma-replay.js"></script>
+    <script defer src="redaction-check.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Check website replay masking</h1>
+      <p>
+        Run the recorder on three sample fields. The check inspects the snapshot in this browser.
+        Nothing is uploaded.
+      </p>
+      <label>Sample input <input readonly id="example-input" autocomplete="off" /></label>
+      <p>Text marked <code>data-kma-mask</code> · <span data-kma-mask id="example-mask"></span></p>
+      <div data-kma-block><p id="example-block"></p></div>
+      <p id="example-visible"></p>
+      <button id="run" type="button">Check masking</button>
+      <output id="result" role="status"></output>
+      <p>
+        On your own test site, mark private text and blocks, then open a recording under Sessions in
+        the merchant dashboard to verify the rendered page.
+      </p>
+    </main>
+  </body>
+</html>

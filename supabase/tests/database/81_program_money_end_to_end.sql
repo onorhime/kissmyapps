@@ -609,5 +609,72 @@ select pg_temp.check(
   'KissMyApps sees the product as a program''s');
 select set_config('request.jwt.claims', '', true);
 
+select pg_temp.check(jsonb_array_length(pg_temp.call('owner', format('select public.workspace_creator_directory(%L,%L,%L,null)', pg_temp.q('workspace'),'mira','active'))->'rows')=1
+  and jsonb_array_length(pg_temp.call('owner', format('select public.workspace_creator_directory(%L,%L,%L,null)', pg_temp.q('workspace'),'no matching person','all'))->'rows')=0,
+  'creator directory searches across the program by name and status');
+select pg_temp.check((select count(*)>=2 and bool_and(e ? 'reference' and e ? 'currency' and e ? 'id') from jsonb_array_elements(pg_temp.call('creator',
+  'select public.partner_program_statement(''ledger'',null,null,clock_timestamp())')->'rows') e)
+  and jsonb_array_length(pg_temp.call('creator','select public.partner_program_statement(''payouts'',null,null,clock_timestamp())')->'rows')>=2,
+  'creator can export referenced ledger entries and see payout history');
+select pg_temp.check((select bool_or(e->>'label'='Payout · Transferred to Stripe') from jsonb_array_elements(pg_temp.call('creator','select public.program_activity_page(null,null,null)')->'rows') e)
+  and (select not bool_or(e->>'label' like 'Payout ·%') from jsonb_array_elements(pg_temp.call('owner',format('select public.program_activity_page(%L,null,null)',pg_temp.q('workspace')))->'rows') e),
+  'creator transfer notifications stay private to the creator');
+select pg_temp.check(jsonb_array_length(pg_temp.call('kma_owner','select public.program_reconciliation_page(null,''history'',''Fluent'',null,null)')->'rows')>0,
+  'operations can find the reviewed program by name');
+select pg_temp.check((select r->>'published'='true' and r->>'last_click' is not null and r->>'last_sale' is not null and r->>'payouts_enabled'='true'
+ from pg_temp.call('owner',format('select public.workspace_program_readiness(%L)',pg_temp.q('workspace'))) r),'readiness shows observed creator traffic and an attributed sale');
+insert into qa select 'inquiry',pg_temp.call('creator',format('select to_jsonb(public.partner_ask_commission(%L,%L,%L))',(pg_temp.program()).id,'fixture-order','Please review this order.'))#>>'{}';
+select pg_temp.check(pg_temp.call('creator',format('select to_jsonb(public.partner_ask_commission(%L,%L,%L))',(pg_temp.program()).id,'FIXTURE-order','Please review this order.'))#>>'{}'=pg_temp.t('inquiry')
+  and jsonb_array_length(pg_temp.call('creator','select public.program_inquiries_page(null,null,null)')->'rows')=1,'duplicate references share one inquiry');
+select pg_temp.check(pg_temp.call('owner',format('select to_jsonb(public.workspace_answer_commission(%L,%L,%L))',pg_temp.q('workspace'),pg_temp.q('inquiry'),'The refund reversed the commission.'))#>>'{}'=pg_temp.t('inquiry')
+ and (pg_temp.call('creator','select public.program_inquiries_page(null,null,null)')->'rows'->0->>'response')='The refund reversed the commission.','the merchant response is visible to the creator');
+select pg_temp.check(pg_temp.try('creator',format('select public.workspace_answer_commission(%L,%L,%L)',pg_temp.q('workspace'),pg_temp.q('inquiry'),'An unauthorized change.')) = 'P0002',
+ 'a creator outside the workspace cannot respond as its merchant');
+insert into public.analytics_projects(id,name,workspace_id) values('64000000-0000-4000-8000-00000000e201','Fixture website',pg_temp.q('workspace'));
+insert into public.analytics_funnels(id,project_id,name,steps,window_seconds) values('64000000-0000-4000-8000-00000000e202','64000000-0000-4000-8000-00000000e201','Fixture path','[{"event":"page_viewed"},{"event":"plan_selected"}]',86400);
+insert into qa select 'journey_request',pg_temp.call('owner','select to_jsonb(public.workspace_request_journey(''64000000-0000-4000-8000-00000000e202'',''test''))')#>>'{}';
+select pg_temp.check((pg_temp.call('kma_owner','select public.creator_journey_requests_page(null,null,null)')->'rows'->0->>'outcome')='pending'
+  and pg_temp.try('kma_owner',format('select public.admin_review_creator_journey(%L,%L,%L)',pg_temp.q('journey_request'),'published','Configured the journey.'))='22023','an operations reviewer must have the matching published environment and version');
+select pg_temp.check(pg_temp.call('kma_owner',format('select to_jsonb(public.admin_review_creator_journey(%L,%L,%L))',pg_temp.q('journey_request'),'changes_requested','Instrument the plan selection event.'))#>>'{}'=pg_temp.t('journey_request')
+ and pg_temp.call('owner','select public.creator_journey_requests_page(''64000000-0000-4000-8000-00000000e202'',null,null)')->'rows'->0->>'outcome'='changes_requested','the merchant sees the operator review');
+insert into public.attribution_settings(project_id,ios_app_store_id) values('64000000-0000-4000-8000-00000000e201','123456789');
+insert into public.analytics_api_keys(project_id,name,kind,environment,token_hash,token_prefix,token_last4)
+values('64000000-0000-4000-8000-00000000e201','Fixture secret','server','development',decode(repeat('ab',32),'hex'),'kma_sk_test_','1234');
+insert into qa values ('apple_message','{"app_id":"123456789","network":"sample.network","source":"39","sequence":0,"won":true,"redownload":false,"transaction":"64000000-0000-4000-8000-00000000e209"}');
+select pg_temp.check(public.skan_record_postback(repeat('ab',32),pg_temp.t('apple_message')::jsonb)='recorded'
+  and public.skan_record_postback(repeat('ab',32),pg_temp.t('apple_message')::jsonb)='duplicate','duplicate Apple messages are idempotent');
+select pg_temp.check(public.skan_record_postback(repeat('ab',32),pg_temp.t('apple_message')::jsonb || '{"sequence":1,"transaction":"64000000-0000-4000-8000-00000000e210"}'::jsonb)='recorded'
+  and public.skan_record_postback(repeat('ab',32),pg_temp.t('apple_message')::jsonb||'{"won":false}'::jsonb)='non_winning','follow-up and non-winning postbacks do not create another install');
+select pg_temp.check(pg_temp.call('owner','select public.attribution_skan_report(''64000000-0000-4000-8000-00000000e201'',''development'')')->0 @> '{"installs":1,"followups":1}'
+  and pg_temp.call('owner','select public.attribution_skan_report(''64000000-0000-4000-8000-00000000e201'',''production'')')='[]'::jsonb,'signed Apple reports stay within the selected project and environment');
+insert into qa values('network_report','{"network":"meta","report_id":"receipt-1","campaign":"Spring","platform":"ios","anonymous_id":"fixture-anon","session_id":"fixture-first"}');
+select pg_temp.check(public.network_install_record(repeat('ab',32),pg_temp.t('network_report')::jsonb)='awaiting_install','an early report waits for the matching first launch');
+insert into public.analytics_people(id,project_id,distinct_id,anonymous_ids,environment,first_seen,last_seen)
+ values('64000000-0000-4000-8000-00000000e212','64000000-0000-4000-8000-00000000e201','fixture-anon',array['fixture-anon'],'development',now(),now());
+insert into public.attribution_installs(project_id,person_id,environment,platform,installed_at,session_key,method,exact)
+ values('64000000-0000-4000-8000-00000000e201','64000000-0000-4000-8000-00000000e212','development','ios',now(),'fixture-first','organic',false);
+select pg_temp.check(public.network_install_record(repeat('ab',32),pg_temp.t('network_report')::jsonb)='matched'
+ and public.network_install_record(repeat('ab',32),pg_temp.t('network_report')::jsonb)='matched'
+ and public.network_install_record(repeat('ab',32),pg_temp.t('network_report')::jsonb||'{"campaign":"different"}'::jsonb)='conflicting_receipt','a provider receipt matches once and detects conflicting redelivery');
+select pg_temp.check(public.network_install_record(repeat('ab',32),pg_temp.t('network_report')::jsonb||'{"network":"tiktok"}'::jsonb)='existing_attribution'
+ and (select acquisition_source='meta' from public.analytics_people where id='64000000-0000-4000-8000-00000000e212'),'a later network cannot take the credited install');
+select pg_temp.check(pg_temp.try('owner','select public.analytics_edit_funnel(''64000000-0000-4000-8000-00000000e201'',''64000000-0000-4000-8000-00000000e202'',now()-interval ''1 day'',''Overwritten'',''[]'',86400)')='40001'
+ and pg_temp.try('owner','select public.analytics_remove_funnel(''64000000-0000-4000-8000-00000000e201'',''64000000-0000-4000-8000-00000000e202'',now()-interval ''1 day'')')='40001','stale edits and deletions leave a shared funnel intact');
+-- More than 1,000 people and sessions at exactly the same timestamp exercise both ID tie-breakers.
+insert into public.analytics_people(project_id,distinct_id,anonymous_ids,environment,platform,first_seen,last_seen)
+ select '64000000-0000-4000-8000-00000000e201','cursor-person-'||n,array['cursor-person-'||n],'production','web',now()-interval '1 hour',now()-interval '1 hour' from generate_series(1,1001) n;
+insert into public.analytics_sessions(project_id,person_id,session_key,environment,started_at,ended_at,platform)
+ select p.project_id,p.id,'cursor-session-'||p.distinct_id,'production',now()-interval '1 hour',now()-interval '59 minutes','web' from public.analytics_people p
+ where p.project_id='64000000-0000-4000-8000-00000000e201' and p.distinct_id like 'cursor-person-%';
+insert into qa select 'people_first',pg_temp.call('owner','select public.analytics_people_page(''64000000-0000-4000-8000-00000000e201'',''{"search":"cursor-person-","limit":1000}'')')::text;
+insert into qa select 'sessions_first',pg_temp.call('owner','select public.analytics_sessions_page(''64000000-0000-4000-8000-00000000e201'',''{"search":"cursor-person-","limit":1000}'')')::text;
+select pg_temp.check((select jsonb_array_length(f->'rows')=1000 and jsonb_array_length(n->'rows')=1 and n->'next_cursor'='null'::jsonb
+ and not exists(select from jsonb_array_elements(f->'rows') x where x->>'id'=n->'rows'->0->>'id') from (select pg_temp.t('people_first')::jsonb f) first_page,
+ lateral pg_temp.call('owner',format('select public.analytics_people_page(%L,%L)','64000000-0000-4000-8000-00000000e201',jsonb_build_object('search','cursor-person-','limit',1000,'cursor',f->'next_cursor'))) n),
+ 'the 1,001st person appears once with tied sort keys');
+select pg_temp.check((select jsonb_array_length(f->'rows')=1000 and jsonb_array_length(n->'rows')=1 and n->'next_cursor'='null'::jsonb
+ and not exists(select from jsonb_array_elements(f->'rows') x where x->>'id'=n->'rows'->0->>'id') from (select pg_temp.t('sessions_first')::jsonb f) first_page,
+ lateral pg_temp.call('owner',format('select public.analytics_sessions_page(%L,%L)','64000000-0000-4000-8000-00000000e201',jsonb_build_object('search','cursor-person-','limit',1000,'cursor',f->'next_cursor'))) n),
+ 'the 1,001st session appears once with tied start times');
 select 'ok ' || count(*) || ' program money end to end assertions' from e2e_assertions;
 rollback;

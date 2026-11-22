@@ -1,3 +1,6 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { AdAccounts } from './AdAccounts'
+import { ReportRange } from '../ui/ReportRange'
 import { useId, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import {
@@ -100,7 +103,7 @@ export function CostsScreen({
 }) {
   const { now } = useStore()
   const canEdit = canDo(role, 'developer')
-  const [range, setRange] = useState<MoneyRange>('30d')
+  const [range, setRange] = useReportPeriod<MoneyRange>('30d', moneyRangeOptions)
   const [source, setSource] = useState('')
   const [open, setOpen] = useState<Open>(null)
   const report = useRpc(`attribution-costs:${project.id}:${range}:${source}`, () =>
@@ -114,7 +117,7 @@ export function CostsScreen({
   return (
     <>
       <div className="mc-toolbar">
-        <Segmented
+        <ReportRange
           label="Date range"
           value={range}
           onChange={setRange}
@@ -161,6 +164,7 @@ export function CostsScreen({
         />
       )}
 
+      <AdAccounts project={project.id} canManage={canDo(role, 'admin')} />
       {canEdit && open === 'add' && (
         <AddSpend
           project={project}
@@ -233,7 +237,7 @@ function rateless(report: CostsReport, currency: string): string[] {
 function Totals({ report, currency }: { report: CostsReport | undefined; currency: string }) {
   const totals = report?.totals
   const tiles: Array<[string, number | undefined, string]> = [
-    ['Spend', totals?.cost, report ? rangePhrase[report.range] : ''],
+    ['Spend', totals?.cost, report ? rangePhrase(report.range) : ''],
     ['Typed in', totals?.typed, 'added here by hand'],
     ['Uploaded', totals?.uploaded, 'from spreadsheets'],
     ['Link prices', totals?.links, 'per install or click'],
@@ -346,7 +350,7 @@ function SpendTable({
   return (
     <Panel
       title="Spend by day"
-      description={`What you typed in and uploaded ${rangePhrase[range]}, newest day first, in the currency it was added in.`}
+      description={`What you typed in and uploaded ${rangePhrase(range)}, newest day first, in the currency it was added in.`}
       id="mc-at3-costs"
       flush
     >
@@ -360,8 +364,8 @@ function SpendTable({
         <div className="mc-attr-empty">
           <Empty>
             {source
-              ? `No spend for ${sourceLabel(source)} ${rangePhrase[range]}.`
-              : `No spend added ${rangePhrase[range]}. Add what each campaign cost per day, or upload the spreadsheet your ad account exports, to see what it earned back in ROI.`}
+              ? `No spend for ${sourceLabel(source)} ${rangePhrase(range)}.`
+              : `No spend added ${rangePhrase(range)}. Add what each campaign cost per day, or upload the spreadsheet your ad account exports, to see what it earned back in ROI.`}
           </Empty>
           {canEdit && !source && (
             <button type="button" className="mc-btn mc-btn-secondary" onClick={onAdd}>
@@ -967,10 +971,15 @@ function Uploads({
                       disabled={action.busy}
                       onClick={() =>
                         void action.run(async () => {
-                          const deleted = await api.undoCostImport(project.id, item.id)
+                          const { deleted, restored } = await api.undoCostImport(
+                            project.id,
+                            item.id,
+                          )
                           setConfirming(null)
                           await onChanged()
-                          notify(`${name} undone: ${plural(deleted, 'row')} deleted`)
+                          notify(
+                            `${name} undone: ${plural(deleted, 'row')} deleted, ${plural(restored, 'row')} restored`,
+                          )
                         })
                       }
                     >
@@ -1086,7 +1095,7 @@ function LinkPrices({
               </th>
               <th scope="col">When</th>
               <th scope="col" className="mc-num-col">
-                {rangePhrase[report.range].replace(/^in the last/, 'Last')}
+                {rangePhrase(report.range).replace(/^in the last/, 'Last')}
               </th>
               {canEdit && (
                 <th scope="col" className="is-action">

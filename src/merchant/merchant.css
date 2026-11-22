@@ -7981,3 +7981,33 @@ ul.mc-panel.mc-crt-list > li:first-child {
   }
 }
 /* ---- end of Attribution Phase 3 ----------------------------------------------------------- */
+
+.mc-range-picker,
+.mc-range-picker form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.mc-range-picker form {
+  flex-basis: 100%;
+}
+.mc-range-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.mc-range-picker input {
+  max-width: 100%;
+  font: inherit;
+}
+.mc-ad-account-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+.mc-ad-account-form label {
+  display: grid;
+  gap: 0.3rem;
+}

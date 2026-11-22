@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 const projectRoot = fileURLToPath(new URL('.', import.meta.url))
 
@@ -17,6 +17,7 @@ export default defineConfig({
     },
   },
   test: {
+    exclude: [...configDefaults.exclude, '**/.cache/**'],
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     // The React Native SDK's tests mock 'react-native', which is not installed here.

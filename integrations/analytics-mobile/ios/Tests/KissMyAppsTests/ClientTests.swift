@@ -393,6 +393,9 @@ final class ClientTests: XCTestCase {
 
         let next = try start(store)
         next.foreground()
+        next.identify("private", traits: ["private": true])
+        next.setTraits(["private": true])
+        next.reset()
         next.track("still_hidden", properties: [:])
         settle(10_000)
         XCTAssertEqual(sent.count, 0)
@@ -400,6 +403,7 @@ final class ClientTests: XCTestCase {
         next.track("visible", properties: [:])
         settle(10_000)
         XCTAssertEqual(names(), ["session_started", "visible"])
+        XCTAssertTrue(sent.allSatisfy { $0["user_id"] == nil && $0["traits"] == nil })
     }
 
     func testKeepsAnOpenAppOnlineWithAHeartbeat() throws {

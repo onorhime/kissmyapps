@@ -89,13 +89,15 @@ describe('planOn', () => {
   test('without Stripe values: everything that needs none, nothing that does', () => {
     const plan = planOn(REF, secretsOf([]), emptyDb())
     assert.deepEqual(plan.flags.sort(), [
+      'AD_SPEND_ENABLED',
       'ANALYTICS_DESTINATIONS_ENABLED',
       'ATTRIBUTION_FX_ENABLED',
       'MARKETPLACE_ENABLED',
       'PROGRAM_STORE_WEBHOOK_ENABLED',
     ])
-    assert.deepEqual(plan.generate.sort(), ['destinations', 'fx'])
+    assert.deepEqual(plan.generate.sort(), ['adSpend', 'destinations', 'fx'])
     assert.deepEqual(plan.jobs.sort(), [
+      'kma-ad-spend',
       'kma-analytics-destinations',
       'kma-attribution',
       'kma-attribution-fx',

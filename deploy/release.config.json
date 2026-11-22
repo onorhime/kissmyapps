@@ -42,6 +42,7 @@
     ]
   },
   "smoke": {
+    "publicProgramHost": "partners.kissmyapps.dev",
     "dashboardHosts": [
       "partners.kissmyapps.dev",
       "admin.kissmyapps.dev",

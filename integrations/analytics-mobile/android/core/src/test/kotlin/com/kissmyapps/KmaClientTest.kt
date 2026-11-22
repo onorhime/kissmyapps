@@ -334,6 +334,9 @@ class KmaClientTest {
 
         val next = start(store)
         next.foreground()
+        next.identify("private", mapOf("plan" to "private"))
+        next.setTraits(mapOf("private" to true))
+        next.reset()
         next.track("still_hidden", emptyMap())
         settle(10_000)
         assertEquals(0, sent.size)
@@ -341,6 +344,7 @@ class KmaClientTest {
         next.track("visible", emptyMap())
         settle(10_000)
         assertEquals(listOf("session_started", "visible"), names())
+        assertTrue(sent.none { it.has("user_id") || it.has("traits") })
     }
 
     @Test

@@ -1,0 +1,40 @@
+.program-activity form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 36rem;
+  margin-block: 1rem;
+}
+.program-activity form label {
+  display: grid;
+  gap: 0.3rem;
+}
+.program-activity article {
+  margin-block: 1rem;
+}
+
+.program-activity {
+  margin-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.program-activity details,
+.program-activity li {
+  margin-block: 0.5rem;
+}
+.program-activity button,
+.program-activity input,
+.program-activity textarea,
+.program-activity select {
+  font: inherit;
+}
+.program-activity input,
+.program-activity select,
+.program-activity textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+.program-activity textarea {
+  min-height: 4rem;
+}
+.program-activity button {
+  cursor: pointer;
+}

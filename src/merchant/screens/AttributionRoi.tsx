@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useState } from 'react'
 import { ChevronRight, Download, Hourglass, TriangleAlert } from 'lucide-react'
 import { api } from '../api'
@@ -24,7 +26,7 @@ import type { RoiLevel } from '../roi'
 import { href } from '../routes'
 import { LineChart } from '../ui/Charts'
 import { seriesColors } from '../ui/chart-utils'
-import { Empty, ErrorNote, Panel, Segmented, Skeleton } from '../ui/Primitives'
+import { Empty, ErrorNote, Panel, Skeleton } from '../ui/Primitives'
 import { useRpc } from '../ui/useRpc'
 
 type Path = Array<string | null>
@@ -48,7 +50,7 @@ function roasCell(row: RoiMetrics, value: number | null): string {
 
 export function RoiScreen({ project, view }: { project: Project; view: Attribution }) {
   const apps = hasApp(project, view.settings)
-  const [range, setRange] = useState<MoneyRange>('30d')
+  const [range, setRange] = useReportPeriod<MoneyRange>('30d', moneyRangeOptions)
   // The rows opened: [] lists sources, [source] its campaigns, and so on to ads.
   const [path, setPath] = useState<Path>([])
   const filters = filtersFor(path)
@@ -101,7 +103,7 @@ export function RoiScreen({ project, view }: { project: Project; view: Attributi
   return (
     <>
       <div className="mc-toolbar">
-        <Segmented
+        <ReportRange
           label="Date range"
           value={range}
           onChange={setRange}
@@ -336,7 +338,7 @@ function DayChart({
         </span>
       </div>
       <LineChart
-        label={`Spend and revenue by day ${rangePhrase[range]}`}
+        label={`Spend and revenue by day ${rangePhrase(range)}`}
         height={240}
         area={false}
         integers={false}
@@ -362,7 +364,7 @@ function DayChart({
         }}
         formatValue={money}
         formatTick={(value) => formatMoneyTick(value, currency)}
-        empty={`No spend or revenue ${rangePhrase[range]} yet`}
+        empty={`No spend or revenue ${rangePhrase(range)} yet`}
       />
     </>
   )
@@ -402,8 +404,8 @@ function RoiTable({
       title={parent ? `${noun.title}s in ${parent}` : 'By source'}
       description={
         parent
-          ? `What ${parent} spent and earned back ${rangePhrase[range]}, by ${noun.one}.`
-          : `What each source spent and earned back ${rangePhrase[range]}. Choose a source to see its campaigns.`
+          ? `What ${parent} spent and earned back ${rangePhrase(range)}, by ${noun.one}.`
+          : `What each source spent and earned back ${rangePhrase(range)}. Choose a source to see its campaigns.`
       }
       id="mc-at3-roi-table"
       flush
@@ -411,8 +413,8 @@ function RoiTable({
       {report && report.rows.length === 0 ? (
         <Empty>
           {parent
-            ? `Nothing from ${parent} ${rangePhrase[range]}.`
-            : `Nobody arrived and nothing was spent ${rangePhrase[range]}.`}
+            ? `Nothing from ${parent} ${rangePhrase(range)}.`
+            : `Nobody arrived and nothing was spent ${rangePhrase(range)}.`}
         </Empty>
       ) : (
         <div className="mc-at3-table-frame">
@@ -587,7 +589,7 @@ function StartHere({ project, range }: { project: Project; range: MoneyRange }) 
     <section className="mc-panel" aria-labelledby="mc-at3-roi-start">
       <div className="mc-panel-head">
         <div>
-          <h2 id="mc-at3-roi-start">Nothing to count {rangePhrase[range]} yet</h2>
+          <h2 id="mc-at3-roi-start">Nothing to count {rangePhrase(range)} yet</h2>
           <p>Return on ad spend needs three things. Each one can be set up now.</p>
         </div>
       </div>

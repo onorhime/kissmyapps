@@ -18,6 +18,7 @@ export const MOBILE_SDK = {
     import.meta.env.VITE_MOBILE_SDK_REPOSITORY?.trim() ||
     'https://github.com/onorhime/kissmyapps-mobile',
   npmPackage: '@kissmyappss/react-native',
+  npmVersion: '1.0.0',
   pubPackage: 'kissmyapps',
 }
 

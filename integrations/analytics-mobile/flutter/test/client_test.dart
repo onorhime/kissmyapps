@@ -16,7 +16,7 @@ const key = 'kma_pk_live_ABCDEFGHJKLMNPQRSTUVWXYZ';
 int minutes(int n) => n * 60000;
 
 final Map<String, dynamic> contract =
-    jsonDecode(File('../contract/app-events.json').readAsStringSync()) as Map<String, dynamic>;
+    jsonDecode(File('test/fixtures/app-events.json').readAsStringSync()) as Map<String, dynamic>;
 
 const iphone = KmaDevice(
   platform: 'ios',
@@ -505,6 +505,9 @@ void main() {
 
         final next = h.start(storage);
         next.foreground();
+        next.identify('private', {'private': true});
+        next.setTraits({'private': true});
+        next.reset();
         next.track('still_hidden');
         h.settle(10000);
         expect(h.sent, isEmpty);
@@ -512,6 +515,7 @@ void main() {
         next.track('visible');
         h.settle(10000);
         expect(names(h.sent), ['session_started', 'visible']);
+        expect(h.sent.every((b) => !b.containsKey('user_id') && !b.containsKey('traits')), isTrue);
       });
     });
 
@@ -1091,9 +1095,7 @@ void main() {
       });
     });
 
-    test(
-        'calls install with lifecycle tracking off, and holds it back while opted out until '
-        'optIn', () {
+    test('calls install with lifecycle tracking off and discards an install after withdrawal', () {
       run((h) {
         h.start(MemoryStorage(), trackLifecycle: false).foreground();
         h.settle();
@@ -1112,7 +1114,7 @@ void main() {
         expect(h.calls, isEmpty);
         client.optIn();
         h.settle();
-        expect(h.installs.single['device_key'], deviceKey);
+        expect(h.installs, isEmpty);
       });
     });
 

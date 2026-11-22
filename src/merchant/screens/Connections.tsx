@@ -308,7 +308,7 @@ export function ConnectionsScreen() {
     <div className="mc-page mc-conn">
       <PageHeader
         title="Connections"
-        description="Link the tools your business already uses. Stripe is the only one you need."
+        description="Connect Stripe for web payments. Connect RevenueCat or Adapty for app store sales."
       />
 
       <section

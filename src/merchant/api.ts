@@ -3,7 +3,9 @@ import { ProgramError, readFailure } from './programs'
 
 export type Platform = 'ios' | 'android' | 'web' | 'server'
 export type Role = 'owner' | 'admin' | 'developer' | 'analyst'
-export type Range = 'today' | '7d' | '30d' | '90d'
+export type PresetRange = 'today' | '7d' | '30d' | '90d'
+export type CustomRange = `${string}..${string}`
+export type Range = PresetRange | CustomRange
 export type KeyKind = 'client' | 'server'
 export type KeyEnvironment = 'production' | 'development'
 export type BotRule = 'automation' | 'crawler' | 'too_fast' | 'no_interaction'
@@ -230,7 +232,9 @@ export interface SessionDetail {
   replay: { chunks: number; bytes: number }
 }
 
+export type ReportCursor = Record<string, string>
 export interface Page<T> {
+  next_cursor?: ReportCursor | null
   total: number
   range: { key: Range; from: string; to: string }
   facets: {
@@ -254,6 +258,7 @@ export interface Places {
 }
 
 export interface PeopleQuery {
+  cursor?: ReportCursor
   range: Range
   search?: string
   status?: 'all' | 'online' | 'new' | 'returning'
@@ -269,6 +274,7 @@ export interface PeopleQuery {
 }
 
 export interface SessionsQuery {
+  cursor?: ReportCursor
   range: Range
   search?: string
   platform?: string
@@ -485,6 +491,7 @@ export interface FunnelReport {
     from_start: number | null
     from_previous: number | null
     /** People who reached this step and went no further; null on the last step. */
+    pending?: number | null
     dropped: number | null
     median_seconds: number | null
   }[]
@@ -732,7 +739,14 @@ export interface AttributionSources {
 
 /** How an app install was matched to the click that brought it. */
 export type InstallMethod =
-  'link_open' | 'install_referrer' | 'apple_ads' | 'clipboard' | 'login' | 'organic' | 'reinstall'
+  | 'link_open'
+  | 'install_referrer'
+  | 'apple_ads'
+  | 'clipboard'
+  | 'login'
+  | 'organic'
+  | 'reinstall'
+  | 'network_report'
 
 /** What `attribution_test_device` saw for one link over the last 30 minutes. */
 export interface AttributionTestDevice {
@@ -769,7 +783,7 @@ export interface SubdomainCheck {
 // readers at the end of this file turn each answer into these shapes.
 
 /** The ranges the money reports cover: the last 7, 30 or 90 days, today included. */
-export type MoneyRange = '7d' | '30d' | '90d'
+export type MoneyRange = Exclude<Range, 'today'>
 
 /** How a payment event names its amount: major is 4.99, minor is 499 cents. */
 export type RevenueUnit = 'major' | 'minor'
@@ -1174,16 +1188,22 @@ export const api = {
     funnel: string | null,
     name: string,
     definition: FunnelDefinition,
+    expected?: string,
   ) =>
-    rpc<Funnel>('analytics_save_funnel', {
+    rpc<Funnel>(expected ? 'analytics_edit_funnel' : 'analytics_save_funnel', {
+      ...(expected ? { p_expected: expected } : {}),
       p_project: project,
       p_funnel: funnel,
       p_name: name,
       p_steps: definition.steps,
       p_window_seconds: definition.window_seconds,
     }),
-  deleteFunnel: (funnel: string) =>
-    rpc<{ deleted: string }>('analytics_delete_funnel', { p_funnel: funnel }),
+  deleteFunnel: (project: string, funnel: string, expected: string) =>
+    rpc<{ deleted: string }>('analytics_remove_funnel', {
+      p_project: project,
+      p_funnel: funnel,
+      p_expected: expected,
+    }),
   funnelOptions: (project: string) =>
     rpc<FunnelOptions>('analytics_funnel_options', { p_project: project }),
   funnelReport: (
@@ -1308,6 +1328,33 @@ export const api = {
         p_events: events.map(revenueEventInput),
       }),
     ),
+  adAccounts: (project: string) =>
+    rpc<
+      {
+        provider: string
+        account_id: string
+        currency: string
+        enabled: boolean
+        last_success: string | null
+        last_error: string | null
+      }[]
+    >('ad_spend_accounts', { p_project: project }),
+  connectAds: (
+    project: string,
+    provider: string,
+    account: string,
+    currency: string,
+    token: string,
+  ) =>
+    rpc<void>('ad_spend_connect', {
+      p_project: project,
+      p_provider: provider,
+      p_account: account,
+      p_currency: currency,
+      p_token: token,
+    }),
+  disconnectAds: (project: string, provider: string) =>
+    rpc<void>('ad_spend_disconnect', { p_project: project, p_provider: provider }),
   attributionCosts: async (project: string, input: { range: MoneyRange; source?: string }) =>
     readCosts(await rpc<unknown>('attribution_costs', { p_project: project, p_input: input })),
   saveCosts: async (project: string, rows: CostInput[]) =>
@@ -1324,14 +1371,13 @@ export const api = {
     readCostImport(
       await rpc<unknown>('attribution_cost_import', { p_project: project, p_input: input }),
     ),
-  undoCostImport: async (project: string, importId: string) =>
-    countIn(
-      await rpc<unknown>('attribution_cost_import_undo', {
-        p_project: project,
-        p_import: importId,
-      }),
-      'deleted',
-    ),
+  undoCostImport: async (project: string, importId: string) => {
+    const result = await rpc<{ deleted: number; restored?: number }>(
+      'attribution_cost_import_undo',
+      { p_project: project, p_import: importId },
+    )
+    return { deleted: countIn(result, 'deleted'), restored: result.restored ?? 0 }
+  },
   saveCostRule: async (project: string, input: CostRuleInput) => {
     const rule = readCostRule(
       await rpc<unknown>('attribution_cost_rule_save', { p_project: project, p_input: input }),

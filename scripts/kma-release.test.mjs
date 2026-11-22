@@ -743,6 +743,8 @@ test('smoke test checks every dashboard host serves the commit and the events en
     seen.push(`${init.method ?? 'GET'} ${url}`)
     if (url.endsWith('/release.json'))
       return new Response(JSON.stringify({ commit }), { status: 200 })
+    if (url.includes('/marketplace/')) return new Response('<div id="root"></div>')
+    if (url.includes('/checkout/') && init.method==='HEAD') return new Response(null,{status:404,headers:{'x-request-id':'fixture'}})
     if (url.endsWith('/v1/events')) return new Response('{"error":"invalid_key"}', { status: 401 })
     return new Response('Not found', { status: 404 })
   }
@@ -751,6 +753,6 @@ test('smoke test checks every dashboard host serves the commit and the events en
     results.every((r) => r.ok),
     JSON.stringify(results),
   )
-  assert.equal(results.length, 5)
+  assert.equal(results.length, 7)
   assert.ok(seen.includes('POST https://events.kissmyapps.dev/v1/events'))
 })

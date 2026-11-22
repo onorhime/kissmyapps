@@ -1,3 +1,4 @@
+import { isProgramSlug as validRegistrationProgram } from './features/marketplace/routing'
 import { NavigationGuardContext, useFormNavigationGuard } from './components/useFormNavigationGuard'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
@@ -374,7 +375,12 @@ function App({
       .then((confirmedSession) => {
         if (!active) return
         // Someone who registered to join a program lands on that program.
-        const wanted = takeWantedProgram()
+        const registrationProgram: unknown = confirmedSession.user.user_metadata?.wanted_program
+        const wanted =
+          takeWantedProgram() ??
+          (typeof registrationProgram === 'string' && validRegistrationProgram(registrationProgram)
+            ? registrationProgram
+            : null)
         setWorkspaceMode('partner')
         setPage(wanted ? 'marketplace' : 'performance')
         setProgramSlug(wanted)

@@ -3,7 +3,9 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
 // Reuse the dashboard's existing test dependencies; do not alter the funnel lockfile.
-const funnel = resolve('../test bclearn funnel/funnel-web')
+const funnel = resolve(
+  process.env.KMA_FUNNEL_SOURCE ?? '../test bclearn funnel/bc-learn-funnel-speaksix',
+)
 export default defineConfig({
   plugins: [react()],
   resolve: {

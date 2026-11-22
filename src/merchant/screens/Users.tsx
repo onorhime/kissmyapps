@@ -1,3 +1,4 @@
+import type { ReportCursor } from '../api'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ArrowLeft, Bot, Download, Play, Search, ShieldCheck, ShieldOff } from 'lucide-react'
@@ -23,7 +24,7 @@ import {
   timeIn,
 } from '../format'
 import { placeOptions } from '../places'
-import { rangeOptions, rangePhrase } from '../ranges'
+import { isCustomRange, rangeOptions, rangePhrase } from '../ranges'
 import { href } from '../routes'
 import { canDo, useStore } from '../store'
 import {
@@ -39,7 +40,7 @@ import {
   ShowMore,
   Skeleton,
 } from '../ui/Primitives'
-import { useRpc } from '../ui/useRpc'
+import { usePagedRpc, useRpc } from '../ui/useRpc'
 
 const PAGE = 50
 const EXPORT_MAX = 50_000
@@ -52,9 +53,12 @@ export function UsersScreen({ project }: { project: Project }) {
   const { now, notify } = useStore()
   const time = timeIn(project.timezone)
   const initial = hashParams()
-  const [range, setRange] = useState<Range>(
-    rangeOptions.find((option) => option.value === initial.get('range'))?.value ?? '30d',
-  )
+  const [range, setRange] = useState<Range>(() => {
+    const value = initial.get('range') ?? ''
+    return isCustomRange(value)
+      ? value
+      : (rangeOptions.find((option) => option.value === value)?.value ?? '30d')
+  })
   const [search, setSearch] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<NonNullable<PeopleQuery['status']>>(
@@ -68,7 +72,6 @@ export function UsersScreen({ project }: { project: Project }) {
     initial.get('country') ? [initial.get('region'), initial.get('city')] : [null, null],
   )
   const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>('last_seen')
-  const [limit, setLimit] = useState(PAGE)
   const params: PeopleQuery = {
     range,
     search: query || undefined,
@@ -78,7 +81,7 @@ export function UsersScreen({ project }: { project: Project }) {
     region: (country && place[0]) || undefined,
     city: (country && place[1]) || undefined,
     sort,
-    limit,
+    limit: PAGE,
   }
   // Results follow the search box as the merchant types; Enter applies it at once.
   useEffect(() => {
@@ -86,17 +89,16 @@ export function UsersScreen({ project }: { project: Project }) {
     if (next === query) return
     const timer = window.setTimeout(() => {
       setQuery(next)
-      setLimit(PAGE)
     }, 350)
     return () => window.clearTimeout(timer)
   }, [search, query])
-  const people = useRpc(
+  const people = usePagedRpc(
     `people:${project.id}:${JSON.stringify(params)}`,
-    () => api.people(project.id, params),
-    { pollMs: status === 'online' ? 15_000 : 60_000 },
+    (offset, cursor) =>
+      api.people(project.id, { ...params, ...(cursor ? { cursor } : { offset }) }),
+    status === 'online' ? 15_000 : 60_000,
   )
   const page = people.data
-  const reset = () => setLimit(PAGE)
 
   const [exporting, setExporting] = useState(false)
   // Exports everyone matching the filters, not only the rows on screen.
@@ -104,15 +106,27 @@ export function UsersScreen({ project }: { project: Project }) {
     if (!page) return
     setExporting(true)
     const everyone: Person[] = []
+    const seen = new Set<string>()
+    let cursor: ReportCursor | undefined,
+      offset = 0
     try {
       while (everyone.length < Math.min(page.total, EXPORT_MAX)) {
         const next = await api.people(project.id, {
           ...params,
-          limit: 1000,
-          offset: everyone.length,
+          limit: Math.min(1000, EXPORT_MAX - everyone.length),
+          ...(cursor ? { cursor } : { offset }),
         })
-        everyone.push(...next.rows)
-        if (!next.rows.length) break
+        for (const r of next.rows) {
+          if (!seen.has(r.id)) {
+            seen.add(r.id)
+            everyone.push(r)
+          }
+        }
+        offset += next.rows.length
+        if (!next.rows.length || next.next_cursor === null) break
+        if (cursor && JSON.stringify(cursor) === JSON.stringify(next.next_cursor))
+          throw new Error('The export cursor did not advance.')
+        cursor = next.next_cursor
       }
     } catch (problem) {
       notify(problem instanceof Error ? `Export failed. ${problem.message}` : 'Export failed.')
@@ -139,6 +153,9 @@ export function UsersScreen({ project }: { project: Project }) {
       }
     })
     downloadCsv(`${project.name}-users-${range}.csv`, toCsv(rows))
+    notify(
+      `Exported ${rows.length.toLocaleString()} of ${page.total.toLocaleString()} matching people.`,
+    )
   }
 
   return (
@@ -148,7 +165,7 @@ export function UsersScreen({ project }: { project: Project }) {
         description={
           query
             ? `Everyone in ${project.name} matching “${query}”, at any time.`
-            : `People who used ${project.name} ${rangePhrase[range]}, newest activity first.`
+            : `People who used ${project.name} ${rangePhrase(range)}, newest activity first.`
         }
         actions={
           <>
@@ -157,7 +174,6 @@ export function UsersScreen({ project }: { project: Project }) {
               value={range}
               onChange={(value) => {
                 setRange(value)
-                reset()
               }}
               options={rangeOptions}
             />
@@ -180,7 +196,6 @@ export function UsersScreen({ project }: { project: Project }) {
           onSubmit={(event) => {
             event.preventDefault()
             setQuery(search.trim())
-            reset()
           }}
         >
           <Search size={16} aria-hidden="true" />
@@ -203,7 +218,6 @@ export function UsersScreen({ project }: { project: Project }) {
           value={status}
           onChange={(value) => {
             setStatus(value)
-            reset()
           }}
           options={[
             { value: 'all', label: 'Everyone' },
@@ -218,7 +232,6 @@ export function UsersScreen({ project }: { project: Project }) {
           value={platform}
           onChange={(value) => {
             setPlatform(value)
-            reset()
           }}
           options={[
             { value: '', label: 'All platforms' },
@@ -235,7 +248,6 @@ export function UsersScreen({ project }: { project: Project }) {
           onChange={(value) => {
             setCountry(value)
             setPlace([null, null])
-            reset()
           }}
           options={[
             { value: '', label: 'All countries' },
@@ -251,7 +263,6 @@ export function UsersScreen({ project }: { project: Project }) {
             value={place[0] || place[1] ? JSON.stringify(place) : ''}
             onChange={(value) => {
               setPlace(value ? JSON.parse(value) : [null, null])
-              reset()
             }}
             options={placeOptions(country, page?.facets.places ?? [], place)}
           />
@@ -262,7 +273,6 @@ export function UsersScreen({ project }: { project: Project }) {
           value={sort}
           onChange={(value) => {
             setSort(value)
-            reset()
           }}
           options={[
             { value: 'last_seen', label: 'Last seen' },
@@ -321,7 +331,7 @@ export function UsersScreen({ project }: { project: Project }) {
               ? `Nobody in ${project.name} matches “${query}”.`
               : status === 'online'
                 ? `Nobody is using ${project.name} right now.`
-                : `No people ${rangePhrase[range]} with these filters.`}
+                : `No people ${rangePhrase(range)} with these filters.`}
           </Empty>
         )}
       </section>
@@ -330,7 +340,8 @@ export function UsersScreen({ project }: { project: Project }) {
           shown={page.rows.length}
           total={page.total}
           noun="people"
-          onMore={() => setLimit((value) => value + PAGE)}
+          onMore={people.more}
+          disabled={!people.canLoadMore}
         />
       )}
     </div>

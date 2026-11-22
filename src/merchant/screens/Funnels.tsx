@@ -1,3 +1,6 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { JourneyRequests } from '../../features/program-activity/JourneyRequests'
+import { ReportRange } from '../ui/ReportRange'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowLeft, ArrowUp, ListFilter, Plus, Trash2, X } from 'lucide-react'
 import { api } from '../api'
@@ -39,7 +42,6 @@ import {
   PageHeader,
   Panel,
   PersonCell,
-  Segmented,
   Select,
   ShowMore,
   Skeleton,
@@ -138,7 +140,7 @@ type DraftStep = {
   label?: string
 }
 
-type Draft = { name: string; steps: DraftStep[]; window: FunnelWindow }
+type Draft = { revision?: string; name: string; steps: DraftStep[]; window: FunnelWindow }
 
 /** The step picker's choice: an event, or a page matched one of three ways. */
 type StepKind = 'event' | `screen:${FunnelMatch}`
@@ -162,6 +164,7 @@ function blankStep(): DraftStep {
 function draftOf(funnel: Funnel): Draft {
   return {
     name: funnel.name,
+    revision: funnel.updated_at,
     window: funnel.window_seconds,
     steps: funnel.steps.map((step) => ({
       ...blankStep(),
@@ -531,6 +534,7 @@ type StepRow = {
   step: FunnelStep
   people: number
   dropped: number | null
+  pending?: number | null
   median: number | null
 }
 
@@ -546,6 +550,7 @@ function stepRows(report: FunnelReport, focus: string | null): StepRow[] {
         step: step.step,
         people: step.people,
         dropped: step.dropped,
+        pending: step.pending,
         median: step.median_seconds,
       }
     const people = group.steps[at] ?? 0
@@ -595,6 +600,10 @@ function FunnelLead({
   const finished = rows[rows.length - 1]?.people ?? 0
   const drop = biggestDrop(rows)
   const dropStep = drop ? rows.find((row) => row.index === drop.index) : undefined
+  const largestCount = rows.reduce<StepRow | undefined>(
+    (best, row) => ((row.dropped ?? 0) > (best?.dropped ?? 0) ? row : best),
+    undefined,
+  )
   return (
     <div className="mc-funnel-lead">
       <div className="mc-funnel-figures">
@@ -603,7 +612,7 @@ function FunnelLead({
           <strong className="mc-num">{formatPercent(finished, started)}</strong>
         </div>
         <div className="mc-funnel-figure is-second">
-          <span className="mc-kpi-label">Most stop after</span>
+          <span className="mc-kpi-label">Highest drop-off rate</span>
           <strong className="mc-num">
             {drop ? `Step ${drop.index}` : <span className="mc-muted">—</span>}
           </strong>
@@ -611,11 +620,14 @@ function FunnelLead({
       </div>
       <p>
         {started
-          ? `${formatCount(finished)} of ${plural(started, 'person', 'people')} who started ${rangePhrase[range]} did all ${rows.length} steps within ${windowLabels[window]}.`
-          : `Nobody did step 1 ${rangePhrase[range]}.`}
+          ? `${formatCount(finished)} of ${plural(started, 'person', 'people')} who started ${rangePhrase(range)} did all ${rows.length} steps within ${windowLabels[window]}.`
+          : `Nobody did step 1 ${rangePhrase(range)}.`}
         {drop && dropStep
-          ? ` ${formatPercent(dropStep.dropped ?? 0, dropStep.people)} of those who reached step ${drop.index} (${stepText(dropStep.step, noun)}) went no further.`
+          ? ` ${formatPercent(dropStep.dropped ?? 0, dropStep.people)} of those who reached step ${drop.index} (${stepText(dropStep.step, noun)}) haven’t reached the next step.`
           : ''}
+        {largestCount &&
+          largestCount.index !== drop?.index &&
+          ` The largest number still short of the next step is ${formatCount(largestCount.dropped ?? 0)} at step ${largestCount.index}.`}
       </p>
     </div>
   )
@@ -698,17 +710,23 @@ function FunnelSteps({
               >
                 <ArrowDown size={14} aria-hidden="true" />
                 {row.dropped === 0 ? (
-                  <span>Nobody stopped here</span>
+                  <span>Everyone reached the next step</span>
                 ) : onDrill ? (
                   <button
                     type="button"
                     aria-pressed={dropped}
                     onClick={() => onDrill({ step: row.index, outcome: 'dropped' })}
                   >
-                    {plural(row.dropped, 'person', 'people')} stopped here
+                    {plural(row.dropped, 'person', 'people')} yet to reach the next step
                   </button>
                 ) : (
-                  <span>{plural(row.dropped, 'person', 'people')} stopped here</span>
+                  <span>{plural(row.dropped, 'person', 'people')} yet to reach the next step</span>
+                )}
+                {row.pending != null && row.dropped > 0 && (
+                  <span>
+                    {row.pending} still within the conversion window · {row.dropped - row.pending}{' '}
+                    past the deadline
+                  </span>
                 )}
                 {row.dropped > 0 && (
                   <span className="mc-funnel-drop-share mc-num">
@@ -967,7 +985,7 @@ function Breakdown({
               <th scope="col" className="mc-num-col">
                 Conversion
               </th>
-              <th scope="col">Most stop after</th>
+              <th scope="col">Highest drop-off rate</th>
             </tr>
           </thead>
           <tbody>
@@ -996,7 +1014,7 @@ function Breakdown({
                   <td data-label="Conversion" className="mc-num mc-num-col">
                     {formatPercent(finished, started)}
                   </td>
-                  <td data-label="Most stop after">
+                  <td data-label="Highest drop-off rate">
                     {drop ? (
                       <>
                         Step {drop.index}{' '}
@@ -1015,7 +1033,7 @@ function Breakdown({
         </table>
       ) : (
         <Empty>
-          {report ? `Nobody started this funnel ${rangePhrase[range]}.` : 'Loading groups.'}
+          {report ? `Nobody started this funnel ${rangePhrase(range)}.` : 'Loading groups.'}
         </Empty>
       )}
       {report && report.other_groups > 0 && (
@@ -1130,7 +1148,7 @@ export function FunnelsScreen({ project }: { project: Project }) {
 }
 
 export function FunnelScreen({ project, funnelId }: { project: Project; funnelId: string }) {
-  const { now, notify } = useStore()
+  const { now, notify, workspace } = useStore()
   const time = timeIn(project.timezone)
   const noun = pageNoun(project)
   const isNew = funnelId === 'new'
@@ -1148,9 +1166,12 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
   const [showProblems, setShowProblems] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteRevision, setDeleteRevision] = useState<string | null>(null)
+  const confirmDelete = deleteRevision !== null
+  const setConfirmDelete = (open: boolean) =>
+    setDeleteRevision(open ? (saved?.updated_at ?? null) : null)
   const [deleting, setDeleting] = useState(false)
-  const [range, setRange] = useState<Range>('30d')
+  const [range, setRange] = useReportPeriod<Range>('30d', rangeOptions)
   const [groupBy, setGroupBy] = useState<GroupBy>('device')
   const [focus, setFocus] = useState<string | null>(null)
   const [drill, setDrill] = useState<Drill | null>(null)
@@ -1235,10 +1256,16 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
     setSaving(true)
     setSaveError(null)
     try {
-      const result = await api.saveFunnel(project.id, isNew ? null : funnelId, draft.name.trim(), {
-        steps: draftSteps,
-        window_seconds: draft.window,
-      })
+      const result = await api.saveFunnel(
+        project.id,
+        isNew ? null : funnelId,
+        draft.name.trim(),
+        {
+          steps: draftSteps,
+          window_seconds: draft.window,
+        },
+        draft.revision,
+      )
       notify(isNew ? `${result.name} is saved` : 'Changes saved')
       if (isNew) {
         navigate({ name: 'funnel', projectId: project.id, funnelId: result.id }, true)
@@ -1258,7 +1285,7 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
     if (!saved) return
     setDeleting(true)
     try {
-      await api.deleteFunnel(saved.id)
+      await api.deleteFunnel(project.id, saved.id, deleteRevision!)
       notify(`${saved.name} is deleted`)
       navigate({ name: 'funnels', projectId: project.id }, true)
     } catch (problem) {
@@ -1298,7 +1325,7 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
         }
         actions={
           <>
-            <Segmented
+            <ReportRange
               label="Date range"
               value={range}
               onChange={setRange}
@@ -1330,6 +1357,12 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
           </>
         }
       />
+      {saved && !editing && (
+        <JourneyRequests
+          source={saved.id}
+          canRequest={workspace?.role === 'owner' || workspace?.role === 'admin'}
+        />
+      )}
       <Dialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
@@ -1381,7 +1414,7 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
               draftComplete
                 ? stale || report.loading
                   ? 'Counting'
-                  : `Everyone who started ${rangePhrase[range]}`
+                  : `Everyone who started ${rangePhrase(range)}`
                 : 'Finish every step to count it.'
             }
             id="mc-funnel-preview"
@@ -1502,7 +1535,7 @@ export function FunnelScreen({ project, funnelId }: { project: Project; funnelId
                   hourly ? (value) => `${time.date(value)}, ${time.time(value)}` : time.weekday
                 }
                 empty={
-                  shown.started ? undefined : `Nobody started this funnel ${rangePhrase[range]}.`
+                  shown.started ? undefined : `Nobody started this funnel ${rangePhrase(range)}.`
                 }
               />
             ) : (

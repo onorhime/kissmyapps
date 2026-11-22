@@ -274,3 +274,5 @@ than 3 events a second over 20 events) and no interaction (5 or more pages
 without a click, key or scroll). Flagged sessions are left out of every report
 unless the person is marked human. People and networks can be blocked; their
 new events are refused.
+
+Set `data-attribution-window-days` on the script tag or pass `attributionWindowDays` to `init` to match the program attribution window (1–365 days, default 30). Withdrawing consent clears stored sources immediately.

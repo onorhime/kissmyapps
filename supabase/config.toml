@@ -603,3 +603,12 @@ verify_jwt = false
 # deployed with --no-verify-jwt; listing it here keeps a full release the same.
 [functions.agreement-notify]
 verify_jwt = false
+
+[functions.attribution-ad-spend]
+verify_jwt = false
+
+[functions.attribution-skadnetwork]
+verify_jwt = false
+
+[functions.attribution-network-install]
+verify_jwt = false

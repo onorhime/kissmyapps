@@ -771,7 +771,9 @@ describe('Costs', () => {
     await user.click(within(uploads).getByRole('button', { name: 'Undo' }))
     expect(within(uploads).getByText('Delete its 1 row?')).toBeInTheDocument()
     await user.click(within(uploads).getByRole('button', { name: 'Undo upload' }))
-    expect(await screen.findByText('meta-oct.csv undone: 1 row deleted')).toBeInTheDocument()
+    expect(
+      await screen.findByText('meta-oct.csv undone: 1 row deleted, 0 rows restored'),
+    ).toBeInTheDocument()
     expect(calls('attribution_cost_import_undo')[0].args).toEqual({
       p_project: 'proj-1',
       p_import: uploadId('meta-oct.csv'),

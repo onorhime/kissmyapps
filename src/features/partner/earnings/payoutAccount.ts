@@ -132,7 +132,8 @@ export function payoutAccountWords(
     case 'ready':
       return {
         label: 'Ready',
-        detail: 'Payouts go to the bank account you added.',
+        detail:
+          'KissMyApps transfers earnings to your Stripe account. Stripe handles the bank deposit.',
         action: 'Review details',
         asks: false,
       }

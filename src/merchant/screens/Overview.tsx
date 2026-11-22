@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Bot, Play, Timer } from 'lucide-react'
 import { api } from '../api'
@@ -160,7 +162,7 @@ function KpiStrip({
     },
   ]
   return (
-    <div className="mc-kpis mc-kpis-6" role="group" aria-label={`Users ${rangePhrase[range]}`}>
+    <div className="mc-kpis mc-kpis-6" role="group" aria-label={`Users ${rangePhrase(range)}`}>
       {items.map((item) => (
         <div key={item.key} className="mc-kpi">
           <span className="mc-kpi-label">{item.label}</span>
@@ -187,7 +189,7 @@ function KpiStrip({
       {data && (
         <p className="mc-kpis-note mc-muted">
           {data.comparable
-            ? `Changes ${previousPhrase[range]}.`
+            ? `Changes ${previousPhrase(range)}.`
             : 'No data from before this range to compare with yet.'}{' '}
           Bots and development traffic are left out.
         </p>
@@ -308,7 +310,7 @@ function ActiveUsersChart({
         </span>
       </div>
       <LineChart
-        label={`Active users ${hourly ? 'per hour over the last 24 hours' : `per day ${rangePhrase[range]}`}`}
+        label={`Active users ${hourly ? 'per hour over the last 24 hours' : `per day ${rangePhrase(range)}`}`}
         height={240}
         area={false}
         series={[
@@ -332,7 +334,7 @@ function ActiveUsersChart({
         formatTooltip={
           hourly ? (value) => `${time.date(value)}, ${time.time(value)}` : time.weekday
         }
-        empty={`No users ${rangePhrase[range]} yet`}
+        empty={`No users ${rangePhrase(range)} yet`}
       />
     </>
   )
@@ -412,7 +414,7 @@ type WhereTab = 'countries' | 'cities' | 'languages'
 function WherePanel({ data, project, range }: { data: Overview; project: Project; range: Range }) {
   const b = data.breakdowns
   const total = data.current.users
-  const scope = rangePhrase[range]
+  const scope = rangePhrase(range)
   const [tab, setTab] = useState<WhereTab>('countries')
   const [country, setCountry] = useState<string | null>(null)
   const [inside, setInside] = useState<'cities' | 'regions'>('cities')
@@ -644,7 +646,7 @@ function Breakdowns({ data, project, range }: { data?: Overview; project: Projec
   }
   const b = data.breakdowns
   const total = data.current.users
-  const scope = rangePhrase[range]
+  const scope = rangePhrase(range)
   return (
     <div className="mc-grid">
       <WherePanel data={data} project={project} range={range} />
@@ -767,7 +769,7 @@ function Breakdowns({ data, project, range }: { data?: Overview; project: Projec
 
 export function OverviewScreen({ project }: { project: Project }) {
   const { now } = useStore()
-  const [range, setRange] = useState<Range>('7d')
+  const [range, setRange] = useReportPeriod<Range>('7d', rangeOptions)
   const overview = useRpc(
     `overview:${project.id}:${range}`,
     () => api.overview(project.id, range),
@@ -796,10 +798,10 @@ export function OverviewScreen({ project }: { project: Project }) {
     <div className="mc-page">
       <PageHeader
         title="Overview"
-        description={`Who used ${project.name} ${rangePhrase[range]}. Days run on ${project.timezone} time.`}
+        description={`Who used ${project.name} ${rangePhrase(range)}. Days run on ${project.timezone} time.`}
         actions={
           <>
-            <Segmented
+            <ReportRange
               label="Date range"
               value={range}
               onChange={setRange}
@@ -832,7 +834,7 @@ export function OverviewScreen({ project }: { project: Project }) {
               <p>
                 {data?.range.bucket === 'hour'
                   ? 'Per hour, last 24 hours'
-                  : `Per day, ${rangePhrase[range]}`}
+                  : `Per day, ${rangePhrase(range)}`}
               </p>
             </div>
           </div>
@@ -855,7 +857,7 @@ export function OverviewScreen({ project }: { project: Project }) {
           <span>
             {bots.excluded_sessions
               ? `${plural(bots.excluded_sessions, 'bot session')} (${formatPercent(bots.excluded_sessions, bots.sessions)} of traffic) left out of these numbers.`
-              : `No bot traffic found ${rangePhrase[range]}.`}
+              : `No bot traffic found ${rangePhrase(range)}.`}
           </span>
           <span className="mc-link">Review bots</span>
         </a>

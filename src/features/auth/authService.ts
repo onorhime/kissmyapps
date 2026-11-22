@@ -1,3 +1,4 @@
+import { peekWantedProgram } from '../partner/marketplace/wantedProgram'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseConfigurationIssue, requireSupabaseClient } from '../../lib/supabase'
 
@@ -209,13 +210,17 @@ export function createPartnerAuthService(client?: SupabaseClient | null): Partne
     },
 
     async signUp({ fullName, email, password }) {
+      const confirmation = new URL(publicPartnerRegistration.emailRedirectTo)
+      const program = peekWantedProgram()
+      if (program) confirmation.searchParams.set('program', program)
       const { error } = await configuredClient('sign-up').auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
-          emailRedirectTo: publicPartnerRegistration.emailRedirectTo,
+          emailRedirectTo: confirmation.toString(),
           data: {
             registration_flow: publicPartnerRegistration.flow,
+            ...(program ? { wanted_program: program } : {}),
             full_name: fullName.trim(),
             terms_version: publicPartnerRegistration.termsVersion,
             terms_url: publicPartnerRegistration.termsUrl,

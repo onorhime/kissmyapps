@@ -107,6 +107,7 @@ if (key) {
     endpoint: script?.dataset.endpoint || undefined,
     replay: script?.dataset.replay !== 'false',
     appVersion: script?.dataset.appVersion || undefined,
+    attributionWindowDays: Number(script?.dataset.attributionWindowDays),
     attribution: attributionMode(script?.dataset.attribution),
   })
 } else if (pending.some(([method]) => method === 'init')) {

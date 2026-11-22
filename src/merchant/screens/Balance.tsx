@@ -559,6 +559,12 @@ function Attention({
             new sales earn creators nothing. Add funds and it goes live again.
           </p>
         )}
+        {paused && (
+          <p>
+            Adding funds covers future sales. Earlier unfunded commissions stay excluded. Open{' '}
+            <a href="#sales">Sales and reconciliation exceptions</a> to review them.
+          </p>
+        )}
         {failed && (
           <p className="mc-num">
             {paused ? 'The automatic top-up' : <strong>Automatic top-up failed</strong>}

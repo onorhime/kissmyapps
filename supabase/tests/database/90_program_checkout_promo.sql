@@ -302,7 +302,7 @@ select pg_temp.check(
 select pg_temp.save('{"payment_mode":"kma_checkout","landing_url":"https://fluent-app.io/elsewhere",
   "checkout":{"name":"Fluent Pro","amount_minor":999,"interval":"month"},"buyer_discount_bps":1000}');
 select pg_temp.check(
-  (select s->'program' @> '{"payment_mode":"kma_checkout","landing_url":"https://kissmyapps.dev/checkout/fluent","slug":"fluent",
+  (select s->'program' @> '{"payment_mode":"kma_checkout","landing_url":"https://partners.kissmyapps.dev/checkout/fluent","slug":"fluent",
       "checkout":{"name":"Fluent Pro","amount_minor":999,"interval":"month","success_url":null},"buyer_discount_bps":1000}'
       and not (s->'checklist'->>'landing_page')::boolean and not (s->'checklist'->>'stripe_connected')::boolean
       and not (s->>'stripe_charges_enabled')::boolean and (s->>'stripe_connected')::boolean is false
@@ -311,7 +311,7 @@ select pg_temp.check(
   'a checkout link leads to kissmyapps.dev/checkout/<address> whatever landing page is sent; without a page after payment the product is not complete');
 select pg_temp.save('{"checkout":{"success_url":"https://fluent-app.io/welcome"},"name":"Fluent Club"}');
 select pg_temp.check(
-  (select s->'program' @> '{"slug":"fluent-club","landing_url":"https://kissmyapps.dev/checkout/fluent-club",
+  (select s->'program' @> '{"slug":"fluent-club","landing_url":"https://partners.kissmyapps.dev/checkout/fluent-club",
       "checkout":{"name":"Fluent Pro","amount_minor":999,"interval":"month","success_url":"https://fluent-app.io/welcome"}}'
       and (s->'checklist'->>'landing_page')::boolean
     from pg_temp.state() s),
@@ -321,7 +321,7 @@ select pg_temp.check(
   (select a->'agreement'->'summary' = '[{"label":"Commission","value":"30% of every payment"},
         {"label":"Product","value":"Fluent Pro, $9.99 a month"},{"label":"Buyer discount","value":"10% off with your code"},
         {"label":"Attribution window","value":"30 days"},{"label":"Hold before payout","value":"14 days"},
-        {"label":"Minimum payout","value":"$20.00"}]'
+        {"label":"Minimum payout","value":"$25.00"}]'
       and a->'agreement'->'sections'->1->'paragraphs'->>0 = 'You promote Fluent. KissMyApps gives you your own link, and people '
         || 'who click it go to a checkout where they can buy Fluent Pro for $9.99 a month.'
       and a->'agreement'->'sections'->3->'paragraphs' @> '["KissMyApps also gives you your own promo code, which gives buyers 10% off and is applied by itself on the checkout your link opens.",
@@ -329,7 +329,7 @@ select pg_temp.check(
       and jsonb_array_length(a->'agreement'->'sections'->3->'paragraphs') = 6
     from pg_temp.agreement() a)
   and (select kma_internal.program_terms(p) @> '{"payment_mode":"kma_checkout","checkout":{"name":"Fluent Pro","amount_minor":999,"interval":"month"},
-      "buyer_discount_bps":1000,"landing_url":"https://kissmyapps.dev/checkout/fluent"}'
+      "buyer_discount_bps":1000,"landing_url":"https://partners.kissmyapps.dev/checkout/fluent"}'
       and not (kma_internal.program_terms(p)->'checkout' ? 'success_url')
     from pg_temp.program() p),
   'the agreement names the product, its price and the discount, and says how a code credits a sale; the terms carry them, not the page after payment');
@@ -354,7 +354,7 @@ select pg_temp.call('kma_owner', format('select public.review_admin_program(%L)'
   jsonb_build_object('program_id', (pg_temp.program()).id, 'decision', 'approve', 'note', null)));
 select pg_temp.capture('workspace_program_get.kma_checkout', pg_temp.state());
 select pg_temp.check((pg_temp.program()).status = 'live'
-  and (select f.destination_url = 'https://kissmyapps.dev/checkout/fluent' from public.funnels f where f.id = (pg_temp.program()).funnel_id)
+  and (select f.destination_url = 'https://partners.kissmyapps.dev/checkout/fluent' from public.funnels f where f.id = (pg_temp.program()).funnel_id)
   and (select t.terms @> '{"payment_mode":"kma_checkout","buyer_discount_bps":1000}' from public.affiliate_program_terms t
     where t.program_id = (pg_temp.program()).id and t.version = 1)
   and (select count(*) = 0 from public.program_promo_codes),
@@ -364,7 +364,7 @@ select pg_temp.check((pg_temp.program()).status = 'live'
 select pg_temp.capture('marketplace_program.with_checkout', public.marketplace_program('fluent'));
 select pg_temp.check(
   (select m->'program' @> '{"payment_mode":"kma_checkout","checkout":{"name":"Fluent Pro","amount_minor":999,"interval":"month"},
-      "buyer_discount_bps":1000,"currency":"USD","landing_url":"https://kissmyapps.dev/checkout/fluent"}'
+      "buyer_discount_bps":1000,"currency":"USD","landing_url":"https://partners.kissmyapps.dev/checkout/fluent"}'
       and not (m->'program'->'checkout' ? 'success_url')
     from (select public.marketplace_program('fluent') m) x)
   and (select c @> '{"slug":"fluent","payment_mode":"kma_checkout","buyer_discount_bps":1000}'
@@ -433,7 +433,7 @@ select pg_temp.check(
 
 -- A creator's link opens the checkout with their code --------------------------------------------------
 insert into qa select 'anna_click', pg_temp.click('anna', 'p8-anna')::text;
-select pg_temp.check((pg_temp.t('anna_click')::jsonb)->>'destination_url' = 'https://kissmyapps.dev/checkout/fluent',
+select pg_temp.check((pg_temp.t('anna_click')::jsonb)->>'destination_url' = 'https://partners.kissmyapps.dev/checkout/fluent',
   'the creator''s link sends the visitor to the checkout address');
 select pg_temp.capture('program_checkout_target.ok', pg_temp.target('fluent', (pg_temp.t('anna_click')::jsonb)->>'click_id'));
 select pg_temp.check(

@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useState } from 'react'
 import { ArrowLeft, ChevronRight, Download } from 'lucide-react'
 import { api } from '../api'
@@ -30,7 +32,7 @@ function rate(row: Pick<SourceRow, 'converters' | 'people'>): string {
 export function SourcesScreen({ project, view }: { project: Project; view?: Attribution }) {
   // Installs only mean something for a project with an app.
   const apps = hasApp(project, view?.settings ?? null)
-  const [range, setRange] = useState<Range>('30d')
+  const [range, setRange] = useReportPeriod<Range>('30d', rangeOptions)
   const [model, setModel] = useState<AttributionModel>('last')
   // A source opened to see its campaigns; null lists every source.
   const [source, setSource] = useState<string | null>(null)
@@ -62,7 +64,7 @@ export function SourcesScreen({ project, view }: { project: Project; view?: Attr
   return (
     <>
       <div className="mc-toolbar">
-        <Segmented label="Date range" value={range} onChange={setRange} options={rangeOptions} />
+        <ReportRange label="Date range" value={range} onChange={setRange} options={rangeOptions} />
         <Segmented label="Credit" value={model} onChange={setModel} options={modelOptions} />
         <button
           type="button"
@@ -146,10 +148,10 @@ export function SourcesScreen({ project, view }: { project: Project; view?: Attr
         title={source ? `Campaigns from ${sourceLabel(source)}` : 'Sources'}
         description={
           source
-            ? `${sourceLabel(source)}'s ${apps ? 'installs, visits' : 'visits'} and conversions ${rangePhrase[range]}, by campaign.`
+            ? `${sourceLabel(source)}'s ${apps ? 'installs, visits' : 'visits'} and conversions ${rangePhrase(range)}, by campaign.`
             : apps
-              ? `Where installs and visitors came from ${rangePhrase[range]}, and the conversions each source earned.`
-              : `Where visitors came from ${rangePhrase[range]}, and the conversions each source earned.`
+              ? `Where installs and visitors came from ${rangePhrase(range)}, and the conversions each source earned.`
+              : `Where visitors came from ${rangePhrase(range)}, and the conversions each source earned.`
         }
         id="mc-attr-sources"
         actions={
@@ -164,8 +166,8 @@ export function SourcesScreen({ project, view }: { project: Project; view?: Attr
         {data && data.rows.length === 0 ? (
           <Empty>
             {source
-              ? `Nothing from ${sourceLabel(source)} ${rangePhrase[range]}.`
-              : `No ${apps ? 'installs or visits' : 'visits'} ${rangePhrase[range]} yet. Share a link, or tag your ads with utm_source, and ${apps ? 'people' : 'visitors'} show here by where they came from.`}
+              ? `Nothing from ${sourceLabel(source)} ${rangePhrase(range)}.`
+              : `No ${apps ? 'installs or visits' : 'visits'} ${rangePhrase(range)} yet. Share a link, or tag your ads with utm_source, and ${apps ? 'people' : 'visitors'} show here by where they came from.`}
           </Empty>
         ) : (
           <table

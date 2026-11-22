@@ -92,24 +92,35 @@ function Screens() {
   const project = projectId ? projects.find((item) => item.id === projectId) : undefined
 
   useEffect(() => {
-    if (status === 'signed-out' && !isAuthRoute(route)) navigate({ name: 'sign-in' }, true)
+    if (status === 'signed-out' && !isAuthRoute(route)) {
+      if (route.name !== 'home') {
+        try {
+          sessionStorage.setItem('kma:merchant:return', window.location.hash)
+        } catch {
+          /* Storage may be unavailable. */
+        }
+      }
+      navigate({ name: 'sign-in' }, true)
+    }
     // Choosing a password and confirming an address finish on their own screens.
     if (
       status === 'ready' &&
       isAuthRoute(route) &&
       route.name !== 'new-password' &&
       route.name !== 'confirm-email'
-    )
-      // Someone who came back from Stripe signed out finishes connecting once signed in.
-      navigate(hasStripeReturn() ? { name: 'connections' } : { name: 'home' }, true)
+    ) {
+      let destination: Route = { name: 'home' }
+      try {
+        destination = parseRoute(sessionStorage.getItem('kma:merchant:return') ?? '')
+        sessionStorage.removeItem('kma:merchant:return')
+      } catch {
+        /* The home route is always available. */
+      }
+      navigate(hasStripeReturn() ? { name: 'connections' } : destination, true)
+    }
     if (status === 'ready' && route.name === 'home') {
       const next = rememberedProject(projects)
-      navigate(
-        next
-          ? { name: 'overview', projectId: next.id }
-          : { name: 'workspace', section: 'projects', create: true },
-        true,
-      )
+      if (next) navigate({ name: 'overview', projectId: next.id }, true)
     }
   }, [status, route, projects])
 
@@ -152,7 +163,7 @@ function Screens() {
       <AuthScreen route={route} />
     ) : null
   }
-  if (status === 'loading' || route.name === 'home') return <Booting />
+  if (status === 'loading') return <Booting />
   if (status === 'error') {
     return (
       <div className="mc-boot">
@@ -161,6 +172,25 @@ function Screens() {
           onRetry={() => void refreshContext()}
         />
       </div>
+    )
+  }
+  if (route.name === 'home') {
+    if (projects.length) return <Booting />
+    return (
+      <Shell route={route} pageTitle="Get started">
+        <div className="mc-page">
+          <PageHeader title="What would you like to set up?" />
+          <a
+            className="mc-btn mc-btn-primary"
+            href={href({ name: 'workspace', section: 'projects', create: true })}
+          >
+            Track a website or app
+          </a>
+          <a className="mc-btn mc-btn-secondary" href={href({ name: 'program' })}>
+            Launch an affiliate program
+          </a>
+        </div>
+      </Shell>
     )
   }
 

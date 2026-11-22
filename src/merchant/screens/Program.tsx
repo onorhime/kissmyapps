@@ -1,3 +1,4 @@
+import { ProgramReadiness } from './ProgramReadiness'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -173,7 +174,14 @@ function ProgramPage({
     (next: ProgramState) => {
       latest.current += 1
       setState(next)
-      setDraft(draftFromProgram(next.program, asksEarnFrom(next), offersCheckout(next)))
+      setDraft(
+        draftFromProgram(
+          next.program,
+          asksEarnFrom(next),
+          offersCheckout(next),
+          next.platform_minimum_minor,
+        ),
+      )
       keepLanding(next.program)
       checkoutLanding.current = checkoutLinkOf(next.program)
       setErrors({})
@@ -212,7 +220,10 @@ function ProgramPage({
   // Asked by a database that knows checkout links; an older one keeps the form as it was.
   const paying = offersCheckout(state)
   const paymentMode = draft.paymentMode ?? 'own_checkout'
-  const saved = useMemo(() => draftFromProgram(program, asks, paying), [program, asks, paying])
+  const saved = useMemo(
+    () => draftFromProgram(program, asks, paying, state?.platform_minimum_minor),
+    [program, asks, paying, state?.platform_minimum_minor],
+  )
   const dirty = Boolean(state) && !sameDraft(draft, saved)
   const editable = Boolean(state?.can_manage) && status !== 'in_review'
   // Asked when the workspace has smart links of an app; otherwise the landing page is a web page.
@@ -692,7 +703,7 @@ function ProgramPage({
     <div className="mc-page mc-prog" ref={root}>
       <PageHeader
         title="Affiliate program"
-        description="Tell creators what they are promoting and what they earn. You can change any of this after you publish."
+        description="Each workspace can run one affiliate program at a time. Set what creators promote, how they qualify and what they earn."
         actions={
           state && (
             <>
@@ -703,6 +714,7 @@ function ProgramPage({
         }
       />
 
+      {state && <ProgramReadiness workspace={workspaceId} />}
       {!state && !loadProblem && <Loading />}
 
       {loadProblem && !state && (
@@ -1548,23 +1560,15 @@ function ProgramForm({
                     </div>
                   )}
                 </Field>
-                <Field label="Minimum payout" error={errors.minimumPayout}>
-                  {(props) => (
-                    <div className={dollars ? 'mc-affix is-prefix' : 'mc-affix'}>
-                      {dollars && <span aria-hidden="true">$</span>}
-                      <input
-                        {...props}
-                        inputMode="decimal"
-                        value={draft.minimumPayout}
-                        autoComplete="off"
-                        onChange={(event) =>
-                          set('minimumPayout', event.target.value, 'minimumPayout')
-                        }
-                      />
-                      {!dollars && <span aria-hidden="true">{draft.currency}</span>}
-                    </div>
-                  )}
-                </Field>
+                <div className="mc-field">
+                  <span className="mc-prog-caption">Platform payout minimum</span>
+                  <strong>
+                    {formatMoney(Math.round(Number(draft.minimumPayout) * 100), draft.currency)}
+                  </strong>
+                  <p className="mc-field-hint">
+                    Approved earnings from all programs in this currency count toward the minimum.
+                  </p>
+                </div>
                 {/* Programs pay creators in US dollars for now. A program saved in another
                     currency before that keeps it, and it is shown as it is. */}
                 <div className={errors.currency ? 'mc-field has-error' : 'mc-field'}>

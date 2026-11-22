@@ -1,3 +1,4 @@
+import * as Dialog from '@radix-ui/react-dialog'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
@@ -429,56 +430,45 @@ export function Shell({
     return () => window.clearInterval(timer)
   }, [refreshContext])
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [menuOpen])
-
   return (
-    <div className="mc-shell">
-      <a className="mc-skip" href="#mc-main">
-        Skip to content
-      </a>
-      <aside className="mc-sidebar" aria-label="Merchant navigation">
-        <BrandLockup />
-        <ProjectSwitcher current={project} route={route} />
-        <NavLinks route={route} project={project} />
-        <Account />
-      </aside>
+    <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
+      <div className="mc-shell">
+        <a className="mc-skip" href="#mc-main">
+          Skip to content
+        </a>
+        <aside className="mc-sidebar" aria-label="Merchant navigation">
+          <BrandLockup />
+          <ProjectSwitcher current={project} route={route} />
+          <NavLinks route={route} project={project} />
+          <Account />
+        </aside>
 
-      <header className="mc-topbar">
-        <button
-          type="button"
-          className="mc-icon-btn"
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen(true)}
-        >
-          <Menu size={20} aria-hidden="true" />
-        </button>
-        <span className="mc-topbar-title">{pageTitle}</span>
-        {project ? (
-          <a
-            href={href({ name: 'overview', projectId: project.id })}
-            aria-label={`${project.name} overview`}
-          >
-            <ProjectMark project={project} size={28} />
-          </a>
-        ) : (
-          <img src="/favicon.svg" alt="" width={28} height={28} />
-        )}
-      </header>
+        <header className="mc-topbar">
+          <Dialog.Trigger asChild>
+            <button
+              type="button"
+              className="mc-icon-btn"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+            >
+              <Menu size={20} aria-hidden="true" />
+            </button>
+          </Dialog.Trigger>
+          <span className="mc-topbar-title">{pageTitle}</span>
+          {project ? (
+            <a
+              href={href({ name: 'overview', projectId: project.id })}
+              aria-label={`${project.name} overview`}
+            >
+              <ProjectMark project={project} size={28} />
+            </a>
+          ) : (
+            <img src="/favicon.svg" alt="" width={28} height={28} />
+          )}
+        </header>
 
-      {menuOpen && (
-        <div className="mc-sheet" role="dialog" aria-modal="true" aria-label="Menu">
+        <Dialog.Content className="mc-sheet" aria-describedby={undefined}>
+          <Dialog.Title className="sr-only">Menu</Dialog.Title>
           <div className="mc-sheet-head">
             <BrandLockup />
             <button
@@ -493,18 +483,18 @@ export function Shell({
           <ProjectSwitcher current={project} route={route} onNavigate={() => setMenuOpen(false)} />
           <NavLinks route={route} project={project} onNavigate={() => setMenuOpen(false)} />
           <Account />
-        </div>
-      )}
+        </Dialog.Content>
 
-      <main id="mc-main" className="mc-main" tabIndex={-1}>
-        {children}
-        {/* DB-IP's free city database asks for this credit (CC BY 4.0). */}
-        <footer className="mc-footer">
-          <a href="https://db-ip.com" target="_blank" rel="noreferrer">
-            IP geolocation by DB-IP
-          </a>
-        </footer>
-      </main>
-    </div>
+        <main id="mc-main" className="mc-main" tabIndex={-1}>
+          {children}
+          {/* DB-IP's free city database asks for this credit (CC BY 4.0). */}
+          <footer className="mc-footer">
+            <a href="https://db-ip.com" target="_blank" rel="noreferrer">
+              IP geolocation by DB-IP
+            </a>
+          </footer>
+        </main>
+      </div>
+    </Dialog.Root>
   )
 }

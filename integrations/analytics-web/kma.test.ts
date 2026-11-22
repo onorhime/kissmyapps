@@ -83,7 +83,7 @@ describe('web SDK', () => {
     expect(body.events[1]).toMatchObject({ screen: '/', user_id: null })
     expect(body.context).toMatchObject({
       platform: 'web',
-      sdk: 'kma-web/1.2.0',
+      sdk: 'kma-web/1.2.1',
       app_version: '3.1.0',
       page_path: '/',
       utm: { source: 'newsletter', campaign: 'autumn' },
@@ -236,6 +236,29 @@ describe('web SDK', () => {
     expect(sent[1].body.session?.id).toBe(sent[0].body.session?.id)
   })
 
+  it('discards pending events and creates no session while consent is withdrawn', async () => {
+    const first = start({ autoPageViews: false })
+    first.track('before_withdrawal')
+    first.optOut()
+    first.shutdown()
+    const next = start({ autoPageViews: false })
+    next.identify('withdrawn-user')
+    next.setTraits({ name: 'withdrawn' })
+    next.reset()
+    next.track('during_withdrawal')
+    expect(next.getSessionId()).toBeNull()
+    expect(next.getUserId()).toBeNull()
+    await next.flush()
+    expect(sent).toHaveLength(0)
+    next.optIn()
+    next.track('after_consent')
+    await next.flush()
+    expect(sent.flatMap(({ body }) => body.events.map(({ name }) => name))).toEqual([
+      'session_started',
+      'after_consent',
+    ])
+  })
+
   it('sends nothing after opting out', async () => {
     const kma = start({ autoPageViews: false })
     kma.optOut()
@@ -279,6 +302,35 @@ describe('web SDK', () => {
     expect(saved.replayOffUntil).toBeGreaterThan(Date.now())
   })
 
+  it('retries replay with the same sequence and cancels pending retries on withdrawal', async () => {
+    let emit: (event: { type: number; timestamp: number }) => void = () => undefined
+    const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith('/v1/replay')) {
+        const body = JSON.parse(String(init?.body))
+        sequences.push(body.replay.seq)
+        return new Response('', { status: 503 })
+      }
+      return new Response('{}')
+    })
+    const sequences: number[] = []
+    const client = start({
+      replay: true,
+      fetch,
+      loadReplay: async () => ({
+        start(callback) {
+          emit = callback
+          return { stop: vi.fn(), takeFullSnapshot: vi.fn() }
+        },
+      }),
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    emit({ type: 2, timestamp: Date.now() })
+    await vi.advanceTimersByTimeAsync(3100)
+    expect(sequences).toEqual([0, 0])
+    client.optOut()
+    await vi.advanceTimersByTimeAsync(12000)
+    expect(sequences).toEqual([0, 0])
+  })
   it('sends the first snapshot within a second and beacons the rest on page hide', async () => {
     const beacon = vi.fn((_url: string, _data: Blob) => true)
     Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true })
@@ -350,6 +402,16 @@ describe('attribution', () => {
       first: { source: 'newsletter', campaign: 'autumn' },
       last: { source: 'facebook', campaign: 'launch', click: { gclid: 'Cj0' } },
     })
+  })
+
+  it('retains a consented source on day 45 for a 60-day program', () => {
+    window.history.replaceState(null, '', '/?utm_source=creator')
+    start({ autoPageViews: false, attributionWindowDays: 60 }).shutdown()
+    vi.advanceTimersByTime(45 * 24 * 60 * 60_000)
+    window.history.replaceState(null, '', '/')
+    expect(
+      start({ autoPageViews: false, attributionWindowDays: 60 }).attribution()?.last.source,
+    ).toBe('creator')
   })
 
   it('forgets sources after 30 days', () => {

@@ -92,6 +92,48 @@ function requestedSlug(url: URL): string | null {
   return slugs[0];
 }
 
+/** Only the public listing may generate an indexable page. A private invite can still
+ * join through the normal marketplace detail endpoint. All merchant copy is HTML escaped. */
+function discoveryPage(
+  card: NonNullable<ReturnType<typeof programList>>[number],
+) {
+  const escape = (value: string) =>
+    value.replace(
+      /[&<>"']/g,
+      (c) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[c]!),
+    );
+  const title = escape(card.name + " affiliate program | KissMyApps");
+  const description = escape(
+    card.tagline ||
+      "See the agreement and apply to the " + card.name + " affiliate program.",
+  );
+  const url = "https://partners.kissmyapps.dev/discover/" +
+    encodeURIComponent(card.slug);
+  const join = "https://partners.kissmyapps.dev/marketplace/" +
+    encodeURIComponent(card.slug);
+  const html =
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+<meta name="description" content="${description}"><link rel="canonical" href="${url}"><meta property="og:type" content="website"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:url" content="${url}">
+<link rel="stylesheet" href="https://kissmyapps.dev/css/styles.css"></head><body><nav class="nav"><div class="nav__inner"><a class="brand" href="https://kissmyapps.dev/">Kissmyapps<span class="brand__tld">.dev</span></a><a class="platform-link" href="https://kissmyapps.dev/marketplace">Marketplace</a></div></nav><main class="platform-page"><header class="page-head tone-yellow"><h1>${
+      escape(card.name)
+    }</h1><p>${description}</p></header><section class="platform-section"><h2>Promote ${
+      escape(card.brand_name || card.name)
+    }</h2><p>Read the program’s current commission terms and application requirements before joining.</p><a class="platform-link" href="${join}">View agreement and join</a></section></main></body></html>`;
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 export function createMarketplaceHandler(
   overrides: Partial<MarketplaceDependencies> = {},
 ) {
@@ -116,8 +158,21 @@ export function createMarketplaceHandler(
           "The marketplace is not enabled.",
         );
       }
-      const slug = requestedSlug(new URL(request.url));
+      const url = new URL(request.url);
+      const slug = requestedSlug(url);
       const store = deps.store();
+      if (url.searchParams.has("discover")) {
+        const name = url.searchParams.get("discover");
+        if (
+          !isProgramSlug(name) || slug !== null ||
+          url.searchParams.getAll("discover").length !== 1
+        ) throw new NotFoundError();
+        const cards = programList(await store.list());
+        if (!cards) throw new DatabaseBoundaryError();
+        const card = cards.find((c) => c.slug === name);
+        if (!card) throw new NotFoundError();
+        return discoveryPage(card);
+      }
       if (slug === null) {
         const programs = programList(await store.list());
         // An answer that is not the agreed shape is never passed on.

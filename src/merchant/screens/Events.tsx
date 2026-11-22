@@ -1,3 +1,5 @@
+import { useReportPeriod } from '../ui/useReportPeriod'
+import { ReportRange } from '../ui/ReportRange'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Ban, CircleCheck, Pause, Play, Search } from 'lucide-react'
 import { api } from '../api'
@@ -63,7 +65,7 @@ export function EventsScreen({ project, live }: { project: Project; live: boolea
 
 function EventCatalog({ project }: { project: Project }) {
   const { now } = useStore()
-  const [range, setRange] = useState<Range>('7d')
+  const [range, setRange] = useReportPeriod<Range>('7d', rangeOptions)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'live' | 'blocked'>('live')
   const catalog = useRpc(`catalog:${project.id}:${range}`, () => api.catalog(project.id, range), {
@@ -80,9 +82,14 @@ function EventCatalog({ project }: { project: Project }) {
     <div className="mc-page">
       <PageHeader
         title="Events"
-        description={`What people did in ${project.name} ${rangePhrase[range]}, by how many of them did it.`}
+        description={`What people did in ${project.name} ${rangePhrase(range)}, by how many of them did it.`}
         actions={
-          <Segmented label="Date range" value={range} onChange={setRange} options={rangeOptions} />
+          <ReportRange
+            label="Date range"
+            value={range}
+            onChange={setRange}
+            options={rangeOptions}
+          />
         }
       />
       <EventTabs project={project} live={false} />
@@ -110,7 +117,7 @@ function EventCatalog({ project }: { project: Project }) {
           ]}
         />
         <span className="mc-toolbar-count mc-muted">
-          {data ? `${formatCount(data.active_users)} active users ${rangePhrase[range]}` : ''}
+          {data ? `${formatCount(data.active_users)} active users ${rangePhrase(range)}` : ''}
         </span>
       </div>
       {catalog.error && (
@@ -417,7 +424,7 @@ function keyLabel(breakdown: Breakdown, key: string): string {
 export function EventDetailScreen({ project, eventName }: { project: Project; eventName: string }) {
   const { now, workspace, notify } = useStore()
   const time = timeIn(project.timezone)
-  const [range, setRange] = useState<Range>('30d')
+  const [range, setRange] = useReportPeriod<Range>('30d', rangeOptions)
   const [breakdown, setBreakdown] = useState<Breakdown>('none')
   const detail = useRpc(
     `event:${project.id}:${eventName}:${range}:${breakdown}`,
@@ -498,7 +505,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
         }
         actions={
           <>
-            <Segmented
+            <ReportRange
               label="Date range"
               value={range}
               onChange={setRange}
@@ -581,7 +588,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
       <div
         className="mc-kpis mc-kpis-4"
         role="group"
-        aria-label={`${eventName} ${rangePhrase[range]}`}
+        aria-label={`${eventName} ${rangePhrase(range)}`}
       >
         <div className="mc-kpi">
           <span className="mc-kpi-label">Users who did it</span>
@@ -631,7 +638,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
 
       <Panel
         title="Users over time"
-        description={hourly ? 'Per hour, last 24 hours' : `Per day, ${rangePhrase[range]}`}
+        description={hourly ? 'Per hour, last 24 hours' : `Per day, ${rangePhrase(range)}`}
         id="mc-event-chart"
         actions={
           <Select
@@ -680,7 +687,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
               ]}
               height={240}
               formatX={hourly ? time.time : time.date}
-              empty={`Nobody sent ${eventName} ${rangePhrase[range]}.`}
+              empty={`Nobody sent ${eventName} ${rangePhrase(range)}.`}
             />
           )
         ) : (
@@ -728,7 +735,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
                 </tbody>
               </table>
             ) : (
-              <Empty>No data {rangePhrase[range]}.</Empty>
+              <Empty>No data {rangePhrase(range)}.</Empty>
             )}
           </Panel>
         )}
@@ -852,7 +859,7 @@ export function EventDetailScreen({ project, eventName }: { project: Project; ev
             </tbody>
           </table>
         ) : (
-          <Empty>{data ? `Nobody sent ${eventName} ${rangePhrase[range]}.` : 'Loading.'}</Empty>
+          <Empty>{data ? `Nobody sent ${eventName} ${rangePhrase(range)}.` : 'Loading.'}</Empty>
         )}
       </Panel>
     </div>

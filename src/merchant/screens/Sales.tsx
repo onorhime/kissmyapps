@@ -1,3 +1,5 @@
+import { CommissionInquiries } from '../../features/program-activity/CommissionInquiries'
+import { ProgramActivity } from '../../features/program-activity/ProgramActivity'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LoaderCircle, TriangleAlert, X } from 'lucide-react'
@@ -41,7 +43,7 @@ function SalesPage({
   workspaceName: string
   memberId?: string
 }) {
-  const { signOut, now } = useStore()
+  const { signOut, now, workspace } = useStore()
   const listId = useId()
   const [state, setState] = useState<SalesState>()
   const [loadProblem, setLoadProblem] = useState<SalesProblem>()
@@ -158,6 +160,13 @@ function SalesPage({
   return (
     <div className="mc-page mc-sales" ref={root}>
       <PageHeader title="Sales" description="What your creators sold through their links." />
+      <ProgramActivity workspace={workspaceId} />
+      {(workspace?.role === 'owner' || workspace?.role === 'admin') && (
+        <>
+          <ProgramActivity workspace={workspaceId} mode="exceptions" />
+          <CommissionInquiries key={workspaceId} workspace={workspaceId} />
+        </>
+      )}
 
       {!state && !loadProblem && <Loading />}
 

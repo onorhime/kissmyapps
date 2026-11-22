@@ -342,12 +342,12 @@ describe('the words for payouts', () => {
     expect(payoutStatusLine({ status: 'approved', paid_at: null }, NOW)).toBe('On its way')
     expect(payoutStatusLine({ status: 'processing', paid_at: null }, NOW)).toBe('On its way')
     expect(payoutStatusLine({ status: 'paid', paid_at: '2026-10-15T09:30:00+00:00' }, NOW)).toBe(
-      'Paid 15 Oct',
+      'Transferred to Stripe 15 Oct',
     )
     expect(payoutStatusLine({ status: 'paid', paid_at: '2025-12-30T09:30:00+00:00' }, NOW)).toBe(
-      'Paid 30 Dec 2025',
+      'Transferred to Stripe 30 Dec 2025',
     )
-    expect(payoutStatusLine({ status: 'paid', paid_at: null }, NOW)).toBe('Paid')
+    expect(payoutStatusLine({ status: 'paid', paid_at: null }, NOW)).toBe('Transferred to Stripe')
     for (const status of ['failed', 'canceled'] as const)
       expect(payoutStatusLine({ status, paid_at: null }, NOW)).toBe(
         'Not sent: back in your approved earnings',
@@ -429,7 +429,9 @@ describe('the Program earnings panel with payouts on', () => {
     expect(panel()).toHaveTextContent(
       'KissMyApps pays out approved earnings of $25.00 or 25.00 EUR or more.',
     )
-    expect(panel()).not.toHaveTextContent('Payouts of approved earnings are coming')
+    expect(panel()).not.toHaveTextContent(
+      'Payouts are not enabled yet. Your approved earnings are recorded here',
+    )
     expect(panel().textContent).not.toMatch(
       /test mode|sandbox|live mode|minor|paid on|will be paid/i,
     )
@@ -452,7 +454,7 @@ describe('the Program earnings panel with payouts on', () => {
           .map((row) => row.textContent),
       ).toEqual([
         '12 Nov$29.40On its way',
-        '14 Oct$44.10Paid 15 Oct',
+        '14 Oct$44.10Transferred to Stripe 15 Oct',
         '2 Oct$44.10Not sent: back in your approved earnings',
       ])
     } finally {
@@ -530,7 +532,11 @@ describe('the Program earnings panel with payouts off', () => {
     expect(screen.queryByRole('heading', { name: 'Payouts' })).not.toBeInTheDocument()
     expect(panel()).not.toHaveTextContent('KissMyApps pays out')
     expect(panel()).not.toHaveTextContent('No payouts yet')
-    expect(within(panel()).queryByRole('button')).not.toBeInTheDocument()
+    expect(
+      within(panel()).queryByRole('button', {
+        name: /set up|request payout|review details|continue setup/i,
+      }),
+    ).not.toBeInTheDocument()
     expect(gateway.status).not.toHaveBeenCalled()
   })
 
@@ -550,7 +556,7 @@ describe('the Program earnings panel with payouts off', () => {
           .map((term) => term.textContent),
       ).toEqual(['Pending', 'Approved'])
     expect(panel()).toHaveTextContent(
-      'Payouts of approved earnings are coming. Approved money has already been collected from the brand.',
+      'Payouts are not enabled yet. Your approved earnings are recorded here. Approved money has already been collected from the brand.',
     )
   })
 
@@ -561,7 +567,9 @@ describe('the Program earnings panel with payouts off', () => {
     expect(speaksix).toHaveTextContent('On its way$29.40Paid$44.10')
     expect(within(fieldnote).getAllByRole('term')).toHaveLength(2)
     // Payouts have been made here, so nothing says they are still to come.
-    expect(panel()).not.toHaveTextContent('Payouts of approved earnings are coming')
+    expect(panel()).not.toHaveTextContent(
+      'Payouts are not enabled yet. Your approved earnings are recorded here',
+    )
   })
 })
 
@@ -628,7 +636,7 @@ describe('the payout account in the Program earnings panel', () => {
       'is ready',
       readyAccount,
       'Ready',
-      'Payouts go to the bank account you added.',
+      'KissMyApps transfers earnings to your Stripe account. Stripe handles the bank deposit.',
       'Review details',
     ],
   ])(

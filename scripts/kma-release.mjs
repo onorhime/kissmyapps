@@ -384,7 +384,7 @@ function header(config, extra = {}) {
     ...Object.entries(vars).map(([key, value]) => `${key}=${sq(value)}`),
     'dep="$ROOT/deploy"',
     'compose() { docker compose -p "$PROJECT" -f "$dep/compose.yaml" "$@"; }',
-    'switch_current() { ln -sfn "$1" "$ROOT/current.next"; mv -T "$ROOT/current.next" "$ROOT/current"; }',
+    'switch_current() { ln -sfn "$1" "$ROOT/current.next"; if [ "$(uname -s)" = Darwin ]; then mv -hf "$ROOT/current.next" "$ROOT/current"; else mv -Tf "$ROOT/current.next" "$ROOT/current"; fi; }',
     WAIT_HEALTHY,
   ].join('\n')
 }
@@ -508,7 +508,8 @@ changed=" "
 while read -r svc path; do
   [ -n "$path" ] || continue
   if ! cmp -s "$rel/deploy/$path" "$dep/$path"; then
-    install -D -m 644 "$rel/deploy/$path" "$dep/$path"
+    mkdir -p "$(dirname "$dep/$path")"
+    install -m 644 "$rel/deploy/$path" "$dep/$path"
     echo "::changed $svc $path"
     changed="$changed$svc "
   fi
@@ -1052,6 +1053,17 @@ export async function smokeTest(config, commit, fetchImpl = fetch) {
       return response.ok && (await response.json()).commit === commit
     })
   }
+  const publicHost = config.smoke?.publicProgramHost
+  if (publicHost) {
+    await check(`${publicHost} opens a public invitation`, async () => {
+      const response = await get(`https://${publicHost}/marketplace/release-route-check`)
+      return response.ok && (await response.text()).includes('id="root"')
+    })
+    await check(`${publicHost} routes checkout previews to the provider handler`, async () => {
+      const response = await get(`https://${publicHost}/checkout/release-route-check`, { method: 'HEAD' })
+      return [200, 404].includes(response.status) && Boolean(response.headers.get('x-request-id'))
+    })
+  }
   const events = config.smoke?.eventsHost
   if (events) {
     await check(
@@ -1162,6 +1174,7 @@ export async function applyRelease(ctx, options, gathered, hooks = {}) {
       console.log(
         `${result.ok ? 'ok  ' : 'FAIL'} ${result.name}${result.detail ? ` (${result.detail})` : ''}`,
       )
+    if (results.some((result) => !result.ok)) throw new Error('Release smoke checks failed')
     if (!plan.edge.ok) console.log('\nThe edge Caddy still needs the hand merge listed by status.')
     return { id: pack.id, record, smoke: results }
   } catch (error) {

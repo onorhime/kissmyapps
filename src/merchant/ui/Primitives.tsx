@@ -498,10 +498,12 @@ export function ShowMore({
   shown,
   total,
   onMore,
+  disabled = false,
   noun,
 }: {
   shown: number
   total: number
+  disabled?: boolean
   onMore: () => void
   noun: string
 }) {
@@ -516,7 +518,12 @@ export function ShowMore({
       <span className="mc-muted">
         Showing {shown} of {total} {noun}
       </span>
-      <button type="button" className="mc-btn mc-btn-secondary" onClick={onMore}>
+      <button
+        type="button"
+        className="mc-btn mc-btn-secondary"
+        onClick={onMore}
+        disabled={disabled}
+      >
         Show more
       </button>
     </div>

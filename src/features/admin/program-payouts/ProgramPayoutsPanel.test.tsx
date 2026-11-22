@@ -353,7 +353,7 @@ describe('Program payouts in the admin app', () => {
 
     answer(ready(afterPaying(payoutsFixture(), [mateo.affiliateId])))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByText('$63.20 to Mateo Rossi is on its way.')).toBeInTheDocument()
+    expect(await screen.findByText('$63.20 to Mateo Rossi is on its way.')).toBeInTheDocument()
   })
 
   it('asks before paying everyone who is ready, stating the count and the total', async () => {

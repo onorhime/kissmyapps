@@ -115,8 +115,8 @@ export function SdkStep({ project, view, role, onChange }: Props) {
               .{' '}
             </strong>
           )}
-          With KissMyApps SDK {MOBILE_SDK.version}, your app asks on its first launch which link
-          brought the install, and opens the screen a link points to, even right after the install.
+          On first launch, supported SDKs look for a matching link. Your app can open its target
+          screen when the SDK receives a match. An unmatched install appears as organic.
         </p>
         <Segmented
           label="Your app is built with"
@@ -181,36 +181,48 @@ export function SdkStep({ project, view, role, onChange }: Props) {
               </li>
             </>
           )}
-          {platform === 'react-native' && (
-            <>
+          {platform === 'react-native' &&
+            (MOBILE_SDK.npmVersion === MOBILE_SDK.version ? (
+              <>
+                <li>
+                  <h3>Update the package</h3>
+                  <p className="mc-muted">
+                    The pod adds the native part that reads Google Play&rsquo;s install referrer and
+                    Apple Ads attribution. Without it, an install still matches when a link opens
+                    the app. {installFirst}
+                  </p>
+                  <CodeBlock label="Terminal" code={code.reactNativeInstall} />
+                </li>
+                <li>
+                  <h3>Let links open your app</h3>
+                  <p className="mc-muted">
+                    In Xcode, add Associated Domains to the app in ios/, and the intent filter to
+                    android/app/src/main/AndroidManifest.xml.
+                  </p>
+                  {withIos && (iosReady ? domains : iosMissing)}
+                  {androidReady ? filter : project.platforms.includes('android') && androidMissing}
+                </li>
+                <li>
+                  <h3>Hand links to the SDK</h3>
+                  {settings.data || settings.error ? (
+                    <CodeBlock label="TypeScript" code={code.reactNativeCode} />
+                  ) : (
+                    <Skeleton width="100%" height={200} />
+                  )}
+                </li>
+              </>
+            ) : (
               <li>
-                <h3>Update the package</h3>
-                <p className="mc-muted">
-                  The pod adds the native part that reads Google Play&rsquo;s install referrer and
-                  Apple Ads attribution. Without it, an install still matches when a link opens the
-                  app. {installFirst}
+                <h3>Published React Native package</h3>
+                <p>
+                  Version {MOBILE_SDK.npmVersion} supports event analytics. Install matching and
+                  native link handling require version {MOBILE_SDK.version}. {installFirst}
                 </p>
-                <CodeBlock label="Terminal" code={code.reactNativeInstall} />
+                <a href="https://www.npmjs.com/package/@kissmyappss/react-native">
+                  Check the npm release
+                </a>
               </li>
-              <li>
-                <h3>Let links open your app</h3>
-                <p className="mc-muted">
-                  In Xcode, add Associated Domains to the app in ios/, and the intent filter to
-                  android/app/src/main/AndroidManifest.xml.
-                </p>
-                {withIos && (iosReady ? domains : iosMissing)}
-                {androidReady ? filter : project.platforms.includes('android') && androidMissing}
-              </li>
-              <li>
-                <h3>Hand links to the SDK</h3>
-                {settings.data || settings.error ? (
-                  <CodeBlock label="TypeScript" code={code.reactNativeCode} />
-                ) : (
-                  <Skeleton width="100%" height={200} />
-                )}
-              </li>
-            </>
-          )}
+            ))}
           {platform === 'flutter' && (
             <>
               <li>

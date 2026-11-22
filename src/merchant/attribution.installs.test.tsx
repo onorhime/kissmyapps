@@ -180,12 +180,12 @@ describe('attribution setup: the SDK step', () => {
     expect(screen.getByText('3 of 5 steps done')).toBeInTheDocument()
     expect(within(step).getByText(/30 installs matched so far/)).toBeInTheDocument()
     // Nothing about the SDK is left for later.
-    const plan = screen.getByRole('heading', { name: 'Coming next' }).closest('section')!
-    expect(within(plan).queryByText(/SDK/)).toBeNull()
+    const plan = screen.getByRole('heading', { name: 'Ad network reporting' }).closest('section')!
+    expect(within(plan).getByText('Match an install from a paid campaign')).toBeInTheDocument()
 
     expect(code('Associated Domains')).toBe('applinks:fluent.go.kissmyapps.dev\n')
     // The code waits for the project's key.
-    await screen.findByLabelText('Swift')
+    await within(step).findByLabelText('Swift')
     expect(code('Swift')).toContain('.onOpenURL { KissMyApps.handleDeepLink($0) }')
     // Clipboard handoff is on for this project, so the code turns it on in the SDK.
     expect(code('Swift')).toContain(`key: "${publicKey}",`)
@@ -197,9 +197,10 @@ describe('attribution setup: the SDK step', () => {
     expect(code('Intent filter')).toContain('<data android:host="fluent.go.kissmyapps.dev" />')
     expect(code('Kotlin')).toContain('KissMyApps.handleDeepLink(intent)')
     await user.click(within(tabs).getByRole('button', { name: 'React Native' }))
-    expect(code('TypeScript')).toContain('KissMyApps.onDeepLink((link) => {')
-    expect(code('Associated Domains')).not.toBe('')
-    expect(code('Intent filter')).not.toBe('')
+    expect(within(step).getByRole('link', { name: 'Check the npm release' })).toHaveAttribute(
+      'href',
+      'https://www.npmjs.com/package/@kissmyappss/react-native',
+    )
     await user.click(within(tabs).getByRole('button', { name: 'Flutter' }))
     expect(code('Dart')).toContain('KissMyApps.onDeepLink((link) {')
   })

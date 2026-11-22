@@ -449,7 +449,7 @@ describe('commission wording', () => {
     expect(optionsSummary(draftFromProgram(null))).toEqual([
       '30-day attribution',
       '30-day hold',
-      '$20.00 minimum payout',
+      '$25.00 minimum payout',
       'Creators approved automatically',
       'Listed in the marketplace',
     ])
@@ -508,7 +508,7 @@ describe('the form and what is sent', () => {
       months: '12',
       attributionDays: '30',
       holdDays: '30',
-      minimumPayout: '20.00',
+      minimumPayout: '25.00',
       approvalMode: 'automatic',
       marketplaceListed: true,
       currency: 'USD',
@@ -553,7 +553,7 @@ describe('the form and what is sent', () => {
       commission_months: 12,
       attribution_window_days: 30,
       hold_days: 30,
-      minimum_payout_minor: 2000,
+      minimum_payout_minor: 2500,
       approval_mode: 'automatic',
       marketplace_listed: true,
       extra_terms: null,
@@ -588,7 +588,7 @@ describe('the form and what is sent', () => {
       commission_rate_bps: 3000,
       commission_duration: 'months',
       commission_months: 12,
-      minimum_payout_minor: 2000,
+      minimum_payout_minor: 2500,
     })
   })
 
@@ -1100,7 +1100,7 @@ describe('program page', () => {
       ).toEqual([
         '30-day attribution',
         '30-day hold',
-        '$20.00 minimum payout',
+        '$25.00 minimum payout',
         'Creators approved automatically',
         'Listed in the marketplace',
       ])
@@ -1124,7 +1124,8 @@ describe('program page', () => {
       await user.click(button('Change'))
       expect(field('Attribution window')).toHaveValue('30')
       expect(field('Hold before payout')).toHaveValue('30')
-      expect(field('Minimum payout')).toHaveValue('20.00')
+      expect(screen.getByText('Platform payout minimum')).toBeVisible()
+      expect(screen.queryByRole('textbox', { name: 'Minimum payout' })).toBeNull()
       const currency = within(screen.getByRole('region', { name: 'More options' }))
         .getByText('Currency')
         .closest('div') as HTMLElement
@@ -1179,7 +1180,7 @@ describe('program page', () => {
             commission_months: 12,
             attribution_window_days: 30,
             hold_days: 30,
-            minimum_payout_minor: 2000,
+            minimum_payout_minor: 2500,
             approval_mode: 'automatic',
             marketplace_listed: true,
           },

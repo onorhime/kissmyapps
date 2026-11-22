@@ -10,7 +10,7 @@ import type { ApprovalMode, ProgramStatus } from './programs'
  */
 
 /** Where anyone can read the program and join it. */
-export const MARKETPLACE_ORIGIN = 'https://kissmyapps.dev'
+export const MARKETPLACE_ORIGIN = 'https://partners.kissmyapps.dev'
 
 /** What the program pays creators for. Answers from before events existed mean `sales`. */
 export type EarnFrom = 'sales' | 'events' | 'both'
@@ -261,6 +261,18 @@ async function call(name: string, args: Record<string, unknown>): Promise<unknow
 }
 
 export const creators = {
+  directory: async (workspace: string, search: string, status: string, after: string | null) => {
+    const page = record(
+      await call('workspace_creator_directory', {
+        p_workspace: workspace,
+        p_search: search,
+        p_status: status,
+        p_after: after,
+      }),
+    )
+    if (!Array.isArray(page?.rows)) throw unreadable()
+    return { rows: page.rows.flatMap((row) => creatorFrom(row) ?? []), next: text(page.next) }
+  },
   list: async (workspaceId: string) =>
     readCreators(await call('workspace_program_creators', { p_workspace_id: workspaceId })),
   decide: async (workspaceId: string, memberId: string, action: CreatorAction, note?: string) =>

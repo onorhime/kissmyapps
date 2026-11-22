@@ -33,7 +33,7 @@ import {
   Skeleton,
 } from '../ui/Primitives'
 import type { ReplayData } from '../ui/ReplayPlayer'
-import { useRpc } from '../ui/useRpc'
+import { usePagedRpc, useRpc } from '../ui/useRpc'
 import { SessionRows } from './Users'
 
 // The rrweb player is most of the console's weight, so it loads with the first replay.
@@ -52,7 +52,6 @@ export function SessionsScreen({ project }: { project: Project }) {
   const [show, setShow] = useState<'all' | 'replay' | 'live'>('all')
   const [minSeconds, setMinSeconds] = useState('0')
   const [bots, setBots] = useState<NonNullable<SessionsQuery['bots']>>('exclude')
-  const [limit, setLimit] = useState(PAGE)
   const params: SessionsQuery = {
     range,
     search: query || undefined,
@@ -62,7 +61,7 @@ export function SessionsScreen({ project }: { project: Project }) {
     live_only: show === 'live',
     min_seconds: Number(minSeconds),
     bots,
-    limit,
+    limit: PAGE,
   }
   // Results follow the search box as the merchant types; Enter applies it at once.
   useEffect(() => {
@@ -70,30 +69,28 @@ export function SessionsScreen({ project }: { project: Project }) {
     if (next === query) return
     const timer = window.setTimeout(() => {
       setQuery(next)
-      setLimit(PAGE)
     }, 350)
     return () => window.clearTimeout(timer)
   }, [search, query])
-  const sessions = useRpc(
+  const sessions = usePagedRpc(
     `sessions:${project.id}:${JSON.stringify(params)}`,
-    () => api.sessions(project.id, params),
-    { pollMs: show === 'live' ? 10_000 : 60_000 },
+    (offset, cursor) =>
+      api.sessions(project.id, { ...params, ...(cursor ? { cursor } : { offset }) }),
+    show === 'live' ? 10_000 : 60_000,
   )
   const page = sessions.data
-  const reset = () => setLimit(PAGE)
 
   return (
     <div className="mc-page">
       <PageHeader
         title="Sessions"
-        description={`Every visit to ${project.name} ${rangePhrase[range]}, with its replay when the visit was on your website.`}
+        description={`Every visit to ${project.name} ${rangePhrase(range)}, with its replay when the visit was on your website.`}
         actions={
           <Segmented
             label="Date range"
             value={range}
             onChange={(value) => {
               setRange(value)
-              reset()
             }}
             options={rangeOptions}
           />
@@ -106,7 +103,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           onSubmit={(event) => {
             event.preventDefault()
             setQuery(search.trim())
-            reset()
           }}
         >
           <Search size={16} aria-hidden="true" />
@@ -129,7 +125,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           value={show}
           onChange={(value) => {
             setShow(value)
-            reset()
           }}
           options={[
             { value: 'all', label: 'All' },
@@ -143,7 +138,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           value={platform}
           onChange={(value) => {
             setPlatform(value)
-            reset()
           }}
           options={[
             { value: '', label: 'All platforms' },
@@ -159,7 +153,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           value={country}
           onChange={(value) => {
             setCountry(value)
-            reset()
           }}
           options={[
             { value: '', label: 'All countries' },
@@ -174,7 +167,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           value={minSeconds}
           onChange={(value) => {
             setMinSeconds(value)
-            reset()
           }}
           options={[
             { value: '0', label: 'Any length' },
@@ -189,7 +181,6 @@ export function SessionsScreen({ project }: { project: Project }) {
           value={bots}
           onChange={(value) => {
             setBots(value)
-            reset()
           }}
           options={[
             { value: 'exclude', label: 'People only' },
@@ -215,7 +206,7 @@ export function SessionsScreen({ project }: { project: Project }) {
             <Empty>
               {show === 'live'
                 ? `Nobody is in a session on ${project.name} right now.`
-                : `No sessions ${rangePhrase[range]} with these filters.`}
+                : `No sessions ${rangePhrase(range)} with these filters.`}
             </Empty>
           )
         ) : (
@@ -231,14 +222,15 @@ export function SessionsScreen({ project }: { project: Project }) {
           shown={page.rows.length}
           total={page.total}
           noun="sessions"
-          onMore={() => setLimit((value) => value + PAGE)}
+          onMore={sessions.more}
+          disabled={!sessions.canLoadMore}
         />
       )}
     </div>
   )
 }
 
-function useReplay(projectId: string, sessionId: string, enabled: boolean) {
+function useReplay(projectId: string, sessionId: string, enabled: boolean, expectedChunks: number) {
   const [state, setState] = useState<{
     data: ReplayData | null
     error: string | null
@@ -249,15 +241,19 @@ function useReplay(projectId: string, sessionId: string, enabled: boolean) {
     if (!enabled) return
     let cancelled = false
     const load = async () => {
+      const events: ReplayData['events'] = []
+      const received = new Set<number>()
+      let skewMs = 0
       setState((current) => ({ ...current, loading: true, error: null }))
       try {
-        const events: { type: number; timestamp: number; data?: unknown }[] = []
-        let skewMs = 0
         let from: number | null = 0
         let first = true
         while (from !== null) {
           const page = await api.replay(projectId, sessionId, from)
+          if (cancelled) return
           for (const chunk of page.chunks) {
+            if (received.has(chunk.seq)) continue
+            received.add(chunk.seq)
             const chunkEvents = chunk.events as {
               type: number
               timestamp: number
@@ -269,15 +265,31 @@ function useReplay(projectId: string, sessionId: string, enabled: boolean) {
             }
             events.push(...chunkEvents)
           }
+          if (page.next_seq !== null && page.next_seq <= from)
+            throw new Error('Recording cursor did not advance.')
           from = page.next_seq
         }
         events.sort((a, b) => a.timestamp - b.timestamp)
-        if (!cancelled) setState({ data: { events, skewMs }, error: null, loading: false })
+        if (!cancelled)
+          setState({
+            data: { events, skewMs },
+            error:
+              received.size < expectedChunks
+                ? `Partial recording. Loaded ${received.size} of ${expectedChunks} stored chunks.`
+                : null,
+            loading: false,
+          })
       } catch (problem) {
         if (!cancelled)
           setState({
-            data: null,
-            error: problem instanceof Error ? problem.message : 'The replay could not load.',
+            data: events.length
+              ? { events: events.sort((a, b) => a.timestamp - b.timestamp), skewMs }
+              : null,
+            error: events.length
+              ? `Partial recording. Loaded ${received.size} stored chunks before the connection failed.`
+              : problem instanceof Error
+                ? problem.message
+                : 'The replay could not load.',
             loading: false,
           })
       }
@@ -286,7 +298,7 @@ function useReplay(projectId: string, sessionId: string, enabled: boolean) {
     return () => {
       cancelled = true
     }
-  }, [projectId, sessionId, enabled, nonce])
+  }, [projectId, sessionId, enabled, expectedChunks, nonce])
   return { ...state, reload: useCallback(() => setNonce((value) => value + 1), []) }
 }
 
@@ -422,7 +434,12 @@ export function SessionDetailScreen({
     const timer = window.setInterval(() => void refreshDetail(), 10_000)
     return () => window.clearInterval(timer)
   }, [live, refreshDetail])
-  const replay = useReplay(project.id, sessionId, Boolean(data?.session.has_replay))
+  const replay = useReplay(
+    project.id,
+    sessionId,
+    Boolean(data?.session.has_replay),
+    detail.data?.replay.chunks ?? 0,
+  )
   const [playhead, setPlayhead] = useState<number | null>(null)
   const [seekTo, setSeekTo] = useState<{ time: number; nonce: number } | null>(null)
   const events = useMemo(() => data?.events ?? [], [data])
@@ -563,6 +580,9 @@ export function SessionDetailScreen({
 
       <div className="mc-session-layout">
         <section className="mc-panel mc-session-player" aria-label="Session replay">
+          {replay.data && replay.error && (
+            <ErrorNote message={replay.error} onRetry={replay.reload} />
+          )}
           {session.has_replay ? (
             replay.data ? (
               <Suspense

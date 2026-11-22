@@ -276,6 +276,7 @@ final class Client {
             return warn("identify needs a user ID of 1 to 200 characters.")
         }
         later { [self] in
+            guard !optedOut, !stopped else { return }
             userId = user
             if let newTraits = newTraits { mergeTraits(newTraits) }
             identityPending = true
@@ -286,6 +287,7 @@ final class Client {
 
     func setTraits(_ newTraits: [String: Any]) {
         later { [self] in
+            guard !optedOut, !stopped else { return }
             mergeTraits(newTraits)
             identityPending = true
             save()
@@ -296,6 +298,7 @@ final class Client {
     /// Forgets the user, for example on sign out: what follows is a new person and session.
     func reset() {
         later { [self] in
+            guard !optedOut, !stopped else { return }
             sendQueued()
             userId = nil
             traits = nil
@@ -311,17 +314,33 @@ final class Client {
     func optOut() {
         later { [self] in
             optedOut = true
-            queue.removeAll()
-            save()
+            clearConsentData()
         }
+    }
+
+    private func clearConsentData() {
+        queue.removeAll()
+        userId = nil
+        traits = nil
+        identityPending = false
+        session = nil
+        screenName = nil
+        install = nil
+        installLaunch = false
+        firstLaunch = false
+        installTask?.cancel()
+        installTask = nil
+        waitingLinks.removeAll()
+        heldDeepLink = nil
+        writeNow()
     }
 
     func optIn() {
         later { [self] in
+            guard optedOut else { return }
+            anonymousId = uuid()
             optedOut = false
             save()
-            // An install call that was due while the person was opted out goes now.
-            if foregroundAt != 0, let state = install, !state.done, !installCalled, installTask == nil { callInstall() }
         }
     }
 
@@ -388,9 +407,8 @@ final class Client {
             let launch = foregroundAt == 0
             inForeground = true
             foregroundAt = platform.now()
-            // Due even while opted out: the call then waits for optIn.
-            if launch, installLaunch { beginInstall() }
             guard !optedOut else { return }
+            if launch, installLaunch { beginInstall() }
             let current = ensureSession()
             if options.trackLifecycle {
                 if launch { recordInstallOrUpdate(current) }
@@ -458,6 +476,7 @@ final class Client {
         firstLaunch = savedId == nil
         installLaunch = firstLaunch
         identityPending = traits != nil
+        if optedOut { clearConsentData() }
         loaded.leave()
         // What an earlier launch could not send goes now.
         if !queue.isEmpty { scheduleFlush(0) }

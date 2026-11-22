@@ -394,7 +394,9 @@ export function payoutStatusLine(
 ): string {
   if (PAYOUT_SENT.includes(payout.status)) return 'On its way'
   if (payout.status === 'paid')
-    return payout.paid_at ? `Paid ${shortDay(payout.paid_at, now)}` : 'Paid'
+    return payout.paid_at
+      ? `Transferred to Stripe ${shortDay(payout.paid_at, now)}`
+      : 'Transferred to Stripe'
   return 'Not sent: back in your approved earnings'
 }
 

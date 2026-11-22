@@ -391,6 +391,9 @@ describe('React Native client', () => {
 
     const next = start(storage)
     next.foreground()
+    next.identify('private', { private: true })
+    next.setTraits({ private: true })
+    next.reset()
     next.track('still_hidden')
     await settle(10_000)
     expect(sent).toHaveLength(0)
@@ -398,6 +401,7 @@ describe('React Native client', () => {
     next.track('visible')
     await settle(10_000)
     expect(names()).toEqual(['session_started', 'visible'])
+    expect(sent.every((batch) => !batch.user_id && !batch.traits)).toBe(true)
   })
 
   it('keeps calls made before saved state has loaded', async () => {
@@ -899,8 +903,7 @@ describe('Install attribution and deep links', () => {
     expect(calls).toHaveLength(0)
     client.optIn()
     await settle()
-    expect(installs()).toHaveLength(1)
-    expect(installs()[0].body.device_key).toBe(deviceKey)
+    expect(installs()).toHaveLength(0)
   })
 
   it('sends links that came while the install call was out once it is answered, and not before', async () => {

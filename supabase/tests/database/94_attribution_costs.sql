@@ -381,10 +381,10 @@ select pg_temp.check((select pg_temp.import_listed(x, pg_temp.q('import1'))->>'r
     and (x->'imports'->0->>'id')::uuid = pg_temp.q('import2')
   from pg_temp.costs() x), 'uploads are listed newest first with the rows still their own');
 select pg_temp.keep('undo2', public.attribution_cost_import_undo(pg_temp.q('project'), pg_temp.q('import2')));
-select pg_temp.check(pg_temp.j('undo2') = '{"deleted": 2}'
-  and pg_temp.stored(2, 'meta', 'autumn') is null and pg_temp.stored(3, 'meta', 'spring') is null
+select pg_temp.check(pg_temp.j('undo2') = '{"deleted": 1,"restored":1}'
+  and (pg_temp.stored(2, 'meta', 'autumn')).import_id = pg_temp.q('import1') and pg_temp.stored(3, 'meta', 'spring') is null
   and not exists (select 1 from public.attribution_cost_imports where id = pg_temp.q('import2'))
-  and pg_temp.import_listed(pg_temp.costs(), pg_temp.q('import1'))->>'remaining' = '3',
+  and pg_temp.import_listed(pg_temp.costs(), pg_temp.q('import1'))->>'remaining' = '4',
   'undoing an upload deletes the rows still its own and the upload');
 select pg_temp.check(pg_temp.err(format('select public.attribution_cost_import_undo(%L, %L)', pg_temp.q('project'), pg_temp.q('import2')))
     = 'P0002 Upload not found'
@@ -397,7 +397,7 @@ select pg_temp.check(pg_temp.j('over_names') = '{"saved": 1}' and pg_temp.j('ove
   and (select c.origin = 'manual' and c.import_id is null and c.amount = 101 from pg_temp.stored(2, 'meta', 'spring') c)
   and (select c.origin = 'manual' and c.import_id is null and c.amount = 98 and c.id = pg_temp.q('meta_spring')
     from pg_temp.stored(1, 'meta', 'spring') c)
-  and pg_temp.import_listed(pg_temp.costs(), pg_temp.q('import1'))->>'remaining' = '1',
+  and pg_temp.import_listed(pg_temp.costs(), pg_temp.q('import1'))->>'remaining' = '2',
   'typing over an uploaded row, by its names or its id, makes it typed and no longer the upload''s');
 
 -- Link prices -----------------------------------------------------------------------------------------
@@ -526,13 +526,14 @@ select pg_temp.capture('costs', pg_temp.j('costs'));
 -- Typed: 98 + 30 (yesterday, dollars) + 60 euros two days ago at 1.10 (66) + 20 pounds ten days
 -- ago at 1.10 / 0.85 (25.8824) + 101 = 320.88; 10 naira unconverted. Uploaded: 15. Links: 4 and
 -- 2 dollars of installs, 1 dollar of clicks, 0.15 euros of clicks yesterday at 1.20 (0.18) = 7.18.
-select pg_temp.check(pg_temp.j('costs')->'totals' = '{"cost": 343.06, "typed": 320.88, "uploaded": 15, "links": 7.18, "unconverted": 1}'::jsonb,
+select pg_temp.check(pg_temp.j('costs')->'totals' = '{"cost": 383.06, "typed": 320.88, "uploaded": 55, "links": 7.18, "unconverted": 1}'::jsonb,
   'totals are in dollars, each day and currency at its own rate, and a currency without a rate is counted apart');
 select pg_temp.check((select jsonb_agg(jsonb_build_array(x->>'day', x->>'source', x->>'campaign', x->>'adset', x->'amount', x->>'currency', x->>'origin')
     order by n) from jsonb_array_elements(pg_temp.j('costs')->'rows') with ordinality y(x, n)) = jsonb_build_array(
     jsonb_build_array(pg_temp.d(1), 'facebook', 'spring', 'adset-a', 30, 'USD', 'manual'),
     jsonb_build_array(pg_temp.d(1), 'meta', 'spring', '', 98, 'USD', 'manual'),
     jsonb_build_array(pg_temp.d(1), 'snapchat', '', '', 10, 'NGN', 'manual'),
+    jsonb_build_array(pg_temp.d(2), 'meta', 'autumn', '', 40, 'USD', 'csv'),
     jsonb_build_array(pg_temp.d(2), 'meta', 'spring', '', 101, 'USD', 'manual'),
     jsonb_build_array(pg_temp.d(2), 'meta', 'winter', '', 15, 'USD', 'csv'),
     jsonb_build_array(pg_temp.d(2), 'tiktok', '', '', 60, 'EUR', 'manual'),
@@ -554,18 +555,18 @@ select pg_temp.check(pg_temp.j('costs')->'link_costs' = jsonb_build_array(
       'campaign', '', 'kind', 'click', 'count', 1, 'amount', 1, 'currency', 'USD')),
   'link costs say how many installs or clicks each day was paid for');
 select pg_temp.check(pg_temp.j('costs')->'imports' = jsonb_build_array(jsonb_build_object('id', pg_temp.q('import1'), 'file_name', 'meta-oct.csv',
-    'rows', 4, 'remaining', 1, 'created_at', (select created_at from public.attribution_cost_imports where id = pg_temp.q('import1'))))
+    'rows', 4, 'remaining', 2, 'created_at', (select created_at from public.attribution_cost_imports where id = pg_temp.q('import1'))))
   and (select jsonb_agg(x->>'link_name' order by n) from jsonb_array_elements(pg_temp.j('costs')->'rules') with ordinality y(x, n))
     = '["Ada''s reels", "Newsletter", "TikTok bio"]'::jsonb
   and pg_temp.j('costs')->'rules'->0->>'link_campaign' = 'ada-winter',
   'the upload and the link prices are listed');
 select pg_temp.check(pg_temp.j('costs')->'sources' = '["meta", "tiktok", "email", "google_ads", "newsletter", "snapchat"]'::jsonb,
   'sources suggest the families seen in installs, clicks, visits and spend, most seen first');
-select pg_temp.check((select x->'totals' = '{"cost": 317.18, "typed": 295, "uploaded": 15, "links": 7.18, "unconverted": 1}'::jsonb
-    and x->>'from' = pg_temp.d(6) and jsonb_array_length(x->'rows') = 6
+select pg_temp.check((select x->'totals' = '{"cost": 357.18, "typed": 295, "uploaded": 55, "links": 7.18, "unconverted": 1}'::jsonb
+    and x->>'from' = pg_temp.d(6) and jsonb_array_length(x->'rows') = 7
   from pg_temp.costs('{"range":"7d"}') x), 'seven days leave out the pounds of ten days ago');
-select pg_temp.check((select x->'totals' = '{"cost": 250, "typed": 229, "uploaded": 15, "links": 6, "unconverted": 0}'::jsonb
-    and (select array_agg(r->>'source' order by r->>'source') from jsonb_array_elements(x->'rows') r) = array['facebook', 'meta', 'meta', 'meta']
+select pg_temp.check((select x->'totals' = '{"cost": 290, "typed": 229, "uploaded": 55, "links": 6, "unconverted": 0}'::jsonb
+    and (select array_agg(r->>'source' order by r->>'source') from jsonb_array_elements(x->'rows') r) = array['facebook', 'meta', 'meta', 'meta','meta']
     and (select bool_and(l->>'link_name' = 'Ada''s reels') from jsonb_array_elements(x->'link_costs') l)
     and jsonb_array_length(x->'link_costs') = 2 and jsonb_array_length(x->'rules') = 3
   from pg_temp.costs('{"range":"30d","source":"Facebook"}') x),
@@ -613,11 +614,11 @@ select pg_temp.check(pg_temp.err(format('select public.attribution_costs(%L, ''{
 select pg_temp.as_user('f9400000-0000-4000-8000-000000000003');
 insert into qa select 'bulk', pg_temp.import(jsonb_build_object('file_name', 'bulk.csv', 'rows',
   (select jsonb_agg(pg_temp.r(3, 'bulk', 1, jsonb_build_object('campaign', 'c' || lpad(i::text, 4, '0')))) from generate_series(1, 1001) i)))->>'import_id';
-select pg_temp.check((select jsonb_array_length(x->'rows') = 1000 and x->'totals'->'uploaded' = '1016'::jsonb
+select pg_temp.check((select jsonb_array_length(x->'rows') = 1000 and x->'totals'->'uploaded' = '1056'::jsonb
   and pg_temp.import_listed(x, pg_temp.q('bulk'))->>'remaining' = '1001' from pg_temp.costs() x),
   'the screen lists at most 1,000 rows, the totals count them all');
 select pg_temp.keep('undo_bulk', public.attribution_cost_import_undo(pg_temp.q('project'), pg_temp.q('bulk')));
-select pg_temp.check(pg_temp.j('undo_bulk') = '{"deleted": 1001}'
+select pg_temp.check(pg_temp.j('undo_bulk') = '{"deleted": 1001, "restored": 0}'
   and pg_temp.costs()->'totals' = pg_temp.j('costs')->'totals', 'and undoing it takes them all back');
 
 -- Spend in the ROI report (piece C) ------------------------------------------------------------
@@ -630,6 +631,28 @@ select pg_temp.check((select (r->'totals'->>'cost')::numeric = (c->'totals'->>'c
 
 -- Deleting ---------------------------------------------------------------------------------------
 select pg_temp.as_user('f9400000-0000-4000-8000-000000000001');
+-- The worker reads the fixture token only after a lease. Reports keep typed overrides.
+select public.ad_spend_connect(pg_temp.q('project'),'meta','321','USD','fixture-read-only');
+select pg_temp.check(public.ad_spend_accounts(pg_temp.q('project'))::text not like '%fixture-read-only%'
+  and not has_function_privilege('authenticated','public.ad_spend_claim()','execute'),
+  'workspace members cannot read advertiser credentials');
+select pg_temp.keep('job',public.ad_spend_claim()->0);
+select pg_temp.check(pg_temp.j('job')->>'credential'='fixture-read-only' and public.ad_spend_claim()='[]'::jsonb,'only one worker can claim an advertiser');
+select public.ad_spend_complete(pg_temp.q('project'),'meta',(pg_temp.j('job')->>'lease_id')::uuid,jsonb_build_array(
+  jsonb_build_object('day',pg_temp.d(1),'campaign','fixture-campaign','amount',12.34),
+  jsonb_build_object('day',pg_temp.d(1),'campaign','spring','amount',999)),null);
+select pg_temp.check((pg_temp.stored(1,'meta','fixture-campaign')).amount=12.34 and (pg_temp.stored(1,'meta','spring')).amount=98,
+  'ad spend is reported once and leaves manually reconciled spend intact');
+select public.ad_spend_complete(pg_temp.q('project'),'meta',(pg_temp.j('job')->>'lease_id')::uuid,'[]',null);
+select pg_temp.check((pg_temp.stored(1,'meta','fixture-campaign')).amount=12.34,'a completed lease cannot change spend');
+select public.ad_spend_disconnect(pg_temp.q('project'),'meta');
+select pg_temp.check(public.ad_spend_accounts(pg_temp.q('project'))->0->>'enabled'='false' and not exists(select 1 from vault.decrypted_secrets where decrypted_secret='fixture-read-only'),
+  'disconnect invalidates credentials while leaving spend available');
+select pg_temp.check((select w.days=3 and w.to_at-w.from_at=interval '71 hours' from kma_internal.analytics_window('2026-03-07..2026-03-09','America/New_York') w)
+  and (select count(*)=3 from kma_internal.analytics_buckets('2026-03-07..2026-03-09','America/New_York')),
+  'custom ranges use local midnights over daylight-saving changes');
+select pg_temp.check((select c->>'from'=pg_temp.d(2) and c->>'to'=pg_temp.d(1) from public.attribution_costs(pg_temp.q('project'),jsonb_build_object('range',pg_temp.d(2)||'..'||pg_temp.d(1))) c),
+  'campaign costs accept exact inclusive calendar dates');
 select public.analytics_delete_project(pg_temp.q('project'), 'Kanji');
 select pg_temp.check(not exists (select 1 from public.attribution_costs where project_id = pg_temp.q('project'))
   and not exists (select 1 from public.attribution_cost_imports where project_id = pg_temp.q('project'))

@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url'
 // Runs the events relay (relay.mjs) with DB-IP's free city database, and keeps that
 // database current: once a day it checks for the month's new file, downloads it beside
 // the old one, checks it opens and answers, then swaps it in without a restart.
@@ -136,6 +137,6 @@ async function main() {
   process.on('SIGINT', stop)
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main()
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main()
 
 export { load }

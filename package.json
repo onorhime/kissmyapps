@@ -13,7 +13,7 @@
     "statements:generate": "node --experimental-strip-types scripts/generate-preview-statements.mjs",
     "test": "vitest run src integrations --maxWorkers=1 && node --experimental-vm-modules --test scripts/*.test.mjs",
     "test:watch": "vitest src integrations",
-    "test:edge": "deno fmt --check --config supabase/functions/deno.json supabase/functions && deno lint --config supabase/functions/deno.json supabase/functions && deno check --config supabase/functions/deno.json supabase/functions/*/index.ts && deno test --config supabase/functions/deno.json --allow-env supabase/functions",
+    "test:edge": "deno fmt --check --config supabase/functions/deno.json supabase/functions && deno lint --config supabase/functions/deno.json supabase/functions && deno check --config supabase/functions/deno.json supabase/functions/*/index.ts && deno test --config supabase/functions/deno.json --allow-env --allow-read=supabase/functions/attribution-fx-worker supabase/functions",
     "test:db:audit": "node scripts/check-audit-migrations.mjs",
     "test:funnel:ui": "vitest run --config integrations/funnel/ui-check/vitest.config.ts",
     "validate:all": "pnpm validate && pnpm test:edge",

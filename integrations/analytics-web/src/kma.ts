@@ -1,6 +1,6 @@
 import { parseUserAgent, type DeviceInfo, type HighEntropyHints } from './device'
 
-export const SDK_VERSION = '1.2.0'
+export const SDK_VERSION = '1.2.1'
 export const DEFAULT_ENDPOINT = 'https://events.kissmyapps.dev'
 
 export type Properties = Record<string, unknown>
@@ -36,6 +36,8 @@ export interface KmaOptions {
    * session: read sources but keep them only for the visit (for visitors who have not
    * consented to storage). off: read no ad click IDs and keep no sources.
    */
+  /** How long first and last sources stay eligible. From 1 to 365 days, default 30. */
+  attributionWindowDays?: number
   attribution?: AttributionMode
 }
 
@@ -136,7 +138,7 @@ const CLICK_KEYS = [
 ]
 // A creator click ID, as KissMyApps issues it. Anything else in kma_click is ignored.
 const CREATOR_CLICK = /^[A-Za-z0-9_-]{16,128}$/
-const TOUCH_MS = 30 * 24 * 60 * 60_000
+const DAY_MS = 24 * 60 * 60_000
 // The properties a payment event carries; reports read revenue from them.
 const REVENUE_KEYS = ['kma_revenue', 'kma_currency', 'kma_product_id', 'kma_transaction_id']
 const MAX_REVENUE = 1e9
@@ -234,6 +236,7 @@ export class Kma {
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private inflight: Promise<void> | null = null
+  private consentEpoch = 0
   private failures = 0
   private lastSent = 0
   // identify or setTraits ran and nothing has carried the change to the server yet.
@@ -244,6 +247,8 @@ export class Kma {
   private recorder: ReplayRecorder | null = null
   private replayBuffer: { timestamp: number }[] = []
   private replayBytes = 0
+  private readonly replayRetries = new Set<ReturnType<typeof setTimeout>>()
+  private lastReplaySeq = -1
   private replaySession: Session | null = null
   private replayTimer: ReturnType<typeof setInterval> | null = null
   private replayKickoff: ReturnType<typeof setTimeout> | null = null
@@ -286,8 +291,10 @@ export class Kma {
     this.persist()
     this.readClientHints()
     this.listen()
-    this.ensureSession()
-    if (this.options.autoPageViews !== false) this.page()
+    if (!this.state.optedOut) {
+      this.ensureSession()
+      if (this.options.autoPageViews !== false) this.page()
+    } else this.optOut()
     this.startReplay()
     this.heartbeatTimer = setInterval(() => this.heartbeat(), HEARTBEAT_MS)
     if (this.queue.length) this.scheduleFlush(0)
@@ -364,6 +371,7 @@ export class Kma {
 
   /** Ties this device to your own user ID, with optional traits such as email, name or plan. */
   identify(userId: string | number, traits?: Properties): void {
+    if (this.stopped || this.state.optedOut) return
     const id = String(userId).trim()
     if (!id || id.length > 200) {
       this.warn('identify needs a user ID of 1 to 200 characters.')
@@ -378,6 +386,7 @@ export class Kma {
 
   /** Updates traits for the current person without changing who they are. */
   setTraits(traits: Properties): void {
+    if (this.stopped || this.state.optedOut) return
     this.state.traits = { ...(this.state.traits ?? {}), ...traits }
     this.identityPending = true
     this.persist()
@@ -386,6 +395,7 @@ export class Kma {
 
   /** Forgets the user, for example on sign out: the next events start a new anonymous person and session. */
   reset(): void {
+    if (this.state.optedOut) return
     void this.flush()
     this.state.userId = null
     this.state.traits = null
@@ -397,8 +407,17 @@ export class Kma {
   }
 
   optOut(): void {
+    this.consentEpoch += 1
     this.state.optedOut = true
+    this.identityPending = false
+    this.state.userId = null
+    this.state.traits = null
+    this.state.session = null
+    this.replaySession = null
     this.queue = []
+    storageRemove(`${this.storageKey}:queue`)
+    if (this.flushTimer) clearTimeout(this.flushTimer)
+    this.flushTimer = null
     this.touches = null
     storageRemove(this.touchKey())
     this.stopRecorder()
@@ -406,7 +425,10 @@ export class Kma {
   }
 
   optIn(): void {
+    if (!this.state.optedOut || this.stopped) return
     this.state.optedOut = false
+    this.state.anonymousId = uuid()
+    this.ensureSession()
     this.persist()
     this.startReplay()
   }
@@ -579,9 +601,12 @@ export class Kma {
 
   /** Drops sources older than 30 days; a first source outlives the last only in its window. */
   private freshTouches(touches: Attribution | null): Attribution | null {
-    if (!touches?.last?.at || Date.now() - touches.last.at > TOUCH_MS) return null
+    const days = this.options.attributionWindowDays
+    const windowMs =
+      (days && Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30) * DAY_MS
+    if (!touches?.last?.at || Date.now() - touches.last.at > windowMs) return null
     const first =
-      touches.first?.at && Date.now() - touches.first.at <= TOUCH_MS ? touches.first : touches.last
+      touches.first?.at && Date.now() - touches.first.at <= windowMs ? touches.first : touches.last
     return { first, last: touches.last }
   }
 
@@ -683,15 +708,17 @@ export class Kma {
     while (!this.stopped && !this.state.optedOut) {
       const batch = this.nextBatch()
       if (!batch.length && !(this.identityPending && this.state.session)) return
+      const epoch = this.consentEpoch
       const traitsSent = this.state.traits
       const carriesIdentity = !batch.length || batch[0].anonymous_id === this.state.anonymousId
       let response: Response
       try {
         response = await this.post('/v1/events', this.body(batch))
       } catch {
-        this.retryLater()
+        if (epoch === this.consentEpoch) this.retryLater()
         return
       }
+      if (epoch !== this.consentEpoch) continue
       if (
         response.ok ||
         (response.status >= 400 &&
@@ -785,7 +812,16 @@ export class Kma {
       window.addEventListener(type, handler, options)
       this.cleanup.push(() => window.removeEventListener(type, handler, options))
     }
+    on('storage', (event) => {
+      if (
+        event.key === this.storageKey &&
+        !this.state.optedOut &&
+        storageGet<State>(this.storageKey)?.optedOut
+      )
+        this.optOut()
+    })
     const interacted = () => {
+      if (this.state.optedOut) return
       const session = this.state.session
       if (!session) return
       const timeout = (this.options.sessionTimeoutMinutes ?? 30) * 60_000
@@ -941,6 +977,9 @@ export class Kma {
     if (this.replayTimer) clearInterval(this.replayTimer)
     if (this.replayKickoff) clearTimeout(this.replayKickoff)
     this.replayTimer = null
+    for (const timer of this.replayRetries) clearTimeout(timer)
+    this.replayRetries.clear()
+    this.lastReplaySeq = -1
     this.replayKickoff = null
     this.replayBuffer = []
     this.replayBytes = 0
@@ -958,7 +997,8 @@ export class Kma {
       return
     }
     if (closing && bytes > BEACON_BYTES) return
-    const seq = Math.max(0, Math.round(events[0].timestamp - session.started))
+    const seq = Math.max(this.lastReplaySeq + 1, Math.round(events[0].timestamp - session.started))
+    this.lastReplaySeq = seq
     const body = {
       anonymous_id: this.state.anonymousId,
       user_id: this.state.userId ?? undefined,
@@ -985,26 +1025,41 @@ export class Kma {
       }
       return
     }
-    this.post('/v1/replay', body)
-      .then((response) => {
-        if (response.status === 409) {
-          // Replay is off for this project: stop recording for a day.
-          this.state.replayOffUntil = Date.now() + 24 * 60 * 60 * 1000
-          this.persist()
-          this.stopRecorder()
-        } else if (response.status === 413) {
-          session.replay = false
-          this.persist()
-          this.stopRecorder()
-        }
-      })
-      .catch(() => undefined)
+    void this.sendReplayChunk(body, session, this.consentEpoch)
+  }
+
+  private async sendReplayChunk(body: Properties, session: Session, epoch: number, attempt = 0) {
+    if (this.stopped || this.state.optedOut || epoch !== this.consentEpoch) return
+    let status = 0
+    try {
+      status = (await this.post('/v1/replay', body)).status
+    } catch {
+      // Offline. The timer retries the same sequence so the receiver can deduplicate it.
+    }
+    if (this.stopped || this.state.optedOut || epoch !== this.consentEpoch) return
+    if (status === 409 || status === 413) {
+      if (status === 409) this.state.replayOffUntil = Date.now() + DAY_MS
+      else session.replay = false
+      this.persist()
+      if (this.replaySession === session || status === 409) this.stopRecorder()
+      return
+    }
+    if (status && status < 500 && status !== 408 && status !== 429) return
+    if (attempt >= 2 || this.replayRetries.size >= 3) return
+    const timer = setTimeout(
+      () => {
+        this.replayRetries.delete(timer)
+        void this.sendReplayChunk(body, session, epoch, attempt + 1)
+      },
+      2000 * (attempt + 1),
+    )
+    this.replayRetries.add(timer)
   }
 
   // Storage ------------------------------------------------------------------------------
 
   private persist(): void {
-    storageSet(this.storageKey, this.state)
+    storageSet(this.storageKey, this.state.optedOut ? { optedOut: true } : this.state)
   }
 
   private persistQueue(): void {

@@ -812,7 +812,9 @@ describe('funnels', () => {
     expect(within(stepsPanel).getByText('50%, the biggest drop')).toBeInTheDocument()
     expect(within(stepsPanel).getByText('plan')).toBeInTheDocument()
 
-    await user.click(within(stepsPanel).getByRole('button', { name: '3 people stopped here' }))
+    await user.click(
+      within(stepsPanel).getByRole('button', { name: '3 people yet to reach the next step' }),
+    )
     const people = (await screen.findByRole('heading', { name: /stopped after step 2/ })).closest(
       'section',
     )!
@@ -829,7 +831,9 @@ describe('funnels', () => {
     await user.click(within(groups).getByRole('button', { name: 'Phone' }))
     expect(screen.getByRole('heading', { name: 'Steps for Phone' })).toBeInTheDocument()
     expect(finishedIn(stepsPanel)).toBe('17%')
-    await user.click(within(stepsPanel).getByRole('button', { name: '4 people stopped here' }))
+    await user.click(
+      within(stepsPanel).getByRole('button', { name: '4 people yet to reach the next step' }),
+    )
     await waitFor(() =>
       expect(
         fake.state.calls.filter((call) => call.name === 'analytics_funnel_people').at(-1)?.args,

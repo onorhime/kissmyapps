@@ -19,6 +19,39 @@ http://:8080 {
 	route {
 		respond /healthz "ok" 200
 
+		@checkoutWrongMethod {
+			path /checkout/*
+			not method GET HEAD
+		}
+		respond @checkoutWrongMethod "Method not allowed" 405
+		handle /checkout/* {
+			header Cache-Control "no-store, max-age=0"
+			header X-Robots-Tag "noindex, nofollow, noarchive"
+			rewrite * /functions/v1/program-checkout{uri}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				header_up Host {upstream_hostport}
+				header_up -Cookie
+				header_up -Authorization
+				header_down Content-Type "^text/plain(.*)$" "text/html$1"
+			}
+		}
+
+		@discover {
+			path_regexp discover ^/discover/([a-z0-9]+(-[a-z0-9]+)*)/?$
+			method GET HEAD
+		}
+		handle @discover {
+			rewrite * /functions/v1/marketplace?discover={re.discover.1}
+			reverse_proxy https://mmyruzjemjecqyivhrgr.supabase.co {
+				method GET
+				header_up Host {upstream_hostport}
+				header_up -Cookie
+				header_up -Authorization
+				header_down Content-Type "^text/plain(.*)$" "text/html$1"
+				header_down Content-Security-Policy "default-src 'none'; style-src https://kissmyapps.dev; font-src https://kissmyapps.dev; img-src https://kissmyapps.dev; base-uri 'none'; frame-ancestors 'none'"
+			}
+		}
+
 		@previewStatements path /statements/*
 		respond @previewStatements "Not found" 404
 

@@ -379,7 +379,7 @@ export function ProjectsScreen({ create = false }: { create?: boolean }) {
 const roleNotes: Record<Exclude<Role, 'owner'>, string> = {
   admin: 'Everything, including projects, members and deleting projects.',
   developer: 'Reports, API keys, install, bot rules and blocking events.',
-  analyst: 'Reports only: users, sessions, replays and events.',
+  analyst: 'View analytics and create, edit or delete shared funnels.',
 }
 
 /** Opens sign-up with the invited address; the invite is accepted once that address is confirmed. */
@@ -435,7 +435,7 @@ export function MembersScreen() {
           }}
         >
           <Field
-            label="Invite by email"
+            label="Create invite link"
             error={invalid}
             hint="No email is sent: after inviting, copy their invite link and send it to them."
           >
@@ -1433,7 +1433,11 @@ export function InstallGuide({
             </section>
             <p className="mc-muted">
               Mark private text with <code className="mc-mono">data-kma-mask</code> or hide an
-              element from replays with <code className="mc-mono">data-kma-block</code>.
+              element from replays with <code className="mc-mono">data-kma-block</code>.{' '}
+              <a href="/sdk/redaction-check.html" target="_blank" rel="noreferrer">
+                Check masking on sample fields
+              </a>
+              .
             </p>
           </>
         )}

@@ -9,7 +9,7 @@ export function toCsv(rows: Array<Record<string, string | number>>): Array<Array
 export function csvText(rows: Array<Array<string | number>>): string {
   const escape = (value: string | number) => {
     let text = String(value)
-    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
+    if (typeof value === 'string' && /^[=+\-@\t\r]/.test(text)) text = `'${text}`
     return /[",\n']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
   }
   return rows.map((row) => row.map(escape).join(',')).join('\n')

@@ -543,7 +543,7 @@ describe('what is sent for a program that pays for events', () => {
       currency: 'USD',
       attribution_window_days: 30,
       hold_days: 30,
-      minimum_payout_minor: 2000,
+      minimum_payout_minor: 2500,
       approval_mode: 'manual',
       marketplace_listed: true,
       earn_from: 'events',

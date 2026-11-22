@@ -454,8 +454,10 @@ describe('reading answers', () => {
 
 describe('the words on the page', () => {
   it('writes the invite address', () => {
-    expect(inviteLink('speaksix')).toBe('https://kissmyapps.dev/marketplace/speaksix')
-    expect(inviteLink('speak-six-2')).toBe('https://kissmyapps.dev/marketplace/speak-six-2')
+    expect(inviteLink('speaksix')).toBe('https://partners.kissmyapps.dev/marketplace/speaksix')
+    expect(inviteLink('speak-six-2')).toBe(
+      'https://partners.kissmyapps.dev/marketplace/speak-six-2',
+    )
   })
 
   it('says who can find the program and who lets creators in', () => {
@@ -683,13 +685,17 @@ describe('creators page: what it shows', () => {
     signedInAs('owner')
     const user = await openCreators(creatorsState([], { program: program() }))
     expect(screen.getByRole('heading', { name: 'Invite your first creator' })).toBeInTheDocument()
-    expect(screen.getByText('https://kissmyapps.dev/marketplace/speaksix')).toBeInTheDocument()
+    expect(
+      screen.getByText('https://partners.kissmyapps.dev/marketplace/speaksix'),
+    ).toBeInTheDocument()
     expect(page()).toHaveTextContent('Send this link to creators.')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /^Waiting for you/ })).not.toBeInTheDocument()
     expect(buttons(/Ended/)).toHaveLength(0)
     await user.click(button('Copy'))
-    expect(await navigator.clipboard.readText()).toBe('https://kissmyapps.dev/marketplace/speaksix')
+    expect(await navigator.clipboard.readText()).toBe(
+      'https://partners.kissmyapps.dev/marketplace/speaksix',
+    )
     expect(await screen.findByText('Copied invite link')).toBeInTheDocument()
   })
 
@@ -852,7 +858,9 @@ describe('creators page: what it shows', () => {
     expect(button('Remove Lena Hoffmann')).toBeEnabled()
     await user.click(button(/Ended/))
     expect(button('Approve Jonas Berg again')).toBeDisabled()
-    expect(screen.getByText('https://kissmyapps.dev/marketplace/speaksix')).toBeInTheDocument()
+    expect(
+      screen.getByText('https://partners.kissmyapps.dev/marketplace/speaksix'),
+    ).toBeInTheDocument()
   })
 
   it('shows a member without manage rights the lists and nothing to press', async () => {

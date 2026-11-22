@@ -205,6 +205,8 @@ internal class DeepLinkRouter(private val main: (() -> Unit) -> Unit) {
     private var listener: DeepLinkListener? = null
     private var held: DeepLink? = null
 
+    @Synchronized fun clearHeld() { held = null }
+
     fun setListener(next: DeepLinkListener?) {
         val waiting: DeepLink?
         synchronized(this) {

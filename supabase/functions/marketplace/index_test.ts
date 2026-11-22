@@ -727,3 +727,17 @@ Deno.test("without database settings the function says it is not configured", as
     );
   }
 });
+
+Deno.test("discovery metadata uses the listed card and private invites stay undiscoverable", async () => {
+  const listed = fake({
+    list: () =>
+      Promise.resolve({ programs: [{ ...CARD, name: "Speak & Learn" }] }),
+  });
+  const res = await listed.handler(get("?discover=speaksix"));
+  assertEquals(res.status, 200);
+  const html = await res.text();
+  assertEquals(html.includes('og:title" content="Speak &amp; Learn'), true);
+  assertEquals(html.includes("/marketplace/speaksix"), true);
+  const unlisted = fake({ list: () => Promise.resolve({ programs: [] }) });
+  assertEquals((await unlisted.handler(get("?discover=speaksix"))).status, 404);
+});

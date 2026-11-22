@@ -334,6 +334,7 @@ export class KmaClient {
     const id = String(userId ?? '').trim()
     if (!id || id.length > 200) return this.warn('identify needs a user ID of 1 to 200 characters.')
     this.whenLoaded(() => {
+      if (this.stopped || this.state.optedOut) return
       this.state.userId = id
       if (traits) this.state.traits = { ...(this.state.traits ?? {}), ...this.clean(traits) }
       this.identityPending = true
@@ -345,6 +346,7 @@ export class KmaClient {
   /** Updates traits for the current person without changing who they are. */
   setTraits(traits: Properties): void {
     this.whenLoaded(() => {
+      if (this.stopped || this.state.optedOut) return
       this.state.traits = { ...(this.state.traits ?? {}), ...this.clean(traits) }
       this.identityPending = true
       this.save()
@@ -355,6 +357,7 @@ export class KmaClient {
   /** Forgets the user, for example on sign out: what follows is a new person and session. */
   reset(): void {
     this.whenLoaded(() => {
+      if (this.stopped || this.state.optedOut) return
       void this.flush()
       this.state.userId = null
       this.state.traits = null
@@ -370,26 +373,33 @@ export class KmaClient {
   optOut(): void {
     this.whenLoaded(() => {
       this.state.optedOut = true
-      this.queue = []
-      this.save()
+      this.clearConsentData()
     })
+  }
+
+  private clearConsentData(): void {
+    this.queue = []
+    this.state.userId = null
+    this.state.traits = null
+    this.identityPending = false
+    this.state.session = null
+    this.screenName = null
+    this.state.install = null
+    this.firstLaunch = false
+    this.linksBeforeLaunch = []
+    this.waitingLinks = []
+    this.recentLinks.clear()
+    this.heldDeepLink = null
+    this.installPhase = 'answered'
+    void this.writeNow()
   }
 
   optIn(): void {
     this.whenLoaded(() => {
+      if (!this.state.optedOut) return
+      this.state.anonymousId = uuid()
       this.state.optedOut = false
       this.save()
-      // An install call held back while opted out goes now.
-      if (
-        this.launched &&
-        this.state.install &&
-        this.options.attribution !== false &&
-        !this.installSent &&
-        !this.installRunning
-      ) {
-        this.installPhase = 'waiting'
-        void this.sendInstall()
-      }
     })
   }
 
@@ -530,6 +540,7 @@ export class KmaClient {
     this.firstLaunch = !saved?.anonymousId
     this.queue = Array.isArray(queue) ? queue : []
     this.identityPending = Boolean(this.state.traits)
+    if (this.state.optedOut) this.clearConsentData()
     this.loaded = true
     // What an earlier launch could not send goes now.
     if (this.queue.length) this.scheduleFlush(0)
@@ -929,10 +940,13 @@ export class KmaClient {
       await this.writeNow()
       let response: Awaited<ReturnType<Environment['fetch']>>
       try {
+        if (this.state.install !== pending || this.state.optedOut) return
         response = await this.post(body, INSTALL_PATH)
       } catch {
-        return this.installFailed(pending, 'no connection')
+        if (this.state.install === pending) this.installFailed(pending, 'no connection')
+        return
       }
+      if (this.state.install !== pending || this.state.optedOut) return
       if (!response.ok && retryable(response.status)) {
         return this.installFailed(pending, `status ${response.status}`)
       }
@@ -980,7 +994,7 @@ export class KmaClient {
     const userId = this.state.userId
     const key =
       this.deviceKeyRead ?? deviceKey((await this.readNative(false, false)).info.deviceKey)
-    if (this.stopped || this.state.optedOut) return
+    if (this.stopped || this.state.optedOut || anonymousId !== this.state.anonymousId) return
     const body = openBody({
       anonymousId,
       sessionId: session.id,
@@ -995,6 +1009,7 @@ export class KmaClient {
     try {
       const response = await this.post(body, OPEN_PATH)
       const answer = await response.text().catch(() => '')
+      if (this.state.optedOut || anonymousId !== this.state.anonymousId) return
       if (!response.ok) {
         this.warn(`The link was refused (${response.status}): ${answer}`)
         return
@@ -1007,7 +1022,8 @@ export class KmaClient {
 
   /** Hands a deep link to the handler; without one, the newest is held for the next handler. */
   private deliver(link: DeepLink | null): void {
-    if (!link || this.stopped) return
+    if (!link || this.stopped || this.state.optedOut) return
+    const anonymousId = this.state.anonymousId
     const handler = this.deepLinkHandler
     if (!handler) {
       this.heldDeepLink = link
@@ -1016,7 +1032,7 @@ export class KmaClient {
     // Later, so a handler set during a render or an effect runs after it.
     setTimeout(() => {
       try {
-        handler(link)
+        if (!this.state.optedOut && anonymousId === this.state.anonymousId) handler(link)
       } catch (error) {
         this.warn(`onDeepLink threw: ${String(error)}`)
       }

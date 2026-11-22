@@ -247,6 +247,7 @@ internal class KmaClient(
         val user = id.trim()
         if (user.isEmpty() || user.length > 200) return warn("identify needs a user ID of 1 to 200 characters.")
         later {
+            if (optedOut || stopped) return@later
             userId = user
             if (newTraits != null) mergeTraits(newTraits)
             identityPending = true
@@ -256,6 +257,7 @@ internal class KmaClient(
     }
 
     fun setTraits(newTraits: Map<String, Any?>) = later {
+        if (optedOut || stopped) return@later
         mergeTraits(newTraits)
         identityPending = true
         save()
@@ -264,6 +266,7 @@ internal class KmaClient(
 
     /** Forgets the user, for example on sign out: what follows is a new person and session. */
     fun reset() = later {
+        if (optedOut || stopped) return@later
         sendQueued()
         userId = null
         traits = null
@@ -277,16 +280,30 @@ internal class KmaClient(
 
     fun optOut() = later {
         optedOut = true
+        clearConsentData()
+    }
+
+    private fun clearConsentData() {
         queue.clear()
         heldOpens.clear()
-        save()
+        deepLinks.clearHeld()
+        userId = null
+        traits = null
+        identityPending = false
+        session = null
+        screenName = null
+        firstLaunch = false
+        newInstall = false
+        install = null
+        saveInstall()
+        writeNow()
     }
 
     fun optIn() = later {
+        if (!optedOut) return@later
+        anonymousId = uuid()
         optedOut = false
         save()
-        // An install call held back by the opt-out goes now.
-        if (launched) startInstall()
     }
 
     /**
@@ -420,6 +437,7 @@ internal class KmaClient(
         firstLaunch = savedId == null
         identityPending = traits != null
         loadInstall(store)
+        if (optedOut) clearConsentData()
         loaded.countDown()
         // What an earlier launch could not send goes now.
         if (queue.isNotEmpty()) scheduleFlush(0)
@@ -501,9 +519,8 @@ internal class KmaClient(
 
     private fun saveInstall() {
         val store = platform.store ?: return
-        val pending = install ?: return
         try {
-            store.write("$storageName-attribution", pending.toJson().toString())
+            store.write("$storageName-attribution", install?.toJson()?.toString() ?: "{}")
         } catch (error: Exception) {
             warn("Install attribution could not be saved: $error")
         }

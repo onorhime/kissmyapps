@@ -1,3 +1,4 @@
+import { CreatorDirectory } from './CreatorDirectory'
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { ChevronDown, ExternalLink, LoaderCircle, TriangleAlert } from 'lucide-react'
@@ -227,6 +228,24 @@ function CreatorsPage({
         description="The people promoting your product with their own links."
       />
 
+      {state && total > 0 && (
+        <CreatorDirectory
+          workspace={workspaceId}
+          revision={movedCount}
+          canManage={canManage}
+          live={program?.status === 'live'}
+          busy={Boolean(busy)}
+          onDecision={(creator, action) => {
+            if (action === 'approve') void decide(creator, action)
+            else {
+              opener.current = document.activeElement as HTMLElement
+              setNote('')
+              setAskProblem(undefined)
+              setAsk({ action, creator })
+            }
+          }}
+        />
+      )}
       {!state && !loadProblem && <Loading />}
 
       {loadProblem && !state && (

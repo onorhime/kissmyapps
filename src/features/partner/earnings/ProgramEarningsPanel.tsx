@@ -1,3 +1,6 @@
+import { CommissionInquiries } from '../../program-activity/CommissionInquiries'
+import { ProgramActivity } from '../../program-activity/ProgramActivity'
+import { StatementHistory } from './StatementHistory'
 import { useState } from 'react'
 import { formatMoney } from '../../../merchant/programs'
 import { marketplaceHash } from '../../marketplace/routing'
@@ -89,6 +92,12 @@ export function ProgramEarningsPanel({
         </div>
       )}
 
+      {state.status === 'ready' && (
+        <>
+          <ProgramActivity />
+          <CommissionInquiries />
+        </>
+      )}
       {terms && (
         <PayoutAccountCard
           platformAccountId={terms.platform_account_id}
@@ -100,7 +109,10 @@ export function ProgramEarningsPanel({
 
       {state.status === 'ready' &&
         (hasEarnings(state.earnings) ? (
-          <Earnings earnings={state.earnings} />
+          <>
+            <Earnings earnings={state.earnings} />
+            <StatementHistory />
+          </>
         ) : (
           <div className="pe-state">
             <h3>Nothing earned yet</h3>
@@ -205,8 +217,8 @@ function Earnings({ earnings }: { earnings: ProgramEarnings }) {
 
       {payoutsToCome && (
         <p className="pe-note">
-          Payouts of approved earnings are coming. Approved money has already been collected from
-          the brand.
+          Payouts are not enabled yet. Your approved earnings are recorded here. Approved money has
+          already been collected from the brand.
         </p>
       )}
     </>

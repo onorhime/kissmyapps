@@ -3,7 +3,6 @@ import { programCheckoutBackendFixture as phase8 } from './program-checkout-back
 import { programBackendFixture as before } from './program-backend.fixture'
 import { programAppsBackendFixture as phase7 } from './program-apps-backend.fixture'
 import {
-  CHECKOUT_LINK_PREFIX,
   changedInput,
   changesAgreement,
   checkoutLinkOf,
@@ -51,7 +50,7 @@ describe('program readers and the real backend answers, checkout link and promo 
     expect(state.stripe_charges_enabled).toBe(true)
     expect(offersCheckout(state)).toBe(true)
     // The database makes the address; the form shows it and never sends it.
-    expect(checkoutLinkOf(program)).toBe(`${CHECKOUT_LINK_PREFIX}fluent`)
+    expect(checkoutLinkOf(program)).toBe('https://kissmyapps.dev/checkout/fluent')
     expect(productLine(program.checkout, 'USD')).toBe('Fluent Pro, $9.99 a month')
     expect(discountLine(1000)).toBe('Buyers get 10% off with a creator’s code')
 

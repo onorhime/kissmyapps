@@ -541,6 +541,7 @@ class KmaClient {
       return;
     }
     _whenLoaded(() {
+      if (_stopped || _optedOut) return;
       _userId = id;
       if (traits != null) _traits = {...?_traits, ..._clean(traits)};
       _identityPending = true;
@@ -552,6 +553,7 @@ class KmaClient {
   /// Updates traits for the current person without changing who they are.
   void setTraits(Map<String, Object?> traits) {
     _whenLoaded(() {
+      if (_stopped || _optedOut) return;
       _traits = {...?_traits, ..._clean(traits)};
       _identityPending = true;
       _save();
@@ -562,6 +564,7 @@ class KmaClient {
   /// Forgets the user, for example on sign out: what follows is a new person and session.
   void reset() {
     _whenLoaded(() {
+      if (_stopped || _optedOut) return;
       // What was recorded so far goes out under the person it belongs to.
       unawaited(flush());
       _userId = null;
@@ -579,25 +582,34 @@ class KmaClient {
   void optOut() {
     _whenLoaded(() {
       _optedOut = true;
-      _queue = [];
-      _save();
+      _clearConsentData();
     });
+  }
+
+  void _clearConsentData() {
+    _queue.clear();
+    _userId = null;
+    _traits = null;
+    _identityPending = false;
+    _session = null;
+    _screenName = null;
+    _install = null;
+    _firstLaunch = false;
+    _linksBeforeLaunch.clear();
+    _waitingLinks.clear();
+    _recentLinks.clear();
+    _heldDeepLink = null;
+    _installPhase = _InstallPhase.answered;
+    unawaited(_writeNow());
   }
 
   /// Starts recording again after [optOut].
   void optIn() {
     _whenLoaded(() {
+      if (!_optedOut) return;
+      _anonymousId = uuid();
       _optedOut = false;
       _save();
-      // An install call held back while opted out goes now.
-      if (_launched &&
-          _install != null &&
-          options.attribution &&
-          !_installSent &&
-          !_installRunning) {
-        _installPhase = _InstallPhase.waiting;
-        unawaited(_sendInstall());
-      }
     });
   }
 
@@ -753,6 +765,7 @@ class KmaClient {
     }
     _queue = queue;
     _identityPending = _traits != null;
+    if (_optedOut) _clearConsentData();
     _loaded = true;
     // What an earlier launch could not send goes now.
     if (_queue.isNotEmpty) _scheduleFlush(0);
@@ -1174,10 +1187,13 @@ class KmaClient {
       await _writeNow();
       KmaResponse response;
       try {
+        if (_install != pending || _optedOut) return;
         response = await _post(body, installPath);
       } catch (_) {
-        return _installFailed(pending, 'no connection');
+        if (_install == pending) _installFailed(pending, 'no connection');
+        return;
       }
+      if (_install != pending || _optedOut) return;
       if (!response.ok && _retryable(response.status)) {
         return _installFailed(pending, 'status ${response.status}');
       }
@@ -1233,7 +1249,7 @@ class KmaClient {
     final userId = _userId;
     final key = _deviceKey ??
         deviceKeyFrom((await _readNative(install: false, clipboard: false)).info.deviceKey);
-    if (_stopped || _optedOut) return;
+    if (_stopped || _optedOut || anonymousId != _anonymousId) return;
     final body = openBody(
       anonymousId: anonymousId,
       sessionId: session.id,
@@ -1247,6 +1263,7 @@ class KmaClient {
     );
     try {
       final response = await _post(body, openPath);
+      if (_optedOut || anonymousId != _anonymousId) return;
       if (!response.ok) {
         _warn('The link was refused (${response.status}): ${response.body}');
         return;
@@ -1259,7 +1276,8 @@ class KmaClient {
 
   /// Hands a deep link to the handler; without one, the newest is held for the next handler.
   void _deliver(KissMyAppsDeepLink? link) {
-    if (link == null || _stopped) return;
+    if (link == null || _stopped || _optedOut) return;
+    final anonymousId = _anonymousId;
     final handler = _deepLinkHandler;
     if (handler == null) {
       _heldDeepLink = link;
@@ -1268,7 +1286,7 @@ class KmaClient {
     // Later, so a handler set during a build runs after it.
     Timer.run(() {
       try {
-        handler(link);
+        if (!_optedOut && anonymousId == _anonymousId) handler(link);
       } catch (error) {
         _warn('onDeepLink threw: $error');
       }

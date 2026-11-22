@@ -8,5 +8,13 @@ create table storage.buckets(id text primary key,name text,public boolean,file_s
 create table storage.objects(id uuid primary key,bucket_id text,name text,metadata jsonb,version text,created_at timestamptz default now(),updated_at timestamptz default now());
 create table net._http_response(id bigint,status_code integer,content_type text,headers jsonb,content text,timed_out boolean,error_msg text,created timestamptz);
 create table vault.decrypted_secrets(name text,decrypted_secret text);
+alter table vault.decrypted_secrets add column id uuid not null default gen_random_uuid();
+create function vault.create_secret(value text) returns uuid language sql as $$
+  insert into vault.decrypted_secrets(decrypted_secret) values(value) returning id
+$$;
+create function vault.update_secret(secret_id uuid,value text) returns void language sql as $$
+  update vault.decrypted_secrets set decrypted_secret=value where id=secret_id
+$$;
+
 create function net.http_post(url text,body jsonb default '{}',params jsonb default '{}',headers jsonb default '{}',timeout_milliseconds integer default 5000) returns bigint language plpgsql as $$begin raise exception 'HTTP disabled in local isolated SQL fixture';end $$;
 grant usage on schema auth to anon,authenticated,service_role;

@@ -241,6 +241,11 @@ describe('Admin portal shell', () => {
       status: 'ready',
       error: null,
     })
+    vi.spyOn(adminGateway, 'getProgramProducts').mockResolvedValue({
+      data: [],
+      status: 'empty',
+      error: null,
+    })
     const productsReader = vi.spyOn(adminGateway, 'getProducts').mockResolvedValue({
       data: [product],
       status: 'ready',

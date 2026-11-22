@@ -1,3 +1,4 @@
+import { MOBILE_SDK } from '../config'
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Plus, Trash2, TriangleAlert } from 'lucide-react'
@@ -486,7 +487,16 @@ export function TrackRevenueStep({
   const code = revenueSnippets()
   const snippet =
     platform === 'react-native'
-      ? code.reactNative
+      ? MOBILE_SDK.npmVersion === MOBILE_SDK.version
+        ? code.reactNative
+        : `// Published React Native analytics package
+KissMyApps.track('purchase', {
+  kma_revenue: 59.99, kma_currency: 'USD', kma_transaction_id: 'order-1042',
+})
+// Use the original transaction ID for a refund.
+KissMyApps.track('refund', {
+  kma_revenue: -59.99, kma_currency: 'USD', kma_transaction_id: 'order-1042',
+})`
       : platform === 'flutter'
         ? code.flutter
         : code[platform]
